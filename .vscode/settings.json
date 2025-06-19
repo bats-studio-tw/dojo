@@ -1,0 +1,24 @@
+{
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit"
+    },
+    "eslint.validate": [
+        "javascript",
+        "javascriptreact",
+        "typescript",
+        "typescriptreact",
+        "vue"
+    ],
+    "vue.server.petiteVue.supportHtmlFile": false,
+    "vue.server.vitePress.supportMdFile": false,
+    "typescript.suggest.autoImports": true,
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "files.associations": {
+        "*.vue": "vue"
+    },
+    "emmet.includeLanguages": {
+        "vue": "html"
+    }
+}

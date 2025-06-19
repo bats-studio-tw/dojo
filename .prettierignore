@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+public/build/
+public/hot
+
+# Laravel directories
+bootstrap/cache/
+storage/
+
+# Config files
+composer.json
+composer.lock
+package-lock.json
+
+# Blade templates
+resources/views/**/*.blade.php
+
+# Logs
+*.log

@@ -1,0 +1,33 @@
+{
+    "app": {
+        "title": "Laravel + Vue 3 Demo App"
+    },
+    "welcome": {
+        "title": "Welcome",
+        "success": "Congratulations!",
+        "message": "Your Laravel + Vue 3 tech stack has been successfully configured and is running!"
+    },
+    "features": {
+        "vue3": "Progressive JavaScript Framework",
+        "typescript": "Typed JavaScript at Any Scale",
+        "vite": "Next Generation Frontend Tooling",
+        "unocss": "Instant On-demand Atomic CSS Engine",
+        "pinia": "Intuitive State Management for Vue",
+        "naiveui": "A Vue 3 Component Library"
+    },
+    "demo": {
+        "title": "Feature Demo",
+        "openModal": "Open Modal",
+        "showNotification": "Show Notification",
+        "counter": "Counter"
+    },
+    "modal": {
+        "title": "Demo Modal",
+        "content": "This is a modal example created using Naive UI.",
+        "close": "Close"
+    },
+    "notification": {
+        "title": "Notification Test",
+        "content": "This is a notification example created using Naive UI!"
+    }
+}

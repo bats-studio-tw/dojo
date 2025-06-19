@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+public/build/
+public/hot
+
+# Laravel directories
+bootstrap/cache/
+storage/
+
+# Config files
+*.config.js
+vite.config.js
+postcss.config.js
+tailwind.config.js
+uno.config.ts
+
+# Test coverage
+coverage/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

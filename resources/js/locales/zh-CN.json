@@ -1,0 +1,33 @@
+{
+    "app": {
+        "title": "Laravel + Vue 3 演示应用"
+    },
+    "welcome": {
+        "title": "欢迎使用",
+        "success": "恭喜！",
+        "message": "你的Laravel + Vue 3技术栈已经成功配置并运行！"
+    },
+    "features": {
+        "vue3": "渐进式JavaScript框架",
+        "typescript": "类型安全的JavaScript超集",
+        "vite": "下一代前端构建工具",
+        "unocss": "即时原子化CSS引擎",
+        "pinia": "Vue的直观状态管理",
+        "naiveui": "比较完整的Vue 3组件库"
+    },
+    "demo": {
+        "title": "功能演示",
+        "openModal": "打开模态框",
+        "showNotification": "显示通知",
+        "counter": "计数器"
+    },
+    "modal": {
+        "title": "演示模态框",
+        "content": "这是一个使用Naive UI创建的模态框示例。",
+        "close": "关闭"
+    },
+    "notification": {
+        "title": "通知测试",
+        "content": "这是一个使用Naive UI创建的通知示例！"
+    }
+}

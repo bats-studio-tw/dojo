@@ -5,6 +5,7 @@
   import DropdownLink from '@/Components/DropdownLink.vue';
   import NavLink from '@/Components/NavLink.vue';
   import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
+  import DefaultLayout from '@/Layouts/DefaultLayout.vue';
   import { Link, usePage } from '@inertiajs/vue3';
   import type { PageProps } from '@/types';
 
@@ -13,7 +14,7 @@
 </script>
 
 <template>
-  <div>
+  <DefaultLayout>
     <div class="min-h-screen bg-gray-100">
       <nav class="border-b border-gray-100 bg-white">
         <!-- Primary Navigation Menu -->
@@ -147,5 +148,5 @@
         <slot />
       </main>
     </div>
-  </div>
+  </DefaultLayout>
 </template>

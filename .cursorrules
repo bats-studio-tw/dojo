@@ -34,6 +34,19 @@
 - 启用严格的TypeScript类型检查
 - 组件结构: template -> script setup -> style
 
+### 组件使用规范
+- **全局注册组件**: 使用kebab-case命名
+  - Naive UI组件：`<n-card>`, `<n-button>`, `<n-data-table>`
+  - 自定义全局组件：`<custom-component>`, `<my-widget>`
+- **局部导入组件**: 使用PascalCase命名
+  - 导入后使用：`<CustomComponent>`, `<MyWidget>`
+- **导入规则**:
+  - ❌ 不要导入已全局注册的组件
+  - ✅ 只导入局部使用的组件和composables
+  - ✅ Naive UI只导入composables：`import { useMessage, useDialog } from 'naive-ui'`
+- **常用Naive UI Composables**: `useMessage`, `useDialog`, `useNotification`, `useLoadingBar`
+- **Layout要求**: 确保页面使用包含所有providers的`DefaultLayout`
+
 ### 目录结构约定
 **后端目录:**
 - Controllers: `app/Http/Controllers/`

@@ -19,5 +19,8 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        // 生成游戏测试数据
+        $this->call(GameDataSeeder::class);
     }
 }

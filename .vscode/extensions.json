@@ -1,11 +1,22 @@
 {
-    "recommendations": [
-        "Vue.volar",
-        "Vue.vscode-typescript-vue-plugin",
-        "esbenp.prettier-vscode",
-        "dbaeumer.vscode-eslint",
-        "bradlc.vscode-tailwindcss",
-        "antfu.unocss",
-        "ms-vscode.vscode-typescript-next"
-    ]
+  "recommendations": [
+    "Vue.volar",
+    "Vue.vscode-typescript-vue-plugin",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss",
+    "antfu.unocss",
+    "ms-vscode.vscode-typescript-next",
+    "formulahendry.auto-complete-tag",
+    "steoates.autoimport",
+    "naumovs.color-highlight",
+    "mikestead.dotenv",
+    "editorconfig.editorconfig",
+    "usernamehw.errorlens",
+    "antfu.iconify",
+    "pkief.material-icon-theme",
+    "hollowtree.vue-snippets",
+    "sdras.vue-vscode-snippets",
+    "onecentlin.laravel-extension-pack"
+  ]
 }

@@ -16,7 +16,12 @@ import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import en from './locales/en.json';
 import zhCN from './locales/zh-CN.json';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+/* 套用naiveui樣式 */
+const meta = document.createElement('meta');
+meta.name = 'naive-ui-style';
+document.head.appendChild(meta);
+
+const appName = import.meta.env.VITE_APP_NAME || 'DojoDashboard';
 
 // Create i18n instance
 const i18n = createI18n({

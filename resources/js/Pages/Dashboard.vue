@@ -2,50 +2,50 @@
   <DefaultLayout>
     <Head title="游戏数据中心" />
 
-    <div class="min-h-screen p-6 bg-gray-900">
-      <div class="max-w-7xl mx-auto">
+    <div class="min-h-screen bg-gray-900 p-6">
+      <div class="mx-auto max-w-7xl">
         <!-- 页面标题 -->
         <div class="mb-8">
-          <h1 class="text-3xl font-bold text-white mb-2">🎯 游戏数据中心</h1>
+          <h1 class="mb-2 text-3xl text-white font-bold">🎯 游戏数据中心</h1>
           <p class="text-gray-300">实时游戏数据分析与预测系统</p>
         </div>
 
         <!-- 第一部分：预测当前局排名 -->
         <n-card class="mb-6" title="🔮 预测排名" size="large">
           <template #header-extra>
-            <n-button @click="refreshPrediction" :loading="predictionLoading" type="primary" size="small">
+            <n-button :loading="predictionLoading" @click="refreshPrediction" type="primary" size="small">
               🔄 刷新预测
             </n-button>
           </template>
 
           <n-spin :show="predictionLoading">
-            <div v-if="predictionData.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div v-if="predictionData.length > 0" class="grid grid-cols-1 gap-4 lg:grid-cols-3 md:grid-cols-2">
               <div
                 v-for="(token, index) in predictionData"
                 :key="token.symbol"
-                class="relative p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-lg"
+                class="relative border-2 rounded-lg p-4 transition-all duration-200 hover:shadow-lg"
                 :class="getPredictionCardClass(index)"
               >
-                <div class="flex items-center justify-between mb-2">
+                <div class="mb-2 flex items-center justify-between">
                   <span class="text-lg font-bold">{{ token.symbol }}</span>
                   <div class="flex items-center space-x-1">
                     <span class="text-2xl">{{ getPredictionIcon(index) }}</span>
-                    <span class="text-sm font-medium text-gray-600">预测#{{ index + 1 }}</span>
+                    <span class="text-sm text-gray-600 font-medium">预测#{{ index + 1 }}</span>
                   </div>
                 </div>
 
-                <div class="space-y-1 text-sm">
+                <div class="text-sm space-y-1">
                   <div class="flex justify-between">
                     <span class="text-gray-600">预测评分:</span>
                     <span class="font-medium">{{ token.prediction_score.toFixed(1) }}</span>
                   </div>
                   <div class="flex justify-between">
                     <span class="text-gray-600">胜率:</span>
-                    <span class="font-medium text-green-600">{{ token.win_rate.toFixed(1) }}%</span>
+                    <span class="text-green-600 font-medium">{{ token.win_rate.toFixed(1) }}%</span>
                   </div>
                   <div class="flex justify-between">
                     <span class="text-gray-600">前三率:</span>
-                    <span class="font-medium text-blue-600">{{ token.top3_rate.toFixed(1) }}%</span>
+                    <span class="text-blue-600 font-medium">{{ token.top3_rate.toFixed(1) }}%</span>
                   </div>
                   <div class="flex justify-between">
                     <span class="text-gray-600">平均排名:</span>
@@ -61,7 +61,7 @@
         <!-- 第二部分：代币市场信息 -->
         <n-card class="mb-6" title="💰 代币市场信息" size="large">
           <template #header-extra>
-            <n-button @click="refreshMarketData" :loading="marketLoading" type="primary" size="small">
+            <n-button :loading="marketLoading" @click="refreshMarketData" type="primary" size="small">
               🔄 刷新市场
             </n-button>
           </template>
@@ -71,57 +71,61 @@
               <table class="w-full text-sm">
                 <thead>
                   <tr class="border-b border-gray-200">
-                    <th class="text-left py-3 px-4 font-medium text-gray-700">代币</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-700">价格 (USD)</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-700">5分钟</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-700">1小时</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-700">4小时</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-700">24小时</th>
-                    <th class="text-right py-3 px-4 font-medium text-gray-700">成交量 24h</th>
+                    <th class="px-4 py-3 text-left text-gray-700 font-medium">代币</th>
+                    <th class="px-4 py-3 text-right text-gray-700 font-medium">价格 (USD)</th>
+                    <th class="px-4 py-3 text-right text-gray-700 font-medium">5分钟</th>
+                    <th class="px-4 py-3 text-right text-gray-700 font-medium">1小时</th>
+                    <th class="px-4 py-3 text-right text-gray-700 font-medium">4小时</th>
+                    <th class="px-4 py-3 text-right text-gray-700 font-medium">24小时</th>
+                    <th class="px-4 py-3 text-right text-gray-700 font-medium">成交量 24h</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="token in marketData" :key="token.symbol" class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="py-3 px-4">
+                    <td class="px-4 py-3">
                       <div class="flex items-center space-x-3">
                         <img
                           v-if="token.logo"
                           :src="token.logo"
                           :alt="token.symbol"
-                          class="w-8 h-8 rounded-full"
+                          class="h-8 w-8 rounded-full"
                           @error="($event.target as HTMLImageElement).style.display = 'none'"
                         />
-                        <div v-else class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs">
+                        <div v-else class="h-8 w-8 flex items-center justify-center rounded-full bg-gray-300 text-xs">
                           {{ token.symbol.charAt(0) }}
                         </div>
                         <div>
-                          <div class="font-medium">{{ token.symbol }}</div>
-                          <div class="text-gray-500 text-xs">{{ token.name }}</div>
+                          <div class="font-medium">
+                            {{ token.symbol }}
+                          </div>
+                          <div class="text-xs text-gray-500">
+                            {{ token.name }}
+                          </div>
                         </div>
                       </div>
                     </td>
-                    <td class="py-3 px-4 text-right font-mono">${{ parseFloat(token.price).toFixed(6) }}</td>
-                    <td class="py-3 px-4 text-right">
+                    <td class="px-4 py-3 text-right font-mono">${{ parseFloat(token.price).toFixed(6) }}</td>
+                    <td class="px-4 py-3 text-right">
                       <span :class="getChangeColor(token.change_5m)">
                         {{ formatChange(token.change_5m) }}
                       </span>
                     </td>
-                    <td class="py-3 px-4 text-right">
+                    <td class="px-4 py-3 text-right">
                       <span :class="getChangeColor(token.change_1h)">
                         {{ formatChange(token.change_1h) }}
                       </span>
                     </td>
-                    <td class="py-3 px-4 text-right">
+                    <td class="px-4 py-3 text-right">
                       <span :class="getChangeColor(token.change_4h)">
                         {{ formatChange(token.change_4h) }}
                       </span>
                     </td>
-                    <td class="py-3 px-4 text-right">
+                    <td class="px-4 py-3 text-right">
                       <span :class="getChangeColor(token.change_24h)">
                         {{ formatChange(token.change_24h) }}
                       </span>
                     </td>
-                    <td class="py-3 px-4 text-right font-mono text-xs">${{ formatVolume(token.volume_24h) }}</td>
+                    <td class="px-4 py-3 text-right text-xs font-mono">${{ formatVolume(token.volume_24h) }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -133,7 +137,7 @@
         <!-- 第三部分：历史数据表格 -->
         <n-card title="📊 历史游戏数据 (最近100局)" size="large">
           <template #header-extra>
-            <n-button @click="refreshHistoryData" :loading="historyLoading" type="primary" size="small">
+            <n-button :loading="historyLoading" @click="refreshHistoryData" type="primary" size="small">
               🔄 刷新历史
             </n-button>
           </template>
@@ -157,7 +161,7 @@
 
 <script setup lang="ts">
   import { ref, onMounted, computed } from 'vue';
-  import { useMessage } from 'naive-ui';
+  import { useMessage, type DataTableColumn } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import DefaultLayout from '@/Layouts/DefaultLayout.vue';
 
@@ -199,6 +203,11 @@
     tokens: RoundToken[];
   }
 
+  // 表格行数据类型 (包含 key 属性)
+  interface HistoryTableRow extends HistoryRound {
+    key: number;
+  }
+
   // 响应式数据
   const predictionData = ref<TokenPrediction[]>([]);
   const marketData = ref<TokenMarketData[]>([]);
@@ -212,14 +221,14 @@
   const getMessageInstance = () => {
     try {
       return useMessage();
-    } catch (error) {
+    } catch {
       console.warn('Message provider not ready yet');
       return null;
     }
   };
 
   // 历史数据表格列定义
-  const historyColumns = [
+  const historyColumns: DataTableColumn<HistoryTableRow>[] = [
     {
       title: '轮次ID',
       key: 'round_id',
@@ -234,50 +243,52 @@
       title: '第1名',
       key: 'rank_1',
       width: 80,
-      render: (row: any) => row.tokens.find((t: any) => t.rank === 1)?.symbol || '-'
+      render: (row: HistoryTableRow) => row.tokens.find((t: RoundToken) => t.rank === 1)?.symbol || '-'
     },
     {
       title: '第2名',
       key: 'rank_2',
       width: 80,
-      render: (row: any) => row.tokens.find((t: any) => t.rank === 2)?.symbol || '-'
+      render: (row: HistoryTableRow) => row.tokens.find((t: RoundToken) => t.rank === 2)?.symbol || '-'
     },
     {
       title: '第3名',
       key: 'rank_3',
       width: 80,
-      render: (row: any) => row.tokens.find((t: any) => t.rank === 3)?.symbol || '-'
+      render: (row: HistoryTableRow) => row.tokens.find((t: RoundToken) => t.rank === 3)?.symbol || '-'
     },
     {
       title: '第4名',
       key: 'rank_4',
       width: 80,
-      render: (row: any) => row.tokens.find((t: any) => t.rank === 4)?.symbol || '-'
+      render: (row: HistoryTableRow) => row.tokens.find((t: RoundToken) => t.rank === 4)?.symbol || '-'
     },
     {
       title: '第5名',
       key: 'rank_5',
       width: 80,
-      render: (row: any) => row.tokens.find((t: any) => t.rank === 5)?.symbol || '-'
+      render: (row: HistoryTableRow) => row.tokens.find((t: RoundToken) => t.rank === 5)?.symbol || '-'
     },
     {
       title: '代币详情',
       key: 'tokens_detail',
       width: 200,
-      render: (row: any) => {
+      render: (row: HistoryTableRow) => {
         return row.tokens
-          .map((token: any) => `${token.symbol}(#${token.rank}:$${parseFloat(token.value).toFixed(4)})`)
+          .map((token: RoundToken) => `${token.symbol}(#${token.rank}:$${parseFloat(token.value).toFixed(4)})`)
           .join(', ');
       }
     }
   ];
 
   // 计算属性
-  const historyTableData = computed(() => {
-    return historyData.value.map((item: any) => ({
-      ...item,
-      key: item.id
-    }));
+  const historyTableData = computed((): HistoryTableRow[] => {
+    return historyData.value.map(
+      (item: HistoryRound): HistoryTableRow => ({
+        ...item,
+        key: item.id
+      })
+    );
   });
 
   // 工具函数
@@ -310,8 +321,8 @@
 
   const formatVolume = (volume: string | number) => {
     const num = parseFloat(volume.toString());
-    if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
+    if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(2)}K`;
     return num.toFixed(2);
   };
 

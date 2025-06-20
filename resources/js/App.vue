@@ -2,11 +2,11 @@
   <div class="min-h-screen bg-gray-50">
     <n-config-provider :locale="naiveLocale" :date-locale="naiveDateLocale">
       <n-layout>
-        <n-layout-header class="bg-white shadow-sm p-4">
-          <div class="flex justify-between items-center max-w-6xl mx-auto">
+        <n-layout-header class="bg-white p-4 shadow-sm">
+          <div class="mx-auto max-w-6xl flex items-center justify-between">
             <div class="flex items-center space-x-4">
               <div class="i-tabler-brand-laravel text-2xl text-red-500" />
-              <h1 class="text-xl font-bold text-gray-800">
+              <h1 class="text-xl text-gray-800 font-bold">
                 {{ $t('app.title') }}
               </h1>
             </div>
@@ -26,7 +26,7 @@
         </n-layout-header>
 
         <n-layout-content class="p-6">
-          <div class="max-w-6xl mx-auto">
+          <div class="mx-auto max-w-6xl">
             <n-card class="mb-6">
               <template #header>
                 <div class="flex items-center space-x-2">
@@ -42,7 +42,7 @@
 
                 <n-divider />
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 md:grid-cols-2">
                   <n-card v-for="feature in features" :key="feature.name" :title="feature.name" size="small" hoverable>
                     <template #header-extra>
                       <div :class="feature.icon" class="text-lg" />

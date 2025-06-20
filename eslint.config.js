@@ -53,15 +53,22 @@ export default [
       prettier
     },
     rules: {
-      // Prettier rules
+      // Prettier rules - 以prettier为主
       'prettier/prettier': 'error',
 
-      // Vue rules
+      // Vue rules - 放宽格式化相关规则
       'vue/multi-word-component-names': 'off',
       'vue/no-unused-vars': 'error',
       'vue/no-mutating-props': 'warn',
       'vue/require-default-prop': 'off',
       'vue/require-prop-types': 'warn',
+
+      // 放宽Vue模板格式化规则，让prettier处理
+      'vue/max-attributes-per-line': 'off',
+      'vue/singleline-html-element-content-newline': 'off',
+      'vue/multiline-html-element-content-newline': 'off',
+      'vue/html-self-closing': 'off',
+      'vue/attributes-order': 'off',
 
       // TypeScript rules
       '@typescript-eslint/no-unused-vars': 'error',
@@ -72,6 +79,9 @@ export default [
       '@typescript-eslint/no-unused-expressions': 'error',
       '@typescript-eslint/no-use-before-define': ['error'],
       '@typescript-eslint/no-useless-constructor': ['error'],
+
+      // UnoCSS rules - 降低为警告级别
+      'unocss/order': 'warn',
 
       // General rules
       'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',

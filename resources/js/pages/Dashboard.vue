@@ -81,10 +81,6 @@
                       <span class="text-gray-700">前三率:</span>
                       <span class="text-blue-700 font-medium">{{ token.top3_rate.toFixed(1) }}%</span>
                     </div>
-                    <div class="flex justify-between">
-                      <span class="text-gray-700">价格:</span>
-                      <span class="text-xs text-gray-800 font-mono">${{ parseFloat(token.price).toFixed(6) }}</span>
-                    </div>
                   </div>
                 </div>
               </div>

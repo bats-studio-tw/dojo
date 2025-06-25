@@ -254,6 +254,9 @@ class GamePredictionService
                 // 如果API失败，至少返回预测数据
                 $defaultData = array_merge($stats, $this->getDefaultMarketData($originalSymbol));
                 $defaultData['symbol'] = $originalSymbol; // 确保symbol正确
+
+                // 重要修复：对默认数据也要计算增强评分（包括市场动量）
+                $defaultData = $this->calculateEnhancedPredictionScore($defaultData);
                 $analysisData[] = $defaultData;
             }
         }

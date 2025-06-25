@@ -61,9 +61,19 @@
         <!-- 第二部分：代币市场信息 -->
         <n-card class="mb-6" title="💰 代币市场信息" size="large">
           <template #header-extra>
-            <n-button :loading="marketLoading" @click="refreshMarketData" type="primary" size="small">
-              🔄 刷新市场
-            </n-button>
+            <div class="flex items-center space-x-3">
+              <div v-if="marketMeta" class="text-sm text-gray-600">
+                <span class="font-medium">轮次:</span>
+                {{ marketMeta.round_id }} |
+                <span class="font-medium">状态:</span>
+                <n-tag :type="getStatusTagType(marketMeta.status)" size="small">
+                  {{ getStatusText(marketMeta.status) }}
+                </n-tag>
+              </div>
+              <n-button :loading="marketLoading" @click="refreshMarketData" type="primary" size="small">
+                🔄 刷新市场
+              </n-button>
+            </div>
           </template>
 
           <n-spin :show="marketLoading">
@@ -163,7 +173,8 @@
   import { ref, onMounted, computed } from 'vue';
   import { useMessage, type DataTableColumn } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
-  import DefaultLayout from '@/Layouts/DefaultLayout.vue';
+  import api from '@/utils/api';
+  import DefaultLayout from '@/layouts/DefaultLayout.vue';
 
   // 定义接口类型
   interface TokenPrediction {
@@ -212,6 +223,7 @@
   const predictionData = ref<TokenPrediction[]>([]);
   const marketData = ref<TokenMarketData[]>([]);
   const historyData = ref<HistoryRound[]>([]);
+  const marketMeta = ref<any>(null);
 
   const predictionLoading = ref(false);
   const marketLoading = ref(false);
@@ -225,6 +237,15 @@
       console.warn('Message provider not ready yet');
       return null;
     }
+  };
+
+  // 工具函数：获取指定排名的所有代币
+  const getTokensByRank = (tokens: RoundToken[], rank: number): string => {
+    const tokensAtRank = tokens.filter((t) => t.rank === rank);
+    if (tokensAtRank.length === 0) return '-';
+    if (tokensAtRank.length === 1) return tokensAtRank[0].symbol;
+    // 多个代币并列时，用 / 分隔显示
+    return tokensAtRank.map((t) => t.symbol).join(' / ');
   };
 
   // 历史数据表格列定义
@@ -242,32 +263,32 @@
     {
       title: '第1名',
       key: 'rank_1',
-      width: 80,
-      render: (row: HistoryTableRow) => row.tokens.find((t: RoundToken) => t.rank === 1)?.symbol || '-'
+      width: 100,
+      render: (row: HistoryTableRow) => getTokensByRank(row.tokens, 1)
     },
     {
       title: '第2名',
       key: 'rank_2',
-      width: 80,
-      render: (row: HistoryTableRow) => row.tokens.find((t: RoundToken) => t.rank === 2)?.symbol || '-'
+      width: 100,
+      render: (row: HistoryTableRow) => getTokensByRank(row.tokens, 2)
     },
     {
       title: '第3名',
       key: 'rank_3',
-      width: 80,
-      render: (row: HistoryTableRow) => row.tokens.find((t: RoundToken) => t.rank === 3)?.symbol || '-'
+      width: 100,
+      render: (row: HistoryTableRow) => getTokensByRank(row.tokens, 3)
     },
     {
       title: '第4名',
       key: 'rank_4',
-      width: 80,
-      render: (row: HistoryTableRow) => row.tokens.find((t: RoundToken) => t.rank === 4)?.symbol || '-'
+      width: 100,
+      render: (row: HistoryTableRow) => getTokensByRank(row.tokens, 4)
     },
     {
       title: '第5名',
       key: 'rank_5',
-      width: 80,
-      render: (row: HistoryTableRow) => row.tokens.find((t: RoundToken) => t.rank === 5)?.symbol || '-'
+      width: 100,
+      render: (row: HistoryTableRow) => getTokensByRank(row.tokens, 5)
     },
     {
       title: '代币详情',
@@ -326,16 +347,46 @@
     return num.toFixed(2);
   };
 
+  const getStatusTagType = (status: string) => {
+    switch (status) {
+      case 'starting':
+      case 'running':
+      case 'active':
+        return 'success';
+      case 'settling':
+        return 'warning';
+      case 'settled':
+        return 'info';
+      default:
+        return 'default';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'starting':
+        return '开始中';
+      case 'running':
+      case 'active':
+        return '进行中';
+      case 'settling':
+        return '结算中';
+      case 'settled':
+        return '已结算';
+      default:
+        return status;
+    }
+  };
+
   // API调用函数
   const fetchPredictionData = async () => {
     predictionLoading.value = true;
     try {
-      const response = await fetch('/api/game/prediction');
-      const result = await response.json();
-      if (result.success) {
-        predictionData.value = result.data;
+      const response = await api.get('/game/prediction');
+      if (response.data.success) {
+        predictionData.value = response.data.data;
       } else {
-        getMessageInstance()?.error(result.message || '获取预测数据失败');
+        getMessageInstance()?.error(response.data.message || '获取预测数据失败');
       }
     } catch (error) {
       console.error('获取预测数据失败:', error);
@@ -348,12 +399,12 @@
   const fetchMarketData = async () => {
     marketLoading.value = true;
     try {
-      const response = await fetch('/api/game/market-data');
-      const result = await response.json();
-      if (result.success) {
-        marketData.value = result.data;
+      const response = await api.get('/game/market-data');
+      if (response.data.success) {
+        marketData.value = response.data.data;
+        marketMeta.value = response.data.meta || null;
       } else {
-        getMessageInstance()?.error(result.message || '获取市场数据失败');
+        getMessageInstance()?.error(response.data.message || '获取市场数据失败');
       }
     } catch (error) {
       console.error('获取市场数据失败:', error);
@@ -366,12 +417,11 @@
   const fetchHistoryData = async () => {
     historyLoading.value = true;
     try {
-      const response = await fetch('/api/game/history');
-      const result = await response.json();
-      if (result.success) {
-        historyData.value = result.data;
+      const response = await api.get('/game/history');
+      if (response.data.success) {
+        historyData.value = response.data.data;
       } else {
-        getMessageInstance()?.error(result.message || '获取历史数据失败');
+        getMessageInstance()?.error(response.data.message || '获取历史数据失败');
       }
     } catch (error) {
       console.error('获取历史数据失败:', error);
@@ -392,15 +442,12 @@
     fetchMarketData();
     fetchHistoryData();
 
-    // 设置定时刷新（每30秒刷新市场数据）
-    setInterval(() => {
-      fetchMarketData();
-    }, 30000);
-
     // 设置定时刷新（每60秒刷新预测数据）
     setInterval(() => {
       fetchPredictionData();
-    }, 60000);
+      fetchHistoryData();
+      fetchMarketData();
+    }, 10000);
   });
 </script>
 

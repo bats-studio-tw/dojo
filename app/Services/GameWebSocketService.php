@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\GameRound; // 雖然這裡不用，但你的舊版有，我先保留
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Ratchet\Client\Connector;
 use Ratchet\RFC6455\Messaging\MessageInterface;
 use React\EventLoop\Loop;
@@ -15,6 +16,7 @@ class GameWebSocketService
     private $consoleOutput = null;
     private int $messageCount = 0;
     private int $settlementCount = 0;
+    private array $processedRounds = []; // 记录已处理的轮次ID
 
     public function __construct(
         private GameDataProcessorService $dataProcessor
@@ -49,8 +51,9 @@ class GameWebSocketService
 
         // 添加心跳定时器，每60秒显示一次状态
         $heartbeatTimer = $loop->addPeriodicTimer(60, function() {
+            $processedRoundsCount = count($this->processedRounds);
             $this->consoleOutput("💓 WebSocket 监听器运行中... " . date('H:i:s') .
-                " | 收到消息: {$this->messageCount} | 结算数据: {$this->settlementCount}");
+                " | 收到消息: {$this->messageCount} | 结算数据: {$this->settlementCount} | 处理轮次: {$processedRoundsCount}");
         });
 
         $connect = function() use ($connector, &$connect) {
@@ -191,22 +194,44 @@ class GameWebSocketService
             $status = $gameData['status'] ?? 'unknown';
             $rdId = $gameData['rdId'] ?? 'unknown';
 
-            // *** 核心邏輯：處理結算相關狀態的訊息 ***
-            if ($type === 'round' && ($status === 'settling' || $status === 'settled')) {
-                $this->logInfo("🎯 偵測到結算資料！", ['rdId' => $rdId, 'status' => $status]);
-                $this->dataProcessor->processSettlementData($gameData);
-                $this->settlementCount++;
-                $this->consoleOutput("🎯 处理结算数据: {$rdId} (状态: {$status})");
-            } else {
-                // 每10条消息显示一次统计，避免输出过多
-                if ($this->messageCount % 10 === 0) {
-                    $this->consoleOutput("📊 已接收 {$this->messageCount} 条消息 | 轮次: {$type}:{$status}");
-                } else {
-                    // 重要的消息类型单独显示
-                    if ($type === 'round') {
-                        $this->consoleOutput("🎲 游戏轮次: {$status} | ID: {$rdId}");
+            // *** 核心邏輯：處理不同狀態的遊戲訊息 ***
+            if ($type === 'round') {
+
+                if ($status === 'settling' || $status === 'settled') {
+                    // 處理結算數據
+                    $this->logInfo("🎯 偵測到結算資料！", ['rdId' => $rdId, 'status' => $status]);
+                    $this->dataProcessor->processSettlementData($gameData);
+                    $this->settlementCount++;
+                    $this->consoleOutput("🎯 处理结算数据: {$rdId} (状态: {$status})");
+                } elseif ($status === 'bet') {
+                    // 检查是否已经处理过这个轮次
+                    if (in_array($rdId, $this->processedRounds)) {
+                        // 已处理过，跳过
+                        return;
                     }
+
+                    // 處理新局開始，將代幣信息存儲到 Redis
+                    $this->consoleOutput("🚀 发现新轮次，准备存储代币信息");
+                    $this->logInfo("🚀 偵測到新局開始！", ['rdId' => $rdId, 'status' => $status]);
+
+                    // 尝试存储代币信息
+                    if ($this->storeCurrentRoundTokens($gameData)) {
+                        // 存储成功，记录此轮次ID
+                        $this->processedRounds[] = $rdId;
+                        $this->consoleOutput("🚀 新局开始: {$rdId} (状态: {$status})");
+
+                        // 保持数组大小，只保留最近50个轮次记录
+                        if (count($this->processedRounds) > 50) {
+                            $this->processedRounds = array_slice($this->processedRounds, -50);
+                        }
+                    }
+                } else {
+                    // 其他狀態的輪次訊息 - 只记录但不显示，减少输出
+                    // $this->consoleOutput("🎲 游戏轮次其他状态: {$status} | ID: {$rdId}");
                 }
+            } else {
+                // 非round类型的消息 - 只记录但不显示，减少输出
+                // $this->consoleOutput("📊 非轮次消息 - 类型: {$type} | 状态: {$status}");
             }
 
         } catch (\Exception $e) {
@@ -214,6 +239,84 @@ class GameWebSocketService
                 'error' => $e->getMessage(),
                 'payload' => substr($payload, 0, 200) . '...' // 只记录前200字符避免日志过长
             ]);
+        }
+    }
+
+    /**
+     * 將當前局的代幣信息存儲到 Redis
+     * @return bool 是否存储成功
+     */
+        private function storeCurrentRoundTokens(array $gameData): bool
+    {
+        $roundId = $gameData['rdId'] ?? null;
+
+        if (!$roundId) {
+            $this->logWarning('新局數據缺少 rdId', ['gameData' => $gameData]);
+            $this->consoleOutput("❌ 新局数据缺少 rdId，退出存储");
+            return false;
+        }
+
+        try {
+            // 檢查是否有代幣數據
+            if (!isset($gameData['token'])) {
+                $this->logWarning('新局數據中缺少 token 字段', ['rdId' => $roundId]);
+                $this->consoleOutput("❌ 游戏数据中缺少 token 字段");
+                return false;
+            }
+
+            if (!is_array($gameData['token'])) {
+                $this->logWarning('新局數據中 token 不是数组格式', ['rdId' => $roundId, 'token_type' => gettype($gameData['token'])]);
+                $this->consoleOutput("❌ token 不是数组格式，类型: " . gettype($gameData['token']));
+                return false;
+            }
+
+                        $tokens = array_keys($gameData['token']);
+            $tokenCount = count($tokens);
+
+                        if ($tokenCount > 0) {
+                $currentRoundData = [
+                    'round_id' => $roundId,
+                    'tokens' => $tokens,
+                    'status' => $gameData['status'] ?? 'unknown',
+                    'timestamp' => now()->toISOString(),
+                    'token_count' => $tokenCount
+                ];
+
+                try {
+                    // 存儲到緩存，設置過期時間為 2 小時
+                    Cache::put('game:current_round', $currentRoundData, now()->addMinutes(2));
+
+                    // 验证存储是否成功
+                    $storedData = Cache::get('game:current_round');
+                    if (!$storedData) {
+                        $this->consoleOutput("❌ 缓存验证失败，数据可能未正确存储");
+                        return false;
+                    }
+                } catch (\Exception $cacheException) {
+                    $this->consoleOutput("❌ 缓存存储异常: " . $cacheException->getMessage());
+                    throw $cacheException;
+                }
+
+                $this->logInfo("✅ 當前局代幣信息已存儲到緩存", [
+                    'rdId' => $roundId,
+                    'tokens' => $tokens,
+                    'token_count' => $tokenCount
+                ]);
+
+                $this->consoleOutput("💾 存储当前局代币: " . implode(', ', $tokens) . " | 轮次: {$roundId}");
+                return true; // 存储成功
+            } else {
+                $this->logWarning('新局數據中沒有代幣信息', ['rdId' => $roundId]);
+                $this->consoleOutput("❌ 代币数量为 0，跳过存储");
+                return false; // 代币数量为0
+            }
+
+        } catch (\Exception $e) {
+            $this->logError("❌ 存儲當前局代幣信息到緩存時發生錯誤", [
+                'rdId' => $roundId,
+                'error' => $e->getMessage()
+            ]);
+            return false; // 异常情况
         }
     }
 

@@ -206,23 +206,30 @@
               <!-- 预测准确度总结 -->
               <div class="grid grid-cols-1 gap-4 lg:grid-cols-4 md:grid-cols-2">
                 <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">前三名精确匹配率</div>
-                  <div class="text-2xl text-green-400 font-bold">{{ calculateTop3ExactAccuracy().toFixed(1) }}%</div>
-                </div>
-                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">前三名成功率</div>
-                  <div class="text-2xl text-blue-400 font-bold">{{ calculateTop3CloseAccuracy().toFixed(1) }}%</div>
-                  <div class="mt-1 text-xs text-gray-400">精确匹配或超出预期</div>
-                </div>
-                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">前三名平均排名差</div>
-                  <div class="text-2xl text-yellow-400 font-bold">
-                    {{ calculateTop3AvgRankDifference().toFixed(2) }}
+                  <div class="text-sm text-gray-300">🎯 精准预测率</div>
+                  <div class="text-2xl text-green-400 font-bold">
+                    {{ calculateRoundBasedStats().exactRate.toFixed(1) }}%
                   </div>
+                  <div class="mt-1 text-xs text-gray-400">预测与实际完全相同</div>
                 </div>
                 <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">前三预测轮次</div>
-                  <div class="text-2xl text-purple-400 font-bold">{{ predictionHistoryData.length }}</div>
+                  <div class="text-sm text-gray-300">💰 保本率</div>
+                  <div class="text-2xl text-blue-400 font-bold">
+                    {{ calculateRoundBasedStats().breakevenRate.toFixed(1) }}%
+                  </div>
+                  <div class="mt-1 text-xs text-gray-400">前三名中有命中</div>
+                </div>
+                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
+                  <div class="text-sm text-gray-300">📉 亏本率</div>
+                  <div class="text-2xl text-red-400 font-bold">
+                    {{ calculateRoundBasedStats().lossRate.toFixed(1) }}%
+                  </div>
+                  <div class="mt-1 text-xs text-gray-400">前三名全部错误</div>
+                </div>
+                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
+                  <div class="text-sm text-gray-300">📊 预测轮次</div>
+                  <div class="text-2xl text-purple-400 font-bold">{{ calculateRoundBasedStats().totalRounds }}</div>
+                  <div class="mt-1 text-xs text-gray-400">最近50局数据</div>
                 </div>
               </div>
 
@@ -474,6 +481,16 @@
     return '📊';
   };
 
+  // 获取排名对应的图标
+  const getPredictionRankIcon = (rank: number) => {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    if (rank === 4) return '4️⃣';
+    if (rank === 5) return '5️⃣';
+    return '📊';
+  };
+
   const getChangeColor = (change: number | null) => {
     if (change === null || change === undefined) return 'text-gray-400';
     if (change > 0) return 'text-green-600';
@@ -598,81 +615,6 @@
     }, 30000);
   });
 
-  // 计算前三名预测准确率的函数
-  const calculateTop3ExactAccuracy = () => {
-    if (predictionHistoryData.value.length === 0) return 0;
-
-    let totalTop3Predictions = 0;
-    let exactMatches = 0;
-
-    predictionHistoryData.value.forEach((round) => {
-      // 只统计预测前三名的项目
-      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
-      totalTop3Predictions += top3Predictions.length;
-
-      // 检查这些前三名预测的精确匹配
-      top3Predictions.forEach((prediction) => {
-        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
-        if (actualResult && actualResult.actual_rank === prediction.predicted_rank) {
-          exactMatches++;
-        }
-      });
-    });
-
-    return totalTop3Predictions > 0 ? (exactMatches / totalTop3Predictions) * 100 : 0;
-  };
-
-  const calculateTop3CloseAccuracy = () => {
-    if (predictionHistoryData.value.length === 0) return 0;
-
-    let totalTop3Predictions = 0;
-    let successMatches = 0;
-
-    predictionHistoryData.value.forEach((round) => {
-      // 只统计预测前三名的项目
-      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
-      totalTop3Predictions += top3Predictions.length;
-
-      // 检查这些前三名预测的成功匹配（精确匹配或结果更好）
-      top3Predictions.forEach((prediction) => {
-        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
-        if (actualResult) {
-          const isExactMatch = actualResult.actual_rank === prediction.predicted_rank;
-          const isBetterThanExpected = actualResult.actual_rank < prediction.predicted_rank;
-          if (isExactMatch || isBetterThanExpected) {
-            successMatches++;
-          }
-        }
-      });
-    });
-
-    return totalTop3Predictions > 0 ? (successMatches / totalTop3Predictions) * 100 : 0;
-  };
-
-  const calculateTop3AvgRankDifference = () => {
-    if (predictionHistoryData.value.length === 0) return 0;
-
-    let totalTop3Predictions = 0;
-    let totalRankDifference = 0;
-
-    predictionHistoryData.value.forEach((round) => {
-      // 只统计预测前三名的项目
-      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
-      totalTop3Predictions += top3Predictions.length;
-
-      // 计算这些前三名预测的排名差距
-      top3Predictions.forEach((prediction) => {
-        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
-        if (actualResult) {
-          const rankDifference = Math.abs(actualResult.actual_rank - prediction.predicted_rank);
-          totalRankDifference += rankDifference;
-        }
-      });
-    });
-
-    return totalTop3Predictions > 0 ? totalRankDifference / totalTop3Predictions : 0;
-  };
-
   // 获取前三名预测对比数据 (带key属性用于DataTable)
   interface PredictionComparisonRow extends DetailedPredictionItem {
     key: string;
@@ -725,27 +667,67 @@
     };
   };
 
-  // 获取排名对应的图标
-  const getPredictionRankIcon = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    if (rank === 4) return '4️⃣';
-    if (rank === 5) return '5️⃣';
-    return '📊';
-  };
+  // 计算基于轮次的预测分析结果
+  const calculateRoundPredictionAnalysis = (round: PredictionHistoryRound) => {
+    const predictedTop3 = round.predictions.filter((p) => p.predicted_rank <= 3).map((p) => p.symbol);
+    const actualTop3 = round.results.filter((r) => r.actual_rank <= 3).map((r) => r.symbol);
 
-  // 获取预测错误的描述文本
-  const getPredictionErrorText = (detail: DetailedPredictionItem) => {
-    if (detail.is_exact_match || detail.is_better_than_expected) return '';
+    // 检查是否完全相同（顺序和代币都一致）
+    const predictedTop3Sorted = [...predictedTop3].sort((a, b) => {
+      const aPredicted = round.predictions.find((p) => p.symbol === a)?.predicted_rank || 0;
+      const bPredicted = round.predictions.find((p) => p.symbol === b)?.predicted_rank || 0;
+      return aPredicted - bPredicted;
+    });
 
-    // 只有当实际结果比预测更差时才显示错误信息
-    if (detail.predicted_rank < detail.actual_rank) {
-      // 预测排名更靠前，实际排名更靠后，说明预测过于乐观
-      return '😔 预测过于乐观';
+    const actualTop3Sorted = [...actualTop3].sort((a, b) => {
+      const aActual = round.results.find((r) => r.symbol === a)?.actual_rank || 0;
+      const bActual = round.results.find((r) => r.symbol === b)?.actual_rank || 0;
+      return aActual - bActual;
+    });
+
+    // 检查是否完全相同
+    const isExactMatch =
+      predictedTop3Sorted.length === actualTop3Sorted.length &&
+      predictedTop3Sorted.every((symbol, index) => symbol === actualTop3Sorted[index]);
+
+    if (isExactMatch) {
+      return {
+        status: 'exact',
+        text: '精准预测',
+        icon: '🎯',
+        color: 'text-green-400',
+        bgColor: 'bg-green-500/20'
+      };
     }
 
-    return '❌ 预测失败';
+    // 检查是否有交集（保本）
+    const hasIntersection = predictedTop3.some((symbol) => actualTop3.includes(symbol));
+
+    if (hasIntersection) {
+      return {
+        status: 'breakeven',
+        text: '保本',
+        icon: '💰',
+        color: 'text-blue-400',
+        bgColor: 'bg-blue-500/20'
+      };
+    }
+
+    // 否则就是亏本
+    return {
+      status: 'loss',
+      text: '亏本',
+      icon: '📉',
+      color: 'text-red-400',
+      bgColor: 'bg-red-500/20'
+    };
+  };
+
+  // 获取基于轮次的预测分析结果
+  const getRoundPredictionAnalysis = (roundId: string) => {
+    const round = predictionHistoryData.value.find((r) => r.round_id === roundId);
+    if (!round) return null;
+    return calculateRoundPredictionAnalysis(round);
   };
 
   // 前三名预测对比表格列定义
@@ -804,16 +786,18 @@
       key: 'analysis',
       width: 180,
       render: (row: PredictionComparisonRow) => {
-        if (row.is_exact_match) {
-          return h('div', { class: 'text-green-400 font-medium' }, '🎯 预测完全准确！');
-        } else if (row.is_better_than_expected) {
-          return h('div', { class: 'text-green-400 font-medium' }, '🚀 结果超出预期！');
-        } else {
-          return h('div', { class: 'text-red-400' }, [
-            h('div', { class: 'font-medium' }, getPredictionErrorText(row)),
-            h('div', { class: 'text-xs text-gray-400' }, `排名差距: ${row.rank_difference}`)
-          ]);
+        const analysis = getRoundPredictionAnalysis(row.round_id);
+        if (!analysis) {
+          return h('div', { class: 'text-gray-400' }, '无法分析');
         }
+
+        return h(
+          'div',
+          {
+            class: `px-3 py-1 rounded-full text-sm font-medium ${analysis.color} ${analysis.bgColor}`
+          },
+          [h('span', { class: 'mr-1' }, analysis.icon), h('span', {}, analysis.text)]
+        );
       }
     },
     {
@@ -823,6 +807,48 @@
       render: (row: PredictionComparisonRow) => row.settled_at
     }
   ];
+
+  // 基于轮次的统计函数
+  const calculateRoundBasedStats = () => {
+    if (predictionHistoryData.value.length === 0) {
+      return {
+        totalRounds: 0,
+        exactRounds: 0,
+        breakevenRounds: 0,
+        lossRounds: 0,
+        exactRate: 0,
+        breakevenRate: 0,
+        lossRate: 0
+      };
+    }
+
+    let exactRounds = 0;
+    let breakevenRounds = 0;
+    let lossRounds = 0;
+
+    predictionHistoryData.value.forEach((round) => {
+      const analysis = calculateRoundPredictionAnalysis(round);
+      if (analysis.status === 'exact') {
+        exactRounds++;
+      } else if (analysis.status === 'breakeven') {
+        breakevenRounds++;
+      } else if (analysis.status === 'loss') {
+        lossRounds++;
+      }
+    });
+
+    const totalRounds = predictionHistoryData.value.length;
+
+    return {
+      totalRounds,
+      exactRounds,
+      breakevenRounds,
+      lossRounds,
+      exactRate: (exactRounds / totalRounds) * 100,
+      breakevenRate: (breakevenRounds / totalRounds) * 100,
+      lossRate: (lossRounds / totalRounds) * 100
+    };
+  };
 </script>
 
 <style scoped>

@@ -210,8 +210,9 @@
                   <div class="text-2xl text-green-400 font-bold">{{ calculateTop3ExactAccuracy().toFixed(1) }}%</div>
                 </div>
                 <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">前三名接近匹配率</div>
+                  <div class="text-sm text-gray-300">前三名成功率</div>
                   <div class="text-2xl text-blue-400 font-bold">{{ calculateTop3CloseAccuracy().toFixed(1) }}%</div>
+                  <div class="mt-1 text-xs text-gray-400">精确匹配或超出预期</div>
                 </div>
                 <div class="border border-white/20 rounded-lg bg-white/5 p-4">
                   <div class="text-sm text-gray-300">前三名平均排名差</div>
@@ -365,6 +366,7 @@
     predicted_rank: number;
     actual_rank: number;
     is_exact_match: boolean;
+    is_better_than_expected: boolean;
     rank_difference: number;
     settled_at: string;
   }
@@ -624,26 +626,27 @@
     if (predictionHistoryData.value.length === 0) return 0;
 
     let totalTop3Predictions = 0;
-    let closeMatches = 0;
+    let successMatches = 0;
 
     predictionHistoryData.value.forEach((round) => {
       // 只统计预测前三名的项目
       const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
       totalTop3Predictions += top3Predictions.length;
 
-      // 检查这些前三名预测的接近匹配（排名差距<=1）
+      // 检查这些前三名预测的成功匹配（精确匹配或结果更好）
       top3Predictions.forEach((prediction) => {
         const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
         if (actualResult) {
-          const rankDifference = Math.abs(actualResult.actual_rank - prediction.predicted_rank);
-          if (rankDifference <= 1) {
-            closeMatches++;
+          const isExactMatch = actualResult.actual_rank === prediction.predicted_rank;
+          const isBetterThanExpected = actualResult.actual_rank < prediction.predicted_rank;
+          if (isExactMatch || isBetterThanExpected) {
+            successMatches++;
           }
         }
       });
     });
 
-    return totalTop3Predictions > 0 ? (closeMatches / totalTop3Predictions) * 100 : 0;
+    return totalTop3Predictions > 0 ? (successMatches / totalTop3Predictions) * 100 : 0;
   };
 
   const calculateTop3AvgRankDifference = () => {
@@ -694,6 +697,7 @@
             predicted_rank: prediction.predicted_rank,
             actual_rank: actualResult.actual_rank,
             is_exact_match: rankDifference === 0,
+            is_better_than_expected: actualResult.actual_rank < prediction.predicted_rank, // 实际名次更好
             rank_difference: rankDifference,
             settled_at: round.settled_at || '-'
           });
@@ -705,20 +709,20 @@
     return detailedData.sort((a, b) => b.round_id.localeCompare(a.round_id));
   });
 
+  // 获取预测行的样式类 - 根据新逻辑判断颜色
+  const getPredictionRowClass = (detail: DetailedPredictionItem) => {
+    if (detail.is_exact_match || detail.is_better_than_expected) {
+      return 'bg-green-500/20 border-l-4 border-green-500';
+    } else {
+      return 'bg-red-500/20 border-l-4 border-red-500';
+    }
+  };
+
   // DataTable行属性
   const rowProps = (row: PredictionComparisonRow) => {
     return {
       style: getPredictionRowClass(row)
     };
-  };
-
-  // 获取预测行的样式类
-  const getPredictionRowClass = (detail: DetailedPredictionItem) => {
-    if (detail.is_exact_match) {
-      return 'bg-green-500/20 border-l-4 border-green-500';
-    } else {
-      return 'bg-red-500/20 border-l-4 border-red-500';
-    }
   };
 
   // 获取排名对应的图标
@@ -733,15 +737,15 @@
 
   // 获取预测错误的描述文本
   const getPredictionErrorText = (detail: DetailedPredictionItem) => {
-    if (detail.is_exact_match) return '';
+    if (detail.is_exact_match || detail.is_better_than_expected) return '';
 
+    // 只有当实际结果比预测更差时才显示错误信息
     if (detail.predicted_rank < detail.actual_rank) {
       // 预测排名更靠前，实际排名更靠后，说明预测过于乐观
       return '😔 预测过于乐观';
-    } else {
-      // 预测排名更靠后，实际排名更靠前，说明预测过于保守
-      return '😊 预测过于保守';
     }
+
+    return '❌ 预测失败';
   };
 
   // 前三名预测对比表格列定义
@@ -780,18 +784,20 @@
     },
     {
       title: '结果',
-      key: 'is_exact_match',
+      key: 'result_status',
       width: 80,
-      render: (row: PredictionComparisonRow) =>
-        h(
+      render: (row: PredictionComparisonRow) => {
+        const isSuccess = row.is_exact_match || row.is_better_than_expected;
+        return h(
           'span',
           {
             class: `px-2 py-1 rounded-full text-xs font-medium ${
-              row.is_exact_match ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+              isSuccess ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
             }`
           },
-          row.is_exact_match ? '✅ 精确' : '❌ 偏差'
-        )
+          isSuccess ? '✅ 成功' : '❌ 失败'
+        );
+      }
     },
     {
       title: '预测分析',
@@ -799,7 +805,9 @@
       width: 180,
       render: (row: PredictionComparisonRow) => {
         if (row.is_exact_match) {
-          return h('div', { class: 'text-green-400 font-medium' }, '🎯 预测准确！');
+          return h('div', { class: 'text-green-400 font-medium' }, '🎯 预测完全准确！');
+        } else if (row.is_better_than_expected) {
+          return h('div', { class: 'text-green-400 font-medium' }, '🚀 结果超出预期！');
         } else {
           return h('div', { class: 'text-red-400' }, [
             h('div', { class: 'font-medium' }, getPredictionErrorText(row)),

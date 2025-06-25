@@ -227,9 +227,11 @@
                   <div class="mt-1 text-xs text-gray-400">前三名全部错误</div>
                 </div>
                 <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">📊 预测轮次</div>
-                  <div class="text-2xl text-purple-400 font-bold">{{ calculateRoundBasedStats().totalRounds }}</div>
-                  <div class="mt-1 text-xs text-gray-400">最近50局数据</div>
+                  <div class="text-sm text-gray-300">📊 预测总数</div>
+                  <div class="text-2xl text-purple-400 font-bold">
+                    {{ calculateRoundBasedStats().totalPredictions }}
+                  </div>
+                  <div class="mt-1 text-xs text-gray-400">前三名预测总数</div>
                 </div>
               </div>
 
@@ -667,30 +669,10 @@
     };
   };
 
-  // 计算基于轮次的预测分析结果
-  const calculateRoundPredictionAnalysis = (round: PredictionHistoryRound) => {
-    const predictedTop3 = round.predictions.filter((p) => p.predicted_rank <= 3).map((p) => p.symbol);
-    const actualTop3 = round.results.filter((r) => r.actual_rank <= 3).map((r) => r.symbol);
-
-    // 检查是否完全相同（顺序和代币都一致）
-    const predictedTop3Sorted = [...predictedTop3].sort((a, b) => {
-      const aPredicted = round.predictions.find((p) => p.symbol === a)?.predicted_rank || 0;
-      const bPredicted = round.predictions.find((p) => p.symbol === b)?.predicted_rank || 0;
-      return aPredicted - bPredicted;
-    });
-
-    const actualTop3Sorted = [...actualTop3].sort((a, b) => {
-      const aActual = round.results.find((r) => r.symbol === a)?.actual_rank || 0;
-      const bActual = round.results.find((r) => r.symbol === b)?.actual_rank || 0;
-      return aActual - bActual;
-    });
-
-    // 检查是否完全相同
-    const isExactMatch =
-      predictedTop3Sorted.length === actualTop3Sorted.length &&
-      predictedTop3Sorted.every((symbol, index) => symbol === actualTop3Sorted[index]);
-
-    if (isExactMatch) {
+  // 获取单个代币的预测分析结果（按您的逻辑：实际前三就保本，否则亏本）
+  const getTokenPredictionAnalysis = (predictedRank: number, actualRank: number) => {
+    // 精准预测：预测排名和实际排名完全一致
+    if (predictedRank === actualRank) {
       return {
         status: 'exact',
         text: '精准预测',
@@ -700,10 +682,8 @@
       };
     }
 
-    // 检查是否有交集（保本）
-    const hasIntersection = predictedTop3.some((symbol) => actualTop3.includes(symbol));
-
-    if (hasIntersection) {
+    // 保本：实际排名在前三名
+    if (actualRank <= 3) {
       return {
         status: 'breakeven',
         text: '保本',
@@ -713,7 +693,7 @@
       };
     }
 
-    // 否则就是亏本
+    // 亏本：实际排名不在前三名
     return {
       status: 'loss',
       text: '亏本',
@@ -721,13 +701,6 @@
       color: 'text-red-400',
       bgColor: 'bg-red-500/20'
     };
-  };
-
-  // 获取基于轮次的预测分析结果
-  const getRoundPredictionAnalysis = (roundId: string) => {
-    const round = predictionHistoryData.value.find((r) => r.round_id === roundId);
-    if (!round) return null;
-    return calculateRoundPredictionAnalysis(round);
   };
 
   // 前三名预测对比表格列定义
@@ -765,31 +738,11 @@
         ])
     },
     {
-      title: '结果',
-      key: 'result_status',
-      width: 80,
-      render: (row: PredictionComparisonRow) => {
-        const isSuccess = row.is_exact_match || row.is_better_than_expected;
-        return h(
-          'span',
-          {
-            class: `px-2 py-1 rounded-full text-xs font-medium ${
-              isSuccess ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-            }`
-          },
-          isSuccess ? '✅ 成功' : '❌ 失败'
-        );
-      }
-    },
-    {
       title: '预测分析',
       key: 'analysis',
-      width: 180,
+      width: 160,
       render: (row: PredictionComparisonRow) => {
-        const analysis = getRoundPredictionAnalysis(row.round_id);
-        if (!analysis) {
-          return h('div', { class: 'text-gray-400' }, '无法分析');
-        }
+        const analysis = getTokenPredictionAnalysis(row.predicted_rank, row.actual_rank);
 
         return h(
           'div',
@@ -808,45 +761,54 @@
     }
   ];
 
-  // 基于轮次的统计函数
+  // 基于单个代币预测的统计函数
   const calculateRoundBasedStats = () => {
     if (predictionHistoryData.value.length === 0) {
       return {
-        totalRounds: 0,
-        exactRounds: 0,
-        breakevenRounds: 0,
-        lossRounds: 0,
+        totalPredictions: 0,
+        exactPredictions: 0,
+        breakevenPredictions: 0,
+        lossPredictions: 0,
         exactRate: 0,
         breakevenRate: 0,
         lossRate: 0
       };
     }
 
-    let exactRounds = 0;
-    let breakevenRounds = 0;
-    let lossRounds = 0;
+    let exactPredictions = 0;
+    let breakevenPredictions = 0;
+    let lossPredictions = 0;
+    let totalPredictions = 0;
 
     predictionHistoryData.value.forEach((round) => {
-      const analysis = calculateRoundPredictionAnalysis(round);
-      if (analysis.status === 'exact') {
-        exactRounds++;
-      } else if (analysis.status === 'breakeven') {
-        breakevenRounds++;
-      } else if (analysis.status === 'loss') {
-        lossRounds++;
-      }
+      // 只统计前三名的预测
+      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
+
+      top3Predictions.forEach((prediction) => {
+        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        if (actualResult) {
+          totalPredictions++;
+          const analysis = getTokenPredictionAnalysis(prediction.predicted_rank, actualResult.actual_rank);
+
+          if (analysis.status === 'exact') {
+            exactPredictions++;
+          } else if (analysis.status === 'breakeven') {
+            breakevenPredictions++;
+          } else if (analysis.status === 'loss') {
+            lossPredictions++;
+          }
+        }
+      });
     });
 
-    const totalRounds = predictionHistoryData.value.length;
-
     return {
-      totalRounds,
-      exactRounds,
-      breakevenRounds,
-      lossRounds,
-      exactRate: (exactRounds / totalRounds) * 100,
-      breakevenRate: (breakevenRounds / totalRounds) * 100,
-      lossRate: (lossRounds / totalRounds) * 100
+      totalPredictions,
+      exactPredictions,
+      breakevenPredictions,
+      lossPredictions,
+      exactRate: totalPredictions > 0 ? (exactPredictions / totalPredictions) * 100 : 0,
+      breakevenRate: totalPredictions > 0 ? (breakevenPredictions / totalPredictions) * 100 : 0,
+      lossRate: totalPredictions > 0 ? (lossPredictions / totalPredictions) * 100 : 0
     };
   };
 </script>

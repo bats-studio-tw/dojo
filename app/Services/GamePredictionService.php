@@ -94,7 +94,7 @@ class GamePredictionService
         // 获取最近20局的数据进行分析
         $recentRounds = GameRound::with('roundResults')
             ->orderBy('created_at', 'desc')
-            ->limit(20)
+            ->limit(120)
             ->get();
 
         if ($recentRounds->isEmpty()) {

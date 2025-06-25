@@ -206,51 +206,33 @@
               <!-- 预测准确度总结 -->
               <div class="grid grid-cols-1 gap-4 lg:grid-cols-4 md:grid-cols-2">
                 <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">平均精确匹配率</div>
-                  <div class="text-2xl text-green-400 font-bold">
-                    {{
-                      (
-                        predictionHistoryData.reduce((sum, round) => sum + round.accuracy.exact_accuracy, 0) /
-                        predictionHistoryData.length
-                      ).toFixed(1)
-                    }}%
-                  </div>
+                  <div class="text-sm text-gray-300">前三名精确匹配率</div>
+                  <div class="text-2xl text-green-400 font-bold">{{ calculateTop3ExactAccuracy().toFixed(1) }}%</div>
                 </div>
                 <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">平均接近匹配率</div>
-                  <div class="text-2xl text-blue-400 font-bold">
-                    {{
-                      (
-                        predictionHistoryData.reduce((sum, round) => sum + round.accuracy.close_accuracy, 0) /
-                        predictionHistoryData.length
-                      ).toFixed(1)
-                    }}%
-                  </div>
+                  <div class="text-sm text-gray-300">前三名接近匹配率</div>
+                  <div class="text-2xl text-blue-400 font-bold">{{ calculateTop3CloseAccuracy().toFixed(1) }}%</div>
                 </div>
                 <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">平均排名差</div>
+                  <div class="text-sm text-gray-300">前三名平均排名差</div>
                   <div class="text-2xl text-yellow-400 font-bold">
-                    {{
-                      (
-                        predictionHistoryData.reduce((sum, round) => sum + round.accuracy.avg_rank_difference, 0) /
-                        predictionHistoryData.length
-                      ).toFixed(2)
-                    }}
+                    {{ calculateTop3AvgRankDifference().toFixed(2) }}
                   </div>
                 </div>
                 <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">总预测轮次</div>
+                  <div class="text-sm text-gray-300">前三预测轮次</div>
                   <div class="text-2xl text-purple-400 font-bold">{{ predictionHistoryData.length }}</div>
                 </div>
               </div>
 
-              <!-- 预测历史表格 -->
+              <!-- 前三名预测对比表格 -->
               <NDataTable
-                :columns="predictionHistoryColumns"
-                :data="predictionHistoryTableData"
-                :pagination="{ pageSize: 5 }"
-                :scroll-x="1200"
+                :columns="predictionComparisonColumns"
+                :data="predictionComparisonTableData"
+                :pagination="{ pageSize: 10 }"
+                :scroll-x="1000"
                 striped
+                :row-props="rowProps"
               />
             </div>
             <NEmpty v-else description="暂无预测历史数据" class="py-8" />
@@ -287,7 +269,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, computed } from 'vue';
+  import { ref, onMounted, computed, h } from 'vue';
   import { NEmpty, useMessage, type DataTableColumn } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import api from '@/utils/api';
@@ -377,8 +359,14 @@
     accuracy: Accuracy;
   }
 
-  interface PredictionHistoryTableRow extends PredictionHistoryRound {
-    key: number;
+  interface DetailedPredictionItem {
+    round_id: string;
+    symbol: string;
+    predicted_rank: number;
+    actual_rank: number;
+    is_exact_match: boolean;
+    rank_difference: number;
+    settled_at: string;
   }
 
   // 响应式数据
@@ -454,69 +442,10 @@
     }
   ];
 
-  // 预测历史数据表格列定义
-  const predictionHistoryColumns: DataTableColumn<PredictionHistoryTableRow>[] = [
-    {
-      title: '轮次ID',
-      key: 'round_id',
-      width: 120
-    },
-    {
-      title: '结算时间',
-      key: 'settled_at',
-      width: 160
-    },
-    {
-      title: '精确匹配',
-      key: 'exact_accuracy',
-      width: 100,
-      render: (row: PredictionHistoryTableRow) => `${row.accuracy.exact_accuracy}%`
-    },
-    {
-      title: '接近匹配',
-      key: 'close_accuracy',
-      width: 100,
-      render: (row: PredictionHistoryTableRow) => `${row.accuracy.close_accuracy}%`
-    },
-    {
-      title: '平均排名差',
-      key: 'avg_rank_difference',
-      width: 110,
-      render: (row: PredictionHistoryTableRow) => row.accuracy.avg_rank_difference.toString()
-    },
-    {
-      title: '预测详情',
-      key: 'details',
-      width: 300,
-      render: (row: PredictionHistoryTableRow) => {
-        const predictions = row.predictions.map((p) => `${p.symbol}(预测#${p.predicted_rank})`).join(', ');
-        return predictions || '-';
-      }
-    },
-    {
-      title: '实际结果',
-      key: 'actual_results',
-      width: 300,
-      render: (row: PredictionHistoryTableRow) => {
-        const results = row.results.map((r) => `${r.symbol}(实际#${r.actual_rank})`).join(', ');
-        return results || '-';
-      }
-    }
-  ];
-
   // 计算属性
   const historyTableData = computed((): HistoryTableRow[] => {
     return historyData.value.map(
       (item: HistoryRound): HistoryTableRow => ({
-        ...item,
-        key: item.id
-      })
-    );
-  });
-
-  const predictionHistoryTableData = computed((): PredictionHistoryTableRow[] => {
-    return predictionHistoryData.value.map(
-      (item: PredictionHistoryRound): PredictionHistoryTableRow => ({
         ...item,
         key: item.id
       })
@@ -666,6 +595,226 @@
       fetchPredictionHistoryData();
     }, 30000);
   });
+
+  // 计算前三名预测准确率的函数
+  const calculateTop3ExactAccuracy = () => {
+    if (predictionHistoryData.value.length === 0) return 0;
+
+    let totalTop3Predictions = 0;
+    let exactMatches = 0;
+
+    predictionHistoryData.value.forEach((round) => {
+      // 只统计预测前三名的项目
+      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
+      totalTop3Predictions += top3Predictions.length;
+
+      // 检查这些前三名预测的精确匹配
+      top3Predictions.forEach((prediction) => {
+        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        if (actualResult && actualResult.actual_rank === prediction.predicted_rank) {
+          exactMatches++;
+        }
+      });
+    });
+
+    return totalTop3Predictions > 0 ? (exactMatches / totalTop3Predictions) * 100 : 0;
+  };
+
+  const calculateTop3CloseAccuracy = () => {
+    if (predictionHistoryData.value.length === 0) return 0;
+
+    let totalTop3Predictions = 0;
+    let closeMatches = 0;
+
+    predictionHistoryData.value.forEach((round) => {
+      // 只统计预测前三名的项目
+      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
+      totalTop3Predictions += top3Predictions.length;
+
+      // 检查这些前三名预测的接近匹配（排名差距<=1）
+      top3Predictions.forEach((prediction) => {
+        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        if (actualResult) {
+          const rankDifference = Math.abs(actualResult.actual_rank - prediction.predicted_rank);
+          if (rankDifference <= 1) {
+            closeMatches++;
+          }
+        }
+      });
+    });
+
+    return totalTop3Predictions > 0 ? (closeMatches / totalTop3Predictions) * 100 : 0;
+  };
+
+  const calculateTop3AvgRankDifference = () => {
+    if (predictionHistoryData.value.length === 0) return 0;
+
+    let totalTop3Predictions = 0;
+    let totalRankDifference = 0;
+
+    predictionHistoryData.value.forEach((round) => {
+      // 只统计预测前三名的项目
+      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
+      totalTop3Predictions += top3Predictions.length;
+
+      // 计算这些前三名预测的排名差距
+      top3Predictions.forEach((prediction) => {
+        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        if (actualResult) {
+          const rankDifference = Math.abs(actualResult.actual_rank - prediction.predicted_rank);
+          totalRankDifference += rankDifference;
+        }
+      });
+    });
+
+    return totalTop3Predictions > 0 ? totalRankDifference / totalTop3Predictions : 0;
+  };
+
+  // 获取前三名预测对比数据 (带key属性用于DataTable)
+  interface PredictionComparisonRow extends DetailedPredictionItem {
+    key: string;
+  }
+
+  const predictionComparisonTableData = computed((): PredictionComparisonRow[] => {
+    const detailedData: PredictionComparisonRow[] = [];
+
+    predictionHistoryData.value.forEach((round) => {
+      // 只处理预测前三名的数据
+      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
+
+      top3Predictions.forEach((prediction) => {
+        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        if (actualResult) {
+          const rankDifference = Math.abs(prediction.predicted_rank - actualResult.actual_rank);
+
+          detailedData.push({
+            key: `${round.round_id}-${prediction.symbol}`,
+            round_id: round.round_id,
+            symbol: prediction.symbol,
+            predicted_rank: prediction.predicted_rank,
+            actual_rank: actualResult.actual_rank,
+            is_exact_match: rankDifference === 0,
+            rank_difference: rankDifference,
+            settled_at: round.settled_at || '-'
+          });
+        }
+      });
+    });
+
+    // 按轮次倒序排列，最新的在前面
+    return detailedData.sort((a, b) => b.round_id.localeCompare(a.round_id));
+  });
+
+  // DataTable行属性
+  const rowProps = (row: PredictionComparisonRow) => {
+    return {
+      style: getPredictionRowClass(row)
+    };
+  };
+
+  // 获取预测行的样式类
+  const getPredictionRowClass = (detail: DetailedPredictionItem) => {
+    if (detail.is_exact_match) {
+      return 'bg-green-500/20 border-l-4 border-green-500';
+    } else {
+      return 'bg-red-500/20 border-l-4 border-red-500';
+    }
+  };
+
+  // 获取排名对应的图标
+  const getPredictionRankIcon = (rank: number) => {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    if (rank === 4) return '4️⃣';
+    if (rank === 5) return '5️⃣';
+    return '📊';
+  };
+
+  // 获取预测错误的描述文本
+  const getPredictionErrorText = (detail: DetailedPredictionItem) => {
+    if (detail.is_exact_match) return '';
+
+    if (detail.predicted_rank < detail.actual_rank) {
+      // 预测排名更靠前，实际排名更靠后，说明预测过于乐观
+      return '😔 预测过于乐观';
+    } else {
+      // 预测排名更靠后，实际排名更靠前，说明预测过于保守
+      return '😊 预测过于保守';
+    }
+  };
+
+  // 前三名预测对比表格列定义
+  const predictionComparisonColumns: DataTableColumn<PredictionComparisonRow>[] = [
+    {
+      title: '轮次',
+      key: 'round_id',
+      width: 100,
+      render: (row: PredictionComparisonRow) => row.round_id
+    },
+    {
+      title: '代币',
+      key: 'symbol',
+      width: 80,
+      render: (row: PredictionComparisonRow) => row.symbol
+    },
+    {
+      title: '预测排名',
+      key: 'predicted_rank',
+      width: 100,
+      render: (row: PredictionComparisonRow) =>
+        h('div', { class: 'flex items-center justify-center' }, [
+          h('span', { class: 'text-lg mr-1' }, getPredictionRankIcon(row.predicted_rank)),
+          h('span', { class: 'font-medium' }, `#${row.predicted_rank}`)
+        ])
+    },
+    {
+      title: '实际排名',
+      key: 'actual_rank',
+      width: 100,
+      render: (row: PredictionComparisonRow) =>
+        h('div', { class: 'flex items-center justify-center' }, [
+          h('span', { class: 'text-lg mr-1' }, getPredictionRankIcon(row.actual_rank)),
+          h('span', { class: 'font-medium' }, `#${row.actual_rank}`)
+        ])
+    },
+    {
+      title: '结果',
+      key: 'is_exact_match',
+      width: 80,
+      render: (row: PredictionComparisonRow) =>
+        h(
+          'span',
+          {
+            class: `px-2 py-1 rounded-full text-xs font-medium ${
+              row.is_exact_match ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`
+          },
+          row.is_exact_match ? '✅ 精确' : '❌ 偏差'
+        )
+    },
+    {
+      title: '预测分析',
+      key: 'analysis',
+      width: 180,
+      render: (row: PredictionComparisonRow) => {
+        if (row.is_exact_match) {
+          return h('div', { class: 'text-green-400 font-medium' }, '🎯 预测准确！');
+        } else {
+          return h('div', { class: 'text-red-400' }, [
+            h('div', { class: 'font-medium' }, getPredictionErrorText(row)),
+            h('div', { class: 'text-xs text-gray-400' }, `排名差距: ${row.rank_difference}`)
+          ]);
+        }
+      }
+    },
+    {
+      title: '结算时间',
+      key: 'settled_at',
+      width: 140,
+      render: (row: PredictionComparisonRow) => row.settled_at
+    }
+  ];
 </script>
 
 <style scoped>

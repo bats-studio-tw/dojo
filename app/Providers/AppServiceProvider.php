@@ -17,10 +17,14 @@ class AppServiceProvider extends ServiceProvider
         // 注册游戏数据处理服务
         $this->app->singleton(\App\Services\GameDataProcessorService::class);
 
+        // 注册游戏预测服务
+        $this->app->singleton(\App\Services\GamePredictionService::class);
+
         // 注册WebSocket服务
         $this->app->singleton(\App\Services\GameWebSocketService::class, function ($app) {
             return new \App\Services\GameWebSocketService(
-                $app->make(\App\Services\GameDataProcessorService::class)
+                $app->make(\App\Services\GameDataProcessorService::class),
+                $app->make(\App\Services\GamePredictionService::class)
             );
         });
     }

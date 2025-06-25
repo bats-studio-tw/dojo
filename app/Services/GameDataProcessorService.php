@@ -51,7 +51,11 @@ class GameDataProcessorService
 
                 // 如果這筆 round 已經有 results，就不要重複處理
                 if ($round->roundResults()->exists()) {
-                    Log::info('結算資料已存在，跳過處理', ['rdId' => $roundId]);
+                    Log::channel('websocket')->info('結算資料已存在，跳過處理', [
+                        'rdId' => $roundId,
+                        'existing_results_count' => $round->roundResults()->count(),
+                        'status' => $status
+                    ]);
                     return;
                 }
 
@@ -102,30 +106,24 @@ class GameDataProcessorService
 
             // 確保 payload 中有 's' (rank) 和 'p' (value)
             if (isset($details['s']) && isset($details['p'])) {
-                // 只有当价格不为0时才存储（避免存储下注阶段的数据）
-                if ($details['p'] != 0) {
-                    $result = RoundResult::create([
-                        'game_round_id' => $gameRound->id,
-                        'token_symbol'  => strtoupper($symbol),
-                        'rank'          => $details['s'],
-                        'value'         => $details['p'],
-                    ]);
+                // 修改：只要有排名就保存，包括价格为0的情况
+                // 因为价格为0可能是游戏的正常状态
+                $result = RoundResult::create([
+                    'game_round_id' => $gameRound->id,
+                    'token_symbol'  => strtoupper($symbol),
+                    'rank'          => $details['s'],
+                    'value'         => $details['p'], // 允许为0
+                ]);
 
-                    $validResults++;
+                $validResults++;
 
-                    Log::channel('websocket')->info('创建代币结果', [
-                        'result_id' => $result->id,
-                        'symbol' => $symbol,
-                        'rank' => $details['s'],
-                        'value' => $details['p']
-                    ]);
-                } else {
-                    Log::channel('websocket')->info('跳过价格为0的代币', [
-                        'symbol' => $symbol,
-                        'rank' => $details['s'],
-                        'value' => $details['p']
-                    ]);
-                }
+                Log::channel('websocket')->info('创建代币结果', [
+                    'result_id' => $result->id,
+                    'symbol' => $symbol,
+                    'rank' => $details['s'],
+                    'value' => $details['p'],
+                    'is_zero_price' => $details['p'] == 0
+                ]);
             } else {
                 Log::channel('websocket')->warning('代币数据不完整', [
                     'symbol' => $symbol,
@@ -139,5 +137,20 @@ class GameDataProcessorService
             'totalTokens' => $tokenCount,
             'validResults' => $validResults
         ]);
+
+        // 数据完整性验证
+        if ($validResults != $tokenCount) {
+            Log::channel('websocket')->warning('⚠️ 数据完整性警告：处理的代币数量与预期不符', [
+                'rdId' => $gameData['rdId'],
+                'expected' => $tokenCount,
+                'actual' => $validResults,
+                'missing_count' => $tokenCount - $validResults
+            ]);
+        } else {
+            Log::channel('websocket')->info('✅ 数据完整性验证通过', [
+                'rdId' => $gameData['rdId'],
+                'processed_tokens' => $validResults
+            ]);
+        }
     }
 }

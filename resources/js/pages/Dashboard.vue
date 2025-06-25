@@ -235,6 +235,66 @@
                 </div>
               </div>
 
+              <!-- 按预测排名分别统计 -->
+              <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 md:grid-cols-3">
+                <!-- 预测第一名统计 -->
+                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
+                  <div class="mb-3 text-sm text-gray-300">🥇 预测第一名</div>
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs text-gray-400">保本率</span>
+                      <span class="text-sm text-blue-400 font-medium">
+                        {{ calculateRankBasedStats().rank1.breakevenRate.toFixed(1) }}%
+                      </span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs text-gray-400">亏本率</span>
+                      <span class="text-sm text-red-400 font-medium">
+                        {{ calculateRankBasedStats().rank1.lossRate.toFixed(1) }}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 预测第二名统计 -->
+                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
+                  <div class="mb-3 text-sm text-gray-300">🥈 预测第二名</div>
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs text-gray-400">保本率</span>
+                      <span class="text-sm text-blue-400 font-medium">
+                        {{ calculateRankBasedStats().rank2.breakevenRate.toFixed(1) }}%
+                      </span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs text-gray-400">亏本率</span>
+                      <span class="text-sm text-red-400 font-medium">
+                        {{ calculateRankBasedStats().rank2.lossRate.toFixed(1) }}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 预测第三名统计 -->
+                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
+                  <div class="mb-3 text-sm text-gray-300">🥉 预测第三名</div>
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs text-gray-400">保本率</span>
+                      <span class="text-sm text-blue-400 font-medium">
+                        {{ calculateRankBasedStats().rank3.breakevenRate.toFixed(1) }}%
+                      </span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs text-gray-400">亏本率</span>
+                      <span class="text-sm text-red-400 font-medium">
+                        {{ calculateRankBasedStats().rank3.lossRate.toFixed(1) }}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- 前三名预测对比表格 -->
               <NDataTable
                 :columns="predictionComparisonColumns"
@@ -810,6 +870,52 @@
       breakevenRate: totalPredictions > 0 ? (breakevenPredictions / totalPredictions) * 100 : 0,
       lossRate: totalPredictions > 0 ? (lossPredictions / totalPredictions) * 100 : 0
     };
+  };
+
+  // 按预测排名分别统计保本/亏本率
+  const calculateRankBasedStats = () => {
+    const rankStats = {
+      rank1: { total: 0, breakeven: 0, loss: 0, breakevenRate: 0, lossRate: 0 },
+      rank2: { total: 0, breakeven: 0, loss: 0, breakevenRate: 0, lossRate: 0 },
+      rank3: { total: 0, breakeven: 0, loss: 0, breakevenRate: 0, lossRate: 0 }
+    };
+
+    if (predictionHistoryData.value.length === 0) {
+      return rankStats;
+    }
+
+    predictionHistoryData.value.forEach((round) => {
+      [1, 2, 3].forEach((predictedRank) => {
+        const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
+
+        predictions.forEach((prediction) => {
+          const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          if (actualResult) {
+            const key = `rank${predictedRank}` as keyof typeof rankStats;
+            rankStats[key].total++;
+
+            const analysis = getTokenPredictionAnalysis(prediction.predicted_rank, actualResult.actual_rank);
+
+            if (analysis.status === 'exact' || analysis.status === 'breakeven') {
+              rankStats[key].breakeven++;
+            } else if (analysis.status === 'loss') {
+              rankStats[key].loss++;
+            }
+          }
+        });
+      });
+    });
+
+    // 计算百分比
+    Object.keys(rankStats).forEach((key) => {
+      const stats = rankStats[key as keyof typeof rankStats];
+      if (stats.total > 0) {
+        stats.breakevenRate = (stats.breakeven / stats.total) * 100;
+        stats.lossRate = (stats.loss / stats.total) * 100;
+      }
+    });
+
+    return rankStats;
   };
 </script>
 

@@ -19,7 +19,8 @@ class GameWebSocketService
     private array $processedRounds = []; // 记录已处理的轮次ID
 
     public function __construct(
-        private GameDataProcessorService $dataProcessor
+        private GameDataProcessorService $dataProcessor,
+        private GamePredictionService $predictionService
     ) {}
 
     /**
@@ -220,6 +221,9 @@ class GameWebSocketService
                         $this->processedRounds[] = $rdId;
                         $this->consoleOutput("🚀 新局开始: {$rdId} (状态: {$status})");
 
+                        // 异步触发预测分析计算
+                        $this->triggerPredictionCalculation($gameData);
+
                         // 保持数组大小，只保留最近50个轮次记录
                         if (count($this->processedRounds) > 50) {
                             $this->processedRounds = array_slice($this->processedRounds, -50);
@@ -238,6 +242,39 @@ class GameWebSocketService
             $this->logError("❌ 處理 WebSocket 訊息時發生錯誤", [
                 'error' => $e->getMessage(),
                 'payload' => substr($payload, 0, 200) . '...' // 只记录前200字符避免日志过长
+            ]);
+        }
+    }
+
+    /**
+     * 异步触发预测分析计算
+     */
+    private function triggerPredictionCalculation(array $gameData): void
+    {
+        try {
+            $roundId = $gameData['rdId'] ?? 'unknown';
+            $tokens = array_keys($gameData['token'] ?? []);
+
+            if (empty($tokens)) {
+                $this->consoleOutput("⚠️ 没有代币信息，跳过预测计算");
+                return;
+            }
+
+            $this->consoleOutput("🧠 开始计算预测分析...");
+
+            // 在后台异步生成预测数据
+            $success = $this->predictionService->generateAndCachePrediction($tokens, $roundId);
+
+            if ($success) {
+                $this->consoleOutput("✅ 预测分析已完成并缓存");
+            } else {
+                $this->consoleOutput("❌ 预测分析计算失败");
+            }
+
+        } catch (\Exception $e) {
+            $this->logError("预测分析计算异常", [
+                'error' => $e->getMessage(),
+                'rdId' => $gameData['rdId'] ?? 'unknown'
             ]);
         }
     }

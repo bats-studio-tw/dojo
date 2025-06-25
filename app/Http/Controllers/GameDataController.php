@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\GameRound;
 use App\Models\RoundResult;
+use App\Services\GamePredictionService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -12,6 +13,9 @@ use Illuminate\Support\Facades\Cache;
 
 class GameDataController extends Controller
 {
+    public function __construct(
+        private GamePredictionService $predictionService
+    ) {}
     /**
      * 获取历史游戏数据（最近100局）
      */
@@ -244,6 +248,37 @@ class GameDataController extends Controller
     public function getCurrentRoundAnalysis(): JsonResponse
     {
         try {
+            // 优先从缓存获取预计算的分析数据
+            $cachedPrediction = $this->predictionService->getCachedPrediction();
+
+            if ($cachedPrediction) {
+                Log::info('从缓存获取预测分析数据', [
+                    'round_id' => $cachedPrediction['round_id'],
+                    'generated_at' => $cachedPrediction['generated_at']
+                ]);
+
+                // 获取当前局信息用于meta数据
+                $roundInfo = Cache::get('game:current_round');
+
+                return response()->json([
+                    'success' => true,
+                    'data' => $cachedPrediction['analysis_data'],
+                    'meta' => [
+                        'round_id' => $cachedPrediction['round_id'],
+                        'status' => $roundInfo['status'] ?? 'unknown',
+                        'current_tokens' => array_column($cachedPrediction['analysis_data'], 'symbol'),
+                        'analysis_rounds' => $cachedPrediction['analysis_rounds_count'] ?? 0,
+                        'prediction_algorithm' => $cachedPrediction['algorithm'] ?? 'cached',
+                        'timestamp' => $roundInfo['timestamp'] ?? null,
+                        'generated_at' => $cachedPrediction['generated_at'],
+                        'source' => 'cached_prediction'
+                    ]
+                ]);
+            }
+
+            // 如果缓存中没有预测数据，回退到实时计算
+            Log::info('缓存中没有预测数据，回退到实时计算');
+
             // 获取当前局的代币信息
             $currentTokens = $this->getCurrentRoundTokens();
 
@@ -254,7 +289,10 @@ class GameDataController extends Controller
                 ]);
             }
 
-            Log::info('开始预测当前局代币排名', [
+            // 确保代币列表无重复
+            $currentTokens = array_unique($currentTokens);
+
+            Log::info('开始实时计算当前局代币排名', [
                 'tokens' => $currentTokens,
                 'token_count' => count($currentTokens)
             ]);
@@ -387,23 +425,28 @@ class GameDataController extends Controller
                     if ($response->successful()) {
                         $data = $response->json();
                         if (isset($data['pairs']) && count($data['pairs']) > 0) {
-                            $pair = $data['pairs'][0];
-                            $marketData = [
-                                'price' => $pair['priceUsd'] ?? '0',
-                                'change_5m' => $pair['priceChange']['m5'] ?? null,
-                                'change_1h' => $pair['priceChange']['h1'] ?? null,
-                                'change_4h' => $pair['priceChange']['h4'] ?? null,
-                                'change_24h' => $pair['priceChange']['h24'] ?? null,
-                                'volume_24h' => $pair['volume']['h24'] ?? '0',
-                                'market_cap' => $pair['marketCap'] ?? null,
-                                'logo' => $pair['baseToken']['logoURI'] ?? null,
-                                'name' => $pair['baseToken']['name'] ?? $symbol,
-                            ];
+                            // 使用智能匹配找到最适合的代币
+                            $bestMatch = $this->findBestTokenMatch($data['pairs'], $symbol);
+                            if ($bestMatch) {
+                                $marketData = [
+                                    'price' => $bestMatch['priceUsd'] ?? '0',
+                                    'change_5m' => $bestMatch['priceChange']['m5'] ?? null,
+                                    'change_1h' => $bestMatch['priceChange']['h1'] ?? null,
+                                    'change_4h' => $bestMatch['priceChange']['h4'] ?? null,
+                                    'change_24h' => $bestMatch['priceChange']['h24'] ?? null,
+                                    'volume_24h' => $bestMatch['volume']['h24'] ?? '0',
+                                    'market_cap' => $bestMatch['marketCap'] ?? null,
+                                    'logo' => $bestMatch['baseToken']['logoURI'] ?? null,
+                                    'name' => $bestMatch['baseToken']['name'] ?? $symbol,
+                                ];
+                            }
                         }
                     }
 
-                    // 合并预测数据和市场数据
-                    $analysisData[] = array_merge($stats, $marketData);
+                    // 合并预测数据和市场数据，确保symbol不被覆盖
+                    $mergedData = array_merge($stats, $marketData);
+                    $mergedData['symbol'] = $symbol; // 强制保持原始symbol
+                    $analysisData[] = $mergedData;
 
                     // 延迟避免API限制
                     usleep(200000); // 0.2秒
@@ -412,7 +455,7 @@ class GameDataController extends Controller
                     Log::warning("获取{$symbol}市场数据失败", ['error' => $e->getMessage()]);
 
                     // 如果API失败，至少返回预测数据
-                    $analysisData[] = array_merge($stats, [
+                    $fallbackData = array_merge($stats, [
                         'price' => '0',
                         'change_5m' => null,
                         'change_1h' => null,
@@ -423,6 +466,8 @@ class GameDataController extends Controller
                         'logo' => null,
                         'name' => $symbol,
                     ]);
+                    $fallbackData['symbol'] = $symbol; // 确保symbol正确
+                    $analysisData[] = $fallbackData;
                 }
             }
 
@@ -440,7 +485,8 @@ class GameDataController extends Controller
                     'current_tokens' => $currentTokens,
                     'analysis_rounds' => $recentRounds->count(),
                     'prediction_algorithm' => 'historical_performance_weighted',
-                    'timestamp' => $roundInfo['timestamp'] ?? null
+                    'timestamp' => $roundInfo['timestamp'] ?? null,
+                    'source' => 'realtime_calculation'
                 ]
             ]);
 
@@ -493,5 +539,64 @@ class GameDataController extends Controller
             Log::error('获取当前局代币失败', ['error' => $e->getMessage()]);
             return [];
         }
+    }
+
+    /**
+     * 从多个交易对中找到最匹配的代币 (与GamePredictionService保持一致)
+     */
+    private function findBestTokenMatch(array $pairs, string $targetSymbol): ?array
+    {
+        $targetSymbol = strtoupper($targetSymbol);
+
+        // 优先级1: 精确匹配 baseToken symbol
+        foreach ($pairs as $pair) {
+            $baseSymbol = strtoupper($pair['baseToken']['symbol'] ?? '');
+            if ($baseSymbol === $targetSymbol) {
+                Log::info("Controller: 找到精确匹配的代币", [
+                    'target' => $targetSymbol,
+                    'matched' => $baseSymbol,
+                    'name' => $pair['baseToken']['name'] ?? 'unknown'
+                ]);
+                return $pair;
+            }
+        }
+
+        // 优先级2: 部分匹配 baseToken symbol (前缀匹配)
+        foreach ($pairs as $pair) {
+            $baseSymbol = strtoupper($pair['baseToken']['symbol'] ?? '');
+            if (str_starts_with($baseSymbol, $targetSymbol) || str_starts_with($targetSymbol, $baseSymbol)) {
+                Log::info("Controller: 找到部分匹配的代币", [
+                    'target' => $targetSymbol,
+                    'matched' => $baseSymbol,
+                    'name' => $pair['baseToken']['name'] ?? 'unknown'
+                ]);
+                return $pair;
+            }
+        }
+
+        // 优先级3: 检查代币名称中是否包含目标符号
+        foreach ($pairs as $pair) {
+            $tokenName = strtoupper($pair['baseToken']['name'] ?? '');
+            if (str_contains($tokenName, $targetSymbol)) {
+                Log::info("Controller: 通过名称匹配找到代币", [
+                    'target' => $targetSymbol,
+                    'matched_name' => $tokenName,
+                    'symbol' => $pair['baseToken']['symbol'] ?? 'unknown'
+                ]);
+                return $pair;
+            }
+        }
+
+        // 优先级4: 返回第一个结果（原有逻辑）
+        if (!empty($pairs)) {
+            Log::warning("Controller: 使用第一个搜索结果作为备选", [
+                'target' => $targetSymbol,
+                'fallback_symbol' => $pairs[0]['baseToken']['symbol'] ?? 'unknown',
+                'fallback_name' => $pairs[0]['baseToken']['name'] ?? 'unknown'
+            ]);
+            return $pairs[0];
+        }
+
+        return null;
     }
 }

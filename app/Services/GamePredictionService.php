@@ -41,6 +41,11 @@ class GamePredictionService
     const MIN_VOLUME_SCORE = 30;                  // 最低交易量评分
     const POSITIVE_CHANGE_BONUS = 10;             // 正向变化奖励分数
     const STABILITY_REWARD_MULTIPLIER = 1.2;      // 稳定性奖励倍数
+
+    // 数据质量管理参数 (v5 新增)
+    const MIN_DATA_QUALITY_SCORE = 0.3;           // 数据质量最低保证比例
+    const TOTAL_MARKET_DATA_POINTS = 5;           // 总市场数据点数量
+    const DATA_QUALITY_LOG_THRESHOLD = 0.8;       // 数据质量日志记录阈值
     /**
      * 为指定代币列表生成预测分析数据并缓存
      */
@@ -66,8 +71,8 @@ class GamePredictionService
                 'round_id' => $roundId,
                 'analysis_data' => $analysisData,
                 'generated_at' => now()->toISOString(),
-                'algorithm' => 'stability_first_prediction_v4',
-                'algorithm_description' => '基于风险调整分数的稳定性优先预测算法',
+                'algorithm' => 'stability_first_prediction_v6',
+                'algorithm_description' => '纯净动态权重调整的稳定性优先预测算法',
                 'analysis_rounds_count' => $this->getAnalysisRoundsCount()
             ];
 
@@ -95,18 +100,20 @@ class GamePredictionService
                 ];
             }
 
-            Log::info('✅ 预测分析数据已生成并缓存 (稳定性优先算法)', [
+            Log::info('✅ 预测分析数据已生成并缓存 (纯净动态权重调整算法)', [
                 'round_id' => $roundId,
-                'algorithm' => 'stability_first_prediction_v4',
-                'algorithm_description' => '基于风险调整分数的稳定性优先预测算法',
+                'algorithm' => 'stability_first_prediction_v6',
+                'algorithm_description' => '纯净动态权重调整的稳定性优先预测算法',
                 'tokens_analyzed' => count($analysisData),
                 'top_3_predictions' => $algorithmSummary,
                 'cache_expires' => now()->addMinutes(self::CACHE_DURATION_MINUTES)->toISOString(),
                 'sorting_strategy' => 'risk_adjusted_score (稳定性优先)',
                 'key_improvements' => [
-                    '主要排序依据从预期分数改为风险调整分数',
-                    '所有参数配置化，便于调优',
-                    '增强的置信度计算算法'
+                    '🎯 纯净动态权重调整：缺失数据的权重智能重新分配给可用数据',
+                    '🧹 移除双重折扣：避免对市场信号的过度惩罚',
+                    '🛡️ 智能容错：区分"没有数据"和"没有变化"',
+                    '📈 风险调整分数排序：稳定性优先策略',
+                    '⚖️ 平衡决策：历史数据与市场信号的最优权衡'
                 ]
             ]);
 
@@ -325,8 +332,6 @@ class GamePredictionService
         return $tokenStats;
     }
 
-
-
     /**
      * 批量获取市场数据并合并到分析结果中
      */
@@ -441,15 +446,65 @@ class GamePredictionService
     }
 
     /**
-     * 计算市场调整分数（将市场动量转换为分数调整值）
+     * 计算市场调整分数（将市场动量转换为分数调整值） - 优化版：信任动态权重调整
      */
     private function calculateMarketAdjustmentValue(array $data): float
     {
+        // 计算市场动量评分（已通过动态权重调整处理数据质量）
         $marketMomentumScore = $this->calculateMarketMomentumScore($data);
 
-        // 将 0-100 的市场动量评分转换为调整值
-        // 50 为中性点，高于50产生正向调整，低于50产生负向调整
-        return ($marketMomentumScore - 50) * self::MARKET_INFLUENCE_FACTOR;
+        // 直接使用动态加权后的市场动量分，不再需要额外的数据质量折扣
+        $adjustment = ($marketMomentumScore - 50) * self::MARKET_INFLUENCE_FACTOR;
+
+        Log::info("市场调整值计算", [
+            'symbol' => $data['symbol'],
+            'market_momentum_score' => round($marketMomentumScore, 2),
+            'market_adjustment_value' => round($adjustment, 4),
+            'logic' => 'dynamic_weight_adjustment_only'
+        ]);
+
+        return $adjustment;
+    }
+
+    /**
+     * 计算数据质量评分 - 评估市场数据的完整性
+     */
+    private function calculateDataQualityScore(array $data): float
+    {
+        $availableDataPoints = 0;
+
+        // 检查价格变化数据
+        $priceChangeFields = ['change_5m', 'change_1h', 'change_4h', 'change_24h'];
+        foreach ($priceChangeFields as $field) {
+            if (isset($data[$field]) && $data[$field] !== null) {
+                $availableDataPoints++;
+            }
+        }
+
+        // 检查交易量数据
+        if (isset($data['volume_24h']) && $data['volume_24h'] !== null && $data['volume_24h'] !== '0') {
+            $availableDataPoints++;
+        }
+
+        // 计算质量评分（0-1之间）
+        $qualityScore = $availableDataPoints / self::TOTAL_MARKET_DATA_POINTS;
+
+        // 给予基础质量保证：即使数据缺失，也保留一定的影响力
+        $finalQualityScore = max(self::MIN_DATA_QUALITY_SCORE, $qualityScore);
+
+        // 数据质量较低时记录详细日志
+        if ($qualityScore < self::DATA_QUALITY_LOG_THRESHOLD) {
+            Log::warning("代币市场数据质量较低", [
+                'symbol' => $data['symbol'],
+                'available_data_points' => $availableDataPoints,
+                'total_data_points' => self::TOTAL_MARKET_DATA_POINTS,
+                'raw_quality_score' => round($qualityScore, 3),
+                'final_quality_score' => round($finalQualityScore, 3),
+                'quality_discount' => round((1 - $finalQualityScore) * 100, 1) . '%'
+            ]);
+        }
+
+        return $finalQualityScore;
     }
 
     /**
@@ -517,32 +572,95 @@ class GamePredictionService
     }
 
     /**
-     * 计算市场动量评分
+     * 计算市场动量评分 - 优化版：动态权重调整，信任数据质量处理
      */
     private function calculateMarketMomentumScore(array $data): float
     {
-        // 获取价格变化数据
-        $change5m = $this->normalizeChange($data['change_5m'] ?? 0);
-        $change1h = $this->normalizeChange($data['change_1h'] ?? 0);
-        $change4h = $this->normalizeChange($data['change_4h'] ?? 0);
-        $change24h = $this->normalizeChange($data['change_24h'] ?? 0);
+        // 定义各时间段的权重
+        $weights = [
+            '5m' => self::MOMENTUM_WEIGHT_5M,   // 0.4
+            '1h' => self::MOMENTUM_WEIGHT_1H,   // 0.3
+            '4h' => self::MOMENTUM_WEIGHT_4H,   // 0.2
+            '24h' => self::MOMENTUM_WEIGHT_24H  // 0.1
+        ];
 
-        // 计算交易量评分（相对交易量越高越好）
+        $availableData = [];
+        $totalWeight = 0;
+        $missingDataCount = 0;
+
+        // 收集可用的数据和权重
+        foreach ($weights as $timeframe => $weight) {
+            $changeKey = 'change_' . $timeframe;
+
+            if (isset($data[$changeKey]) && $data[$changeKey] !== null) {
+                $availableData[$timeframe] = $this->normalizeChange($data[$changeKey]);
+                $totalWeight += $weight;
+
+                Log::debug("市场数据可用", [
+                    'symbol' => $data['symbol'],
+                    'timeframe' => $timeframe,
+                    'change' => $data[$changeKey],
+                    'normalized_score' => $availableData[$timeframe],
+                    'weight' => $weight
+                ]);
+            } else {
+                $missingDataCount++;
+                Log::warning("市场数据缺失", [
+                    'symbol' => $data['symbol'],
+                    'timeframe' => $timeframe,
+                    'weight_lost' => $weight
+                ]);
+            }
+        }
+
+        // 计算数据质量评分（仅用于监控和日志记录）
+        $dataQualityScore = max(0, (4 - $missingDataCount) / 4);
+
+        // 如果所有数据都缺失，返回中性分（50分）
+        if ($totalWeight === 0) {
+            Log::warning("所有市场数据缺失，使用默认评分", [
+                'symbol' => $data['symbol'],
+                'default_score' => 50
+            ]);
+            return 50;
+        }
+
+        // 计算动态权重调整后的动量评分
+        $momentumScore = 0;
+        foreach ($availableData as $timeframe => $score) {
+            // 将权重重新归一化 (re-normalize)
+            $adjustedWeight = $weights[$timeframe] / $totalWeight;
+            $momentumScore += $score * $adjustedWeight;
+
+            Log::debug("动态权重调整", [
+                'symbol' => $data['symbol'],
+                'timeframe' => $timeframe,
+                'original_weight' => $weights[$timeframe],
+                'adjusted_weight' => $adjustedWeight,
+                'score' => $score,
+                'contribution' => $score * $adjustedWeight
+            ]);
+        }
+
+        // 计算交易量评分
         $volumeScore = $this->calculateVolumeScore($data['volume_24h'] ?? '0');
 
-        // 计算动量评分 - 近期变化权重更高
-        $momentumScore = (
-            ($change5m * self::MOMENTUM_WEIGHT_5M) +   // 5分钟变化权重（最重要）
-            ($change1h * self::MOMENTUM_WEIGHT_1H) +   // 1小时变化权重
-            ($change4h * self::MOMENTUM_WEIGHT_4H) +   // 4小时变化权重
-            ($change24h * self::MOMENTUM_WEIGHT_24H)   // 24小时变化权重
-        );
+        // 综合市场评分：动量 + 交易量（已通过动态权重调整处理数据质量）
+        $finalMarketScore = ($momentumScore * self::MOMENTUM_SCORE_WEIGHT) + ($volumeScore * self::VOLUME_SCORE_WEIGHT);
 
-        // 综合市场评分：动量 + 交易量
-        $marketScore = ($momentumScore * self::MOMENTUM_SCORE_WEIGHT) + ($volumeScore * self::VOLUME_SCORE_WEIGHT);
+        Log::info("市场动量评分计算完成", [
+            'symbol' => $data['symbol'],
+            'available_data_count' => count($availableData),
+            'missing_data_count' => $missingDataCount,
+            'data_quality_info' => round($dataQualityScore, 3) . ' (handled by dynamic weights)',
+            'momentum_score' => round($momentumScore, 2),
+            'volume_score' => round($volumeScore, 2),
+            'final_market_score' => round($finalMarketScore, 2),
+            'logic' => 'dynamic_weight_adjustment_only'
+        ]);
 
         // 确保评分在0-100范围内
-        return max(0, min(100, $marketScore));
+        return max(0, min(100, $finalMarketScore));
     }
 
     /**

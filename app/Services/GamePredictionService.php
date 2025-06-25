@@ -34,7 +34,7 @@ class GamePredictionService
                 'round_id' => $roundId,
                 'analysis_data' => $analysisData,
                 'generated_at' => now()->toISOString(),
-                'algorithm' => 'historical_performance_weighted',
+                'algorithm' => 'enhanced_market_momentum_v2',
                 'analysis_rounds_count' => $this->getAnalysisRoundsCount()
             ];
 
@@ -190,12 +190,13 @@ class GamePredictionService
                     $trendScore = ((5 - $recentAvg) / 4) * 100;
                 }
 
-                // 综合预测评分算法
+                // 改进的预测评分算法 - 降低历史数据权重，后续会加入市场数据
                 $stats['prediction_score'] = (
-                    ($stats['win_rate'] * 0.3) +
-                    ($stats['top3_rate'] * 0.25) +
-                    (((5 - $stats['avg_rank']) / 4) * 100 * 0.25) +
-                    ($trendScore * 0.2)
+                    ($stats['win_rate'] * 0.15) +                // 降低胜率权重从30%到15%
+                    ($stats['top3_rate'] * 0.20) +               // 降低前三率权重从25%到20%
+                    (((5 - $stats['avg_rank']) / 4) * 100 * 0.20) + // 降低平均排名权重从25%到20%
+                    ($trendScore * 0.15) +                       // 降低趋势权重从20%到15%
+                    (30)                                          // 预留30%权重给市场数据
                 );
             } else {
                 // 如果没有历史数据，给予中等评分
@@ -239,6 +240,9 @@ class GamePredictionService
                 $mergedData = array_merge($stats, $marketData);
                 $mergedData['symbol'] = $originalSymbol; // 强制保持原始symbol
 
+                // 重新计算包含市场数据的预测评分
+                $mergedData = $this->calculateEnhancedPredictionScore($mergedData);
+
                 $analysisData[] = $mergedData;
 
                 // 延迟避免API限制
@@ -254,7 +258,109 @@ class GamePredictionService
             }
         }
 
+        // 重新排序包含市场数据的结果
+        usort($analysisData, function ($a, $b) {
+            return $b['final_prediction_score'] <=> $a['final_prediction_score'];
+        });
+
+        // 重新分配预测排名
+        foreach ($analysisData as $index => &$data) {
+            $data['predicted_rank'] = $index + 1;
+        }
+
         return $analysisData;
+    }
+
+    /**
+     * 计算包含市场数据的增强预测评分
+     */
+    private function calculateEnhancedPredictionScore(array $data): array
+    {
+        // 基础历史评分（已经计算过，占70%权重）
+        $historicalScore = $data['prediction_score'];
+
+        // 计算市场动量评分（占30%权重）
+        $marketMomentumScore = $this->calculateMarketMomentumScore($data);
+
+        // 最终预测评分
+        $data['market_momentum_score'] = round($marketMomentumScore, 1);
+        $data['final_prediction_score'] = round(($historicalScore * 0.7) + ($marketMomentumScore * 0.3), 1);
+
+        return $data;
+    }
+
+    /**
+     * 计算市场动量评分
+     */
+    private function calculateMarketMomentumScore(array $data): float
+    {
+        // 获取价格变化数据
+        $change5m = $this->normalizeChange($data['change_5m'] ?? 0);
+        $change1h = $this->normalizeChange($data['change_1h'] ?? 0);
+        $change4h = $this->normalizeChange($data['change_4h'] ?? 0);
+        $change24h = $this->normalizeChange($data['change_24h'] ?? 0);
+
+        // 计算交易量评分（相对交易量越高越好）
+        $volumeScore = $this->calculateVolumeScore($data['volume_24h'] ?? '0');
+
+        // 计算动量评分 - 近期变化权重更高
+        $momentumScore = (
+            ($change5m * 0.4) +   // 5分钟变化权重40%（最重要）
+            ($change1h * 0.3) +   // 1小时变化权重30%
+            ($change4h * 0.2) +   // 4小时变化权重20%
+            ($change24h * 0.1)    // 24小时变化权重10%
+        );
+
+        // 综合市场评分：动量70% + 交易量30%
+        $marketScore = ($momentumScore * 0.7) + ($volumeScore * 0.3);
+
+        // 确保评分在0-100范围内
+        return max(0, min(100, $marketScore));
+    }
+
+    /**
+     * 标准化价格变化为0-100评分
+     */
+    private function normalizeChange(float $change): float
+    {
+        if ($change === 0) {
+            return 50; // 无变化给中等评分
+        }
+
+        // 将-10%到+10%的变化映射到0-100分
+        // 正向变化得分更高
+        $normalizedChange = ($change + 10) / 20 * 100;
+
+        // 确保在0-100范围内，并给正向变化额外加分
+        $score = max(0, min(100, $normalizedChange));
+
+        // 正向趋势加权：正向变化得分更高
+        if ($change > 0) {
+            $score = min(100, $score + 10); // 正向变化额外加10分
+        }
+
+        return $score;
+    }
+
+    /**
+     * 计算交易量评分
+     */
+    private function calculateVolumeScore(string $volume): float
+    {
+        $volumeValue = floatval($volume);
+
+        if ($volumeValue <= 0) {
+            return 30; // 无交易量数据给低分
+        }
+
+        // 对数缩放处理交易量，避免极端值
+        $logVolume = log10($volumeValue + 1);
+
+        // 将对数交易量映射到30-100分（保证最低30分）
+        // 假设log交易量在3-8之间（1K-100M USD）
+        $score = 30 + (min($logVolume, 8) - 3) / 5 * 70;
+
+        return max(30, min(100, $score));
     }
 
     /**
@@ -381,8 +487,6 @@ class GamePredictionService
     {
         return GameRound::count();
     }
-
-
 
     /**
      * 清除缓存的预测数据

@@ -38,177 +38,159 @@
             </div>
           </template>
 
-          <NSpin :show="analysisLoading">
-            <div v-if="analysisData.length > 0" class="space-y-6">
-              <!-- 预测排名卡片 -->
-              <div>
-                <h3 class="mb-4 text-lg text-white font-semibold">🔮 预测排名</h3>
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-5 md:grid-cols-3">
-                  <div
-                    v-for="(token, index) in analysisData"
-                    :key="`prediction-${index}-${token.symbol}-${token.name}`"
-                    class="relative border-2 rounded-lg p-4 transition-all duration-200 hover:shadow-lg"
-                    :class="getPredictionCardClass(index)"
-                  >
-                    <div class="mb-3 flex items-center justify-between">
-                      <div class="flex items-center space-x-2">
-                        <img
-                          v-if="token.logo"
-                          :src="token.logo"
-                          :alt="token.symbol"
-                          class="h-6 w-6 rounded-full"
-                          @error="($event.target as HTMLImageElement).style.display = 'none'"
-                        />
-                        <div v-else class="h-6 w-6 flex items-center justify-center rounded-full bg-gray-300 text-xs">
-                          {{ token.symbol.charAt(0) }}
-                        </div>
-                        <span class="text-16px text-gray-800 font-bold">{{ token.symbol }}</span>
+          <div v-if="analysisData.length > 0" class="space-y-3">
+            <!-- 预测排名卡片 -->
+            <div>
+              <h3 class="mb-4 text-lg text-white font-semibold">🔮 预测排名</h3>
+              <div class="grid grid-cols-1 gap-4 lg:grid-cols-5 md:grid-cols-3">
+                <div
+                  v-for="(token, index) in analysisData"
+                  :key="`prediction-${index}-${token.symbol}-${token.name}`"
+                  class="relative border-2 rounded-lg p-4 transition-all duration-200 hover:shadow-lg"
+                  :class="getPredictionCardClass(index)"
+                >
+                  <div class="mb-3 flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                      <img
+                        v-if="token.logo"
+                        :src="token.logo"
+                        :alt="token.symbol"
+                        class="h-6 w-6 rounded-full"
+                        @error="($event.target as HTMLImageElement).style.display = 'none'"
+                      />
+                      <div v-else class="h-6 w-6 flex items-center justify-center rounded-full bg-gray-300 text-xs">
+                        {{ token.symbol.charAt(0) }}
                       </div>
-                      <div class="flex items-center space-x-1">
-                        <span class="text-lg text-gray-700 font-medium">#{{ index + 1 }}</span>
-                      </div>
+                      <span class="text-16px text-gray-800 font-bold">{{ token.symbol }}</span>
                     </div>
+                    <div class="flex items-center space-x-1">
+                      <span class="text-lg text-gray-700 font-medium">#{{ index + 1 }}</span>
+                    </div>
+                  </div>
 
-                    <div class="text-sm space-y-1">
-                      <div class="flex justify-between">
-                        <span class="text-gray-700">预测评分:</span>
-                        <span class="text-gray-800 font-medium">{{ token.prediction_score.toFixed(1) }}</span>
-                      </div>
-                      <div class="flex justify-between">
-                        <span class="text-gray-700">胜率:</span>
-                        <span class="text-green-700 font-medium">{{ token.win_rate.toFixed(1) }}%</span>
-                      </div>
-                      <div class="flex justify-between">
-                        <span class="text-gray-700">前三率:</span>
-                        <span class="text-blue-700 font-medium">{{ token.top3_rate.toFixed(1) }}%</span>
-                      </div>
-                      <div class="flex justify-between">
-                        <span class="text-gray-700">价格:</span>
-                        <span class="text-xs text-gray-800 font-mono">${{ parseFloat(token.price).toFixed(6) }}</span>
-                      </div>
+                  <div class="text-sm space-y-1">
+                    <div class="flex justify-between">
+                      <span class="text-gray-700">预测评分:</span>
+                      <span class="text-gray-800 font-medium">{{ token.prediction_score.toFixed(1) }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-700">胜率:</span>
+                      <span class="text-green-700 font-medium">{{ token.win_rate.toFixed(1) }}%</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-700">前三率:</span>
+                      <span class="text-blue-700 font-medium">{{ token.top3_rate.toFixed(1) }}%</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-700">价格:</span>
+                      <span class="text-xs text-gray-800 font-mono">${{ parseFloat(token.price).toFixed(6) }}</span>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
 
-              <!-- 详细市场数据表格 -->
-              <div>
-                <h3 class="mb-4 text-lg text-white font-semibold">💰 详细市场数据</h3>
-                <div class="overflow-x-auto border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
-                  <table class="w-full text-sm">
-                    <thead>
-                      <tr class="border-b border-white/20 bg-white/5">
-                        <th class="px-4 py-3 text-left text-white font-medium">排名</th>
-                        <th class="px-4 py-3 text-left text-white font-medium">代币</th>
-                        <th class="px-4 py-3 text-right text-white font-medium">价格 (USD)</th>
-                        <th class="px-4 py-3 text-right text-white font-medium">5分钟</th>
-                        <th class="px-4 py-3 text-right text-white font-medium">1小时</th>
-                        <th class="px-4 py-3 text-right text-white font-medium">4小时</th>
-                        <th class="px-4 py-3 text-right text-white font-medium">24小时</th>
-                        <th class="px-4 py-3 text-right text-white font-medium">成交量 24h</th>
-                        <th class="px-4 py-3 text-right text-white font-medium">预测评分</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr
-                        v-for="(token, index) in analysisData"
-                        :key="`table-${index}-${token.symbol}-${token.name}`"
-                        class="border-b border-white/10 transition-colors duration-200 hover:bg-white/10"
-                      >
-                        <td class="px-4 py-3">
-                          <div class="flex items-center space-x-2">
-                            <span class="text-lg">{{ getPredictionIcon(index) }}</span>
-                            <span class="text-white font-medium">#{{ index + 1 }}</span>
+            <!-- 详细市场数据表格 -->
+            <div>
+              <h3 class="mb-4 text-lg text-white font-semibold">💰 详细市场数据</h3>
+              <div class="overflow-x-auto border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-b border-white/20 bg-white/5">
+                      <th class="px-4 py-3 text-left text-white font-medium">排名</th>
+                      <th class="px-4 py-3 text-left text-white font-medium">代币</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">价格 (USD)</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">5分钟</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">1小时</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">4小时</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">24小时</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">成交量 24h</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">预测评分</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">市场动量</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="(token, index) in analysisData"
+                      :key="`table-${index}-${token.symbol}-${token.name}`"
+                      class="border-b border-white/10 transition-colors duration-200 hover:bg-white/10"
+                    >
+                      <td class="px-4 py-3">
+                        <div class="flex items-center space-x-2">
+                          <span class="text-lg">{{ getPredictionIcon(index) }}</span>
+                          <span class="text-white font-medium">#{{ index + 1 }}</span>
+                        </div>
+                      </td>
+                      <td class="px-4 py-3">
+                        <div class="flex items-center space-x-3">
+                          <img
+                            v-if="token.logo"
+                            :src="token.logo"
+                            :alt="token.symbol"
+                            class="h-8 w-8 rounded-full"
+                            @error="($event.target as HTMLImageElement).style.display = 'none'"
+                          />
+                          <div v-else class="h-8 w-8 flex items-center justify-center rounded-full bg-gray-300 text-xs">
+                            {{ token.symbol.charAt(0) }}
                           </div>
-                        </td>
-                        <td class="px-4 py-3">
-                          <div class="flex items-center space-x-3">
-                            <img
-                              v-if="token.logo"
-                              :src="token.logo"
-                              :alt="token.symbol"
-                              class="h-8 w-8 rounded-full"
-                              @error="($event.target as HTMLImageElement).style.display = 'none'"
-                            />
-                            <div
-                              v-else
-                              class="h-8 w-8 flex items-center justify-center rounded-full bg-gray-300 text-xs"
-                            >
-                              {{ token.symbol.charAt(0) }}
-                            </div>
-                            <div>
-                              <div class="text-white font-medium">{{ token.symbol }}</div>
-                              <div class="text-xs text-gray-300">{{ token.name }}</div>
-                            </div>
+                          <div>
+                            <div class="text-white font-medium">{{ token.symbol }}</div>
+                            <div class="text-xs text-gray-300">{{ token.name }}</div>
                           </div>
-                        </td>
-                        <td class="px-4 py-3 text-right text-white font-mono">
-                          ${{ parseFloat(token.price).toFixed(6) }}
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                          <span :class="getChangeColor(token.change_5m)">
-                            {{ formatChange(token.change_5m) }}
+                        </div>
+                      </td>
+                      <td class="px-4 py-3 text-right text-white font-mono">
+                        ${{ parseFloat(token.price).toFixed(6) }}
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        <span :class="getChangeColor(token.change_5m)">
+                          {{ formatChange(token.change_5m) }}
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        <span :class="getChangeColor(token.change_1h)">
+                          {{ formatChange(token.change_1h) }}
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        <span :class="getChangeColor(token.change_4h)">
+                          {{ formatChange(token.change_4h) }}
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        <span :class="getChangeColor(token.change_24h)">
+                          {{ formatChange(token.change_24h) }}
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-right text-xs text-white font-mono">
+                        ${{ formatVolume(token.volume_24h) }}
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        <div class="flex flex-col items-end">
+                          <span class="text-blue-400 font-medium">
+                            {{ (token.final_prediction_score || token.prediction_score).toFixed(1) }}
                           </span>
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                          <span :class="getChangeColor(token.change_1h)">
-                            {{ formatChange(token.change_1h) }}
-                          </span>
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                          <span :class="getChangeColor(token.change_4h)">
-                            {{ formatChange(token.change_4h) }}
-                          </span>
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                          <span :class="getChangeColor(token.change_24h)">
-                            {{ formatChange(token.change_24h) }}
-                          </span>
-                        </td>
-                        <td class="px-4 py-3 text-right text-xs text-white font-mono">
-                          ${{ formatVolume(token.volume_24h) }}
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                          <span class="text-blue-400 font-medium">{{ token.prediction_score.toFixed(1) }}</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                          <span class="text-xs text-gray-400">历史: {{ token.prediction_score.toFixed(1) }}</span>
+                        </div>
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        <span v-if="token.market_momentum_score" class="text-green-400 font-medium">
+                          {{ token.market_momentum_score.toFixed(1) }}
+                        </span>
+                        <span v-else class="text-gray-400">-</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
-            <NEmpty v-else description="暂无当前局数据" class="py-8" />
-          </NSpin>
-        </NCard>
-
-        <!-- 第三部分：历史数据表格 -->
-        <NCard
-          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="📊 历史游戏数据 (最近50局)"
-          size="large"
-        >
-          <template #header-extra>
-            <n-button :loading="historyLoading" @click="refreshHistoryData" type="primary" size="small">
-              🔄 刷新历史
-            </n-button>
-          </template>
-
-          <NSpin :show="historyLoading">
-            <NDataTable
-              v-if="historyData.length > 0"
-              :columns="historyColumns"
-              :data="historyTableData"
-              :pagination="{ pageSize: 5 }"
-              :scroll-x="800"
-              striped
-            />
-            <NEmpty v-else description="暂无历史数据" class="py-8" />
-          </NSpin>
+          </div>
+          <NEmpty v-else description="暂无当前局数据" class="py-8" />
         </NCard>
 
         <!-- 第四部分：预测历史数据表格 -->
         <NCard
-          class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
           title="🔮 预测历史数据 (最近50局)"
           size="large"
         >
@@ -278,6 +260,31 @@
             <NEmpty v-else description="暂无预测历史数据" class="py-8" />
           </NSpin>
         </NCard>
+
+        <!-- 第三部分：历史数据表格 -->
+        <NCard
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="📊 历史游戏数据 (最近50局)"
+          size="large"
+        >
+          <template #header-extra>
+            <n-button :loading="historyLoading" @click="refreshHistoryData" type="primary" size="small">
+              🔄 刷新历史
+            </n-button>
+          </template>
+
+          <NSpin :show="historyLoading">
+            <NDataTable
+              v-if="historyData.length > 0"
+              :columns="historyColumns"
+              :data="historyTableData"
+              :pagination="{ pageSize: 5 }"
+              :scroll-x="800"
+              striped
+            />
+            <NEmpty v-else description="暂无历史数据" class="py-8" />
+          </NSpin>
+        </NCard>
       </div>
     </div>
   </DefaultLayout>
@@ -303,6 +310,8 @@
     market_cap: number | null;
     logo: string | null;
     prediction_score: number;
+    market_momentum_score?: number;
+    final_prediction_score?: number;
     win_rate: number;
     top3_rate: number;
     avg_rank: number;
@@ -658,11 +667,8 @@
 
     setInterval(() => {
       fetchHistoryData();
-    }, 30000);
-
-    setInterval(() => {
       fetchPredictionHistoryData();
-    }, 60000);
+    }, 30000);
   });
 </script>
 

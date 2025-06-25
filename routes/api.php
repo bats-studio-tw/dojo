@@ -22,6 +22,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 // 游戏数据API路由组
 Route::prefix('game')->group(function () {
     Route::get('/history', [GameDataController::class, 'getHistoryData'])->name('api.game.history');
+    Route::get('/current-analysis', [GameDataController::class, 'getCurrentRoundAnalysis'])->name('api.game.current-analysis');
+    // 保留旧API以防兼容性问题
     Route::get('/market-data', [GameDataController::class, 'getTokenMarketData'])->name('api.game.market-data');
-    Route::get('/prediction', [GameDataController::class, 'getPredictionData'])->name('api.game.prediction');
+    Route::get('/prediction', [GameDataController::class, 'getCurrentRoundAnalysis'])->name('api.game.prediction');
 });

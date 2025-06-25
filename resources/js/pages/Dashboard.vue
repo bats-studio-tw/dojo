@@ -2,150 +2,190 @@
   <DefaultLayout>
     <Head title="游戏数据中心" />
 
-    <div class="min-h-screen bg-gray-900 p-6">
+    <div class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br p-6">
       <div class="mx-auto max-w-7xl">
         <!-- 页面标题 -->
-        <div class="mb-8">
-          <h1 class="mb-2 text-3xl text-white font-bold">🎯 游戏数据中心</h1>
-          <p class="text-gray-300">实时游戏数据分析与预测系统</p>
-        </div>
+        <!-- <div class="mb-8 text-center">
+          <h1
+            class="mb-4 from-blue-400 via-purple-400 to-pink-400 bg-gradient-to-r bg-clip-text text-4xl text-transparent font-bold"
+          >
+            🎯 游戏数据中心
+          </h1>
+          <p class="text-lg text-gray-300">实时游戏数据分析与预测系统</p>
+          <div class="mx-auto mt-4 h-1 w-24 rounded-full from-blue-400 to-purple-400 bg-gradient-to-r"></div>
+        </div> -->
 
-        <!-- 第一部分：预测当前局排名 -->
-        <n-card class="mb-6" title="🔮 预测排名" size="large">
-          <template #header-extra>
-            <n-button :loading="predictionLoading" @click="refreshPrediction" type="primary" size="small">
-              🔄 刷新预测
-            </n-button>
-          </template>
-
-          <n-spin :show="predictionLoading">
-            <div v-if="predictionData.length > 0" class="grid grid-cols-1 gap-4 lg:grid-cols-3 md:grid-cols-2">
-              <div
-                v-for="(token, index) in predictionData"
-                :key="token.symbol"
-                class="relative border-2 rounded-lg p-4 transition-all duration-200 hover:shadow-lg"
-                :class="getPredictionCardClass(index)"
-              >
-                <div class="mb-2 flex items-center justify-between">
-                  <span class="text-lg font-bold">{{ token.symbol }}</span>
-                  <div class="flex items-center space-x-1">
-                    <span class="text-2xl">{{ getPredictionIcon(index) }}</span>
-                    <span class="text-sm text-gray-600 font-medium">预测#{{ index + 1 }}</span>
-                  </div>
-                </div>
-
-                <div class="text-sm space-y-1">
-                  <div class="flex justify-between">
-                    <span class="text-gray-600">预测评分:</span>
-                    <span class="font-medium">{{ token.prediction_score.toFixed(1) }}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-600">胜率:</span>
-                    <span class="text-green-600 font-medium">{{ token.win_rate.toFixed(1) }}%</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-600">前三率:</span>
-                    <span class="text-blue-600 font-medium">{{ token.top3_rate.toFixed(1) }}%</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-600">平均排名:</span>
-                    <span class="font-medium">{{ token.avg_rank.toFixed(1) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <n-empty v-else description="暂无预测数据" class="py-8" />
-          </n-spin>
-        </n-card>
-
-        <!-- 第二部分：代币市场信息 -->
-        <n-card class="mb-6" title="💰 代币市场信息" size="large">
+        <!-- 当前局分析（预测+市场） -->
+        <n-card
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="🎯 当前局分析"
+          size="large"
+        >
           <template #header-extra>
             <div class="flex items-center space-x-3">
-              <div v-if="marketMeta" class="text-sm text-gray-600">
+              <div v-if="analysisMeta" class="text-sm text-gray-600">
                 <span class="font-medium">轮次:</span>
-                {{ marketMeta.round_id }} |
+                {{ analysisMeta.round_id }} |
                 <span class="font-medium">状态:</span>
-                <n-tag :type="getStatusTagType(marketMeta.status)" size="small">
-                  {{ getStatusText(marketMeta.status) }}
+                <n-tag :type="getStatusTagType(analysisMeta.status)" size="small">
+                  {{ getStatusText(analysisMeta.status) }}
                 </n-tag>
               </div>
-              <n-button :loading="marketLoading" @click="refreshMarketData" type="primary" size="small">
-                🔄 刷新市场
+              <n-button :loading="analysisLoading" @click="refreshAnalysis" type="primary" size="small">
+                🔄 刷新分析
               </n-button>
             </div>
           </template>
 
-          <n-spin :show="marketLoading">
-            <div v-if="marketData.length > 0" class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr class="border-b border-gray-200">
-                    <th class="px-4 py-3 text-left text-gray-700 font-medium">代币</th>
-                    <th class="px-4 py-3 text-right text-gray-700 font-medium">价格 (USD)</th>
-                    <th class="px-4 py-3 text-right text-gray-700 font-medium">5分钟</th>
-                    <th class="px-4 py-3 text-right text-gray-700 font-medium">1小时</th>
-                    <th class="px-4 py-3 text-right text-gray-700 font-medium">4小时</th>
-                    <th class="px-4 py-3 text-right text-gray-700 font-medium">24小时</th>
-                    <th class="px-4 py-3 text-right text-gray-700 font-medium">成交量 24h</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="token in marketData" :key="token.symbol" class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="px-4 py-3">
-                      <div class="flex items-center space-x-3">
+          <n-spin :show="analysisLoading">
+            <div v-if="analysisData.length > 0" class="space-y-6">
+              <!-- 预测排名卡片 -->
+              <div>
+                <h3 class="mb-4 text-lg text-white font-semibold">🔮 预测排名</h3>
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-5 md:grid-cols-3">
+                  <div
+                    v-for="(token, index) in analysisData"
+                    :key="`prediction-${index}-${token.symbol}-${token.name}`"
+                    class="relative border-2 rounded-lg p-4 transition-all duration-200 hover:shadow-lg"
+                    :class="getPredictionCardClass(index)"
+                  >
+                    <div class="mb-3 flex items-center justify-between">
+                      <div class="flex items-center space-x-2">
                         <img
                           v-if="token.logo"
                           :src="token.logo"
                           :alt="token.symbol"
-                          class="h-8 w-8 rounded-full"
+                          class="h-6 w-6 rounded-full"
                           @error="($event.target as HTMLImageElement).style.display = 'none'"
                         />
-                        <div v-else class="h-8 w-8 flex items-center justify-center rounded-full bg-gray-300 text-xs">
+                        <div v-else class="h-6 w-6 flex items-center justify-center rounded-full bg-gray-300 text-xs">
                           {{ token.symbol.charAt(0) }}
                         </div>
-                        <div>
-                          <div class="font-medium">
-                            {{ token.symbol }}
-                          </div>
-                          <div class="text-xs text-gray-500">
-                            {{ token.name }}
-                          </div>
-                        </div>
+                        <span class="text-16px text-gray-800 font-bold">{{ token.symbol }}</span>
                       </div>
-                    </td>
-                    <td class="px-4 py-3 text-right font-mono">${{ parseFloat(token.price).toFixed(6) }}</td>
-                    <td class="px-4 py-3 text-right">
-                      <span :class="getChangeColor(token.change_5m)">
-                        {{ formatChange(token.change_5m) }}
-                      </span>
-                    </td>
-                    <td class="px-4 py-3 text-right">
-                      <span :class="getChangeColor(token.change_1h)">
-                        {{ formatChange(token.change_1h) }}
-                      </span>
-                    </td>
-                    <td class="px-4 py-3 text-right">
-                      <span :class="getChangeColor(token.change_4h)">
-                        {{ formatChange(token.change_4h) }}
-                      </span>
-                    </td>
-                    <td class="px-4 py-3 text-right">
-                      <span :class="getChangeColor(token.change_24h)">
-                        {{ formatChange(token.change_24h) }}
-                      </span>
-                    </td>
-                    <td class="px-4 py-3 text-right text-xs font-mono">${{ formatVolume(token.volume_24h) }}</td>
-                  </tr>
-                </tbody>
-              </table>
+                      <div class="flex items-center space-x-1">
+                        <span class="text-lg text-gray-700 font-medium">#{{ index + 1 }}</span>
+                      </div>
+                    </div>
+
+                    <div class="text-sm space-y-1">
+                      <div class="flex justify-between">
+                        <span class="text-gray-700">预测评分:</span>
+                        <span class="text-gray-800 font-medium">{{ token.prediction_score.toFixed(1) }}</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-gray-700">胜率:</span>
+                        <span class="text-green-700 font-medium">{{ token.win_rate.toFixed(1) }}%</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-gray-700">前三率:</span>
+                        <span class="text-blue-700 font-medium">{{ token.top3_rate.toFixed(1) }}%</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-gray-700">价格:</span>
+                        <span class="text-xs text-gray-800 font-mono">${{ parseFloat(token.price).toFixed(6) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 详细市场数据表格 -->
+              <div>
+                <h3 class="mb-4 text-lg text-white font-semibold">💰 详细市场数据</h3>
+                <div class="overflow-x-auto border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
+                  <table class="w-full text-sm">
+                    <thead>
+                      <tr class="border-b border-white/20 bg-white/5">
+                        <th class="px-4 py-3 text-left text-white font-medium">排名</th>
+                        <th class="px-4 py-3 text-left text-white font-medium">代币</th>
+                        <th class="px-4 py-3 text-right text-white font-medium">价格 (USD)</th>
+                        <th class="px-4 py-3 text-right text-white font-medium">5分钟</th>
+                        <th class="px-4 py-3 text-right text-white font-medium">1小时</th>
+                        <th class="px-4 py-3 text-right text-white font-medium">4小时</th>
+                        <th class="px-4 py-3 text-right text-white font-medium">24小时</th>
+                        <th class="px-4 py-3 text-right text-white font-medium">成交量 24h</th>
+                        <th class="px-4 py-3 text-right text-white font-medium">预测评分</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="(token, index) in analysisData"
+                        :key="`table-${index}-${token.symbol}-${token.name}`"
+                        class="border-b border-white/10 transition-colors duration-200 hover:bg-white/10"
+                      >
+                        <td class="px-4 py-3">
+                          <div class="flex items-center space-x-2">
+                            <span class="text-lg">{{ getPredictionIcon(index) }}</span>
+                            <span class="text-white font-medium">#{{ index + 1 }}</span>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3">
+                          <div class="flex items-center space-x-3">
+                            <img
+                              v-if="token.logo"
+                              :src="token.logo"
+                              :alt="token.symbol"
+                              class="h-8 w-8 rounded-full"
+                              @error="($event.target as HTMLImageElement).style.display = 'none'"
+                            />
+                            <div
+                              v-else
+                              class="h-8 w-8 flex items-center justify-center rounded-full bg-gray-300 text-xs"
+                            >
+                              {{ token.symbol.charAt(0) }}
+                            </div>
+                            <div>
+                              <div class="text-white font-medium">{{ token.symbol }}</div>
+                              <div class="text-xs text-gray-300">{{ token.name }}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3 text-right text-white font-mono">
+                          ${{ parseFloat(token.price).toFixed(6) }}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                          <span :class="getChangeColor(token.change_5m)">
+                            {{ formatChange(token.change_5m) }}
+                          </span>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                          <span :class="getChangeColor(token.change_1h)">
+                            {{ formatChange(token.change_1h) }}
+                          </span>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                          <span :class="getChangeColor(token.change_4h)">
+                            {{ formatChange(token.change_4h) }}
+                          </span>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                          <span :class="getChangeColor(token.change_24h)">
+                            {{ formatChange(token.change_24h) }}
+                          </span>
+                        </td>
+                        <td class="px-4 py-3 text-right text-xs text-white font-mono">
+                          ${{ formatVolume(token.volume_24h) }}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                          <span class="text-blue-400 font-medium">{{ token.prediction_score.toFixed(1) }}</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-            <n-empty v-else description="暂无市场数据" class="py-8" />
+            <n-empty v-else description="暂无当前局数据" class="py-8" />
           </n-spin>
         </n-card>
 
         <!-- 第三部分：历史数据表格 -->
-        <n-card title="📊 历史游戏数据 (最近100局)" size="large">
+        <n-card
+          class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="📊 历史游戏数据 (最近100局)"
+          size="large"
+        >
           <template #header-extra>
             <n-button :loading="historyLoading" @click="refreshHistoryData" type="primary" size="small">
               🔄 刷新历史
@@ -177,18 +217,7 @@
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
 
   // 定义接口类型
-  interface TokenPrediction {
-    symbol: string;
-    prediction_score: number;
-    win_rate: number;
-    top3_rate: number;
-    avg_rank: number;
-    total_games: number;
-    wins: number;
-    top3: number;
-  }
-
-  interface TokenMarketData {
+  interface TokenAnalysis {
     symbol: string;
     name: string;
     price: string;
@@ -199,6 +228,14 @@
     volume_24h: string;
     market_cap: number | null;
     logo: string | null;
+    prediction_score: number;
+    win_rate: number;
+    top3_rate: number;
+    avg_rank: number;
+    total_games: number;
+    wins: number;
+    top3: number;
+    predicted_rank: number;
   }
 
   interface RoundToken {
@@ -220,13 +257,11 @@
   }
 
   // 响应式数据
-  const predictionData = ref<TokenPrediction[]>([]);
-  const marketData = ref<TokenMarketData[]>([]);
+  const analysisData = ref<TokenAnalysis[]>([]);
   const historyData = ref<HistoryRound[]>([]);
-  const marketMeta = ref<any>(null);
+  const analysisMeta = ref<any>(null);
 
-  const predictionLoading = ref(false);
-  const marketLoading = ref(false);
+  const analysisLoading = ref(false);
   const historyLoading = ref(false);
 
   // 延迟获取message实例，避免在providers还未准备好时调用
@@ -314,10 +349,15 @@
 
   // 工具函数
   const getPredictionCardClass = (index: number) => {
-    if (index === 0) return 'border-yellow-400 bg-yellow-50';
-    if (index === 1) return 'border-gray-400 bg-gray-50';
-    if (index === 2) return 'border-orange-400 bg-orange-50';
-    return 'border-gray-200 bg-white';
+    if (index === 0)
+      return 'border-2 border-yellow-400 bg-gradient-to-br from-yellow-50 to-amber-100 shadow-xl shadow-yellow-200/30 hover:shadow-yellow-300/50 transform hover:scale-105 transition-all duration-300';
+    if (index === 1)
+      return 'border-2 border-slate-400 bg-gradient-to-br from-slate-50 to-gray-100 shadow-xl shadow-slate-200/30 hover:shadow-slate-300/50 transform hover:scale-105 transition-all duration-300';
+    if (index === 2)
+      return 'border-2 border-orange-400 bg-gradient-to-br from-orange-50 to-red-100 shadow-xl shadow-orange-200/30 hover:shadow-orange-300/50 transform hover:scale-105 transition-all duration-300';
+    if (index === 3)
+      return 'border-2 border-blue-400 bg-gradient-to-br from-blue-50 to-indigo-100 shadow-xl shadow-blue-200/30 hover:shadow-blue-300/50 transform hover:scale-105 transition-all duration-300';
+    return 'border-2 border-purple-400 bg-gradient-to-br from-purple-50 to-pink-100 shadow-xl shadow-purple-200/30 hover:shadow-purple-300/50 transform hover:scale-105 transition-all duration-300';
   };
 
   const getPredictionIcon = (index: number) => {
@@ -379,38 +419,21 @@
   };
 
   // API调用函数
-  const fetchPredictionData = async () => {
-    predictionLoading.value = true;
+  const fetchAnalysisData = async () => {
+    analysisLoading.value = true;
     try {
-      const response = await api.get('/game/prediction');
+      const response = await api.get('/game/current-analysis');
       if (response.data.success) {
-        predictionData.value = response.data.data;
+        analysisData.value = response.data.data;
+        analysisMeta.value = response.data.meta || null;
       } else {
-        getMessageInstance()?.error(response.data.message || '获取预测数据失败');
+        getMessageInstance()?.error(response.data.message || '获取当前局分析数据失败');
       }
     } catch (error) {
-      console.error('获取预测数据失败:', error);
-      getMessageInstance()?.error('获取预测数据失败');
+      console.error('获取当前局分析数据失败:', error);
+      getMessageInstance()?.error('获取当前局分析数据失败');
     } finally {
-      predictionLoading.value = false;
-    }
-  };
-
-  const fetchMarketData = async () => {
-    marketLoading.value = true;
-    try {
-      const response = await api.get('/game/market-data');
-      if (response.data.success) {
-        marketData.value = response.data.data;
-        marketMeta.value = response.data.meta || null;
-      } else {
-        getMessageInstance()?.error(response.data.message || '获取市场数据失败');
-      }
-    } catch (error) {
-      console.error('获取市场数据失败:', error);
-      getMessageInstance()?.error('获取市场数据失败');
-    } finally {
-      marketLoading.value = false;
+      analysisLoading.value = false;
     }
   };
 
@@ -432,21 +455,18 @@
   };
 
   // 刷新函数
-  const refreshPrediction = () => fetchPredictionData();
-  const refreshMarketData = () => fetchMarketData();
+  const refreshAnalysis = () => fetchAnalysisData();
   const refreshHistoryData = () => fetchHistoryData();
 
   // 初始化数据
   onMounted(() => {
-    fetchPredictionData();
-    fetchMarketData();
+    fetchAnalysisData();
     fetchHistoryData();
 
-    // 设置定时刷新（每60秒刷新预测数据）
+    // 设置定时刷新（每10秒刷新分析数据）
     setInterval(() => {
-      fetchPredictionData();
+      fetchAnalysisData();
       fetchHistoryData();
-      fetchMarketData();
     }, 10000);
   });
 </script>

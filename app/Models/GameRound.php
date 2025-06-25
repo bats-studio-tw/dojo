@@ -32,6 +32,14 @@ class GameRound extends Model
     }
 
     /**
+     * 一个游戏轮次有多个预测数据
+     */
+    public function roundPredicts(): HasMany
+    {
+        return $this->hasMany(RoundPredict::class, 'game_round_id');
+    }
+
+    /**
      * 查询未结算的轮次
      */
     public function scopeUnsettled(Builder $query): Builder

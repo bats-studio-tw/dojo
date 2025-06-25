@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\GameRound;
 use App\Models\RoundResult;
+use App\Models\RoundPredict;
 use App\Services\GamePredictionService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -17,7 +18,7 @@ class GameDataController extends Controller
         private GamePredictionService $predictionService
     ) {}
     /**
-     * 获取历史游戏数据（最近100局）
+     * 获取历史游戏数据（最近50局）
      */
     public function getHistoryData(): JsonResponse
     {
@@ -26,7 +27,7 @@ class GameDataController extends Controller
                 $query->orderBy('rank');
             }])
             ->orderBy('created_at', 'desc')
-            ->limit(100)
+            ->limit(50)
             ->get()
             ->map(function ($round) {
                 return [
@@ -598,5 +599,133 @@ class GameDataController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * 获取预测历史数据（最近50局）
+     */
+    public function getPredictionHistory(): JsonResponse
+    {
+        try {
+            // 获取最近50局的预测数据，并关联游戏轮次和实际结果
+            $rounds = GameRound::with(['roundPredicts', 'roundResults'])
+                ->whereHas('roundPredicts') // 只获取有预测数据的轮次
+                ->orderBy('created_at', 'desc')
+                ->limit(50)
+                ->get()
+                ->map(function ($round) {
+                    // 构建预测数据
+                    $predictions = $round->roundPredicts->sortBy('predicted_rank')->map(function ($predict) {
+                        return [
+                            'symbol' => $predict->token_symbol,
+                            'predicted_rank' => $predict->predicted_rank,
+                            'prediction_score' => $predict->prediction_score,
+                            'predicted_at' => $predict->predicted_at?->format('Y-m-d H:i:s'),
+                        ];
+                    })->values()->toArray();
+
+                    // 构建实际结果数据
+                    $results = $round->roundResults->sortBy('rank')->map(function ($result) {
+                        return [
+                            'symbol' => $result->token_symbol,
+                            'actual_rank' => $result->rank,
+                            'value' => $result->value,
+                        ];
+                    })->values()->toArray();
+
+                    // 计算预测准确度
+                    $accuracy = $this->calculatePredictionAccuracy($predictions, $results);
+
+                    return [
+                        'id' => $round->id,
+                        'round_id' => $round->round_id,
+                        'settled_at' => $round->settled_at?->format('Y-m-d H:i:s'),
+                        'predictions' => $predictions,
+                        'results' => $results,
+                        'accuracy' => $accuracy,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $rounds,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('获取预测历史数据失败', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => '获取预测历史数据失败',
+            ], 500);
+        }
+    }
+
+    /**
+     * 计算预测准确度
+     */
+    private function calculatePredictionAccuracy(array $predictions, array $results): array
+    {
+        if (empty($predictions) || empty($results)) {
+            return [
+                'total_predictions' => 0,
+                'exact_matches' => 0,
+                'close_matches' => 0,
+                'exact_accuracy' => 0,
+                'close_accuracy' => 0,
+                'avg_rank_difference' => 0,
+                'details' => []
+            ];
+        }
+
+        $exactMatches = 0;
+        $closeMatches = 0; // 排名差距在1以内
+        $totalRankDifference = 0;
+        $details = [];
+
+        // 创建结果映射以便快速查找
+        $resultMap = [];
+        foreach ($results as $result) {
+            $resultMap[$result['symbol']] = $result['actual_rank'];
+        }
+
+        foreach ($predictions as $prediction) {
+            $symbol = $prediction['symbol'];
+            $predictedRank = $prediction['predicted_rank'];
+
+            if (isset($resultMap[$symbol])) {
+                $actualRank = $resultMap[$symbol];
+                $rankDifference = abs($predictedRank - $actualRank);
+
+                $totalRankDifference += $rankDifference;
+
+                if ($rankDifference === 0) {
+                    $exactMatches++;
+                    $closeMatches++;
+                } elseif ($rankDifference === 1) {
+                    $closeMatches++;
+                }
+
+                $details[] = [
+                    'symbol' => $symbol,
+                    'predicted_rank' => $predictedRank,
+                    'actual_rank' => $actualRank,
+                    'rank_difference' => $rankDifference,
+                    'is_exact_match' => $rankDifference === 0,
+                    'is_close_match' => $rankDifference <= 1,
+                ];
+            }
+        }
+
+        $totalPredictions = count($predictions);
+        $avgRankDifference = $totalPredictions > 0 ? $totalRankDifference / $totalPredictions : 0;
+
+        return [
+            'total_predictions' => $totalPredictions,
+            'exact_matches' => $exactMatches,
+            'close_matches' => $closeMatches,
+            'exact_accuracy' => $totalPredictions > 0 ? round(($exactMatches / $totalPredictions) * 100, 1) : 0,
+            'close_accuracy' => $totalPredictions > 0 ? round(($closeMatches / $totalPredictions) * 100, 1) : 0,
+            'avg_rank_difference' => round($avgRankDifference, 2),
+            'details' => $details
+        ];
     }
 }

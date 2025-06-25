@@ -307,10 +307,10 @@ class GameWebSocketService
                 return false;
             }
 
-                        $tokens = array_keys($gameData['token']);
+            $tokens = array_keys($gameData['token']);
             $tokenCount = count($tokens);
 
-                        if ($tokenCount > 0) {
+            if ($tokenCount > 0) {
                 $currentRoundData = [
                     'round_id' => $roundId,
                     'tokens' => $tokens,

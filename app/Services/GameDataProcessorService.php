@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\GameRound;
 use App\Models\RoundResult;
+use App\Models\RoundPredict;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Exception;
 
 class GameDataProcessorService
@@ -36,12 +38,31 @@ class GameDataProcessorService
             // 使用資料庫交易確保資料一致性
             DB::transaction(function () use ($gameData, $roundId, $status) {
 
-                // 步驟一：建立或找到 GameRound 紀錄
-                // 我們只在收到結算資料時才建立，所以 settled_at 就是當前時間
-                $round = GameRound::firstOrCreate(
-                    ['round_id' => $roundId],
-                    ['settled_at' => now()]
-                );
+                // 步驟一：找到或建立 GameRound 紀錄，並使用游戏提供的正确结算时间
+                $round = GameRound::firstOrCreate(['round_id' => $roundId]);
+
+                // 从游戏数据中提取正确的结算时间
+                $settleTimestamp = $gameData['time']['now']['settle'] ?? null;
+
+                if ($settleTimestamp && !$round->settled_at) {
+                    $settleTime = \Carbon\Carbon::createFromTimestampMs($settleTimestamp);
+                    $round->update(['settled_at' => $settleTime]);
+
+                    Log::channel('websocket')->info('轮次已标记为结算', [
+                        'round_id' => $roundId,
+                        'settle_timestamp' => $settleTimestamp,
+                        'settled_at' => $settleTime->toISOString(),
+                        'source' => 'game_time_data'
+                    ]);
+                } elseif (!$settleTimestamp) {
+                    // 如果没有时间数据，使用当前时间作为备用
+                    Log::channel('websocket')->warning('游戏数据中缺少结算时间，使用当前时间', [
+                        'round_id' => $roundId
+                    ]);
+                    if (!$round->settled_at) {
+                        $round->update(['settled_at' => now()]);
+                    }
+                }
 
                 Log::channel('websocket')->info('GameRound已创建', [
                     'round_id' => $roundId,
@@ -59,7 +80,10 @@ class GameDataProcessorService
                     return;
                 }
 
-                // 步驟二：解析排名並為該局的每個代幣建立 RoundResult 紀錄
+                // 步驟二：保存预测数据（如果缓存中有的话）
+                $this->savePendingPredictionData($round, $roundId);
+
+                // 步驟三：解析排名並為該局的每個代幣建立 RoundResult 紀錄
                 $this->createRoundResults($round, $gameData);
             });
 
@@ -150,6 +174,73 @@ class GameDataProcessorService
             Log::channel('websocket')->info('✅ 数据完整性验证通过', [
                 'rdId' => $gameData['rdId'],
                 'processed_tokens' => $validResults
+            ]);
+        }
+    }
+
+    /**
+     * 保存待处理的预测数据到数据库
+     */
+    private function savePendingPredictionData(GameRound $gameRound, string $roundId): void
+    {
+        try {
+            // 从缓存获取预测数据
+            $cachedPrediction = Cache::get('game:current_prediction');
+
+            if (!$cachedPrediction || !is_array($cachedPrediction)) {
+                Log::channel('websocket')->info('无缓存预测数据需要保存', ['round_id' => $roundId]);
+                return;
+            }
+
+            // 检查缓存的预测数据是否对应当前结算的轮次
+            $cachedRoundId = $cachedPrediction['round_id'] ?? null;
+            if ($cachedRoundId !== $roundId) {
+                Log::channel('websocket')->warning('缓存预测数据轮次不匹配，跳过保存', [
+                    'current_round' => $roundId,
+                    'cached_round' => $cachedRoundId
+                ]);
+                return;
+            }
+
+            $analysisData = $cachedPrediction['analysis_data'] ?? [];
+            if (empty($analysisData)) {
+                Log::channel('websocket')->warning('缓存预测数据为空', ['round_id' => $roundId]);
+                return;
+            }
+
+            // 删除该轮次的旧预测数据（如果存在）
+            RoundPredict::where('game_round_id', $gameRound->id)->delete();
+
+            // 批量插入新的预测数据
+            $predictionRecords = [];
+            foreach ($analysisData as $tokenData) {
+                $predictionRecords[] = [
+                    'game_round_id' => $gameRound->id,
+                    'token_symbol' => $tokenData['symbol'],
+                    'predicted_rank' => $tokenData['predicted_rank'],
+                    'prediction_score' => $tokenData['prediction_score'],
+                    'prediction_data' => json_encode($tokenData),
+                    'predicted_at' => \Carbon\Carbon::parse($cachedPrediction['generated_at']),
+                ];
+            }
+
+            RoundPredict::insert($predictionRecords);
+
+            Log::channel('websocket')->info('✅ 预测数据已保存到数据库', [
+                'round_id' => $roundId,
+                'game_round_id' => $gameRound->id,
+                'predictions_count' => count($predictionRecords),
+                'predicted_at' => $cachedPrediction['generated_at']
+            ]);
+
+            // 保存成功后清除缓存（可选）
+            // Cache::forget('game:current_prediction');
+
+        } catch (\Exception $e) {
+            Log::channel('websocket')->error('保存预测数据到数据库失败', [
+                'round_id' => $roundId,
+                'game_round_id' => $gameRound->id,
+                'error' => $e->getMessage()
             ]);
         }
     }

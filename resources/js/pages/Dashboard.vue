@@ -16,20 +16,21 @@
         </div> -->
 
         <!-- 当前局分析（预测+市场） -->
-        <n-card
+        <NCard
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
           title="🎯 当前局分析"
           size="large"
         >
           <template #header-extra>
             <div class="flex items-center space-x-3">
-              <div v-if="analysisMeta" class="text-sm text-gray-600">
+              <div v-if="analysisMeta" class="flex items-center gap-2 text-sm text-gray-300">
                 <span class="font-medium">轮次:</span>
-                {{ analysisMeta.round_id }} |
+                <span class="text-red">{{ analysisMeta.round_id }}</span>
                 <span class="font-medium">状态:</span>
-                <n-tag :type="getStatusTagType(analysisMeta.status)" size="small">
+
+                <NTag :type="getStatusTagType(analysisMeta.status)" size="small">
                   {{ getStatusText(analysisMeta.status) }}
-                </n-tag>
+                </NTag>
               </div>
               <n-button :loading="analysisLoading" @click="refreshAnalysis" type="primary" size="small">
                 🔄 刷新分析
@@ -37,7 +38,7 @@
             </div>
           </template>
 
-          <n-spin :show="analysisLoading">
+          <NSpin :show="analysisLoading">
             <div v-if="analysisData.length > 0" class="space-y-6">
               <!-- 预测排名卡片 -->
               <div>
@@ -176,14 +177,14 @@
                 </div>
               </div>
             </div>
-            <n-empty v-else description="暂无当前局数据" class="py-8" />
-          </n-spin>
-        </n-card>
+            <NEmpty v-else description="暂无当前局数据" class="py-8" />
+          </NSpin>
+        </NCard>
 
         <!-- 第三部分：历史数据表格 -->
-        <n-card
-          class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="📊 历史游戏数据 (最近100局)"
+        <NCard
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="📊 历史游戏数据 (最近50局)"
           size="large"
         >
           <template #header-extra>
@@ -192,18 +193,91 @@
             </n-button>
           </template>
 
-          <n-spin :show="historyLoading">
-            <n-data-table
+          <NSpin :show="historyLoading">
+            <NDataTable
               v-if="historyData.length > 0"
               :columns="historyColumns"
               :data="historyTableData"
-              :pagination="{ pageSize: 10 }"
+              :pagination="{ pageSize: 5 }"
               :scroll-x="800"
               striped
             />
-            <n-empty v-else description="暂无历史数据" class="py-8" />
-          </n-spin>
-        </n-card>
+            <NEmpty v-else description="暂无历史数据" class="py-8" />
+          </NSpin>
+        </NCard>
+
+        <!-- 第四部分：预测历史数据表格 -->
+        <NCard
+          class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="🔮 预测历史数据 (最近50局)"
+          size="large"
+        >
+          <template #header-extra>
+            <n-button
+              :loading="predictionHistoryLoading"
+              @click="refreshPredictionHistoryData"
+              type="primary"
+              size="small"
+            >
+              🔄 刷新预测历史
+            </n-button>
+          </template>
+
+          <NSpin :show="predictionHistoryLoading">
+            <div v-if="predictionHistoryData.length > 0" class="space-y-4">
+              <!-- 预测准确度总结 -->
+              <div class="grid grid-cols-1 gap-4 lg:grid-cols-4 md:grid-cols-2">
+                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
+                  <div class="text-sm text-gray-300">平均精确匹配率</div>
+                  <div class="text-2xl text-green-400 font-bold">
+                    {{
+                      (
+                        predictionHistoryData.reduce((sum, round) => sum + round.accuracy.exact_accuracy, 0) /
+                        predictionHistoryData.length
+                      ).toFixed(1)
+                    }}%
+                  </div>
+                </div>
+                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
+                  <div class="text-sm text-gray-300">平均接近匹配率</div>
+                  <div class="text-2xl text-blue-400 font-bold">
+                    {{
+                      (
+                        predictionHistoryData.reduce((sum, round) => sum + round.accuracy.close_accuracy, 0) /
+                        predictionHistoryData.length
+                      ).toFixed(1)
+                    }}%
+                  </div>
+                </div>
+                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
+                  <div class="text-sm text-gray-300">平均排名差</div>
+                  <div class="text-2xl text-yellow-400 font-bold">
+                    {{
+                      (
+                        predictionHistoryData.reduce((sum, round) => sum + round.accuracy.avg_rank_difference, 0) /
+                        predictionHistoryData.length
+                      ).toFixed(2)
+                    }}
+                  </div>
+                </div>
+                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
+                  <div class="text-sm text-gray-300">总预测轮次</div>
+                  <div class="text-2xl text-purple-400 font-bold">{{ predictionHistoryData.length }}</div>
+                </div>
+              </div>
+
+              <!-- 预测历史表格 -->
+              <NDataTable
+                :columns="predictionHistoryColumns"
+                :data="predictionHistoryTableData"
+                :pagination="{ pageSize: 5 }"
+                :scroll-x="1200"
+                striped
+              />
+            </div>
+            <NEmpty v-else description="暂无预测历史数据" class="py-8" />
+          </NSpin>
+        </NCard>
       </div>
     </div>
   </DefaultLayout>
@@ -211,7 +285,7 @@
 
 <script setup lang="ts">
   import { ref, onMounted, computed } from 'vue';
-  import { useMessage, type DataTableColumn } from 'naive-ui';
+  import { NEmpty, useMessage, type DataTableColumn } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import api from '@/utils/api';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
@@ -256,13 +330,61 @@
     key: number;
   }
 
+  // 预测相关接口
+  interface PredictionData {
+    symbol: string;
+    predicted_rank: number;
+    prediction_score: number;
+    predicted_at: string;
+  }
+
+  interface ResultData {
+    symbol: string;
+    actual_rank: number;
+    value: string;
+  }
+
+  interface AccuracyDetail {
+    symbol: string;
+    predicted_rank: number;
+    actual_rank: number;
+    rank_difference: number;
+    is_exact_match: boolean;
+    is_close_match: boolean;
+  }
+
+  interface Accuracy {
+    total_predictions: number;
+    exact_matches: number;
+    close_matches: number;
+    exact_accuracy: number;
+    close_accuracy: number;
+    avg_rank_difference: number;
+    details: AccuracyDetail[];
+  }
+
+  interface PredictionHistoryRound {
+    id: number;
+    round_id: string;
+    settled_at: string | null;
+    predictions: PredictionData[];
+    results: ResultData[];
+    accuracy: Accuracy;
+  }
+
+  interface PredictionHistoryTableRow extends PredictionHistoryRound {
+    key: number;
+  }
+
   // 响应式数据
   const analysisData = ref<TokenAnalysis[]>([]);
   const historyData = ref<HistoryRound[]>([]);
+  const predictionHistoryData = ref<PredictionHistoryRound[]>([]);
   const analysisMeta = ref<any>(null);
 
   const analysisLoading = ref(false);
   const historyLoading = ref(false);
+  const predictionHistoryLoading = ref(false);
 
   // 延迟获取message实例，避免在providers还未准备好时调用
   const getMessageInstance = () => {
@@ -324,15 +446,55 @@
       key: 'rank_5',
       width: 100,
       render: (row: HistoryTableRow) => getTokensByRank(row.tokens, 5)
+    }
+  ];
+
+  // 预测历史数据表格列定义
+  const predictionHistoryColumns: DataTableColumn<PredictionHistoryTableRow>[] = [
+    {
+      title: '轮次ID',
+      key: 'round_id',
+      width: 120
     },
     {
-      title: '代币详情',
-      key: 'tokens_detail',
-      width: 200,
-      render: (row: HistoryTableRow) => {
-        return row.tokens
-          .map((token: RoundToken) => `${token.symbol}(#${token.rank}:$${parseFloat(token.value).toFixed(4)})`)
-          .join(', ');
+      title: '结算时间',
+      key: 'settled_at',
+      width: 160
+    },
+    {
+      title: '精确匹配',
+      key: 'exact_accuracy',
+      width: 100,
+      render: (row: PredictionHistoryTableRow) => `${row.accuracy.exact_accuracy}%`
+    },
+    {
+      title: '接近匹配',
+      key: 'close_accuracy',
+      width: 100,
+      render: (row: PredictionHistoryTableRow) => `${row.accuracy.close_accuracy}%`
+    },
+    {
+      title: '平均排名差',
+      key: 'avg_rank_difference',
+      width: 110,
+      render: (row: PredictionHistoryTableRow) => row.accuracy.avg_rank_difference.toString()
+    },
+    {
+      title: '预测详情',
+      key: 'details',
+      width: 300,
+      render: (row: PredictionHistoryTableRow) => {
+        const predictions = row.predictions.map((p) => `${p.symbol}(预测#${p.predicted_rank})`).join(', ');
+        return predictions || '-';
+      }
+    },
+    {
+      title: '实际结果',
+      key: 'actual_results',
+      width: 300,
+      render: (row: PredictionHistoryTableRow) => {
+        const results = row.results.map((r) => `${r.symbol}(实际#${r.actual_rank})`).join(', ');
+        return results || '-';
       }
     }
   ];
@@ -341,6 +503,15 @@
   const historyTableData = computed((): HistoryTableRow[] => {
     return historyData.value.map(
       (item: HistoryRound): HistoryTableRow => ({
+        ...item,
+        key: item.id
+      })
+    );
+  });
+
+  const predictionHistoryTableData = computed((): PredictionHistoryTableRow[] => {
+    return predictionHistoryData.value.map(
+      (item: PredictionHistoryRound): PredictionHistoryTableRow => ({
         ...item,
         key: item.id
       })
@@ -389,9 +560,7 @@
 
   const getStatusTagType = (status: string) => {
     switch (status) {
-      case 'starting':
-      case 'running':
-      case 'active':
+      case 'bet':
         return 'success';
       case 'settling':
         return 'warning';
@@ -454,20 +623,46 @@
     }
   };
 
+  const fetchPredictionHistoryData = async () => {
+    predictionHistoryLoading.value = true;
+    try {
+      const response = await api.get('/game/prediction-history');
+      if (response.data.success) {
+        predictionHistoryData.value = response.data.data;
+      } else {
+        getMessageInstance()?.error(response.data.message || '获取预测历史数据失败');
+      }
+    } catch (error) {
+      console.error('获取预测历史数据失败:', error);
+      getMessageInstance()?.error('获取预测历史数据失败');
+    } finally {
+      predictionHistoryLoading.value = false;
+    }
+  };
+
   // 刷新函数
   const refreshAnalysis = () => fetchAnalysisData();
   const refreshHistoryData = () => fetchHistoryData();
+  const refreshPredictionHistoryData = () => fetchPredictionHistoryData();
 
   // 初始化数据
   onMounted(() => {
     fetchAnalysisData();
     fetchHistoryData();
+    fetchPredictionHistoryData();
 
-    // 设置定时刷新（每10秒刷新分析数据）
+    // 设置定时刷新 - 分析数据5秒刷新，历史数据30秒刷新，预测历史数据60秒刷新
     setInterval(() => {
       fetchAnalysisData();
+    }, 5000);
+
+    setInterval(() => {
       fetchHistoryData();
-    }, 10000);
+    }, 30000);
+
+    setInterval(() => {
+      fetchPredictionHistoryData();
+    }, 60000);
   });
 </script>
 

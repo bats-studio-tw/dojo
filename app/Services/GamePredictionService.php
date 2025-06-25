@@ -40,6 +40,13 @@ class GamePredictionService
 
             Cache::put('game:current_prediction', $cacheData, now()->addMinutes(120));
 
+            // 延迟保存策略：bet阶段只缓存，settled阶段再保存到数据库
+            // 这样可以确保使用游戏提供的正确时间创建GameRound
+            Log::info('预测数据已缓存，等待结算阶段保存到数据库', [
+                'round_id' => $roundId,
+                'predictions_count' => count($analysisData)
+            ]);
+
             Log::info('✅ 预测分析数据已生成并缓存', [
                 'round_id' => $roundId,
                 'tokens_analyzed' => count($analysisData),
@@ -374,6 +381,8 @@ class GamePredictionService
     {
         return GameRound::count();
     }
+
+
 
     /**
      * 清除缓存的预测数据

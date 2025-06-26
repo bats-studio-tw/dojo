@@ -15,10 +15,10 @@
           <div class="mx-auto mt-4 h-1 w-24 rounded-full from-blue-400 to-purple-400 bg-gradient-to-r"></div>
         </div> -->
 
-        <!-- 当前局分析（预测+市场） -->
+        <!-- v8 H2H 对战关系分析 -->
         <NCard
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="🎯 当前局分析"
+          title="🆚 v8 H2H 对战关系分析"
           size="large"
         >
           <template #header-extra>
@@ -39,9 +39,9 @@
           </template>
 
           <div v-if="analysisData.length > 0" class="space-y-3">
-            <!-- 预测排名卡片 -->
+            <!-- v8 H2H 对战关系预测卡片 -->
             <div>
-              <h3 class="mb-4 text-lg text-white font-semibold">🔮 预测排名</h3>
+              <h3 class="mb-4 text-lg text-white font-semibold">🆚 H2H 战术分析预测</h3>
               <div class="grid grid-cols-1 gap-4 lg:grid-cols-5 md:grid-cols-3">
                 <div
                   v-for="(token, index) in analysisData"
@@ -65,20 +65,40 @@
                     </div>
                     <div class="flex items-center space-x-1">
                       <span class="text-lg text-gray-700 font-medium">#{{ index + 1 }}</span>
+                      <div v-if="token.rank_confidence" class="ml-1 text-xs text-gray-600">
+                        {{ token.rank_confidence.toFixed(0) }}%
+                      </div>
                     </div>
                   </div>
 
                   <div class="text-sm space-y-1">
+                    <!-- v8 核心指标：风险调整后分数 -->
                     <div class="flex justify-between">
-                      <span class="text-gray-700">预测评分:</span>
-                      <span class="text-gray-800 font-medium">{{ token.prediction_score.toFixed(1) }}</span>
+                      <span class="text-gray-700 font-medium">最终评分:</span>
+                      <span class="text-gray-800 font-bold">
+                        {{
+                          (token.risk_adjusted_score || token.final_prediction_score || token.prediction_score).toFixed(
+                            1
+                          )
+                        }}
+                      </span>
                     </div>
-                    <div class="flex justify-between">
-                      <span class="text-gray-700">胜率:</span>
-                      <span class="text-green-700 font-medium">{{ token.win_rate.toFixed(1) }}%</span>
+
+                    <!-- v8 双重评分系统 -->
+                    <div class="flex justify-between text-xs">
+                      <span class="text-gray-600">绝对分数:</span>
+                      <span class="text-purple-700 font-medium">{{ (token.absolute_score || 0).toFixed(1) }}</span>
                     </div>
-                    <div class="flex justify-between">
-                      <span class="text-gray-700">前三率:</span>
+                    <div class="flex justify-between text-xs">
+                      <span class="text-gray-600">相对分数:</span>
+                      <span class="text-orange-700 font-medium">
+                        {{ (token.relative_score || token.h2h_score || 0).toFixed(1) }}
+                      </span>
+                    </div>
+
+                    <!-- 传统保本指标（简化显示） -->
+                    <div class="flex justify-between text-xs">
+                      <span class="text-gray-600">历史保本率:</span>
                       <span class="text-blue-700 font-medium">{{ token.top3_rate.toFixed(1) }}%</span>
                     </div>
                   </div>
@@ -86,9 +106,9 @@
               </div>
             </div>
 
-            <!-- 详细市场数据表格 -->
+            <!-- v8 H2H 战术分析详细数据表格 -->
             <div>
-              <h3 class="mb-4 text-lg text-white font-semibold">💰 详细市场数据</h3>
+              <h3 class="mb-4 text-lg text-white font-semibold">🎯 v8 H2H 战术分析详情</h3>
               <div class="overflow-x-auto border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
                 <table class="w-full text-sm">
                   <thead>
@@ -96,12 +116,12 @@
                       <th class="px-4 py-3 text-left text-white font-medium">排名</th>
                       <th class="px-4 py-3 text-left text-white font-medium">代币</th>
                       <th class="px-4 py-3 text-right text-white font-medium">价格 (USD)</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">5分钟</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">1小时</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">4小时</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">24小时</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">成交量 24h</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">预测评分</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">绝对分数</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">H2H分数</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">风险调整</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">置信度</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">稳定性</th>
+                      <th class="px-4 py-3 text-right text-white font-medium">保本率</th>
                       <th class="px-4 py-3 text-right text-white font-medium">市场动量</th>
                     </tr>
                   </thead>
@@ -138,39 +158,53 @@
                       <td class="px-4 py-3 text-right text-white font-mono">
                         ${{ parseFloat(token.price).toFixed(6) }}
                       </td>
+                      <!-- v8 绝对分数 -->
                       <td class="px-4 py-3 text-right">
-                        <span :class="getChangeColor(token.change_5m)">
-                          {{ formatChange(token.change_5m) }}
+                        <span class="text-purple-400 font-medium">
+                          {{ (token.absolute_score || 0).toFixed(1) }}
                         </span>
                       </td>
+                      <!-- v8 H2H对战分数 -->
                       <td class="px-4 py-3 text-right">
-                        <span :class="getChangeColor(token.change_1h)">
-                          {{ formatChange(token.change_1h) }}
+                        <span class="text-orange-400 font-medium">
+                          {{ (token.relative_score || token.h2h_score || 0).toFixed(1) }}
                         </span>
                       </td>
-                      <td class="px-4 py-3 text-right">
-                        <span :class="getChangeColor(token.change_4h)">
-                          {{ formatChange(token.change_4h) }}
-                        </span>
-                      </td>
-                      <td class="px-4 py-3 text-right">
-                        <span :class="getChangeColor(token.change_24h)">
-                          {{ formatChange(token.change_24h) }}
-                        </span>
-                      </td>
-                      <td class="px-4 py-3 text-right text-xs text-white font-mono">
-                        ${{ formatVolume(token.volume_24h) }}
-                      </td>
+                      <!-- v8 风险调整后分数 -->
                       <td class="px-4 py-3 text-right">
                         <div class="flex flex-col items-end">
                           <span class="text-blue-400 font-medium">
-                            {{ (token.final_prediction_score || token.prediction_score).toFixed(1) }}
+                            {{
+                              (
+                                token.risk_adjusted_score ||
+                                token.final_prediction_score ||
+                                token.prediction_score
+                              ).toFixed(1)
+                            }}
                           </span>
-                          <span class="text-xs text-gray-400">历史: {{ token.prediction_score.toFixed(1) }}</span>
                         </div>
                       </td>
+                      <!-- v8 置信度 -->
                       <td class="px-4 py-3 text-right">
-                        <span v-if="token.market_momentum_score" class="text-green-400 font-medium">
+                        <span v-if="token.rank_confidence" class="text-cyan-400 font-medium">
+                          {{ token.rank_confidence.toFixed(0) }}%
+                        </span>
+                        <span v-else class="text-gray-400">-</span>
+                      </td>
+                      <!-- v8 稳定性指标 -->
+                      <td class="px-4 py-3 text-right">
+                        <span v-if="token.value_stddev !== undefined" class="text-yellow-400 font-medium">
+                          {{ token.value_stddev.toFixed(3) }}
+                        </span>
+                        <span v-else class="text-gray-400">-</span>
+                      </td>
+                      <!-- 保本率 -->
+                      <td class="px-4 py-3 text-right">
+                        <span class="text-green-400 font-medium">{{ token.top3_rate.toFixed(1) }}%</span>
+                      </td>
+                      <!-- 市场动量 -->
+                      <td class="px-4 py-3 text-right">
+                        <span v-if="token.market_momentum_score" class="text-teal-400 font-medium">
                           {{ token.market_momentum_score.toFixed(1) }}
                         </span>
                         <span v-else class="text-gray-400">-</span>
@@ -181,7 +215,7 @@
               </div>
             </div>
           </div>
-          <NEmpty v-else description="暂无当前局数据" class="py-8" />
+          <NEmpty v-else description="暂无 H2H 对战分析数据" class="py-8" />
         </NCard>
 
         <!-- 第四部分：预测历史数据表格 -->
@@ -345,7 +379,7 @@
   import api from '@/utils/api';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
 
-  // 定义接口类型
+  // 定义接口类型 - 更新为 v8 H2H 对战关系分析数据
   interface TokenAnalysis {
     symbol: string;
     name: string;
@@ -357,6 +391,16 @@
     volume_24h: string;
     market_cap: number | null;
     logo: string | null;
+
+    // v8 新增：H2H 对战关系分析核心数据
+    absolute_score?: number; // 绝对分数（基于历史保本表现）
+    relative_score?: number; // 相对分数（基于H2H对战优势）
+    h2h_score?: number; // H2H对战评分
+    risk_adjusted_score?: number; // 风险调整后分数
+    predicted_final_value?: number; // 预测最终分数
+    rank_confidence?: number; // 排名置信度
+
+    // 保留的传统数据字段
     prediction_score: number;
     market_momentum_score?: number;
     final_prediction_score?: number;
@@ -367,6 +411,11 @@
     wins: number;
     top3: number;
     predicted_rank: number;
+
+    // v8 补充数据
+    value_stddev?: number; // 历史分数标准差（稳定性指标）
+    recent_avg_value?: number; // 近期平均分数
+    avg_value?: number; // 历史平均分数
   }
 
   interface RoundToken {
@@ -553,25 +602,8 @@
     return '📊';
   };
 
-  const getChangeColor = (change: number | null) => {
-    if (change === null || change === undefined) return 'text-gray-400';
-    if (change > 0) return 'text-green-600';
-    if (change < 0) return 'text-red-600';
-    return 'text-gray-600';
-  };
-
-  const formatChange = (change: number | null) => {
-    if (change === null || change === undefined) return '-';
-    const sign = change >= 0 ? '+' : '';
-    return `${sign}${change.toFixed(2)}%`;
-  };
-
-  const formatVolume = (volume: string | number) => {
-    const num = parseFloat(volume.toString());
-    if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(2)}K`;
-    return num.toFixed(2);
-  };
+  // v8 注释：移除了价格变化和交易量格式化函数，专注于 H2H 战术分析数据
+  // 如需要市场数据展示，可在未来版本重新加入
 
   const getStatusTagType = (status: string) => {
     switch (status) {
@@ -611,11 +643,11 @@
         analysisData.value = response.data.data;
         analysisMeta.value = response.data.meta || null;
       } else {
-        getMessageInstance()?.error(response.data.message || '获取当前局分析数据失败');
+        getMessageInstance()?.error(response.data.message || '获取 H2H 对战分析数据失败');
       }
     } catch (error) {
-      console.error('获取当前局分析数据失败:', error);
-      getMessageInstance()?.error('获取当前局分析数据失败');
+      console.error('获取 H2H 对战分析数据失败:', error);
+      getMessageInstance()?.error('获取 H2H 对战分析数据失败');
     } finally {
       analysisLoading.value = false;
     }

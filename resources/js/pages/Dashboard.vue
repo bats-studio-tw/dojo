@@ -264,11 +264,20 @@
                   <div class="absolute right-2 top-2 text-2xl opacity-20">🥇</div>
                   <div class="relative">
                     <div class="text-sm text-yellow-300 font-medium">预测第一名</div>
-                    <div class="mt-2 text-3xl text-yellow-400 font-bold">
-                      {{ calculateRankBasedStats().rank1.breakevenRate.toFixed(1) }}
-                      <span class="text-lg">%</span>
+                    <div class="mt-2 space-y-1">
+                      <div class="flex items-center justify-between">
+                        <span class="text-lg text-yellow-400 font-bold">
+                          {{ calculateRankBasedStats().rank1.breakevenRate.toFixed(1) }}%
+                        </span>
+                        <span class="text-xs text-yellow-200/70">保本率</span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-lg text-amber-300 font-bold">
+                          {{ calculateRankBasedStats().rank1.firstPlaceRate.toFixed(1) }}%
+                        </span>
+                        <span class="text-xs text-amber-200/70">第一名率</span>
+                      </div>
                     </div>
-                    <div class="mt-2 text-xs text-yellow-200/70">保本率</div>
                   </div>
                 </div>
 
@@ -279,11 +288,20 @@
                   <div class="absolute right-2 top-2 text-2xl opacity-20">🥈</div>
                   <div class="relative">
                     <div class="text-sm text-slate-300 font-medium">预测第二名</div>
-                    <div class="mt-2 text-3xl text-slate-400 font-bold">
-                      {{ calculateRankBasedStats().rank2.breakevenRate.toFixed(1) }}
-                      <span class="text-lg">%</span>
+                    <div class="mt-2 space-y-1">
+                      <div class="flex items-center justify-between">
+                        <span class="text-lg text-slate-400 font-bold">
+                          {{ calculateRankBasedStats().rank2.breakevenRate.toFixed(1) }}%
+                        </span>
+                        <span class="text-xs text-slate-200/70">保本率</span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-lg text-gray-300 font-bold">
+                          {{ calculateRankBasedStats().rank2.firstPlaceRate.toFixed(1) }}%
+                        </span>
+                        <span class="text-xs text-gray-200/70">第一名率</span>
+                      </div>
                     </div>
-                    <div class="mt-2 text-xs text-slate-200/70">保本率</div>
                   </div>
                 </div>
 
@@ -294,11 +312,20 @@
                   <div class="absolute right-2 top-2 text-2xl opacity-20">🥉</div>
                   <div class="relative">
                     <div class="text-sm text-orange-300 font-medium">预测第三名</div>
-                    <div class="mt-2 text-3xl text-orange-400 font-bold">
-                      {{ calculateRankBasedStats().rank3.breakevenRate.toFixed(1) }}
-                      <span class="text-lg">%</span>
+                    <div class="mt-2 space-y-1">
+                      <div class="flex items-center justify-between">
+                        <span class="text-lg text-orange-400 font-bold">
+                          {{ calculateRankBasedStats().rank3.breakevenRate.toFixed(1) }}%
+                        </span>
+                        <span class="text-xs text-orange-200/70">保本率</span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-lg text-red-300 font-bold">
+                          {{ calculateRankBasedStats().rank3.firstPlaceRate.toFixed(1) }}%
+                        </span>
+                        <span class="text-xs text-red-200/70">第一名率</span>
+                      </div>
                     </div>
-                    <div class="mt-2 text-xs text-orange-200/70">保本率</div>
                   </div>
                 </div>
               </div>
@@ -864,12 +891,12 @@
     };
   };
 
-  // 按预测排名分别统计保本/亏本率
+  // 按预测排名分别统计保本/亏本率和第一名率
   const calculateRankBasedStats = () => {
     const rankStats = {
-      rank1: { total: 0, breakeven: 0, loss: 0, breakevenRate: 0, lossRate: 0 },
-      rank2: { total: 0, breakeven: 0, loss: 0, breakevenRate: 0, lossRate: 0 },
-      rank3: { total: 0, breakeven: 0, loss: 0, breakevenRate: 0, lossRate: 0 }
+      rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
     };
 
     if (predictionHistoryData.value.length === 0) {
@@ -893,6 +920,11 @@
             } else if (analysis.status === 'loss') {
               rankStats[key].loss++;
             }
+
+            // 计算第一名率：实际排名是第一名的情况
+            if (actualResult.actual_rank === 1) {
+              rankStats[key].firstPlace++;
+            }
           }
         });
       });
@@ -904,6 +936,7 @@
       if (stats.total > 0) {
         stats.breakevenRate = (stats.breakeven / stats.total) * 100;
         stats.lossRate = (stats.loss / stats.total) * 100;
+        stats.firstPlaceRate = (stats.firstPlace / stats.total) * 100;
       }
     });
 

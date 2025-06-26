@@ -46,6 +46,11 @@ class GamePredictionService
     const MIN_DATA_QUALITY_SCORE = 0.3;           // 数据质量最低保证比例
     const TOTAL_MARKET_DATA_POINTS = 5;           // 总市场数据点数量
     const DATA_QUALITY_LOG_THRESHOLD = 0.8;       // 数据质量日志记录阈值
+
+    // 预测算法权重参数 (v7 基于数据分析优化)
+    const HISTORICAL_DATA_WEIGHT = 2.0;           // 历史数据整体权重：信任长期稳定性
+    const MARKET_DATA_WEIGHT = 0.5;               // 市场数据整体权重：降低短期噪音影响
+    const ENHANCED_STABILITY_PENALTY = 1.5;       // 增强稳定性惩罚因子：更严格的风险控制
     /**
      * 为指定代币列表生成预测分析数据并缓存
      */
@@ -71,8 +76,8 @@ class GamePredictionService
                 'round_id' => $roundId,
                 'analysis_data' => $analysisData,
                 'generated_at' => now()->toISOString(),
-                'algorithm' => 'stability_first_prediction_v6',
-                'algorithm_description' => '纯净动态权重调整的稳定性优先预测算法',
+                'algorithm' => 'data_driven_stability_prediction_v7',
+                'algorithm_description' => '基于数据分析优化的稳定性优先预测算法：信任历史稳定性',
                 'analysis_rounds_count' => $this->getAnalysisRoundsCount()
             ];
 
@@ -100,20 +105,25 @@ class GamePredictionService
                 ];
             }
 
-            Log::info('✅ 预测分析数据已生成并缓存 (纯净动态权重调整算法)', [
+            Log::info('✅ 预测分析数据已生成并缓存 (v7 数据驱动优化算法)', [
                 'round_id' => $roundId,
-                'algorithm' => 'stability_first_prediction_v6',
-                'algorithm_description' => '纯净动态权重调整的稳定性优先预测算法',
+                'algorithm' => 'data_driven_stability_prediction_v7',
+                'algorithm_description' => '基于数据分析优化的稳定性优先预测算法：信任历史稳定性',
                 'tokens_analyzed' => count($analysisData),
                 'top_3_predictions' => $algorithmSummary,
                 'cache_expires' => now()->addMinutes(self::CACHE_DURATION_MINUTES)->toISOString(),
-                'sorting_strategy' => 'risk_adjusted_score (稳定性优先)',
-                'key_improvements' => [
-                    '🎯 纯净动态权重调整：缺失数据的权重智能重新分配给可用数据',
-                    '🧹 移除双重折扣：避免对市场信号的过度惩罚',
-                    '🛡️ 智能容错：区分"没有数据"和"没有变化"',
-                    '📈 风险调整分数排序：稳定性优先策略',
-                    '⚖️ 平衡决策：历史数据与市场信号的最优权衡'
+                'sorting_strategy' => 'risk_adjusted_score (数据驱动的稳定性优先)',
+                'v7_optimizations' => [
+                    '📊 数据驱动权重调整：历史数据权重×2.0，市场数据权重×0.5',
+                    '🎯 信任长期稳定性：基于prediction_analysis.csv回测分析结果',
+                    '🛡️ 增强稳定性惩罚：惩罚因子从0.01提升至1.5',
+                    '📈 过滤高风险选项：更严格的波动性控制',
+                    '⚖️ 降低短期噪音：减少市场热度的误导影响'
+                ],
+                'weight_parameters' => [
+                    'historical_weight' => self::HISTORICAL_DATA_WEIGHT,
+                    'market_weight' => self::MARKET_DATA_WEIGHT,
+                    'stability_penalty' => self::ENHANCED_STABILITY_PENALTY
                 ]
             ]);
 
@@ -393,7 +403,7 @@ class GamePredictionService
     }
 
     /**
-     * 计算包含市场数据的增强预测评分 - 重构为基于预期分数的算法
+     * 计算包含市场数据的增强预测评分 - v7 基于数据分析优化：信任历史稳定性
      */
     private function calculateEnhancedPredictionScore(array $data): array
     {
@@ -403,15 +413,20 @@ class GamePredictionService
         // 步骤2：计算市场调整分数（基于市场动量）
         $marketAdjustmentValue = $this->calculateMarketAdjustmentValue($data);
 
-        // 步骤3：计算最终预期分数
-        $predictedFinalValue = $predictedBaseValue + $marketAdjustmentValue;
+        // 步骤3：计算最终预期分数 - 应用数据分析优化的权重
+        // 历史数据权重提升至2.0，市场数据权重降低至0.5
+        $weightedHistoricalScore = $predictedBaseValue * self::HISTORICAL_DATA_WEIGHT;
+        $weightedMarketScore = $marketAdjustmentValue * self::MARKET_DATA_WEIGHT;
+        $predictedFinalValue = $weightedHistoricalScore + $weightedMarketScore;
 
-        // 步骤4：计算风险调整后分数（考虑稳定性）
+        // 步骤4：计算风险调整后分数（更严格的稳定性惩罚）
         $riskAdjustedScore = $this->calculateRiskAdjustedScore($predictedFinalValue, $data);
 
         // 添加新的预测指标到数据中
         $data['predicted_base_value'] = round($predictedBaseValue, 4);
         $data['market_adjustment_value'] = round($marketAdjustmentValue, 4);
+        $data['weighted_historical_score'] = round($weightedHistoricalScore, 4);
+        $data['weighted_market_score'] = round($weightedMarketScore, 4);
         $data['predicted_final_value'] = round($predictedFinalValue, 4);
         $data['risk_adjusted_score'] = round($riskAdjustedScore, 2);
 
@@ -420,6 +435,20 @@ class GamePredictionService
 
         // 设置最终预测评分为风险调整后分数
         $data['final_prediction_score'] = $data['risk_adjusted_score'];
+
+        // 记录权重应用的详细日志
+        Log::info("v7 算法权重应用", [
+            'symbol' => $data['symbol'],
+            'base_historical_score' => round($predictedBaseValue, 4),
+            'base_market_adjustment' => round($marketAdjustmentValue, 4),
+            'weighted_historical' => round($weightedHistoricalScore, 4),
+            'weighted_market' => round($weightedMarketScore, 4),
+            'final_predicted_value' => round($predictedFinalValue, 4),
+            'risk_adjusted_score' => round($riskAdjustedScore, 2),
+            'historical_weight' => self::HISTORICAL_DATA_WEIGHT,
+            'market_weight' => self::MARKET_DATA_WEIGHT,
+            'strategy' => 'trust_historical_stability'
+        ]);
 
         return $data;
     }
@@ -508,7 +537,7 @@ class GamePredictionService
     }
 
     /**
-     * 计算风险调整后分数（考虑稳定性）
+     * 计算风险调整后分数（更严格的稳定性惩罚） - v7 基于数据分析优化
      */
     private function calculateRiskAdjustedScore(float $predictedValue, array $data): float
     {
@@ -516,14 +545,35 @@ class GamePredictionService
 
         // 如果标准差为0或很小，说明非常稳定，给予高评分
         if ($valueStddev <= 0.01) {
-            return min(100, $predictedValue * self::STABILITY_REWARD_MULTIPLIER); // 稳定性奖励
+            $stabilityReward = min(100, $predictedValue * self::STABILITY_REWARD_MULTIPLIER);
+
+            Log::debug("极高稳定性奖励", [
+                'symbol' => $data['symbol'],
+                'stddev' => $valueStddev,
+                'predicted_value' => round($predictedValue, 4),
+                'stability_reward' => round($stabilityReward, 2)
+            ]);
+
+            return $stabilityReward;
         }
 
-        // 风险调整公式：预期分数 / (1 + 标准差权重)
-        // 标准差越大，分母越大，最终评分越低
-        $riskPenalty = 1 + ($valueStddev * self::RISK_WEIGHT_COEFFICIENT);
+        // v7 改进：应用更严格的稳定性惩罚因子
+        // 原公式：1 + (标准差 * 0.01)，现在：1 + (标准差 * 1.5)
+        $enhancedRiskPenalty = 1 + ($valueStddev * self::ENHANCED_STABILITY_PENALTY);
 
-        $riskAdjustedScore = $predictedValue / $riskPenalty;
+        $riskAdjustedScore = $predictedValue / $enhancedRiskPenalty;
+
+        // 记录风险调整的详细计算过程
+        Log::debug("v7 风险调整计算", [
+            'symbol' => $data['symbol'],
+            'predicted_value' => round($predictedValue, 4),
+            'value_stddev' => round($valueStddev, 4),
+            'old_penalty_factor' => self::RISK_WEIGHT_COEFFICIENT, // 0.01
+            'new_penalty_factor' => self::ENHANCED_STABILITY_PENALTY, // 1.5
+            'enhanced_risk_penalty' => round($enhancedRiskPenalty, 4),
+            'risk_adjusted_score' => round($riskAdjustedScore, 2),
+            'penalty_improvement' => 'stricter_stability_control'
+        ]);
 
         // 确保评分在合理范围内（0-100）
         return max(0, min(100, $riskAdjustedScore));

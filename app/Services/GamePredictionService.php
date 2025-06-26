@@ -39,6 +39,13 @@ class GamePredictionService
     const HIGH_RISK_PENALTY_FACTOR = 0.90;        // 對「高風險」代幣的額外懲罰係數 (乘以0.9)
     const MARKET_ADJUSTMENT_WEIGHT = 0.2;         // 市場動量分數的影響權重
 
+    // --- 置信度計算參數 ---
+    const BASE_CONFIDENCE = 50;                   // 基礎置信度 (%)
+    const CONFIDENCE_PER_GAME = 1.5;              // 每局遊戲貢獻的置信度 (%)
+    const MAX_DATA_CONFIDENCE = 35;               // 數據量最大貢獻置信度 (%)
+    const STABILITY_BONUS_THRESHOLD = 10;         // 穩定性獎勵閾值
+    const MAX_CONSISTENCY_BONUS = 5;              // 一致性最大獎勵 (%)
+
     /**
      * 從 composer.json 獲取演算法版本資訊
      */
@@ -320,6 +327,9 @@ class GamePredictionService
 
         foreach ($analysisData as $index => &$data) {
             $data['predicted_rank'] = $index + 1;
+
+            // --- 新增此行 ---
+            $data['rank_confidence'] = $this->calculateRankConfidence($data);
         }
 
         return $analysisData;
@@ -351,6 +361,7 @@ class GamePredictionService
             'relative_score' => round($relativeScore, 2),
             'predicted_final_value' => round($predictedFinalValue, 2),
             'risk_adjusted_score' => round($riskAdjustedScore, 2),
+            'market_momentum_score' => round($marketMomentumScore, 2), // --- 新增此行 ---
         ]);
     }
 
@@ -452,5 +463,38 @@ class GamePredictionService
         }
         // 可以加入更多模糊匹配邏輯，但為保持簡潔，此處省略
         return $pairs[0] ?? null; // 返回第一個作為備選
+    }
+
+    /**
+     * 計算排名置信度（基於穩定性和歷史數據質量）
+     */
+    private function calculateRankConfidence(array $data): float
+    {
+        $confidence = self::BASE_CONFIDENCE; // 基礎置信度
+
+        // 因子1：歷史數據量
+        $totalGames = $data['total_games'] ?? 0;
+        if ($totalGames > 0) {
+            $dataConfidence = min(self::MAX_DATA_CONFIDENCE, $totalGames * self::CONFIDENCE_PER_GAME);
+            $confidence += $dataConfidence;
+        }
+
+        // 因子2：歷史表現穩定性 (波動率)
+        $valueStddev = $data['value_stddev'] ?? 0;
+        if ($valueStddev > 0) {
+            // 標準差越小，獎勵越高
+            $stabilityBonus = max(0, self::STABILITY_BONUS_THRESHOLD - ($valueStddev * 10)); // 放大stddev影響
+            $confidence += $stabilityBonus;
+        } else if ($totalGames > 0) {
+            $confidence += 5; // 如果有比賽紀錄且波動為0，給予少量獎勵
+        }
+
+        // 因子3：預測為前三名的置信度，由保本率貢獻
+        if (($data['predicted_rank'] ?? 4) <= 3) {
+            $confidence += ($data['top3_rate'] ?? 0) * 0.1; // top3_rate貢獻最多10%
+        }
+
+        // 確保置信度在 0-100% 範圍內
+        return round(max(0, min(100, $confidence)), 1);
     }
 }

@@ -422,7 +422,7 @@ class GamePredictionService
         // --- 優化點2：調整風險因子計算為穩定性獎勵機制 ---
         // 讓波動性懲罰/獎勵的影響力更大，穩定的代幣獲得獎勵
         if ($avgStddev > 0) {
-            $riskFactor = (($valueStddev - $avgStddev) / $avgStddev) * 10; // 波動高於平均越多，扣分越多；低於平均越多，加分越多
+            $riskFactor = (($valueStddev - $avgStddev) / $avgStddev) * 15; // 波動高於平均越多，扣分越多；低於平均越多，加分越多
             $riskAdjustedScore = $predictedValue - $riskFactor;
         } else {
             // 如果無法計算平均波動，使用原有的基礎懲罰
@@ -435,7 +435,7 @@ class GamePredictionService
         }
 
         // --- 優化點1：直接給予保本率獎勵 ---
-        $top3RateBonus = ($data['top3_rate'] ?? 0) / 4; // 將 top3_rate 的四分之一作為額外加分
+        $top3RateBonus = ($data['top3_rate'] ?? 0) / 2; // 將 top3_rate 的一半作為額外加分
         $riskAdjustedScore += $top3RateBonus;
         // --- 優化結束 ---
 

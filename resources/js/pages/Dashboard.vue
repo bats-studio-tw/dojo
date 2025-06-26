@@ -226,6 +226,36 @@
 
           <NSpin :show="predictionHistoryLoading">
             <div v-if="predictionHistoryData.length > 0" class="space-y-4">
+              <!-- 局数选择器 -->
+              <div class="mb-6 border border-white/20 rounded-xl from-gray-500/10 to-slate-600/5 bg-gradient-to-br p-4">
+                <div class="mb-3 flex items-center justify-between">
+                  <h4 class="text-white font-medium">📊 最新N局分析设置</h4>
+                  <div class="text-sm text-gray-300">
+                    当前分析:
+                    <span class="text-cyan-400 font-bold">{{ recentRoundsCount }}</span>
+                    局
+                  </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                  <span class="text-sm text-gray-300 font-medium">局数:</span>
+                  <div class="flex-1">
+                    <n-slider
+                      v-model:value="recentRoundsCount"
+                      :min="1"
+                      :max="Math.min(300, predictionHistoryData.length)"
+                      :step="1"
+                      :tooltip="true"
+                      class="px-2"
+                    />
+                  </div>
+                  <div class="flex text-xs text-gray-400 space-x-2">
+                    <span>1局</span>
+                    <span>-</span>
+                    <span>{{ Math.min(300, predictionHistoryData.length) }}局</span>
+                  </div>
+                </div>
+              </div>
+
               <!-- 预测准确度总结 -->
               <div class="grid grid-cols-2 gap-4 lg:grid-cols-5 md:grid-cols-3">
                 <!-- 精准预测率 -->
@@ -265,17 +295,41 @@
                   <div class="relative">
                     <div class="text-sm text-yellow-300 font-medium">预测第一名</div>
                     <div class="mt-2 space-y-1">
-                      <div class="flex items-center justify-between">
-                        <span class="text-lg text-yellow-400 font-bold">
-                          {{ calculateRankBasedStats().rank1.breakevenRate.toFixed(1) }}%
-                        </span>
-                        <span class="text-xs text-yellow-200/70">保本率</span>
+                      <!-- 全部历史数据 -->
+                      <div class="border-b border-yellow-400/20 pb-2">
+                        <div class="mb-1 text-xs text-yellow-200/50">
+                          全部历史 ({{ calculateRankBasedStats().rank1.total }}局)
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-lg text-yellow-400 font-bold">
+                            {{ calculateRankBasedStats().rank1.breakevenRate.toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-yellow-200/70">保本率</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-lg text-amber-300 font-bold">
+                            {{ calculateRankBasedStats().rank1.firstPlaceRate.toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-amber-200/70">第一名率</span>
+                        </div>
                       </div>
-                      <div class="flex items-center justify-between">
-                        <span class="text-lg text-amber-300 font-bold">
-                          {{ calculateRankBasedStats().rank1.firstPlaceRate.toFixed(1) }}%
-                        </span>
-                        <span class="text-xs text-amber-200/70">第一名率</span>
+                      <!-- 最新N局数据 -->
+                      <div class="pt-1">
+                        <div class="mb-1 text-xs text-cyan-300/70">
+                          最新{{ recentRoundsCount }}局 ({{ calculateRecentRankBasedStats.rank1.total }}局)
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-base text-cyan-400 font-bold">
+                            {{ calculateRecentRankBasedStats.rank1.breakevenRate.toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-cyan-200/70">保本率</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-base text-teal-300 font-bold">
+                            {{ calculateRecentRankBasedStats.rank1.firstPlaceRate.toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-teal-200/70">第一名率</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -289,17 +343,41 @@
                   <div class="relative">
                     <div class="text-sm text-slate-300 font-medium">预测第二名</div>
                     <div class="mt-2 space-y-1">
-                      <div class="flex items-center justify-between">
-                        <span class="text-lg text-slate-400 font-bold">
-                          {{ calculateRankBasedStats().rank2.breakevenRate.toFixed(1) }}%
-                        </span>
-                        <span class="text-xs text-slate-200/70">保本率</span>
+                      <!-- 全部历史数据 -->
+                      <div class="border-b border-slate-400/20 pb-2">
+                        <div class="mb-1 text-xs text-slate-200/50">
+                          全部历史 ({{ calculateRankBasedStats().rank2.total }}局)
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-lg text-slate-400 font-bold">
+                            {{ calculateRankBasedStats().rank2.breakevenRate.toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-slate-200/70">保本率</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-lg text-gray-300 font-bold">
+                            {{ calculateRankBasedStats().rank2.firstPlaceRate.toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-gray-200/70">第一名率</span>
+                        </div>
                       </div>
-                      <div class="flex items-center justify-between">
-                        <span class="text-lg text-gray-300 font-bold">
-                          {{ calculateRankBasedStats().rank2.firstPlaceRate.toFixed(1) }}%
-                        </span>
-                        <span class="text-xs text-gray-200/70">第一名率</span>
+                      <!-- 最新N局数据 -->
+                      <div class="pt-1">
+                        <div class="mb-1 text-xs text-cyan-300/70">
+                          最新{{ recentRoundsCount }}局 ({{ calculateRecentRankBasedStats.rank2.total }}局)
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-base text-cyan-400 font-bold">
+                            {{ calculateRecentRankBasedStats.rank2.breakevenRate.toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-cyan-200/70">保本率</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-base text-teal-300 font-bold">
+                            {{ calculateRecentRankBasedStats.rank2.firstPlaceRate.toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-teal-200/70">第一名率</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -313,17 +391,41 @@
                   <div class="relative">
                     <div class="text-sm text-orange-300 font-medium">预测第三名</div>
                     <div class="mt-2 space-y-1">
-                      <div class="flex items-center justify-between">
-                        <span class="text-lg text-orange-400 font-bold">
-                          {{ calculateRankBasedStats().rank3.breakevenRate.toFixed(1) }}%
-                        </span>
-                        <span class="text-xs text-orange-200/70">保本率</span>
+                      <!-- 全部历史数据 -->
+                      <div class="border-b border-orange-400/20 pb-2">
+                        <div class="mb-1 text-xs text-orange-200/50">
+                          全部历史 ({{ calculateRankBasedStats().rank3.total }}局)
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-lg text-orange-400 font-bold">
+                            {{ calculateRankBasedStats().rank3.breakevenRate.toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-orange-200/70">保本率</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-lg text-red-300 font-bold">
+                            {{ calculateRankBasedStats().rank3.firstPlaceRate.toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-red-200/70">第一名率</span>
+                        </div>
                       </div>
-                      <div class="flex items-center justify-between">
-                        <span class="text-lg text-red-300 font-bold">
-                          {{ calculateRankBasedStats().rank3.firstPlaceRate.toFixed(1) }}%
-                        </span>
-                        <span class="text-xs text-red-200/70">第一名率</span>
+                      <!-- 最新N局数据 -->
+                      <div class="pt-1">
+                        <div class="mb-1 text-xs text-cyan-300/70">
+                          最新{{ recentRoundsCount }}局 ({{ calculateRecentRankBasedStats.rank3.total }}局)
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-base text-cyan-400 font-bold">
+                            {{ calculateRecentRankBasedStats.rank3.breakevenRate.toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-cyan-200/70">保本率</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-base text-teal-300 font-bold">
+                            {{ calculateRecentRankBasedStats.rank3.firstPlaceRate.toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-teal-200/70">第一名率</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -499,6 +601,9 @@
   const analysisLoading = ref(false);
   const historyLoading = ref(false);
   const predictionHistoryLoading = ref(false);
+
+  // 最新N局分析的局数选择器
+  const recentRoundsCount = ref(50);
 
   // 延迟获取message实例，避免在providers还未准备好时调用
   const getMessageInstance = () => {
@@ -942,6 +1047,64 @@
 
     return rankStats;
   };
+
+  // 按预测排名分别统计最新N局的保本/亏本率和第一名率
+  const calculateRecentRankBasedStats = computed(() => {
+    const rankStats = {
+      rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
+    };
+
+    if (predictionHistoryData.value.length === 0) {
+      return rankStats;
+    }
+
+    // 获取最新N局数据（按轮次ID倒序排列后取前N个）
+    const recentRounds = predictionHistoryData.value
+      .slice()
+      .sort((a, b) => b.round_id.localeCompare(a.round_id))
+      .slice(0, recentRoundsCount.value);
+
+    recentRounds.forEach((round) => {
+      [1, 2, 3].forEach((predictedRank) => {
+        const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
+
+        predictions.forEach((prediction) => {
+          const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          if (actualResult) {
+            const key = `rank${predictedRank}` as keyof typeof rankStats;
+            rankStats[key].total++;
+
+            const analysis = getTokenPredictionAnalysis(prediction.predicted_rank, actualResult.actual_rank);
+
+            if (analysis.status === 'exact' || analysis.status === 'breakeven') {
+              rankStats[key].breakeven++;
+            } else if (analysis.status === 'loss') {
+              rankStats[key].loss++;
+            }
+
+            // 计算第一名率：实际排名是第一名的情况
+            if (actualResult.actual_rank === 1) {
+              rankStats[key].firstPlace++;
+            }
+          }
+        });
+      });
+    });
+
+    // 计算百分比
+    Object.keys(rankStats).forEach((key) => {
+      const stats = rankStats[key as keyof typeof rankStats];
+      if (stats.total > 0) {
+        stats.breakevenRate = (stats.breakeven / stats.total) * 100;
+        stats.lossRate = (stats.loss / stats.total) * 100;
+        stats.firstPlaceRate = (stats.firstPlace / stats.total) * 100;
+      }
+    });
+
+    return rankStats;
+  });
 </script>
 
 <style scoped>

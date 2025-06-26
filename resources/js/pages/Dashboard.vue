@@ -112,7 +112,6 @@
                     <tr class="border-b border-white/20 bg-white/5">
                       <th class="px-4 py-3 text-left text-white font-medium">排名</th>
                       <th class="px-4 py-3 text-left text-white font-medium">代币</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">价格 (USD)</th>
                       <th class="px-4 py-3 text-right text-white font-medium">绝对分数</th>
                       <th class="px-4 py-3 text-right text-white font-medium">H2H分数</th>
                       <th class="px-4 py-3 text-right text-white font-medium">风险调整</th>
@@ -152,9 +151,7 @@
                           </div>
                         </div>
                       </td>
-                      <td class="px-4 py-3 text-right text-white font-mono">
-                        ${{ parseFloat(token.price).toFixed(6) }}
-                      </td>
+
                       <!-- v8 绝对分数 -->
                       <td class="px-4 py-3 text-right">
                         <span class="text-purple-400 font-medium">
@@ -505,7 +502,6 @@
   interface TokenAnalysis {
     symbol: string;
     name: string;
-    price: string;
     change_5m: number | null;
     change_1h: number | null;
     change_4h: number | null;

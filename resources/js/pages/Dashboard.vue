@@ -246,26 +246,29 @@
                   </div>
                   <div class="mt-1 text-xs text-gray-400">预测与实际完全相同</div>
                 </div>
+
                 <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">💰 保本率</div>
+                  <div class="text-sm text-gray-300">💰 组合保本率</div>
                   <div class="text-2xl text-blue-400 font-bold">
-                    {{ calculateRoundBasedStats().breakevenRate.toFixed(1) }}%
+                    {{ calculatePortfolioStats().portfolioBreakevenRate.toFixed(1) }}%
                   </div>
                   <div class="mt-1 text-xs text-gray-400">前三名中有命中</div>
                 </div>
+
                 <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">📉 亏本率</div>
+                  <div class="text-sm text-gray-300">📉 组合亏本率</div>
                   <div class="text-2xl text-red-400 font-bold">
-                    {{ calculateRoundBasedStats().lossRate.toFixed(1) }}%
+                    {{ calculatePortfolioStats().portfolioLossRate.toFixed(1) }}%
                   </div>
                   <div class="mt-1 text-xs text-gray-400">前三名全部错误</div>
                 </div>
+
                 <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">📊 预测总数</div>
+                  <div class="text-sm text-gray-300">📊 预测总局数</div>
                   <div class="text-2xl text-purple-400 font-bold">
-                    {{ calculateRoundBasedStats().totalPredictions }}
+                    {{ calculatePortfolioStats().totalRounds }}
                   </div>
-                  <div class="mt-1 text-xs text-gray-400">前三名预测总数</div>
+                  <div class="mt-1 text-xs text-gray-400">模型运行总局数</div>
                 </div>
               </div>
 
@@ -853,27 +856,61 @@
     }
   ];
 
-  // 基于单个代币预测的统计函数
-  const calculateRoundBasedStats = () => {
-    if (predictionHistoryData.value.length === 0) {
+  // 新增：基于「局」为单位的统计函数，用于计算「组合保本率」
+  const calculatePortfolioStats = () => {
+    const totalRounds = predictionHistoryData.value.length;
+    if (totalRounds === 0) {
       return {
-        totalPredictions: 0,
-        exactPredictions: 0,
-        breakevenPredictions: 0,
-        lossPredictions: 0,
-        exactRate: 0,
-        breakevenRate: 0,
-        lossRate: 0
+        portfolioBreakevenRate: 0,
+        portfolioLossRate: 0,
+        totalRounds: 0
       };
     }
 
+    let roundsWithHit = 0; // 至少命中一个保本预测的局数
+
+    predictionHistoryData.value.forEach((round) => {
+      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
+      let hasHitInRound = false;
+
+      for (const prediction of top3Predictions) {
+        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        if (actualResult) {
+          const analysis = getTokenPredictionAnalysis(prediction.predicted_rank, actualResult.actual_rank);
+          // 只要有一次预测是 'exact' 或 'breakeven'，这局就算成功保本
+          if (analysis.status === 'exact' || analysis.status === 'breakeven') {
+            hasHitInRound = true;
+            break; // 已确认本局命中，无需再检查该局的其他预测，提升效率
+          }
+        }
+      }
+
+      if (hasHitInRound) {
+        roundsWithHit++;
+      }
+    });
+
+    const portfolioBreakevenRate = (roundsWithHit / totalRounds) * 100;
+    // 组合虧本率就是 100% 减去组合保本率
+    const portfolioLossRate = 100 - portfolioBreakevenRate;
+
+    return {
+      portfolioBreakevenRate,
+      portfolioLossRate,
+      totalRounds
+    };
+  };
+
+  // 修改：此函数现在专门用于计算基于「单次预测」的精准率
+  const calculateRoundBasedStats = () => {
+    if (predictionHistoryData.value.length === 0) {
+      return { exactRate: 0 };
+    }
+
     let exactPredictions = 0;
-    let breakevenPredictions = 0;
-    let lossPredictions = 0;
     let totalPredictions = 0;
 
     predictionHistoryData.value.forEach((round) => {
-      // 只统计前三名的预测
       const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
 
       top3Predictions.forEach((prediction) => {
@@ -884,23 +921,13 @@
 
           if (analysis.status === 'exact') {
             exactPredictions++;
-          } else if (analysis.status === 'breakeven') {
-            breakevenPredictions++;
-          } else if (analysis.status === 'loss') {
-            lossPredictions++;
           }
         }
       });
     });
 
     return {
-      totalPredictions,
-      exactPredictions,
-      breakevenPredictions,
-      lossPredictions,
-      exactRate: totalPredictions > 0 ? (exactPredictions / totalPredictions) * 100 : 0,
-      breakevenRate: totalPredictions > 0 ? (breakevenPredictions / totalPredictions) * 100 : 0,
-      lossRate: totalPredictions > 0 ? (lossPredictions / totalPredictions) * 100 : 0
+      exactRate: totalPredictions > 0 ? (exactPredictions / totalPredictions) * 100 : 0
     };
   };
 

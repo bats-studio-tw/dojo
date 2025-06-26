@@ -187,8 +187,19 @@ class GameDataProcessorService
             // 从缓存获取预测数据
             $cachedPrediction = Cache::get('game:current_prediction');
 
+            Log::channel('websocket')->info('尝试保存预测数据', [
+                'round_id' => $roundId,
+                'game_round_id' => $gameRound->id,
+                'has_cached_prediction' => !empty($cachedPrediction),
+                'cached_prediction_type' => gettype($cachedPrediction)
+            ]);
+
             if (!$cachedPrediction || !is_array($cachedPrediction)) {
-                Log::channel('websocket')->info('无缓存预测数据需要保存', ['round_id' => $roundId]);
+                Log::channel('websocket')->info('无缓存预测数据需要保存', [
+                    'round_id' => $roundId,
+                    'has_cached_prediction' => !empty($cachedPrediction),
+                    'cached_prediction_type' => gettype($cachedPrediction)
+                ]);
                 return;
             }
 
@@ -214,11 +225,17 @@ class GameDataProcessorService
             // 批量插入新的预测数据
             $predictionRecords = [];
             foreach ($analysisData as $tokenData) {
+                // 使用 risk_adjusted_score 作为主要预测分数，如果不存在则回退到其他分数
+                $predictionScore = $tokenData['risk_adjusted_score'] ??
+                                  $tokenData['predicted_final_value'] ??
+                                  $tokenData['absolute_score'] ??
+                                  0;
+
                 $predictionRecords[] = [
                     'game_round_id' => $gameRound->id,
                     'token_symbol' => $tokenData['symbol'],
                     'predicted_rank' => $tokenData['predicted_rank'],
-                    'prediction_score' => $tokenData['prediction_score'],
+                    'prediction_score' => round($predictionScore, 2), // 确保符合 decimal(5,2) 格式
                     'prediction_data' => json_encode($tokenData),
                     'predicted_at' => \Carbon\Carbon::parse($cachedPrediction['generated_at']),
                 ];

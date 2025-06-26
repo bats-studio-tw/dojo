@@ -320,8 +320,8 @@ class GameWebSocketService
                 ];
 
                 try {
-                    // 存儲到緩存，設置過期時間為 2 小時
-                    Cache::put('game:current_round', $currentRoundData, now()->addMinutes(2));
+                    // 存儲到緩存，設置過期時間為 20 分钟，确保比预测数据缓存时间更长
+                    Cache::put('game:current_round', $currentRoundData, now()->addMinutes(20));
 
                     // 验证存储是否成功
                     $storedData = Cache::get('game:current_round');

@@ -55,8 +55,14 @@ class GamePredictionService
     // === v8 演算法：H2H 相对关系模型权重参数 ===
     const V8_ABSOLUTE_SCORE_WEIGHT = 0.6;         // 绝对分数（历史保本表现）的权重
     const V8_RELATIVE_SCORE_WEIGHT = 0.4;         // 相对分数（H2H对战优势）的权重
-    const H2H_MIN_GAMES_THRESHOLD = 3;            // H2H 最少对战局数门槛
+    const H2H_MIN_GAMES_THRESHOLD = 5;            // H2H 最少对战局数门槛（优化：从3提升到5，确保数据质量）
     const H2H_DEFAULT_SCORE = 50;                 // 无H2H历史时的默认分数
+
+    // === v8.1 优化参数：风险控制与动态权重 ===
+    const STABILITY_THRESHOLD_MULTIPLIER = 1.5;   // 稳定性阈值倍数：超过平均stddev的1.5倍视为高风险
+    const HIGH_RISK_PENALTY_FACTOR = 0.95;        // 高风险代币额外惩罚系数
+    const MIN_H2H_COVERAGE_WEIGHT = 0.2;          // H2H数据覆盖率最低权重
+    const MAX_H2H_COVERAGE_WEIGHT = 0.6;          // H2H数据覆盖率最高权重
 
     /**
      * 为指定代币列表生成预测分析数据并缓存
@@ -83,8 +89,8 @@ class GamePredictionService
                 'round_id' => $roundId,
                 'analysis_data' => $analysisData,
                 'generated_at' => now()->toISOString(),
-                'algorithm' => 'h2h_breakeven_prediction_v8',
-                'algorithm_description' => '基于H2H对战关系分析的保本优先预测算法：从统计学家进化为战术分析师',
+                'algorithm' => 'h2h_breakeven_prediction_v8.1',
+                'algorithm_description' => '基于H2H对战关系分析的智能动态权重保本优先预测算法：从战术分析师进化为智能决策系统',
                 'analysis_rounds_count' => $this->getAnalysisRoundsCount()
             ];
 
@@ -115,27 +121,31 @@ class GamePredictionService
                 ];
             }
 
-            Log::info('✅ 预测分析数据已生成并缓存 (v8 H2H对战关系分析算法)', [
+            Log::info('✅ 预测分析数据已生成并缓存 (v8.1 智能动态权重H2H算法)', [
                 'round_id' => $roundId,
-                'algorithm' => 'h2h_breakeven_prediction_v8',
-                'algorithm_description' => '基于H2H对战关系分析的保本优先预测算法：从统计学家进化为战术分析师',
+                'algorithm' => 'h2h_breakeven_prediction_v8.1',
+                'algorithm_description' => '基于H2H对战关系分析的智能动态权重保本优先预测算法：从战术分析师进化为智能决策系统',
                 'tokens_analyzed' => count($analysisData),
                 'top_3_predictions' => $algorithmSummary,
                 'cache_expires' => now()->addMinutes(self::CACHE_DURATION_MINUTES)->toISOString(),
-                'sorting_strategy' => 'risk_adjusted_score (H2H相对优势+绝对表现)',
-                'v8_innovations' => [
-                    '🆚 H2H对战关系分析：不只看个体强度，更重视具体对手匹配',
-                    '⚖️ 绝对+相对双重评分：60%绝对表现 + 40%相对优势',
-                    '🎯 战术分析师思维：从历史统计转向对战匹配分析',
-                    '🛡️ 保本率最大化：专注于提高稳定获胜概率',
-                    '📊 继承v7稳定性控制：保留增强的风险调整机制'
+                'sorting_strategy' => 'risk_adjusted_score (智能动态权重+增强稳定性控制)',
+                'v8.1_innovations' => [
+                    '🧠 智能动态权重：根据H2H数据覆盖率自动调整绝对/相对权重平衡',
+                    '🎯 提高数据门槛：H2H最少对战次数从3次提升到5次，确保数据质量',
+                    '🔮 智能回退机制：H2H数据不足时基于绝对实力计算，而非固定50分',
+                    '⚡ 强化稳定性惩罚：高风险代币额外惩罚，优先稳定型选手',
+                    '📈 保本率优化：基于62.9% vs 65.5%的数据洞察，偏向稳定策略',
+                    '🛡️ 继承v7+v8优势：保留所有历代稳定性控制和H2H分析能力'
                 ],
-                'weight_parameters' => [
-                    'absolute_score_weight' => self::V8_ABSOLUTE_SCORE_WEIGHT,
-                    'relative_score_weight' => self::V8_RELATIVE_SCORE_WEIGHT,
-                    'h2h_min_games_threshold' => self::H2H_MIN_GAMES_THRESHOLD,
-                    'stability_penalty' => self::ENHANCED_STABILITY_PENALTY
-                ]
+                'dynamic_parameters' => [
+                    'h2h_min_games_threshold' => self::H2H_MIN_GAMES_THRESHOLD, // 提升到5
+                    'stability_threshold_multiplier' => self::STABILITY_THRESHOLD_MULTIPLIER,
+                    'high_risk_penalty_factor' => self::HIGH_RISK_PENALTY_FACTOR,
+                    'min_h2h_coverage_weight' => self::MIN_H2H_COVERAGE_WEIGHT,
+                    'max_h2h_coverage_weight' => self::MAX_H2H_COVERAGE_WEIGHT,
+                    'enhanced_stability_penalty' => self::ENHANCED_STABILITY_PENALTY
+                ],
+                'optimization_focus' => 'breakeven_rate_maximization_with_intelligent_adaptation'
             ]);
 
             return true;
@@ -200,8 +210,11 @@ class GamePredictionService
         // v8 新增：计算 H2H 相对强度分数
         $this->calculateHeadToHeadScores($tokenStats);
 
-        // 获取市场数据并合并，基于预期分数进行预测
-        $analysisData = $this->enrichWithMarketData($tokenStats);
+        // v8.1 新增：计算H2H数据覆盖率，用于动态权重调整
+        $h2hCoverageRatio = $this->calculateH2HCoverageRatio($tokenStats);
+
+        // 获取市场数据并合并，基于预期分数和动态权重进行预测
+        $analysisData = $this->enrichWithMarketData($tokenStats, $h2hCoverageRatio);
 
         return $analysisData;
     }
@@ -459,16 +472,21 @@ class GamePredictionService
                     'h2h_details' => $h2hDetails
                 ]);
             } else {
-                // 没有足够的对战历史，给予中立的默认分数
-                $stats['h2h_score'] = self::H2H_DEFAULT_SCORE;
+                // v8.1 优化：H2H数据不足时，基于绝对实力计算智能回退分数，而非固定50分
+                $absoluteScore = $this->calculateAbsoluteScore($stats);
+                $fallbackScore = ($absoluteScore / 110) * 50 + 25; // 映射0-110分的absolute_score到25-75分区间
+                $stats['h2h_score'] = max(25, min(75, $fallbackScore));
 
-                Log::info("H2H 分数使用默认值（无足够对战历史）", [
+                Log::info("H2H 分数使用智能回退（基于绝对实力）", [
                     'symbol' => $symbol,
                     'valid_opponents' => $validOpponentCount,
                     'total_opponents' => count($currentTokenSymbols) - 1,
-                    'h2h_score' => $stats['h2h_score'],
-                    'reason' => 'insufficient_h2h_data',
-                    'min_games_required' => self::H2H_MIN_GAMES_THRESHOLD
+                    'absolute_score' => round($absoluteScore, 2),
+                    'fallback_score' => round($fallbackScore, 2),
+                    'h2h_score' => round($stats['h2h_score'], 1),
+                    'reason' => 'insufficient_h2h_data_smart_fallback',
+                    'min_games_required' => self::H2H_MIN_GAMES_THRESHOLD,
+                    'improvement' => 'v8.1_intelligent_fallback_based_on_absolute_strength'
                 ]);
             }
 
@@ -488,9 +506,57 @@ class GamePredictionService
     }
 
     /**
+     * v8.1 新增：计算H2H数据覆盖率，用于动态调整算法权重
+     */
+    private function calculateH2HCoverageRatio(array $tokenStats): float
+    {
+        $totalPossiblePairs = 0;
+        $validH2HPairs = 0;
+
+        $tokens = array_keys($tokenStats);
+        $tokenCount = count($tokens);
+
+        // 计算所有可能的对战组合数量
+        for ($i = 0; $i < $tokenCount; $i++) {
+            for ($j = $i + 1; $j < $tokenCount; $j++) {
+                $tokenA = $tokens[$i];
+                $tokenB = $tokens[$j];
+                $totalPossiblePairs++;
+
+                // 检查两个方向的H2H数据是否都满足最少对战次数要求
+                $h2hDataA = $tokenStats[$tokenA]['h2h_stats'][$tokenB] ?? null;
+                $h2hDataB = $tokenStats[$tokenB]['h2h_stats'][$tokenA] ?? null;
+
+                $validA = $h2hDataA && $h2hDataA['games'] >= self::H2H_MIN_GAMES_THRESHOLD;
+                $validB = $h2hDataB && $h2hDataB['games'] >= self::H2H_MIN_GAMES_THRESHOLD;
+
+                // 只有当两个方向的数据都有效时，才算作有效的H2H数据对
+                if ($validA && $validB) {
+                    $validH2HPairs++;
+                }
+            }
+        }
+
+        // 计算覆盖率
+        $coverageRatio = $totalPossiblePairs > 0 ? $validH2HPairs / $totalPossiblePairs : 0;
+
+        Log::info('H2H数据覆盖率分析', [
+            'participating_tokens' => $tokenCount,
+            'total_possible_pairs' => $totalPossiblePairs,
+            'valid_h2h_pairs' => $validH2HPairs,
+            'coverage_ratio' => round($coverageRatio, 3),
+            'coverage_percentage' => round($coverageRatio * 100, 1) . '%',
+            'min_games_threshold' => self::H2H_MIN_GAMES_THRESHOLD,
+            'dynamic_weight_impact' => 'will_adjust_relative_vs_absolute_balance'
+        ]);
+
+        return $coverageRatio;
+    }
+
+    /**
      * 批量获取市场数据并合并到分析结果中
      */
-    private function enrichWithMarketData(array $tokenStats): array
+    private function enrichWithMarketData(array $tokenStats, float $h2hCoverageRatio = 0): array
     {
         $analysisData = [];
 
@@ -502,8 +568,8 @@ class GamePredictionService
                 $mergedData = array_merge($stats, $marketData);
                 $mergedData['symbol'] = $originalSymbol; // 强制保持原始symbol
 
-                // 重新计算包含市场数据的预测评分
-                $mergedData = $this->calculateEnhancedPredictionScore($mergedData);
+                // 重新计算包含市场数据的预测评分（v8.1：支持动态权重）
+                $mergedData = $this->calculateEnhancedPredictionScore($mergedData, $tokenStats, $h2hCoverageRatio);
 
                 $analysisData[] = $mergedData;
 
@@ -517,8 +583,8 @@ class GamePredictionService
                 $defaultData = array_merge($stats, $this->getDefaultMarketData($originalSymbol));
                 $defaultData['symbol'] = $originalSymbol; // 确保symbol正确
 
-                // 重要修复：对默认数据也要计算增强评分（包括市场动量）
-                $defaultData = $this->calculateEnhancedPredictionScore($defaultData);
+                // 重要修复：对默认数据也要计算增强评分（包括市场动量）v8.1：支持动态权重
+                $defaultData = $this->calculateEnhancedPredictionScore($defaultData, $tokenStats, $h2hCoverageRatio);
                 $analysisData[] = $defaultData;
             }
         }
@@ -548,27 +614,31 @@ class GamePredictionService
     }
 
     /**
-     * 计算包含市场数据的增强预测评分 - v8 基于H2H对战关系分析：绝对+相对双重评分
+     * 计算包含市场数据的增强预测评分 - v8.1 基于H2H对战关系分析：绝对+相对双重评分，支持动态权重
      */
-    private function calculateEnhancedPredictionScore(array $data): array
+    private function calculateEnhancedPredictionScore(array $data, array $allTokenStats = [], float $h2hCoverageRatio = 0): array
     {
-        // v8 步骤1：计算绝对分数（基于历史保本表现，继承v7的稳定性逻辑）
+        // v8.1 步骤1：计算绝对分数（基于历史保本表现，继承v7的稳定性逻辑）
         $absoluteScore = $this->calculateAbsoluteScore($data);
 
-        // v8 步骤2：获取相对分数（基于H2H对战优势）
+        // v8.1 步骤2：获取相对分数（基于H2H对战优势）
         $relativeScore = $data['h2h_score'] ?? self::H2H_DEFAULT_SCORE;
 
-        // v8 步骤3：结合绝对分与相对分，得到一个结合了对战关系的预期分数
-        $predictedFinalValue = ($absoluteScore * self::V8_ABSOLUTE_SCORE_WEIGHT) + ($relativeScore * self::V8_RELATIVE_SCORE_WEIGHT);
+        // v8.1 步骤3：动态权重计算（根据H2H数据覆盖率智能调整）
+        $dynamicRelativeWeight = self::MIN_H2H_COVERAGE_WEIGHT + ($h2hCoverageRatio * (self::MAX_H2H_COVERAGE_WEIGHT - self::MIN_H2H_COVERAGE_WEIGHT));
+        $dynamicAbsoluteWeight = 1.0 - $dynamicRelativeWeight;
 
-        // v8 步骤4：应用市场影响调整（保留市场数据的影响）
+        // v8.1 步骤4：结合绝对分与相对分，使用动态权重得到预期分数
+        $predictedFinalValue = ($absoluteScore * $dynamicAbsoluteWeight) + ($relativeScore * $dynamicRelativeWeight);
+
+        // v8.1 步骤5：应用市场影响调整（保留市场数据的影响）
         $marketAdjustmentValue = $this->calculateMarketAdjustmentValue($data);
         $marketAdjustedValue = $predictedFinalValue + ($marketAdjustmentValue * 0.2); // 降低市场权重，重点在H2H
 
-        // v8 步骤5：应用稳定性惩罚（继承v7的风险控制机制）
-        $riskAdjustedScore = $this->calculateRiskAdjustedScore($marketAdjustedValue, $data);
+        // v8.1 步骤6：应用稳定性惩罚（继承v7的风险控制机制，传递所有token数据用于高风险识别）
+        $riskAdjustedScore = $this->calculateRiskAdjustedScore($marketAdjustedValue, $data, $allTokenStats);
 
-        // v8 添加新的预测指标到数据中
+        // v8.1 添加新的预测指标到数据中
         $data['absolute_score'] = round($absoluteScore, 2);
         $data['relative_score'] = round($relativeScore, 2);
         $data['predicted_final_value'] = round($predictedFinalValue, 4);
@@ -576,27 +646,38 @@ class GamePredictionService
         $data['market_adjusted_value'] = round($marketAdjustedValue, 4);
         $data['risk_adjusted_score'] = round($riskAdjustedScore, 2);
 
+        // v8.1 新增动态权重相关指标
+        $data['h2h_coverage_ratio'] = round($h2hCoverageRatio, 3);
+        $data['dynamic_absolute_weight'] = round($dynamicAbsoluteWeight, 3);
+        $data['dynamic_relative_weight'] = round($dynamicRelativeWeight, 3);
+
         // 保留原有的市场动量评分（用于分析）
         $data['market_momentum_score'] = round($this->calculateMarketMomentumScore($data), 1);
 
-        // v8 设置最终预测评分为风险调整后分数
+        // v8.1 设置最终预测评分为风险调整后分数
         $data['final_prediction_score'] = $data['risk_adjusted_score'];
 
-        // v8 记录权重应用的详细日志
-        Log::info("v8 H2H 算法权重应用", [
+        // v8.1 记录动态权重应用的详细日志
+        Log::info("v8.1 智能动态权重 H2H 算法应用", [
             'symbol' => $data['symbol'],
             'absolute_score' => round($absoluteScore, 2),
             'relative_score' => round($relativeScore, 2),
             'h2h_score' => round($data['h2h_score'] ?? 0, 1),
-            'weighted_absolute' => round($absoluteScore * self::V8_ABSOLUTE_SCORE_WEIGHT, 2),
-            'weighted_relative' => round($relativeScore * self::V8_RELATIVE_SCORE_WEIGHT, 2),
+            'h2h_coverage_ratio' => round($h2hCoverageRatio, 3),
+            'dynamic_absolute_weight' => round($dynamicAbsoluteWeight, 3),
+            'dynamic_relative_weight' => round($dynamicRelativeWeight, 3),
+            'weighted_absolute' => round($absoluteScore * $dynamicAbsoluteWeight, 2),
+            'weighted_relative' => round($relativeScore * $dynamicRelativeWeight, 2),
             'predicted_final_value' => round($predictedFinalValue, 4),
             'market_adjustment' => round($marketAdjustmentValue, 4),
             'market_adjusted_value' => round($marketAdjustedValue, 4),
             'risk_adjusted_score' => round($riskAdjustedScore, 2),
-            'absolute_weight' => self::V8_ABSOLUTE_SCORE_WEIGHT,
-            'relative_weight' => self::V8_RELATIVE_SCORE_WEIGHT,
-            'strategy' => 'h2h_tactical_analysis'
+            'strategy' => 'h2h_intelligent_dynamic_weighting',
+            'improvements' => [
+                'dynamic_weights_based_on_data_quality',
+                'enhanced_stability_penalty_for_breakeven',
+                'intelligent_h2h_fallback_scores'
+            ]
         ]);
 
         return $data;
@@ -731,9 +812,9 @@ class GamePredictionService
     }
 
     /**
-     * 计算风险调整后分数（更严格的稳定性惩罚） - v7 基于数据分析优化
+     * 计算风险调整后分数（更严格的稳定性惩罚） - v8.1 基于保本率优化，强化稳定性优先策略
      */
-    private function calculateRiskAdjustedScore(float $predictedValue, array $data): float
+    private function calculateRiskAdjustedScore(float $predictedValue, array $data, array $allTokenStats = []): float
     {
         $valueStddev = $data['value_stddev'] ?? 0;
 
@@ -751,21 +832,45 @@ class GamePredictionService
             return $stabilityReward;
         }
 
-        // v7 改进：应用更严格的稳定性惩罚因子
-        // 原公式：1 + (标准差 * 0.01)，现在：1 + (标准差 * 1.5)
-        $enhancedRiskPenalty = 1 + ($valueStddev * self::ENHANCED_STABILITY_PENALTY);
+        // v8.1 新增：计算所有代币的平均标准差，识别高风险代币
+        $avgStddev = 0;
+        if (!empty($allTokenStats)) {
+            $totalStddev = 0;
+            $validCount = 0;
+            foreach ($allTokenStats as $tokenData) {
+                $tokenStddev = $tokenData['value_stddev'] ?? 0;
+                if ($tokenStddev > 0) {
+                    $totalStddev += $tokenStddev;
+                    $validCount++;
+                }
+            }
+            $avgStddev = $validCount > 0 ? $totalStddev / $validCount : 0;
+        }
 
+        // v7 基础风险惩罚：应用更严格的稳定性惩罚因子
+        $enhancedRiskPenalty = 1 + ($valueStddev * self::ENHANCED_STABILITY_PENALTY);
         $riskAdjustedScore = $predictedValue / $enhancedRiskPenalty;
 
+        // v8.1 新增：高风险代币额外惩罚（针对保本率优化）
+        $isHighRisk = false;
+        if ($avgStddev > 0 && $valueStddev > ($avgStddev * self::STABILITY_THRESHOLD_MULTIPLIER)) {
+            $riskAdjustedScore *= self::HIGH_RISK_PENALTY_FACTOR;
+            $isHighRisk = true;
+        }
+
         // 记录风险调整的详细计算过程
-        Log::debug("v8 风险调整计算（继承v7稳定性控制）", [
+        Log::debug("v8.1 风险调整计算（强化稳定性优先策略）", [
             'symbol' => $data['symbol'],
             'predicted_value' => round($predictedValue, 4),
             'value_stddev' => round($valueStddev, 4),
-            'penalty_factor' => self::ENHANCED_STABILITY_PENALTY, // 1.5
+            'avg_stddev' => round($avgStddev, 4),
+            'stability_threshold' => round($avgStddev * self::STABILITY_THRESHOLD_MULTIPLIER, 4),
+            'is_high_risk' => $isHighRisk,
+            'penalty_factor' => self::ENHANCED_STABILITY_PENALTY,
             'enhanced_risk_penalty' => round($enhancedRiskPenalty, 4),
+            'high_risk_additional_penalty' => $isHighRisk ? self::HIGH_RISK_PENALTY_FACTOR : 1.0,
             'risk_adjusted_score' => round($riskAdjustedScore, 2),
-            'strategy' => 'v8_inherited_v7_stability_control'
+            'strategy' => 'v8.1_stability_first_for_breakeven_optimization'
         ]);
 
         // 确保评分在合理范围内（0-100）

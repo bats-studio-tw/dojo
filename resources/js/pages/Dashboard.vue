@@ -4,17 +4,6 @@
 
     <div class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br p-6">
       <div class="mx-auto max-w-7xl">
-        <!-- 页面标题 -->
-        <!-- <div class="mb-8 text-center">
-          <h1
-            class="mb-4 from-blue-400 via-purple-400 to-pink-400 bg-gradient-to-r bg-clip-text text-4xl text-transparent font-bold"
-          >
-            🎯 游戏数据中心
-          </h1>
-          <p class="text-lg text-gray-300">实时游戏数据分析与预测系统</p>
-          <div class="mx-auto mt-4 h-1 w-24 rounded-full from-blue-400 to-purple-400 bg-gradient-to-r"></div>
-        </div> -->
-
         <!-- v8 H2H 对战关系分析 -->
         <NCard
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
@@ -238,37 +227,23 @@
           <NSpin :show="predictionHistoryLoading">
             <div v-if="predictionHistoryData.length > 0" class="space-y-4">
               <!-- 预测准确度总结 -->
-              <div class="grid grid-cols-1 gap-4 lg:grid-cols-4 md:grid-cols-2">
-                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">🎯 精准预测率</div>
-                  <div class="text-2xl text-green-400 font-bold">
-                    {{ calculateRoundBasedStats().exactRate.toFixed(1) }}%
+              <div class="border border-white/20 rounded-lg bg-white/5 p-4">
+                <div class="flex items-center justify-between">
+                  <div class="text-center">
+                    <div class="text-sm text-gray-300">🎯 精准预测率</div>
+                    <div class="text-2xl text-green-400 font-bold">
+                      {{ calculateRoundBasedStats().exactRate.toFixed(1) }}%
+                    </div>
+                    <div class="mt-1 text-xs text-gray-400">预测与实际完全相同</div>
                   </div>
-                  <div class="mt-1 text-xs text-gray-400">预测与实际完全相同</div>
-                </div>
-
-                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">💰 组合保本率</div>
-                  <div class="text-2xl text-blue-400 font-bold">
-                    {{ calculatePortfolioStats().portfolioBreakevenRate.toFixed(1) }}%
+                  <div class="mx-6 h-12 w-px bg-white/20"></div>
+                  <div class="text-center">
+                    <div class="text-sm text-gray-300">📊 预测总局数</div>
+                    <div class="text-2xl text-purple-400 font-bold">
+                      {{ calculatePortfolioStats().totalRounds }}
+                    </div>
+                    <div class="mt-1 text-xs text-gray-400">模型运行总局数</div>
                   </div>
-                  <div class="mt-1 text-xs text-gray-400">前三名中有命中</div>
-                </div>
-
-                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">📉 组合亏本率</div>
-                  <div class="text-2xl text-red-400 font-bold">
-                    {{ calculatePortfolioStats().portfolioLossRate.toFixed(1) }}%
-                  </div>
-                  <div class="mt-1 text-xs text-gray-400">前三名全部错误</div>
-                </div>
-
-                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="text-sm text-gray-300">📊 预测总局数</div>
-                  <div class="text-2xl text-purple-400 font-bold">
-                    {{ calculatePortfolioStats().totalRounds }}
-                  </div>
-                  <div class="mt-1 text-xs text-gray-400">模型运行总局数</div>
                 </div>
               </div>
 
@@ -856,48 +831,10 @@
     }
   ];
 
-  // 新增：基于「局」为单位的统计函数，用于计算「组合保本率」
+  // 获取预测总局数统计
   const calculatePortfolioStats = () => {
-    const totalRounds = predictionHistoryData.value.length;
-    if (totalRounds === 0) {
-      return {
-        portfolioBreakevenRate: 0,
-        portfolioLossRate: 0,
-        totalRounds: 0
-      };
-    }
-
-    let roundsWithHit = 0; // 至少命中一个保本预测的局数
-
-    predictionHistoryData.value.forEach((round) => {
-      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
-      let hasHitInRound = false;
-
-      for (const prediction of top3Predictions) {
-        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
-        if (actualResult) {
-          const analysis = getTokenPredictionAnalysis(prediction.predicted_rank, actualResult.actual_rank);
-          // 只要有一次预测是 'exact' 或 'breakeven'，这局就算成功保本
-          if (analysis.status === 'exact' || analysis.status === 'breakeven') {
-            hasHitInRound = true;
-            break; // 已确认本局命中，无需再检查该局的其他预测，提升效率
-          }
-        }
-      }
-
-      if (hasHitInRound) {
-        roundsWithHit++;
-      }
-    });
-
-    const portfolioBreakevenRate = (roundsWithHit / totalRounds) * 100;
-    // 组合虧本率就是 100% 减去组合保本率
-    const portfolioLossRate = 100 - portfolioBreakevenRate;
-
     return {
-      portfolioBreakevenRate,
-      portfolioLossRate,
-      totalRounds
+      totalRounds: predictionHistoryData.value.length
     };
   };
 

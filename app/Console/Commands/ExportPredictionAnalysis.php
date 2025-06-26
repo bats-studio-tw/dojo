@@ -87,8 +87,6 @@ class ExportPredictionAnalysis extends Command
 
                         // 從 prediction_data JSON 中提取詳細數據
                         $predictionData = $prediction->prediction_data ?? [];
-                        $historicalStats = $predictionData['historical_stats'] ?? [];
-                        $marketData = $predictionData['market_data'] ?? [];
 
                         $rowData = [
                             $round->round_id,
@@ -101,21 +99,21 @@ class ExportPredictionAnalysis extends Command
                             $actualResult->rank <= 3 ? '1' : '0', // 1 代表保本, 0 代表虧本
                             // 預測分數
                             $prediction->prediction_score,
-                            // 歷史數據
-                            $historicalStats['total_games'] ?? null,
-                            $historicalStats['avg_rank'] ?? null,
-                            $historicalStats['win_rate'] ?? null,
-                            $historicalStats['top3_rate'] ?? null,
-                            $historicalStats['avg_value'] ?? null,
-                            $historicalStats['value_stddev'] ?? null,
-                            // 市場數據
-                            $marketData['price'] ?? null,
-                            $marketData['change_5m'] ?? null,
-                            $marketData['change_1h'] ?? null,
-                            $marketData['change_4h'] ?? null,
-                            $marketData['change_24h'] ?? null,
-                            $marketData['volume_24h'] ?? null,
-                            // 其他分析數據 (從 prediction_data 中提取)
+                            // 歷史數據 - 直接從prediction_data根級別提取
+                            $predictionData['total_games'] ?? null,
+                            $predictionData['avg_rank'] ?? null,
+                            $predictionData['win_rate'] ?? null,
+                            $predictionData['top3_rate'] ?? null,
+                            $predictionData['avg_value'] ?? null,
+                            $predictionData['value_stddev'] ?? null,
+                            // 市場數據 - 直接從prediction_data根級別提取
+                            $predictionData['price'] ?? null,
+                            $predictionData['change_5m'] ?? null,
+                            $predictionData['change_1h'] ?? null,
+                            $predictionData['change_4h'] ?? null,
+                            $predictionData['change_24h'] ?? null,
+                            $predictionData['volume_24h'] ?? null,
+                            // 其他分析數據 - 直接從prediction_data根級別提取
                             $predictionData['predicted_final_value'] ?? null,
                             $predictionData['risk_adjusted_score'] ?? null,
                             $predictionData['market_momentum_score'] ?? null,

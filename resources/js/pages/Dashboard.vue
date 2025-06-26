@@ -229,6 +229,7 @@
               <!-- 预测准确度总结 -->
               <div class="border border-white/20 rounded-lg bg-white/5 p-4">
                 <div class="flex items-center justify-between">
+                  <!-- 精准预测率 -->
                   <div class="text-center">
                     <div class="text-sm text-gray-300">🎯 精准预测率</div>
                     <div class="text-2xl text-green-400 font-bold">
@@ -236,7 +237,10 @@
                     </div>
                     <div class="mt-1 text-xs text-gray-400">预测与实际完全相同</div>
                   </div>
-                  <div class="mx-6 h-12 w-px bg-white/20"></div>
+
+                  <div class="mx-3 h-12 w-px bg-white/20"></div>
+
+                  <!-- 预测总局数 -->
                   <div class="text-center">
                     <div class="text-sm text-gray-300">📊 预测总局数</div>
                     <div class="text-2xl text-purple-400 font-bold">
@@ -244,65 +248,38 @@
                     </div>
                     <div class="mt-1 text-xs text-gray-400">模型运行总局数</div>
                   </div>
-                </div>
-              </div>
 
-              <!-- 按预测排名分别统计 -->
-              <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 md:grid-cols-3">
-                <!-- 预测第一名统计 -->
-                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="mb-3 text-sm text-gray-300">🥇 预测第一名</div>
-                  <div class="space-y-2">
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs text-gray-400">保本率</span>
-                      <span class="text-sm text-blue-400 font-medium">
-                        {{ calculateRankBasedStats().rank1.breakevenRate.toFixed(1) }}%
-                      </span>
+                  <div class="mx-3 h-12 w-px bg-white/20"></div>
+
+                  <!-- 预测第一名 -->
+                  <div class="text-center">
+                    <div class="text-sm text-gray-300">🥇 预测第一名</div>
+                    <div class="text-lg text-blue-400 font-bold">
+                      {{ calculateRankBasedStats().rank1.breakevenRate.toFixed(1) }}%
                     </div>
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs text-gray-400">亏本率</span>
-                      <span class="text-sm text-red-400 font-medium">
-                        {{ calculateRankBasedStats().rank1.lossRate.toFixed(1) }}%
-                      </span>
-                    </div>
+                    <div class="mt-1 text-xs text-gray-400">保本率</div>
                   </div>
-                </div>
 
-                <!-- 预测第二名统计 -->
-                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="mb-3 text-sm text-gray-300">🥈 预测第二名</div>
-                  <div class="space-y-2">
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs text-gray-400">保本率</span>
-                      <span class="text-sm text-blue-400 font-medium">
-                        {{ calculateRankBasedStats().rank2.breakevenRate.toFixed(1) }}%
-                      </span>
+                  <div class="mx-3 h-12 w-px bg-white/20"></div>
+
+                  <!-- 预测第二名 -->
+                  <div class="text-center">
+                    <div class="text-sm text-gray-300">🥈 预测第二名</div>
+                    <div class="text-lg text-blue-400 font-bold">
+                      {{ calculateRankBasedStats().rank2.breakevenRate.toFixed(1) }}%
                     </div>
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs text-gray-400">亏本率</span>
-                      <span class="text-sm text-red-400 font-medium">
-                        {{ calculateRankBasedStats().rank2.lossRate.toFixed(1) }}%
-                      </span>
-                    </div>
+                    <div class="mt-1 text-xs text-gray-400">保本率</div>
                   </div>
-                </div>
 
-                <!-- 预测第三名统计 -->
-                <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                  <div class="mb-3 text-sm text-gray-300">🥉 预测第三名</div>
-                  <div class="space-y-2">
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs text-gray-400">保本率</span>
-                      <span class="text-sm text-blue-400 font-medium">
-                        {{ calculateRankBasedStats().rank3.breakevenRate.toFixed(1) }}%
-                      </span>
+                  <div class="mx-3 h-12 w-px bg-white/20"></div>
+
+                  <!-- 预测第三名 -->
+                  <div class="text-center">
+                    <div class="text-sm text-gray-300">🥉 预测第三名</div>
+                    <div class="text-lg text-blue-400 font-bold">
+                      {{ calculateRankBasedStats().rank3.breakevenRate.toFixed(1) }}%
                     </div>
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs text-gray-400">亏本率</span>
-                      <span class="text-sm text-red-400 font-medium">
-                        {{ calculateRankBasedStats().rank3.lossRate.toFixed(1) }}%
-                      </span>
-                    </div>
+                    <div class="mt-1 text-xs text-gray-400">保本率</div>
                   </div>
                 </div>
               </div>

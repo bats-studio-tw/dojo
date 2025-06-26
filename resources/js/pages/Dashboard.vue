@@ -2,7 +2,7 @@
   <DefaultLayout>
     <Head title="Dashboard" />
 
-    <div class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br p-6">
+    <div class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br p-3 sm:p-6">
       <div class="mx-auto max-w-7xl">
         <!-- v8 H2H 对战关系分析 -->
         <NCard
@@ -11,17 +11,25 @@
           size="large"
         >
           <template #header-extra>
-            <div class="flex items-center space-x-3">
-              <div v-if="analysisMeta" class="flex items-center gap-2 text-sm text-gray-300">
+            <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-x-3 sm:space-y-0">
+              <div
+                v-if="analysisMeta"
+                class="flex flex-wrap items-center gap-1 text-xs text-gray-300 sm:gap-2 sm:text-sm"
+              >
                 <span class="font-medium">轮次:</span>
                 <span class="text-red">{{ analysisMeta.round_id }}</span>
                 <span class="font-medium">状态:</span>
-
                 <NTag :type="getStatusTagType(analysisMeta.status)" size="small">
                   {{ getStatusText(analysisMeta.status) }}
                 </NTag>
               </div>
-              <n-button :loading="analysisLoading" @click="refreshAnalysis" type="primary" size="small">
+              <n-button
+                :loading="analysisLoading"
+                @click="refreshAnalysis"
+                type="primary"
+                size="small"
+                class="self-end sm:self-auto"
+              >
                 🔄 刷新分析
               </n-button>
             </div>
@@ -30,12 +38,12 @@
           <div v-if="analysisData.length > 0" class="space-y-3">
             <!-- v8 H2H 对战关系预测卡片 -->
             <div>
-              <h3 class="mb-4 text-lg text-white font-semibold">🆚 H2H 战术分析预测</h3>
-              <div class="grid grid-cols-1 gap-4 lg:grid-cols-5 md:grid-cols-3">
+              <h3 class="mb-4 text-base text-white font-semibold sm:text-lg">🆚 H2H 战术分析预测</h3>
+              <div class="grid grid-cols-1 gap-3 lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5 sm:gap-4">
                 <div
                   v-for="(token, index) in analysisData"
                   :key="`prediction-${index}-${token.symbol}-${token.name}`"
-                  class="relative border-2 rounded-lg p-4 transition-all duration-200 hover:shadow-lg"
+                  class="relative border-2 rounded-lg p-3 transition-all duration-200 sm:p-4 hover:shadow-lg"
                   :class="getPredictionCardClass(index)"
                 >
                   <div class="mb-3 flex items-center justify-between">
@@ -50,10 +58,10 @@
                       <div v-else class="h-6 w-6 flex items-center justify-center rounded-full bg-gray-300 text-xs">
                         {{ token.symbol.charAt(0) }}
                       </div>
-                      <span class="text-16px text-gray-800 font-bold">{{ token.symbol }}</span>
+                      <span class="text-sm text-gray-800 font-bold sm:text-base">{{ token.symbol }}</span>
                     </div>
                     <div class="flex items-center space-x-1">
-                      <span class="text-lg text-gray-700 font-medium">#{{ index + 1 }}</span>
+                      <span class="text-base text-gray-700 font-medium sm:text-lg">#{{ index + 1 }}</span>
                       <div v-if="token.rank_confidence" class="ml-1 text-xs text-gray-600">
                         {{ token.rank_confidence.toFixed(0) }}%
                       </div>
@@ -97,9 +105,9 @@
 
             <!-- v8 H2H 战术分析详细数据表格 -->
             <div>
-              <h3 class="mb-4 text-lg text-white font-semibold">🎯 v8 H2H 战术分析详情</h3>
+              <h3 class="mb-4 text-base text-white font-semibold sm:text-lg">🎯 v8 H2H 战术分析详情</h3>
               <div class="overflow-x-auto border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
-                <table class="w-full text-sm">
+                <table class="min-w-[800px] w-full text-xs sm:text-sm">
                   <thead>
                     <tr class="border-b border-white/20 bg-white/5">
                       <th class="px-4 py-3 text-left text-white font-medium">排名</th>
@@ -219,6 +227,7 @@
               @click="refreshPredictionHistoryData"
               type="primary"
               size="small"
+              class="self-end sm:self-auto"
             >
               🔄 刷新预测历史
             </n-button>
@@ -227,17 +236,19 @@
           <NSpin :show="predictionHistoryLoading">
             <div v-if="predictionHistoryData.length > 0" class="space-y-4">
               <!-- 局数选择器 -->
-              <div class="mb-6 border border-white/20 rounded-xl from-gray-500/10 to-slate-600/5 bg-gradient-to-br p-4">
-                <div class="mb-3 flex items-center justify-between">
-                  <h4 class="text-white font-medium">📊 最新N局分析设置</h4>
-                  <div class="text-sm text-gray-300">
+              <div
+                class="mb-6 border border-white/20 rounded-xl from-gray-500/10 to-slate-600/5 bg-gradient-to-br p-3 sm:p-4"
+              >
+                <div class="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                  <h4 class="text-sm text-white font-medium sm:text-base">📊 最新N局分析设置</h4>
+                  <div class="text-xs text-gray-300 sm:text-sm">
                     当前分析:
                     <span class="text-cyan-400 font-bold">{{ recentRoundsCount }}</span>
                     局
                   </div>
                 </div>
-                <div class="flex items-center space-x-4">
-                  <span class="text-sm text-gray-300 font-medium">局数:</span>
+                <div class="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-x-4 sm:space-y-0">
+                  <span class="text-xs text-gray-300 font-medium sm:text-sm">局数:</span>
                   <div class="flex-1">
                     <n-slider
                       v-model:value="recentRoundsCount"
@@ -257,17 +268,17 @@
               </div>
 
               <!-- 预测准确度总结 -->
-              <div class="grid grid-cols-2 gap-4 lg:grid-cols-5 md:grid-cols-3">
+              <div class="grid grid-cols-1 gap-3 lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5 sm:gap-4">
                 <!-- 精准预测率 -->
                 <div
-                  class="relative overflow-hidden border border-green-500/30 rounded-xl from-green-500/10 to-emerald-600/5 bg-gradient-to-br p-6 transition-all duration-300 hover:border-green-400/50 hover:shadow-green-500/20 hover:shadow-lg"
+                  class="relative overflow-hidden border border-green-500/30 rounded-xl from-green-500/10 to-emerald-600/5 bg-gradient-to-br p-4 transition-all duration-300 hover:border-green-400/50 sm:p-6 hover:shadow-green-500/20 hover:shadow-lg"
                 >
-                  <div class="absolute right-2 top-2 text-2xl opacity-20">🎯</div>
+                  <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🎯</div>
                   <div class="relative">
-                    <div class="text-sm text-green-300 font-medium">精准预测率</div>
-                    <div class="mt-2 text-3xl text-green-400 font-bold">
+                    <div class="text-xs text-green-300 font-medium sm:text-sm">精准预测率</div>
+                    <div class="mt-2 text-2xl text-green-400 font-bold sm:text-3xl">
                       {{ calculateRoundBasedStats().exactRate.toFixed(1) }}
-                      <span class="text-lg">%</span>
+                      <span class="text-base sm:text-lg">%</span>
                     </div>
                     <div class="mt-2 text-xs text-green-200/70">预测与实际完全相同</div>
                   </div>
@@ -275,12 +286,12 @@
 
                 <!-- 预测总局数 -->
                 <div
-                  class="relative overflow-hidden border border-purple-500/30 rounded-xl from-purple-500/10 to-indigo-600/5 bg-gradient-to-br p-6 transition-all duration-300 hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20"
+                  class="relative overflow-hidden border border-purple-500/30 rounded-xl from-purple-500/10 to-indigo-600/5 bg-gradient-to-br p-4 transition-all duration-300 hover:border-purple-400/50 sm:p-6 hover:shadow-lg hover:shadow-purple-500/20"
                 >
-                  <div class="absolute right-2 top-2 text-2xl opacity-20">📊</div>
+                  <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">📊</div>
                   <div class="relative">
-                    <div class="text-sm text-purple-300 font-medium">预测总局数</div>
-                    <div class="mt-2 text-3xl text-purple-400 font-bold">
+                    <div class="text-xs text-purple-300 font-medium sm:text-sm">预测总局数</div>
+                    <div class="mt-2 text-2xl text-purple-400 font-bold sm:text-3xl">
                       {{ calculatePortfolioStats().totalRounds }}
                     </div>
                     <div class="mt-2 text-xs text-purple-200/70">模型运行总局数</div>
@@ -289,11 +300,11 @@
 
                 <!-- 预测第一名 -->
                 <div
-                  class="relative overflow-hidden border border-yellow-500/30 rounded-xl from-yellow-500/10 to-amber-600/5 bg-gradient-to-br p-6 transition-all duration-300 hover:border-yellow-400/50 hover:shadow-lg hover:shadow-yellow-500/20"
+                  class="relative overflow-hidden border border-yellow-500/30 rounded-xl from-yellow-500/10 to-amber-600/5 bg-gradient-to-br p-4 transition-all duration-300 hover:border-yellow-400/50 sm:p-6 hover:shadow-lg hover:shadow-yellow-500/20"
                 >
-                  <div class="absolute right-2 top-2 text-2xl opacity-20">🥇</div>
+                  <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥇</div>
                   <div class="relative">
-                    <div class="text-sm text-yellow-300 font-medium">预测第一名</div>
+                    <div class="text-xs text-yellow-300 font-medium sm:text-sm">预测第一名</div>
                     <div class="mt-2 space-y-1">
                       <!-- 全部历史数据 -->
                       <div class="border-b border-yellow-400/20 pb-2">
@@ -301,13 +312,13 @@
                           全部历史 ({{ calculateRankBasedStats().rank1.total }}局)
                         </div>
                         <div class="flex items-center justify-between">
-                          <span class="text-lg text-yellow-400 font-bold">
+                          <span class="text-base text-yellow-400 font-bold sm:text-lg">
                             {{ calculateRankBasedStats().rank1.breakevenRate.toFixed(1) }}%
                           </span>
                           <span class="text-xs text-yellow-200/70">保本率</span>
                         </div>
                         <div class="flex items-center justify-between">
-                          <span class="text-lg text-amber-300 font-bold">
+                          <span class="text-base text-amber-300 font-bold sm:text-lg">
                             {{ calculateRankBasedStats().rank1.firstPlaceRate.toFixed(1) }}%
                           </span>
                           <span class="text-xs text-amber-200/70">第一名率</span>
@@ -337,11 +348,11 @@
 
                 <!-- 预测第二名 -->
                 <div
-                  class="relative overflow-hidden border border-slate-500/30 rounded-xl from-slate-500/10 to-gray-600/5 bg-gradient-to-br p-6 transition-all duration-300 hover:border-slate-400/50 hover:shadow-lg hover:shadow-slate-500/20"
+                  class="relative overflow-hidden border border-slate-500/30 rounded-xl from-slate-500/10 to-gray-600/5 bg-gradient-to-br p-4 transition-all duration-300 hover:border-slate-400/50 sm:p-6 hover:shadow-lg hover:shadow-slate-500/20"
                 >
-                  <div class="absolute right-2 top-2 text-2xl opacity-20">🥈</div>
+                  <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥈</div>
                   <div class="relative">
-                    <div class="text-sm text-slate-300 font-medium">预测第二名</div>
+                    <div class="text-xs text-slate-300 font-medium sm:text-sm">预测第二名</div>
                     <div class="mt-2 space-y-1">
                       <!-- 全部历史数据 -->
                       <div class="border-b border-slate-400/20 pb-2">
@@ -349,13 +360,13 @@
                           全部历史 ({{ calculateRankBasedStats().rank2.total }}局)
                         </div>
                         <div class="flex items-center justify-between">
-                          <span class="text-lg text-slate-400 font-bold">
+                          <span class="text-base text-slate-400 font-bold sm:text-lg">
                             {{ calculateRankBasedStats().rank2.breakevenRate.toFixed(1) }}%
                           </span>
                           <span class="text-xs text-slate-200/70">保本率</span>
                         </div>
                         <div class="flex items-center justify-between">
-                          <span class="text-lg text-gray-300 font-bold">
+                          <span class="text-base text-gray-300 font-bold sm:text-lg">
                             {{ calculateRankBasedStats().rank2.firstPlaceRate.toFixed(1) }}%
                           </span>
                           <span class="text-xs text-gray-200/70">第一名率</span>
@@ -385,11 +396,11 @@
 
                 <!-- 预测第三名 -->
                 <div
-                  class="relative overflow-hidden border border-orange-500/30 rounded-xl from-orange-500/10 to-red-600/5 bg-gradient-to-br p-6 transition-all duration-300 hover:border-orange-400/50 hover:shadow-lg hover:shadow-orange-500/20"
+                  class="relative overflow-hidden border border-orange-500/30 rounded-xl from-orange-500/10 to-red-600/5 bg-gradient-to-br p-4 transition-all duration-300 hover:border-orange-400/50 sm:p-6 hover:shadow-lg hover:shadow-orange-500/20"
                 >
-                  <div class="absolute right-2 top-2 text-2xl opacity-20">🥉</div>
+                  <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥉</div>
                   <div class="relative">
-                    <div class="text-sm text-orange-300 font-medium">预测第三名</div>
+                    <div class="text-xs text-orange-300 font-medium sm:text-sm">预测第三名</div>
                     <div class="mt-2 space-y-1">
                       <!-- 全部历史数据 -->
                       <div class="border-b border-orange-400/20 pb-2">
@@ -397,13 +408,13 @@
                           全部历史 ({{ calculateRankBasedStats().rank3.total }}局)
                         </div>
                         <div class="flex items-center justify-between">
-                          <span class="text-lg text-orange-400 font-bold">
+                          <span class="text-base text-orange-400 font-bold sm:text-lg">
                             {{ calculateRankBasedStats().rank3.breakevenRate.toFixed(1) }}%
                           </span>
                           <span class="text-xs text-orange-200/70">保本率</span>
                         </div>
                         <div class="flex items-center justify-between">
-                          <span class="text-lg text-red-300 font-bold">
+                          <span class="text-base text-red-300 font-bold sm:text-lg">
                             {{ calculateRankBasedStats().rank3.firstPlaceRate.toFixed(1) }}%
                           </span>
                           <span class="text-xs text-red-200/70">第一名率</span>
@@ -437,9 +448,10 @@
                 :columns="predictionComparisonColumns"
                 :data="predictionComparisonTableData"
                 :pagination="{ pageSize: 10 }"
-                :scroll-x="1000"
+                :scroll-x="800"
                 striped
                 :row-props="rowProps"
+                size="small"
               />
             </div>
             <NEmpty v-else description="暂无预测历史数据" class="py-8" />
@@ -453,7 +465,13 @@
           size="large"
         >
           <template #header-extra>
-            <n-button :loading="historyLoading" @click="refreshHistoryData" type="primary" size="small">
+            <n-button
+              :loading="historyLoading"
+              @click="refreshHistoryData"
+              type="primary"
+              size="small"
+              class="self-end sm:self-auto"
+            >
               🔄 刷新历史
             </n-button>
           </template>
@@ -464,8 +482,9 @@
               :columns="historyColumns"
               :data="historyTableData"
               :pagination="{ pageSize: 5 }"
-              :scroll-x="800"
+              :scroll-x="700"
               striped
+              size="small"
             />
             <NEmpty v-else description="暂无历史数据" class="py-8" />
           </NSpin>

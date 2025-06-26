@@ -187,7 +187,7 @@
         <!-- 第四部分：预测历史数据表格 -->
         <NCard
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="🔮 预测历史数据 (最近50局)"
+          title="🔮 预测历史数据 (最近300局)"
           size="large"
         >
           <template #header-extra>

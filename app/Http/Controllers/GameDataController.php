@@ -716,7 +716,7 @@ class GameDataController extends Controller
             $rounds = GameRound::with(['roundPredicts', 'roundResults'])
                 ->whereHas('roundPredicts') // 只获取有预测数据的轮次
                 ->orderBy('created_at', 'desc')
-                ->limit(50)
+                ->limit(300)
                 ->get()
                 ->map(function ($round) {
                     // 构建预测数据

@@ -215,21 +215,44 @@ class GameDataProcessorService
 
             $analysisData = $cachedPrediction['analysis_data'] ?? [];
             if (empty($analysisData)) {
-                Log::channel('websocket')->warning('缓存预测数据为空', ['round_id' => $roundId]);
+                Log::channel('websocket')->warning('缓存预测数据为空', [
+                    'round_id' => $roundId,
+                    'cached_keys' => array_keys($cachedPrediction)
+                ]);
                 return;
             }
+
+            Log::channel('websocket')->info('准备保存预测数据', [
+                'round_id' => $roundId,
+                'analysis_data_count' => count($analysisData),
+                'analysis_data_keys' => !empty($analysisData) ? array_keys($analysisData[0]) : [],
+                'generated_at' => $cachedPrediction['generated_at'] ?? 'unknown'
+            ]);
 
             // 删除该轮次的旧预测数据（如果存在）
             RoundPredict::where('game_round_id', $gameRound->id)->delete();
 
-            // 批量插入新的预测数据
+                        // 批量插入新的预测数据
             $predictionRecords = [];
-            foreach ($analysisData as $tokenData) {
+            foreach ($analysisData as $index => $tokenData) {
                 // 使用 risk_adjusted_score 作为主要预测分数，如果不存在则回退到其他分数
                 $predictionScore = $tokenData['risk_adjusted_score'] ??
                                   $tokenData['predicted_final_value'] ??
                                   $tokenData['absolute_score'] ??
                                   0;
+
+                // 记录字段映射的调试信息（仅对第一个代币）
+                if ($index === 0) {
+                    Log::channel('websocket')->info('预测数据字段映射', [
+                        'symbol' => $tokenData['symbol'] ?? 'missing',
+                        'predicted_rank' => $tokenData['predicted_rank'] ?? 'missing',
+                        'risk_adjusted_score' => $tokenData['risk_adjusted_score'] ?? 'missing',
+                        'predicted_final_value' => $tokenData['predicted_final_value'] ?? 'missing',
+                        'absolute_score' => $tokenData['absolute_score'] ?? 'missing',
+                        'final_prediction_score' => $predictionScore,
+                        'available_keys' => array_keys($tokenData)
+                    ]);
+                }
 
                 $predictionRecords[] = [
                     'game_round_id' => $gameRound->id,

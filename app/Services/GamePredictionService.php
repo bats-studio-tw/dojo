@@ -31,8 +31,8 @@ class GamePredictionService
     // --- H2H 演算法核心權重與閾值 ---
     const H2H_MIN_GAMES_THRESHOLD = 5;            // H2H 有效對戰的最低局數門檻
     const H2H_DEFAULT_SCORE = 50;                 // 無法計算H2H分數時的基礎分（通常會被智能回退覆蓋）
-    const MIN_H2H_COVERAGE_WEIGHT = 0.2;          // H2H數據覆蓋率貢獻的最低權重
-    const MAX_H2H_COVERAGE_WEIGHT = 0.6;          // H2H數據覆蓋率貢獻的最高權重
+    const MIN_H2H_COVERAGE_WEIGHT = 0.15;         // H2H數據覆蓋率貢獻的最低權重（優化：從0.2降低到0.15）
+    const MAX_H2H_COVERAGE_WEIGHT = 0.45;         // H2H數據覆蓋率貢獻的最高權重（優化：從0.6降低到0.45）
 
     // --- 動態 H2H 門檻與加權參數 (v8.3 新增) ---
     const H2H_RELIABILITY_THRESHOLD = 0.5;        // H2H 可靠性門檻：低於此覆蓋率時進一步降低權重
@@ -419,13 +419,25 @@ class GamePredictionService
         }
         $avgStddev = $validCount > 0 ? $totalStddev / $validCount : 0;
 
-        // 基礎懲罰
-        $riskAdjustedScore = $predictedValue / (1 + ($valueStddev * self::ENHANCED_STABILITY_PENALTY));
+        // --- 優化點2：調整風險因子計算為穩定性獎勵機制 ---
+        // 讓波動性懲罰/獎勵的影響力更大，穩定的代幣獲得獎勵
+        if ($avgStddev > 0) {
+            $riskFactor = (($valueStddev - $avgStddev) / $avgStddev) * 15; // 波動高於平均越多，扣分越多；低於平均越多，加分越多
+            $riskAdjustedScore = $predictedValue - $riskFactor;
+        } else {
+            // 如果無法計算平均波動，使用原有的基礎懲罰
+            $riskAdjustedScore = $predictedValue / (1 + ($valueStddev * self::ENHANCED_STABILITY_PENALTY));
+        }
 
         // 高風險額外懲罰
         if ($avgStddev > 0 && $valueStddev > ($avgStddev * self::STABILITY_THRESHOLD_MULTIPLIER)) {
             $riskAdjustedScore *= self::HIGH_RISK_PENALTY_FACTOR;
         }
+
+        // --- 優化點1：直接給予保本率獎勵 ---
+        $top3RateBonus = ($data['top3_rate'] ?? 0) / 2; // 將 top3_rate 的一半作為額外加分
+        $riskAdjustedScore += $top3RateBonus;
+        // --- 優化結束 ---
 
         return max(0, min(100, $riskAdjustedScore));
     }

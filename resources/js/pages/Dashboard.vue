@@ -227,59 +227,78 @@
           <NSpin :show="predictionHistoryLoading">
             <div v-if="predictionHistoryData.length > 0" class="space-y-4">
               <!-- 预测准确度总结 -->
-              <div class="border border-white/20 rounded-lg bg-white/5 p-4">
-                <div class="flex items-center justify-between">
-                  <!-- 精准预测率 -->
-                  <div class="text-center">
-                    <div class="text-sm text-gray-300">🎯 精准预测率</div>
-                    <div class="text-2xl text-green-400 font-bold">
-                      {{ calculateRoundBasedStats().exactRate.toFixed(1) }}%
+              <div class="grid grid-cols-2 gap-4 lg:grid-cols-5 md:grid-cols-3">
+                <!-- 精准预测率 -->
+                <div
+                  class="relative overflow-hidden border border-green-500/30 rounded-xl from-green-500/10 to-emerald-600/5 bg-gradient-to-br p-6 transition-all duration-300 hover:border-green-400/50 hover:shadow-green-500/20 hover:shadow-lg"
+                >
+                  <div class="absolute right-2 top-2 text-2xl opacity-20">🎯</div>
+                  <div class="relative">
+                    <div class="text-sm text-green-300 font-medium">精准预测率</div>
+                    <div class="mt-2 text-3xl text-green-400 font-bold">
+                      {{ calculateRoundBasedStats().exactRate.toFixed(1) }}
+                      <span class="text-lg">%</span>
                     </div>
-                    <div class="mt-1 text-xs text-gray-400">预测与实际完全相同</div>
+                    <div class="mt-2 text-xs text-green-200/70">预测与实际完全相同</div>
                   </div>
+                </div>
 
-                  <div class="mx-3 h-12 w-px bg-white/20"></div>
-
-                  <!-- 预测总局数 -->
-                  <div class="text-center">
-                    <div class="text-sm text-gray-300">📊 预测总局数</div>
-                    <div class="text-2xl text-purple-400 font-bold">
+                <!-- 预测总局数 -->
+                <div
+                  class="relative overflow-hidden border border-purple-500/30 rounded-xl from-purple-500/10 to-indigo-600/5 bg-gradient-to-br p-6 transition-all duration-300 hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20"
+                >
+                  <div class="absolute right-2 top-2 text-2xl opacity-20">📊</div>
+                  <div class="relative">
+                    <div class="text-sm text-purple-300 font-medium">预测总局数</div>
+                    <div class="mt-2 text-3xl text-purple-400 font-bold">
                       {{ calculatePortfolioStats().totalRounds }}
                     </div>
-                    <div class="mt-1 text-xs text-gray-400">模型运行总局数</div>
+                    <div class="mt-2 text-xs text-purple-200/70">模型运行总局数</div>
                   </div>
+                </div>
 
-                  <div class="mx-3 h-12 w-px bg-white/20"></div>
-
-                  <!-- 预测第一名 -->
-                  <div class="text-center">
-                    <div class="text-sm text-gray-300">🥇 预测第一名</div>
-                    <div class="text-lg text-blue-400 font-bold">
-                      {{ calculateRankBasedStats().rank1.breakevenRate.toFixed(1) }}%
+                <!-- 预测第一名 -->
+                <div
+                  class="relative overflow-hidden border border-yellow-500/30 rounded-xl from-yellow-500/10 to-amber-600/5 bg-gradient-to-br p-6 transition-all duration-300 hover:border-yellow-400/50 hover:shadow-lg hover:shadow-yellow-500/20"
+                >
+                  <div class="absolute right-2 top-2 text-2xl opacity-20">🥇</div>
+                  <div class="relative">
+                    <div class="text-sm text-yellow-300 font-medium">预测第一名</div>
+                    <div class="mt-2 text-3xl text-yellow-400 font-bold">
+                      {{ calculateRankBasedStats().rank1.breakevenRate.toFixed(1) }}
+                      <span class="text-lg">%</span>
                     </div>
-                    <div class="mt-1 text-xs text-gray-400">保本率</div>
+                    <div class="mt-2 text-xs text-yellow-200/70">保本率</div>
                   </div>
+                </div>
 
-                  <div class="mx-3 h-12 w-px bg-white/20"></div>
-
-                  <!-- 预测第二名 -->
-                  <div class="text-center">
-                    <div class="text-sm text-gray-300">🥈 预测第二名</div>
-                    <div class="text-lg text-blue-400 font-bold">
-                      {{ calculateRankBasedStats().rank2.breakevenRate.toFixed(1) }}%
+                <!-- 预测第二名 -->
+                <div
+                  class="relative overflow-hidden border border-slate-500/30 rounded-xl from-slate-500/10 to-gray-600/5 bg-gradient-to-br p-6 transition-all duration-300 hover:border-slate-400/50 hover:shadow-lg hover:shadow-slate-500/20"
+                >
+                  <div class="absolute right-2 top-2 text-2xl opacity-20">🥈</div>
+                  <div class="relative">
+                    <div class="text-sm text-slate-300 font-medium">预测第二名</div>
+                    <div class="mt-2 text-3xl text-slate-400 font-bold">
+                      {{ calculateRankBasedStats().rank2.breakevenRate.toFixed(1) }}
+                      <span class="text-lg">%</span>
                     </div>
-                    <div class="mt-1 text-xs text-gray-400">保本率</div>
+                    <div class="mt-2 text-xs text-slate-200/70">保本率</div>
                   </div>
+                </div>
 
-                  <div class="mx-3 h-12 w-px bg-white/20"></div>
-
-                  <!-- 预测第三名 -->
-                  <div class="text-center">
-                    <div class="text-sm text-gray-300">🥉 预测第三名</div>
-                    <div class="text-lg text-blue-400 font-bold">
-                      {{ calculateRankBasedStats().rank3.breakevenRate.toFixed(1) }}%
+                <!-- 预测第三名 -->
+                <div
+                  class="relative overflow-hidden border border-orange-500/30 rounded-xl from-orange-500/10 to-red-600/5 bg-gradient-to-br p-6 transition-all duration-300 hover:border-orange-400/50 hover:shadow-lg hover:shadow-orange-500/20"
+                >
+                  <div class="absolute right-2 top-2 text-2xl opacity-20">🥉</div>
+                  <div class="relative">
+                    <div class="text-sm text-orange-300 font-medium">预测第三名</div>
+                    <div class="mt-2 text-3xl text-orange-400 font-bold">
+                      {{ calculateRankBasedStats().rank3.breakevenRate.toFixed(1) }}
+                      <span class="text-lg">%</span>
                     </div>
-                    <div class="mt-1 text-xs text-gray-400">保本率</div>
+                    <div class="mt-2 text-xs text-orange-200/70">保本率</div>
                   </div>
                 </div>
               </div>

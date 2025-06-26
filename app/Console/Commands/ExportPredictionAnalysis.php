@@ -41,26 +41,45 @@ class ExportPredictionAnalysis extends Command
         }
 
         $this->info("Found {$totalRounds} rounds to process.");
+
+        // 从 composer.json 获取算法版本
+        $composerPath = base_path('composer.json');
+        $version = 'dev';
+        if (file_exists($composerPath)) {
+            $composerData = json_decode(file_get_contents($composerPath), true);
+            $gamePredictionConfig = $composerData['extra']['game-prediction'] ?? [];
+            $version = $gamePredictionConfig['algorithm-version'] ?? 'dev';
+        }
+
         $datetime = now()->format('Ymd_His');
-        $filePath = 'prediction_analysis_v7_' . $datetime . '.csv';
+        $filePath = 'prediction_analysis_' . $version . '_' . $datetime . '.csv';
         // 使用 Storage Facade 來處理檔案，更安全
         Storage::disk('local')->put($filePath, ''); // 建立或清空檔案
         $fullPath = Storage::disk('local')->path($filePath);
         $fileHandle = fopen($fullPath, 'w');
 
-        // 定義 CSV 標頭
+        // 定義 CSV 標頭 - 与算法实际输出匹配
         $headers = [
+            // 基础信息
             'round_id', 'settled_at', 'token_symbol',
-            // 預測數據
+            // 预测vs实际结果
             'predicted_rank', 'actual_rank', 'rank_difference', 'is_breakeven',
-            // 預測分數
             'prediction_score',
-            // 歷史數據 (來自prediction_data JSON)
-            'hist_total_games', 'hist_avg_rank', 'hist_win_rate', 'hist_top3_rate', 'hist_avg_value', 'hist_value_stddev',
-            // 市場數據 (來自prediction_data JSON)
-            'market_price', 'market_change_5m', 'market_change_1h', 'market_change_4h', 'market_change_24h', 'market_volume_24h',
-            // 其他分析數據
-            'predicted_final_value', 'risk_adjusted_score', 'market_momentum_score', 'rank_confidence',
+
+            // 算法核心评分 (来自算法的直接输出)
+            'absolute_score', 'relative_score', 'predicted_final_value', 'risk_adjusted_score',
+
+            // 历史统计数据
+            'total_games', 'wins', 'top3', 'win_rate', 'top3_rate', 'avg_rank', 'avg_value', 'value_stddev',
+
+            // 市场变化数据 (算法实际获取的字段)
+            'change_5m', 'change_1h', 'change_4h', 'change_24h',
+
+            // H2H相关 (重要的算法特色)
+            'h2h_score', 'h2h_data_available',
+
+            // 算法版本信息
+            'algorithm_version'
         ];
         fputcsv($fileHandle, $headers);
 
@@ -72,7 +91,7 @@ class ExportPredictionAnalysis extends Command
             ->whereHas('roundResults')
             ->with(['roundPredicts', 'roundResults'])
             ->orderBy('id', 'asc')
-            ->chunk(100, function ($rounds) use ($fileHandle, &$processedPredictions) {
+            ->chunk(100, function ($rounds) use ($fileHandle, &$processedPredictions, $version) {
                 foreach ($rounds as $round) {
                     // 建立一個快速查找賽果的 map
                     $resultsMap = $round->roundResults->keyBy('token_symbol');
@@ -88,36 +107,52 @@ class ExportPredictionAnalysis extends Command
                         // 從 prediction_data JSON 中提取詳細數據
                         $predictionData = $prediction->prediction_data ?? [];
 
+                        // 检查是否有H2H数据
+                        $h2hDataAvailable = isset($predictionData['h2h_stats']) &&
+                                          is_array($predictionData['h2h_stats']) &&
+                                          !empty($predictionData['h2h_stats']) ? '1' : '0';
+
                         $rowData = [
+                            // 基础信息
                             $round->round_id,
                             $round->settled_at->toDateTimeString(),
                             $symbol,
-                            // 預測與實際結果 - 修正字段名稱
+
+                            // 预测vs实际结果
                             $prediction->predicted_rank,
                             $actualResult->rank,
                             abs($prediction->predicted_rank - $actualResult->rank),
                             $actualResult->rank <= 3 ? '1' : '0', // 1 代表保本, 0 代表虧本
-                            // 預測分數
                             $prediction->prediction_score,
-                            // 歷史數據 - 直接從prediction_data根級別提取
+
+                            // 算法核心评分
+                            $predictionData['absolute_score'] ?? null,
+                            $predictionData['relative_score'] ?? null,
+                            $predictionData['predicted_final_value'] ?? null,
+                            $predictionData['risk_adjusted_score'] ?? null,
+
+                            // 历史统计数据
                             $predictionData['total_games'] ?? null,
-                            $predictionData['avg_rank'] ?? null,
+                            $predictionData['wins'] ?? null,
+                            $predictionData['top3'] ?? null,
                             $predictionData['win_rate'] ?? null,
                             $predictionData['top3_rate'] ?? null,
+                            $predictionData['avg_rank'] ?? null,
                             $predictionData['avg_value'] ?? null,
                             $predictionData['value_stddev'] ?? null,
-                            // 市場數據 - 直接從prediction_data根級別提取
-                            $predictionData['price'] ?? null,
+
+                            // 市场变化数据
                             $predictionData['change_5m'] ?? null,
                             $predictionData['change_1h'] ?? null,
                             $predictionData['change_4h'] ?? null,
                             $predictionData['change_24h'] ?? null,
-                            $predictionData['volume_24h'] ?? null,
-                            // 其他分析數據 - 直接從prediction_data根級別提取
-                            $predictionData['predicted_final_value'] ?? null,
-                            $predictionData['risk_adjusted_score'] ?? null,
-                            $predictionData['market_momentum_score'] ?? null,
-                            $predictionData['rank_confidence'] ?? null,
+
+                            // H2H相关
+                            $predictionData['h2h_score'] ?? null,
+                            $h2hDataAvailable,
+
+                            // 算法版本
+                            $version
                         ];
                         fputcsv($fileHandle, $rowData);
                         $processedPredictions++;

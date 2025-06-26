@@ -7,282 +7,177 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * 核心遊戲預測服務
+ *
+ * 演算法版本: v8.2 - h2h_breakeven_prediction
+ * 策略: 保本優先，基於歷史對戰關係 (H2H) 和嚴格的風險控制。
+ * 核心邏輯:
+ * 1.  **絕對分數 (Absolute Score)**: 完全由歷史保本率 (top3_rate) 決定，輔以少量數據可靠性加分。
+ * 2.  **相對分數 (Relative Score)**: 基於當前對手組合的 H2H 歷史平均勝率。
+ * 3.  **動態權重 (Dynamic Weighting)**: 根據 H2H 數據的覆蓋完整度，智能調整絕對分和相對分的權重。
+ * 4.  **風險調整 (Risk Adjustment)**: 對歷史表現不穩定的代幣施加雙重懲罰，最終排名以此為準。
+ */
 class GamePredictionService
 {
-    // 预测算法核心参数配置
-    const CACHE_DURATION_MINUTES = 120;           // 预测缓存时长（分钟）
-    const ANALYSIS_ROUNDS_LIMIT = 120;            // 分析历史数据的轮次数量
-    const API_DELAY_MICROSECONDS = 200000;        // API调用间隔（微秒，0.2秒）
+    //================== 核心參數配置 ==================
 
-    // 分数计算权重参数
-    const RECENT_VALUE_WEIGHT = 0.7;              // 近期平均分数权重
-    const HISTORICAL_VALUE_WEIGHT = 0.3;          // 历史平均分数权重
-    const MARKET_INFLUENCE_FACTOR = 0.5;          // 市场调整影响系数
-    const RISK_WEIGHT_COEFFICIENT = 0.01;         // 风险权重系数
+    // --- 基礎配置 ---
+    const CACHE_DURATION_MINUTES = 10;           // 預測緩存時長（分鐘）
+    const ANALYSIS_ROUNDS_LIMIT = 120;            // 分析歷史數據的輪次數量
+    const API_DELAY_MICROSECONDS = 200000;        // API調用間隔（微秒，0.2秒）
 
-    // 市场动量权重配置
-    const MOMENTUM_WEIGHT_5M = 0.4;               // 5分钟变化权重
-    const MOMENTUM_WEIGHT_1H = 0.3;               // 1小时变化权重
-    const MOMENTUM_WEIGHT_4H = 0.2;               // 4小时变化权重
-    const MOMENTUM_WEIGHT_24H = 0.1;              // 24小时变化权重
-    const MOMENTUM_SCORE_WEIGHT = 0.7;            // 动量评分权重
-    const VOLUME_SCORE_WEIGHT = 0.3;              // 交易量评分权重
+    // --- H2H 演算法核心權重與閾值 ---
+    const H2H_MIN_GAMES_THRESHOLD = 5;            // H2H 有效對戰的最低局數門檻
+    const H2H_DEFAULT_SCORE = 50;                 // 無法計算H2H分數時的基礎分（通常會被智能回退覆蓋）
+    const MIN_H2H_COVERAGE_WEIGHT = 0.2;          // H2H數據覆蓋率貢獻的最低權重
+    const MAX_H2H_COVERAGE_WEIGHT = 0.6;          // H2H數據覆蓋率貢獻的最高權重
 
-    // 置信度计算参数
-    const BASE_CONFIDENCE = 50;                   // 基础置信度（%）
-    const CONFIDENCE_PER_GAME = 2;                // 每局游戏贡献的置信度（%）
-    const MAX_DATA_CONFIDENCE = 40;               // 数据量最大贡献置信度（%）
-    const STABILITY_BONUS_THRESHOLD = 10;         // 稳定性奖励阈值
-    const MAX_CONSISTENCY_BONUS = 10;             // 一致性最大奖励（%）
-
-    // 默认分数和阈值
-    const DEFAULT_BASE_VALUE = 50.0;              // 无历史数据时的基础分数
-    const DEFAULT_PREDICTION_SCORE = 50;          // 默认预测评分
-    const MIN_VOLUME_SCORE = 30;                  // 最低交易量评分
-    const POSITIVE_CHANGE_BONUS = 10;             // 正向变化奖励分数
-    const STABILITY_REWARD_MULTIPLIER = 1.2;      // 稳定性奖励倍数
-
-    // 数据质量管理参数 (v5 新增)
-    const MIN_DATA_QUALITY_SCORE = 0.3;           // 数据质量最低保证比例
-    const TOTAL_MARKET_DATA_POINTS = 5;           // 总市场数据点数量
-    const DATA_QUALITY_LOG_THRESHOLD = 0.8;       // 数据质量日志记录阈值
-
-    // 预测算法权重参数 (v7 基于数据分析优化) - v8 保留作为绝对评分基础
-    const HISTORICAL_DATA_WEIGHT = 2.0;           // 历史数据整体权重：信任长期稳定性（v8中用于绝对分数计算）
-    const MARKET_DATA_WEIGHT = 0.5;               // 市场数据整体权重：降低短期噪音影响（v8中保留市场调整）
-    const ENHANCED_STABILITY_PENALTY = 1.5;       // 增强稳定性惩罚因子：更严格的风险控制（v8继承）
-
-    // === v8 演算法：H2H 相对关系模型权重参数 ===
-    const V8_ABSOLUTE_SCORE_WEIGHT = 0.6;         // 绝对分数（历史保本表现）的权重
-    const V8_RELATIVE_SCORE_WEIGHT = 0.4;         // 相对分数（H2H对战优势）的权重
-    const H2H_MIN_GAMES_THRESHOLD = 5;            // H2H 最少对战局数门槛（优化：从3提升到5，确保数据质量）
-    const H2H_DEFAULT_SCORE = 50;                 // 无H2H历史时的默认分数
-
-    // === v8.1 优化参数：风险控制与动态权重 ===
-    const STABILITY_THRESHOLD_MULTIPLIER = 1.5;   // 稳定性阈值倍数：超过平均stddev的1.5倍视为高风险
-    const HIGH_RISK_PENALTY_FACTOR = 0.95;        // 高风险代币额外惩罚系数
-    const MIN_H2H_COVERAGE_WEIGHT = 0.2;          // H2H数据覆盖率最低权重
-    const MAX_H2H_COVERAGE_WEIGHT = 0.6;          // H2H数据覆盖率最高权重
+    // --- 風險控制與市場影響 ---
+    const ENHANCED_STABILITY_PENALTY = 1.5;       // 基礎波動性懲罰因子
+    const STABILITY_THRESHOLD_MULTIPLIER = 1.3;   // 識別為「高風險」的波動性倍數閾值
+    const HIGH_RISK_PENALTY_FACTOR = 0.90;        // 對「高風險」代幣的額外懲罰係數 (乘以0.9)
+    const MARKET_ADJUSTMENT_WEIGHT = 0.2;         // 市場動量分數的影響權重
 
     /**
-     * 为指定代币列表生成预测分析数据并缓存
+     * 從 composer.json 獲取演算法版本資訊
+     */
+    private function getAlgorithmInfo(): array
+    {
+        $composerPath = base_path('composer.json');
+        if (!file_exists($composerPath)) {
+            // 如果 composer.json 不存在，返回開發模式的預設值
+            return [
+                'version' => 'dev',
+                'name' => 'h2h_breakeven_prediction',
+                'description' => '保本優先策略：基於H2H對戰關係的終極穩定型預測算法'
+            ];
+        }
+
+        $composerData = json_decode(file_get_contents($composerPath), true);
+        $gamePredictionConfig = $composerData['extra']['game-prediction'] ?? [];
+
+        return [
+            'version' => $gamePredictionConfig['algorithm-version'] ?? 'dev', // 未設定時也返回 'dev'
+            'name' => $gamePredictionConfig['algorithm-name'] ?? 'h2h_breakeven_prediction',
+            'description' => $gamePredictionConfig['algorithm-description'] ?? '保本優先策略：基於H2H對戰關係的終極穩定型預測算法'
+        ];
+    }
+
+    /**
+     * 為指定代幣列表生成預測分析數據並快取
      */
     public function generateAndCachePrediction(array $tokens, string $roundId): bool
     {
         try {
-            Log::info('开始生成预测分析数据', [
-                'round_id' => $roundId,
-                'tokens' => $tokens,
-                'token_count' => count($tokens)
-            ]);
-
-            // 生成预测数据
             $analysisData = $this->generatePredictionData($tokens);
 
             if (empty($analysisData)) {
-                Log::warning('生成预测数据失败', ['round_id' => $roundId]);
+                Log::warning('生成預測數據失敗，分析數據為空', ['round_id' => $roundId]);
                 return false;
             }
 
-            // 缓存预测结果，设置过期时间为2小时
+            $algorithmInfo = $this->getAlgorithmInfo();
             $cacheData = [
                 'round_id' => $roundId,
                 'analysis_data' => $analysisData,
                 'generated_at' => now()->toISOString(),
-                'algorithm' => 'h2h_breakeven_prediction_v8.1',
-                'algorithm_description' => '基于H2H对战关系分析的智能动态权重保本优先预测算法：从战术分析师进化为智能决策系统',
-                'analysis_rounds_count' => $this->getAnalysisRoundsCount()
+                'algorithm' => $algorithmInfo['name'] . '_' . $algorithmInfo['version'],
+                'algorithm_description' => $algorithmInfo['description'],
+                'analysis_rounds_count' => self::ANALYSIS_ROUNDS_LIMIT
             ];
 
             Cache::put('game:current_prediction', $cacheData, now()->addMinutes(self::CACHE_DURATION_MINUTES));
 
-            // 延迟保存策略：bet阶段只缓存，settled阶段再保存到数据库
-            // 这样可以确保使用游戏提供的正确时间创建GameRound
-            Log::info('预测数据已缓存，等待结算阶段保存到数据库', [
+            Log::info("預測分析完成並已快取", [
                 'round_id' => $roundId,
-                'predictions_count' => count($analysisData)
-            ]);
-
-            // 添加新算法的详细日志
-            $topThreePredictions = array_slice($analysisData, 0, 3);
-            $algorithmSummary = [];
-
-            foreach ($topThreePredictions as $prediction) {
-                $algorithmSummary[] = [
-                    'symbol' => $prediction['symbol'],
-                    'predicted_rank' => $prediction['predicted_rank'],
-                    'predicted_value' => $prediction['predicted_final_value'],
-                    'risk_adjusted_score' => $prediction['risk_adjusted_score'],
-                    'absolute_score' => $prediction['absolute_score'] ?? 0,
-                    'relative_score' => $prediction['relative_score'] ?? 0,
-                    'h2h_score' => $prediction['h2h_score'] ?? 0,
-                    'confidence' => $prediction['rank_confidence'],
-                    'stability' => $prediction['value_stddev']
-                ];
-            }
-
-            Log::info('✅ 预测分析数据已生成并缓存 (v8.1 智能动态权重H2H算法)', [
-                'round_id' => $roundId,
-                'algorithm' => 'h2h_breakeven_prediction_v8.1',
-                'algorithm_description' => '基于H2H对战关系分析的智能动态权重保本优先预测算法：从战术分析师进化为智能决策系统',
-                'tokens_analyzed' => count($analysisData),
-                'top_3_predictions' => $algorithmSummary,
-                'cache_expires' => now()->addMinutes(self::CACHE_DURATION_MINUTES)->toISOString(),
-                'sorting_strategy' => 'risk_adjusted_score (智能动态权重+增强稳定性控制)',
-                'v8.1_innovations' => [
-                    '🧠 智能动态权重：根据H2H数据覆盖率自动调整绝对/相对权重平衡',
-                    '🎯 提高数据门槛：H2H最少对战次数从3次提升到5次，确保数据质量',
-                    '🔮 智能回退机制：H2H数据不足时基于绝对实力计算，而非固定50分',
-                    '⚡ 强化稳定性惩罚：高风险代币额外惩罚，优先稳定型选手',
-                    '📈 保本率优化：基于62.9% vs 65.5%的数据洞察，偏向稳定策略',
-                    '🛡️ 继承v7+v8优势：保留所有历代稳定性控制和H2H分析能力'
-                ],
-                'dynamic_parameters' => [
-                    'h2h_min_games_threshold' => self::H2H_MIN_GAMES_THRESHOLD, // 提升到5
-                    'stability_threshold_multiplier' => self::STABILITY_THRESHOLD_MULTIPLIER,
-                    'high_risk_penalty_factor' => self::HIGH_RISK_PENALTY_FACTOR,
-                    'min_h2h_coverage_weight' => self::MIN_H2H_COVERAGE_WEIGHT,
-                    'max_h2h_coverage_weight' => self::MAX_H2H_COVERAGE_WEIGHT,
-                    'enhanced_stability_penalty' => self::ENHANCED_STABILITY_PENALTY
-                ],
-                'optimization_focus' => 'breakeven_rate_maximization_with_intelligent_adaptation'
+                'algorithm' => $cacheData['algorithm'],
+                'tokens_count' => count($analysisData)
             ]);
 
             return true;
-
         } catch (\Exception $e) {
-            Log::error('生成预测分析数据失败', [
+            Log::error('生成預測分析數據時發生嚴重錯誤', [
                 'round_id' => $roundId,
                 'tokens' => $tokens,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             return false;
         }
     }
 
     /**
-     * 从缓存获取预测数据
+     * 從快取獲取預測數據
      */
     public function getCachedPrediction(): ?array
     {
         try {
-            $cachedData = Cache::get('game:current_prediction');
-
-            if (!$cachedData || !is_array($cachedData)) {
-                return null;
-            }
-
-            return $cachedData;
-
+            return Cache::get('game:current_prediction');
         } catch (\Exception $e) {
-            Log::error('获取缓存预测数据失败', ['error' => $e->getMessage()]);
+            Log::error('獲取快取預測數據失敗', ['error' => $e->getMessage()]);
             return null;
         }
     }
 
     /**
-     * 生成预测数据的核心逻辑
+     * 生成預測數據的核心邏輯
      */
     private function generatePredictionData(array $tokens): array
     {
-        // 标准化代币符号并去重
         $tokens = array_unique(array_map('strtoupper', $tokens));
 
-        Log::info('处理代币列表', [
-            'original_count' => count($tokens),
-            'tokens' => array_values($tokens)
-        ]);
-
-        // 获取最近的历史数据进行分析
         $recentRounds = GameRound::with('roundResults')
             ->orderBy('created_at', 'desc')
             ->limit(self::ANALYSIS_ROUNDS_LIMIT)
             ->get();
 
         if ($recentRounds->isEmpty()) {
-            Log::warning('没有历史数据可用于预测分析');
+            Log::warning('資料庫中沒有歷史數據可用於預測分析');
             return [];
         }
 
-        // 分析历史数据并计算统计指标（已包含基础评分计算）
         $tokenStats = $this->analyzeHistoricalPerformance($tokens, $recentRounds);
-
-        // v8 新增：计算 H2H 相对强度分数
         $this->calculateHeadToHeadScores($tokenStats);
-
-        // v8.1 新增：计算H2H数据覆盖率，用于动态权重调整
         $h2hCoverageRatio = $this->calculateH2HCoverageRatio($tokenStats);
-
-        // 获取市场数据并合并，基于预期分数和动态权重进行预测
         $analysisData = $this->enrichWithMarketData($tokenStats, $h2hCoverageRatio);
 
         return $analysisData;
     }
 
     /**
-     * 分析历史表现数据 - 重构为基于 value 分数的分析
+     * 分析歷史表現數據 (包含回測所需指標)
      */
     private function analyzeHistoricalPerformance(array $tokens, $recentRounds): array
     {
         $tokenStats = [];
-
-        // 初始化统计数据 - 新增基于 value 的指标 + v8 H2H 数据结构
         foreach ($tokens as $symbol) {
             $tokenStats[$symbol] = [
                 'symbol' => $symbol,
                 'total_games' => 0,
                 'wins' => 0,
                 'top3' => 0,
-                'avg_rank' => 0,
                 'rank_sum' => 0,
-                'recent_trend' => [], // 最近排名趋势
-
-                // 新增：基于 value 分数的核心指标
-                'avg_value' => 0,           // 历史平均分数
-                'recent_avg_value' => 0,    // 近期平均分数（最近10局）
-                'value_sum' => 0,           // 分数总和
-                'value_stddev' => 0,        // 分数标准差（稳定性指标）
-                'max_value' => 0,           // 历史最高分
-                'min_value' => PHP_FLOAT_MAX, // 历史最低分
-                'value_history' => [],      // 分数历史记录
-                'recent_value_trend' => [], // 最近10局的分数趋势
-
-                // v8 新增：H2H 对战关系数据
-                'h2h_stats' => [],          // 对战历史统计 [opponent => ['wins'=>x, 'losses'=>y, 'games'=>z]]
-                'h2h_score' => 0,           // 基于当前对手组合的相对强度分数
+                'value_sum' => 0,
+                'value_history' => [],
+                'h2h_stats' => [],
             ];
         }
 
-        // 遍历历史数据 - 收集 value 和 rank 数据 + v8 H2H 对战数据
         foreach ($recentRounds as $round) {
-            // v8 新增：H2H 数据收集 - 获取这局历史比赛的所有参赛者及其成绩
-            $historicalTokensInRound = $round->roundResults->pluck('token_symbol')->map(function($symbol) {
-                return strtoupper($symbol);
-            })->all();
-            $historicalResultsMap = $round->roundResults->keyBy(function($result) {
-                return strtoupper($result->token_symbol);
-            });
+            $historicalTokensInRound = $round->roundResults->pluck('token_symbol')->map('strtoupper')->all();
+            $historicalResultsMap = $round->roundResults->keyBy(fn($result) => strtoupper($result->token_symbol));
+            $competingTokensInHistory = array_intersect($tokens, $historicalTokensInRound);
 
-            // 找出当前正在预测的代币中，有哪些也出现在了这局历史比赛里
-            $competingTokens = array_intersect($tokens, $historicalTokensInRound);
-
-            // 如果至少有2个我们关心的代币在这局历史比赛中相遇了，这就是一次有效的 H2H 记录
-            if (count($competingTokens) > 1) {
-                // 遍历所有成对的竞争者 (A vs B)
-                foreach ($competingTokens as $tokenA) {
-                    foreach ($competingTokens as $tokenB) {
+            if (count($competingTokensInHistory) > 1) {
+                foreach ($competingTokensInHistory as $tokenA) {
+                    foreach ($competingTokensInHistory as $tokenB) {
                         if ($tokenA === $tokenB) continue;
 
-                        // 初始化 H2H 数据结构
                         if (!isset($tokenStats[$tokenA]['h2h_stats'][$tokenB])) {
                             $tokenStats[$tokenA]['h2h_stats'][$tokenB] = ['wins' => 0, 'losses' => 0, 'games' => 0];
                         }
-
-                        // 比较排名，记录胜负
-                        $rankA = $historicalResultsMap[$tokenA]->rank;
-                        $rankB = $historicalResultsMap[$tokenB]->rank;
-
-                        if ($rankA < $rankB) {  // 排名越小越好
+                        if ($historicalResultsMap[$tokenA]->rank < $historicalResultsMap[$tokenB]->rank) {
                             $tokenStats[$tokenA]['h2h_stats'][$tokenB]['wins']++;
                         } else {
                             $tokenStats[$tokenA]['h2h_stats'][$tokenB]['losses']++;
@@ -292,906 +187,270 @@ class GamePredictionService
                 }
             }
 
-            // 原有的个体数据收集逻辑
             foreach ($round->roundResults as $result) {
                 $symbol = strtoupper($result->token_symbol);
+                if (!isset($tokenStats[$symbol])) continue;
 
-                // 只统计当前局参与的代币
-                if (!isset($tokenStats[$symbol])) {
-                    continue;
-                }
+                $stats = &$tokenStats[$symbol];
+                $stats['total_games']++;
+                $stats['rank_sum'] += $result->rank;
+                $stats['value_sum'] += floatval($result->value);
+                $stats['value_history'][] = floatval($result->value);
 
-                $tokenStats[$symbol]['total_games']++;
-                $tokenStats[$symbol]['rank_sum'] += $result->rank;
-
-                // 新增：收集 value 分数数据
-                $value = floatval($result->value);
-                $tokenStats[$symbol]['value_sum'] += $value;
-                $tokenStats[$symbol]['value_history'][] = $value;
-
-                // 更新最高/最低分
-                $tokenStats[$symbol]['max_value'] = max($tokenStats[$symbol]['max_value'], $value);
-                $tokenStats[$symbol]['min_value'] = min($tokenStats[$symbol]['min_value'], $value);
-
-                // 收集最近10局的分数（用于近期趋势分析）
-                if (count($tokenStats[$symbol]['recent_value_trend']) < 10) {
-                    $tokenStats[$symbol]['recent_value_trend'][] = $value;
-                }
-
-                // 传统排名统计
-                if ($result->rank === 1) {
-                    $tokenStats[$symbol]['wins']++;
-                }
-
-                if ($result->rank <= 3) {
-                    $tokenStats[$symbol]['top3']++;
-                }
-
-                // 记录最近的排名（用于趋势分析）
-                if (count($tokenStats[$symbol]['recent_trend']) < 5) {
-                    $tokenStats[$symbol]['recent_trend'][] = $result->rank;
-                }
+                if ($result->rank === 1) $stats['wins']++;
+                if ($result->rank <= 3) $stats['top3']++;
             }
         }
 
-        // 计算统计指标
+        // 計算並格式化所有指標
         foreach ($tokenStats as $symbol => &$stats) {
             if ($stats['total_games'] > 0) {
-                // 传统排名指标
-                $stats['avg_rank'] = $stats['rank_sum'] / $stats['total_games'];
                 $stats['win_rate'] = ($stats['wins'] / $stats['total_games']) * 100;
                 $stats['top3_rate'] = ($stats['top3'] / $stats['total_games']) * 100;
+                $stats['avg_rank'] = $stats['rank_sum'] / $stats['total_games'];
+                $avg_value = $stats['value_sum'] / $stats['total_games'];
+                $stats['avg_value'] = $avg_value;
 
-                // 新增：核心 value 分数指标
-                $stats['avg_value'] = $stats['value_sum'] / $stats['total_games'];
-
-                // 计算近期平均分数（最近10局）
-                if (!empty($stats['recent_value_trend'])) {
-                    $stats['recent_avg_value'] = array_sum($stats['recent_value_trend']) / count($stats['recent_value_trend']);
-                } else {
-                    $stats['recent_avg_value'] = $stats['avg_value'];
-                }
-
-                // 计算分数标准差（稳定性指标）
                 if (count($stats['value_history']) > 1) {
-                    $variance = 0;
-                    foreach ($stats['value_history'] as $value) {
-                        $variance += pow($value - $stats['avg_value'], 2);
-                    }
+                    $variance = array_reduce($stats['value_history'], function ($carry, $item) use ($avg_value) {
+                        return $carry + pow($item - $avg_value, 2);
+                    }, 0);
                     $stats['value_stddev'] = sqrt($variance / (count($stats['value_history']) - 1));
                 } else {
                     $stats['value_stddev'] = 0;
                 }
-
-                // 修正最小值（如果没有找到有效的最小值）
-                if ($stats['min_value'] === PHP_FLOAT_MAX) {
-                    $stats['min_value'] = 0;
-                }
-
-                // 计算排名趋势得分
-                $trendScore = 0;
-                if (!empty($stats['recent_trend'])) {
-                    $recentAvg = array_sum($stats['recent_trend']) / count($stats['recent_trend']);
-                    $trendScore = ((5 - $recentAvg) / 4) * 100;
-                }
-
-                // 保持原有的基础预测评分（基于排名历史）
-                $stats['prediction_score'] = (
-                    ($stats['win_rate'] * 0.15) +
-                    ($stats['top3_rate'] * 0.20) +
-                    (((5 - $stats['avg_rank']) / 4) * 100 * 0.20) +
-                    ($trendScore * 0.15) +
-                    (30) // 预留30%权重给市场数据
-                );
             } else {
-                // 如果没有历史数据，给予默认值
-                $stats['avg_rank'] = 3;
+                // 如果沒有歷史數據，給予所有指標預設值
                 $stats['win_rate'] = 0;
                 $stats['top3_rate'] = 0;
+                $stats['avg_rank'] = 3; // 中間排名
                 $stats['avg_value'] = 0;
-                $stats['recent_avg_value'] = 0;
                 $stats['value_stddev'] = 0;
-                $stats['max_value'] = 0;
-                $stats['min_value'] = 0;
-                $stats['prediction_score'] = self::DEFAULT_PREDICTION_SCORE; // 中等评分
             }
 
-            // 格式化数据
-            $stats['avg_rank'] = round($stats['avg_rank'], 2);
+            // 格式化輸出，方便查看和使用
             $stats['win_rate'] = round($stats['win_rate'], 1);
             $stats['top3_rate'] = round($stats['top3_rate'], 1);
+            $stats['avg_rank'] = round($stats['avg_rank'], 2);
             $stats['avg_value'] = round($stats['avg_value'], 4);
-            $stats['recent_avg_value'] = round($stats['recent_avg_value'], 4);
             $stats['value_stddev'] = round($stats['value_stddev'], 4);
-            $stats['max_value'] = round($stats['max_value'], 4);
-            $stats['min_value'] = round($stats['min_value'], 4);
-            $stats['prediction_score'] = round($stats['prediction_score'], 1);
         }
-
         return $tokenStats;
     }
 
     /**
-     * v8 新增：计算 H2H 相对强度分数 - 对战优势模型的核心函数
+     * 計算 H2H 相對強度分數
      */
     private function calculateHeadToHeadScores(array &$tokenStats): void
     {
-        // 获取当前局的所有代币
         $currentTokenSymbols = array_keys($tokenStats);
-
-        Log::info('开始计算 H2H 相对强度分数', [
-            'participating_tokens' => $currentTokenSymbols,
-            'tokens_count' => count($currentTokenSymbols)
-        ]);
-
         foreach ($tokenStats as $symbol => &$stats) {
             $totalWinRate = 0;
             $validOpponentCount = 0;
-            $h2hDetails = []; // 用于详细日志记录
 
-            // 计算此代币对当前局其他所有对手的平均历史胜率
             foreach ($currentTokenSymbols as $opponent) {
                 if ($symbol === $opponent) continue;
-
                 $h2hData = $stats['h2h_stats'][$opponent] ?? null;
-
                 if ($h2hData && $h2hData['games'] >= self::H2H_MIN_GAMES_THRESHOLD) {
-                    $winRate = $h2hData['wins'] / $h2hData['games'];
-                    $totalWinRate += $winRate;
+                    $totalWinRate += $h2hData['wins'] / $h2hData['games'];
                     $validOpponentCount++;
-
-                    $h2hDetails[] = [
-                        'opponent' => $opponent,
-                        'wins' => $h2hData['wins'],
-                        'losses' => $h2hData['losses'],
-                        'games' => $h2hData['games'],
-                        'win_rate' => round($winRate * 100, 1) . '%'
-                    ];
-                } else {
-                    // 记录H2H数据不足的对手
-                    $gamesCount = $h2hData ? $h2hData['games'] : 0;
-                    $h2hDetails[] = [
-                        'opponent' => $opponent,
-                        'games' => $gamesCount,
-                        'status' => 'insufficient_data'
-                    ];
                 }
             }
 
-            // 计算 H2H 分数：如果有足够的对战历史，计算平均胜率并转换为0-100的分数
             if ($validOpponentCount > 0) {
-                $averageWinRate = $totalWinRate / $validOpponentCount;
-                $stats['h2h_score'] = $averageWinRate * 100;
-
-                Log::info("H2H 分数计算完成（基于历史对战）", [
-                    'symbol' => $symbol,
-                    'valid_opponents' => $validOpponentCount,
-                    'total_opponents' => count($currentTokenSymbols) - 1,
-                    'average_win_rate' => round($averageWinRate * 100, 1) . '%',
-                    'h2h_score' => round($stats['h2h_score'], 1),
-                    'h2h_details' => $h2hDetails
-                ]);
+                $stats['h2h_score'] = ($totalWinRate / $validOpponentCount) * 100;
             } else {
-                // v8.1 优化：H2H数据不足时，基于绝对实力计算智能回退分数，而非固定50分
+                // H2H數據不足時，基於絕對實力智能回退
                 $absoluteScore = $this->calculateAbsoluteScore($stats);
-                $fallbackScore = ($absoluteScore / 110) * 50 + 25; // 映射0-110分的absolute_score到25-75分区间
+                $fallbackScore = ($absoluteScore / 105) * 50 + 25; // 將0-105分的absolute_score映射到25-75分區間
                 $stats['h2h_score'] = max(25, min(75, $fallbackScore));
-
-                Log::info("H2H 分数使用智能回退（基于绝对实力）", [
-                    'symbol' => $symbol,
-                    'valid_opponents' => $validOpponentCount,
-                    'total_opponents' => count($currentTokenSymbols) - 1,
-                    'absolute_score' => round($absoluteScore, 2),
-                    'fallback_score' => round($fallbackScore, 2),
-                    'h2h_score' => round($stats['h2h_score'], 1),
-                    'reason' => 'insufficient_h2h_data_smart_fallback',
-                    'min_games_required' => self::H2H_MIN_GAMES_THRESHOLD,
-                    'improvement' => 'v8.1_intelligent_fallback_based_on_absolute_strength'
-                ]);
             }
-
-            // 确保分数在合理范围
-            $stats['h2h_score'] = max(0, min(100, $stats['h2h_score']));
         }
-
-        Log::info('H2H 相对强度分数计算完成', [
-            'tokens_processed' => count($tokenStats),
-            'h2h_scores' => array_map(function($stats) {
-                return [
-                    'symbol' => $stats['symbol'],
-                    'h2h_score' => round($stats['h2h_score'], 1)
-                ];
-            }, $tokenStats)
-        ]);
     }
 
     /**
-     * v8.1 新增：计算H2H数据覆盖率，用于动态调整算法权重
+     * 計算H2H數據覆蓋率
      */
     private function calculateH2HCoverageRatio(array $tokenStats): float
     {
         $totalPossiblePairs = 0;
         $validH2HPairs = 0;
-
         $tokens = array_keys($tokenStats);
         $tokenCount = count($tokens);
 
-        // 计算所有可能的对战组合数量
+        if ($tokenCount < 2) return 0;
+
         for ($i = 0; $i < $tokenCount; $i++) {
             for ($j = $i + 1; $j < $tokenCount; $j++) {
-                $tokenA = $tokens[$i];
-                $tokenB = $tokens[$j];
                 $totalPossiblePairs++;
-
-                // 检查两个方向的H2H数据是否都满足最少对战次数要求
-                $h2hDataA = $tokenStats[$tokenA]['h2h_stats'][$tokenB] ?? null;
-                $h2hDataB = $tokenStats[$tokenB]['h2h_stats'][$tokenA] ?? null;
-
-                $validA = $h2hDataA && $h2hDataA['games'] >= self::H2H_MIN_GAMES_THRESHOLD;
-                $validB = $h2hDataB && $h2hDataB['games'] >= self::H2H_MIN_GAMES_THRESHOLD;
-
-                // 只有当两个方向的数据都有效时，才算作有效的H2H数据对
-                if ($validA && $validB) {
+                $h2hDataA = $tokenStats[$tokens[$i]]['h2h_stats'][$tokens[$j]] ?? null;
+                $h2hDataB = $tokenStats[$tokens[$j]]['h2h_stats'][$tokens[$i]] ?? null;
+                if ($h2hDataA && $h2hDataB && $h2hDataA['games'] >= self::H2H_MIN_GAMES_THRESHOLD && $h2hDataB['games'] >= self::H2H_MIN_GAMES_THRESHOLD) {
                     $validH2HPairs++;
                 }
             }
         }
-
-        // 计算覆盖率
-        $coverageRatio = $totalPossiblePairs > 0 ? $validH2HPairs / $totalPossiblePairs : 0;
-
-        Log::info('H2H数据覆盖率分析', [
-            'participating_tokens' => $tokenCount,
-            'total_possible_pairs' => $totalPossiblePairs,
-            'valid_h2h_pairs' => $validH2HPairs,
-            'coverage_ratio' => round($coverageRatio, 3),
-            'coverage_percentage' => round($coverageRatio * 100, 1) . '%',
-            'min_games_threshold' => self::H2H_MIN_GAMES_THRESHOLD,
-            'dynamic_weight_impact' => 'will_adjust_relative_vs_absolute_balance'
-        ]);
-
-        return $coverageRatio;
+        return $totalPossiblePairs > 0 ? $validH2HPairs / $totalPossiblePairs : 0;
     }
 
     /**
-     * 批量获取市场数据并合并到分析结果中
+     * 獲取市場數據並合併到分析結果
      */
-    private function enrichWithMarketData(array $tokenStats, float $h2hCoverageRatio = 0): array
+    private function enrichWithMarketData(array $tokenStats, float $h2hCoverageRatio): array
     {
         $analysisData = [];
-
-        foreach ($tokenStats as $originalSymbol => $stats) {
+        foreach ($tokenStats as $symbol => $stats) {
+            $marketData = [];
             try {
-                $marketData = $this->getTokenMarketData($originalSymbol);
-
-                // 确保symbol字段始终为原始代币符号，不被API数据覆盖
-                $mergedData = array_merge($stats, $marketData);
-                $mergedData['symbol'] = $originalSymbol; // 强制保持原始symbol
-
-                // 重新计算包含市场数据的预测评分（v8.1：支持动态权重）
-                $mergedData = $this->calculateEnhancedPredictionScore($mergedData, $tokenStats, $h2hCoverageRatio);
-
-                $analysisData[] = $mergedData;
-
-                // 延迟避免API限制
+                $marketData = $this->getTokenMarketData($symbol);
                 usleep(self::API_DELAY_MICROSECONDS);
-
             } catch (\Exception $e) {
-                Log::warning("获取{$originalSymbol}市场数据失败", ['error' => $e->getMessage()]);
-
-                // 如果API失败，至少返回预测数据
-                $defaultData = array_merge($stats, $this->getDefaultMarketData($originalSymbol));
-                $defaultData['symbol'] = $originalSymbol; // 确保symbol正确
-
-                // 重要修复：对默认数据也要计算增强评分（包括市场动量）v8.1：支持动态权重
-                $defaultData = $this->calculateEnhancedPredictionScore($defaultData, $tokenStats, $h2hCoverageRatio);
-                $analysisData[] = $defaultData;
+                Log::warning("獲取{$symbol}市場數據失敗，將使用預設值", ['error' => $e->getMessage()]);
             }
+
+            $mergedData = array_merge($stats, $marketData, ['symbol' => $symbol]);
+            $analysisData[] = $this->calculateEnhancedPredictionScore($mergedData, $tokenStats, $h2hCoverageRatio);
         }
 
-        // 核心排序逻辑：基于风险调整后分数排序（稳定性优先策略）
+        // 核心排序邏輯：基於風險調整後分數排序（穩定性優先）
         usort($analysisData, function ($a, $b) {
-            // 主要按风险调整后分数排序（稳定性优先）
             $scoreComparison = $b['risk_adjusted_score'] <=> $a['risk_adjusted_score'];
-
-            // 如果风险调整后分数相同，再按预期分数排序
-            if ($scoreComparison === 0) {
-                return $b['predicted_final_value'] <=> $a['predicted_final_value'];
-            }
-
-            return $scoreComparison;
+            return $scoreComparison === 0 ? ($b['predicted_final_value'] <=> $a['predicted_final_value']) : $scoreComparison;
         });
 
-        // 根据预期分数排序结果分配预测排名
         foreach ($analysisData as $index => &$data) {
             $data['predicted_rank'] = $index + 1;
-
-            // 添加排名置信度分析
-            $data['rank_confidence'] = $this->calculateRankConfidence($data, $index + 1);
         }
 
         return $analysisData;
     }
 
     /**
-     * 计算包含市场数据的增强预测评分 - v8.1 基于H2H对战关系分析：绝对+相对双重评分，支持动态权重
+     * 計算最終的增強預測評分
      */
-    private function calculateEnhancedPredictionScore(array $data, array $allTokenStats = [], float $h2hCoverageRatio = 0): array
+    private function calculateEnhancedPredictionScore(array $data, array $allTokenStats, float $h2hCoverageRatio): array
     {
-        // v8.1 步骤1：计算绝对分数（基于历史保本表现，继承v7的稳定性逻辑）
+        // 核心預測分數計算
         $absoluteScore = $this->calculateAbsoluteScore($data);
-
-        // v8.1 步骤2：获取相对分数（基于H2H对战优势）
         $relativeScore = $data['h2h_score'] ?? self::H2H_DEFAULT_SCORE;
 
-        // v8.1 步骤3：动态权重计算（根据H2H数据覆盖率智能调整）
         $dynamicRelativeWeight = self::MIN_H2H_COVERAGE_WEIGHT + ($h2hCoverageRatio * (self::MAX_H2H_COVERAGE_WEIGHT - self::MIN_H2H_COVERAGE_WEIGHT));
         $dynamicAbsoluteWeight = 1.0 - $dynamicRelativeWeight;
 
-        // v8.1 步骤4：结合绝对分与相对分，使用动态权重得到预期分数
         $predictedFinalValue = ($absoluteScore * $dynamicAbsoluteWeight) + ($relativeScore * $dynamicRelativeWeight);
 
-        // v8.1 步骤5：应用市场影响调整（保留市场数据的影响）
-        $marketAdjustmentValue = $this->calculateMarketAdjustmentValue($data);
-        $marketAdjustedValue = $predictedFinalValue + ($marketAdjustmentValue * 0.2); // 降低市场权重，重点在H2H
+        $marketMomentumScore = $this->calculateMarketMomentumScore($data);
+        $marketAdjustment = ($marketMomentumScore - 50) * self::MARKET_ADJUSTMENT_WEIGHT;
+        $marketAdjustedValue = $predictedFinalValue + $marketAdjustment;
 
-        // v8.1 步骤6：应用稳定性惩罚（继承v7的风险控制机制，传递所有token数据用于高风险识别）
         $riskAdjustedScore = $this->calculateRiskAdjustedScore($marketAdjustedValue, $data, $allTokenStats);
 
-        // v8.1 添加新的预测指标到数据中
-        $data['absolute_score'] = round($absoluteScore, 2);
-        $data['relative_score'] = round($relativeScore, 2);
-        $data['predicted_final_value'] = round($predictedFinalValue, 4);
-        $data['market_adjustment_value'] = round($marketAdjustmentValue, 4);
-        $data['market_adjusted_value'] = round($marketAdjustedValue, 4);
-        $data['risk_adjusted_score'] = round($riskAdjustedScore, 2);
-
-        // v8.1 新增动态权重相关指标
-        $data['h2h_coverage_ratio'] = round($h2hCoverageRatio, 3);
-        $data['dynamic_absolute_weight'] = round($dynamicAbsoluteWeight, 3);
-        $data['dynamic_relative_weight'] = round($dynamicRelativeWeight, 3);
-
-        // 保留原有的市场动量评分（用于分析）
-        $data['market_momentum_score'] = round($this->calculateMarketMomentumScore($data), 1);
-
-        // v8.1 设置最终预测评分为风险调整后分数
-        $data['final_prediction_score'] = $data['risk_adjusted_score'];
-
-        // v8.1 记录动态权重应用的详细日志
-        Log::info("v8.1 智能动态权重 H2H 算法应用", [
-            'symbol' => $data['symbol'],
+        // 返回所有數據：包含核心預測分數和供分析用的歷史指標
+        return array_merge($data, [
             'absolute_score' => round($absoluteScore, 2),
             'relative_score' => round($relativeScore, 2),
-            'h2h_score' => round($data['h2h_score'] ?? 0, 1),
-            'h2h_coverage_ratio' => round($h2hCoverageRatio, 3),
-            'dynamic_absolute_weight' => round($dynamicAbsoluteWeight, 3),
-            'dynamic_relative_weight' => round($dynamicRelativeWeight, 3),
-            'weighted_absolute' => round($absoluteScore * $dynamicAbsoluteWeight, 2),
-            'weighted_relative' => round($relativeScore * $dynamicRelativeWeight, 2),
-            'predicted_final_value' => round($predictedFinalValue, 4),
-            'market_adjustment' => round($marketAdjustmentValue, 4),
-            'market_adjusted_value' => round($marketAdjustedValue, 4),
+            'predicted_final_value' => round($predictedFinalValue, 2),
             'risk_adjusted_score' => round($riskAdjustedScore, 2),
-            'strategy' => 'h2h_intelligent_dynamic_weighting',
-            'improvements' => [
-                'dynamic_weights_based_on_data_quality',
-                'enhanced_stability_penalty_for_breakeven',
-                'intelligent_h2h_fallback_scores'
-            ]
         ]);
-
-        return $data;
     }
 
     /**
-     * v8 计算绝对分数（基于历史保本表现，重点关注 top3 率和稳定性）
+     * 計算絕對分數（保本優先策略）
      */
     private function calculateAbsoluteScore(array $data): float
     {
-        // v8 绝对分数策略：重点关注保本能力（top3率）和历史稳定性
         $top3Rate = $data['top3_rate'] ?? 0;
-        $avgValue = $data['avg_value'] ?? 0;
-        $recentAvgValue = $data['recent_avg_value'] ?? 0;
         $totalGames = $data['total_games'] ?? 0;
-
-        // 基础分数：主要基于保本率（top3率）
-        $baseScore = $top3Rate * 0.8; // top3率是最重要的指标，占80%
-
-        // 稳定性加分：基于历史表现的一致性
-        if ($totalGames > 0) {
-            // 游戏次数越多，数据越可靠
-            $dataReliabilityBonus = min(15, $totalGames * 0.5); // 最多15分的可靠性加分
-            $baseScore += $dataReliabilityBonus;
-        }
-
-        // 近期表现调整：如果近期表现比历史表现好，给予加分
-        if ($recentAvgValue > 0 && $avgValue > 0 && $recentAvgValue > $avgValue) {
-            $improvementBonus = min(10, ($recentAvgValue - $avgValue) * 50); // 最多10分的进步加分
-            $baseScore += $improvementBonus;
-        }
-
-        // 确保分数在合理范围内
-        $finalScore = max(0, min(100, $baseScore));
-
-        Log::debug("v8 绝对分数计算", [
-            'symbol' => $data['symbol'],
-            'top3_rate' => $top3Rate,
-            'base_score_from_top3' => round($top3Rate * 0.8, 2),
-            'total_games' => $totalGames,
-            'data_reliability_bonus' => round(min(15, $totalGames * 0.5), 2),
-            'recent_avg_value' => $recentAvgValue,
-            'historical_avg_value' => $avgValue,
-            'improvement_bonus' => $recentAvgValue > $avgValue ? round(min(10, ($recentAvgValue - $avgValue) * 50), 2) : 0,
-            'final_absolute_score' => round($finalScore, 2)
-        ]);
-
-        return $finalScore;
+        $baseScore = $top3Rate;
+        // 每場比賽貢獻 0.1 分的數據可靠性，最多加 5 分
+        $dataReliabilityBonus = min(5, $totalGames * 0.1);
+        $finalScore = $baseScore + $dataReliabilityBonus;
+        return max(0, min(105, $finalScore)); // 最高分可能因可靠性加分超過100
     }
 
     /**
-     * 计算预测基础分数（基于历史 value 数据）- 保留为备用函数
+     * 計算風險調整後分數
      */
-    private function calculatePredictedBaseValue(array $data): float
-    {
-        // 优先使用近期平均分数，如果没有则使用历史平均分数
-        $recentAvgValue = $data['recent_avg_value'] ?? 0;
-        $historicalAvgValue = $data['avg_value'] ?? 0;
-
-        // 如果有近期数据，权重更高
-        if ($recentAvgValue > 0) {
-            // 近期数据权重更高，历史数据作为补充
-            return ($recentAvgValue * self::RECENT_VALUE_WEIGHT) + ($historicalAvgValue * self::HISTORICAL_VALUE_WEIGHT);
-        } elseif ($historicalAvgValue > 0) {
-            return $historicalAvgValue;
-        } else {
-            // 如果没有历史数据，返回一个中等的基础分数
-            return self::DEFAULT_BASE_VALUE;
-        }
-    }
-
-    /**
-     * 计算市场调整分数（将市场动量转换为分数调整值） - 优化版：信任动态权重调整
-     */
-    private function calculateMarketAdjustmentValue(array $data): float
-    {
-        // 计算市场动量评分（已通过动态权重调整处理数据质量）
-        $marketMomentumScore = $this->calculateMarketMomentumScore($data);
-
-        // 直接使用动态加权后的市场动量分，不再需要额外的数据质量折扣
-        $adjustment = ($marketMomentumScore - 50) * self::MARKET_INFLUENCE_FACTOR;
-
-        Log::info("市场调整值计算", [
-            'symbol' => $data['symbol'],
-            'market_momentum_score' => round($marketMomentumScore, 2),
-            'market_adjustment_value' => round($adjustment, 4),
-            'logic' => 'dynamic_weight_adjustment_only'
-        ]);
-
-        return $adjustment;
-    }
-
-    /**
-     * 计算数据质量评分 - 评估市场数据的完整性
-     */
-    private function calculateDataQualityScore(array $data): float
-    {
-        $availableDataPoints = 0;
-
-        // 检查价格变化数据
-        $priceChangeFields = ['change_5m', 'change_1h', 'change_4h', 'change_24h'];
-        foreach ($priceChangeFields as $field) {
-            if (isset($data[$field]) && $data[$field] !== null) {
-                $availableDataPoints++;
-            }
-        }
-
-        // 检查交易量数据
-        if (isset($data['volume_24h']) && $data['volume_24h'] !== null && $data['volume_24h'] !== '0') {
-            $availableDataPoints++;
-        }
-
-        // 计算质量评分（0-1之间）
-        $qualityScore = $availableDataPoints / self::TOTAL_MARKET_DATA_POINTS;
-
-        // 给予基础质量保证：即使数据缺失，也保留一定的影响力
-        $finalQualityScore = max(self::MIN_DATA_QUALITY_SCORE, $qualityScore);
-
-        // 数据质量较低时记录详细日志
-        if ($qualityScore < self::DATA_QUALITY_LOG_THRESHOLD) {
-            Log::warning("代币市场数据质量较低", [
-                'symbol' => $data['symbol'],
-                'available_data_points' => $availableDataPoints,
-                'total_data_points' => self::TOTAL_MARKET_DATA_POINTS,
-                'raw_quality_score' => round($qualityScore, 3),
-                'final_quality_score' => round($finalQualityScore, 3),
-                'quality_discount' => round((1 - $finalQualityScore) * 100, 1) . '%'
-            ]);
-        }
-
-        return $finalQualityScore;
-    }
-
-    /**
-     * 计算风险调整后分数（更严格的稳定性惩罚） - v8.1 基于保本率优化，强化稳定性优先策略
-     */
-    private function calculateRiskAdjustedScore(float $predictedValue, array $data, array $allTokenStats = []): float
+    private function calculateRiskAdjustedScore(float $predictedValue, array $data, array $allTokenStats): float
     {
         $valueStddev = $data['value_stddev'] ?? 0;
-
-        // 如果标准差为0或很小，说明非常稳定，给予高评分
         if ($valueStddev <= 0.01) {
-            $stabilityReward = min(100, $predictedValue * self::STABILITY_REWARD_MULTIPLIER);
-
-            Log::debug("极高稳定性奖励", [
-                'symbol' => $data['symbol'],
-                'stddev' => $valueStddev,
-                'predicted_value' => round($predictedValue, 4),
-                'stability_reward' => round($stabilityReward, 2)
-            ]);
-
-            return $stabilityReward;
+            return min(100, $predictedValue * 1.1); // 對極度穩定者給予輕微獎勵
         }
 
-        // v8.1 新增：计算所有代币的平均标准差，识别高风险代币
-        $avgStddev = 0;
-        if (!empty($allTokenStats)) {
-            $totalStddev = 0;
-            $validCount = 0;
-            foreach ($allTokenStats as $tokenData) {
-                $tokenStddev = $tokenData['value_stddev'] ?? 0;
-                if ($tokenStddev > 0) {
-                    $totalStddev += $tokenStddev;
-                    $validCount++;
-                }
+        $totalStddev = 0;
+        $validCount = 0;
+        foreach ($allTokenStats as $tokenData) {
+            if (isset($tokenData['value_stddev']) && $tokenData['value_stddev'] > 0) {
+                $totalStddev += $tokenData['value_stddev'];
+                $validCount++;
             }
-            $avgStddev = $validCount > 0 ? $totalStddev / $validCount : 0;
         }
+        $avgStddev = $validCount > 0 ? $totalStddev / $validCount : 0;
 
-        // v7 基础风险惩罚：应用更严格的稳定性惩罚因子
-        $enhancedRiskPenalty = 1 + ($valueStddev * self::ENHANCED_STABILITY_PENALTY);
-        $riskAdjustedScore = $predictedValue / $enhancedRiskPenalty;
+        // 基礎懲罰
+        $riskAdjustedScore = $predictedValue / (1 + ($valueStddev * self::ENHANCED_STABILITY_PENALTY));
 
-        // v8.1 新增：高风险代币额外惩罚（针对保本率优化）
-        $isHighRisk = false;
+        // 高風險額外懲罰
         if ($avgStddev > 0 && $valueStddev > ($avgStddev * self::STABILITY_THRESHOLD_MULTIPLIER)) {
             $riskAdjustedScore *= self::HIGH_RISK_PENALTY_FACTOR;
-            $isHighRisk = true;
         }
 
-        // 记录风险调整的详细计算过程
-        Log::debug("v8.1 风险调整计算（强化稳定性优先策略）", [
-            'symbol' => $data['symbol'],
-            'predicted_value' => round($predictedValue, 4),
-            'value_stddev' => round($valueStddev, 4),
-            'avg_stddev' => round($avgStddev, 4),
-            'stability_threshold' => round($avgStddev * self::STABILITY_THRESHOLD_MULTIPLIER, 4),
-            'is_high_risk' => $isHighRisk,
-            'penalty_factor' => self::ENHANCED_STABILITY_PENALTY,
-            'enhanced_risk_penalty' => round($enhancedRiskPenalty, 4),
-            'high_risk_additional_penalty' => $isHighRisk ? self::HIGH_RISK_PENALTY_FACTOR : 1.0,
-            'risk_adjusted_score' => round($riskAdjustedScore, 2),
-            'strategy' => 'v8.1_stability_first_for_breakeven_optimization'
-        ]);
-
-        // 确保评分在合理范围内（0-100）
         return max(0, min(100, $riskAdjustedScore));
     }
 
     /**
-     * 计算排名置信度（基于稳定性和历史数据质量）
-     */
-    private function calculateRankConfidence(array $data, int $predictedRank): float
-    {
-        $confidence = self::BASE_CONFIDENCE; // 基础置信度
-
-        // 因子1：历史数据量（更多数据 = 更高置信度）
-        $totalGames = $data['total_games'] ?? 0;
-        if ($totalGames > 0) {
-            $dataConfidence = min(self::MAX_DATA_CONFIDENCE, $totalGames * self::CONFIDENCE_PER_GAME);
-            $confidence += $dataConfidence;
-        }
-
-        // 因子2：稳定性（标准差越小 = 更高置信度）
-        $valueStddev = $data['value_stddev'] ?? 0;
-        if ($valueStddev > 0) {
-            // 标准差越小，置信度越高
-            $stabilityBonus = max(0, self::STABILITY_BONUS_THRESHOLD - $valueStddev);
-            $confidence += $stabilityBonus;
-        } else {
-            $confidence += 5; // 完全稳定给予5%奖励
-        }
-
-        // 因子3：预测为前三名的置信度调整
-        if ($predictedRank <= 3) {
-            $top3Rate = $data['top3_rate'] ?? 0;
-            $confidence += ($top3Rate * 0.2); // 历史前三率贡献置信度
-        }
-
-        // 因子4：近期表现与历史表现的一致性
-        $recentAvg = $data['recent_avg_value'] ?? 0;
-        $historicalAvg = $data['avg_value'] ?? 0;
-        if ($recentAvg > 0 && $historicalAvg > 0) {
-            $consistency = 1 - abs($recentAvg - $historicalAvg) / max($recentAvg, $historicalAvg);
-            $confidence += ($consistency * self::MAX_CONSISTENCY_BONUS);
-        }
-
-        // 确保置信度在0-100%范围内
-        return round(max(0, min(100, $confidence)), 1);
-    }
-
-    /**
-     * 计算市场动量评分 - 优化版：动态权重调整，信任数据质量处理
+     * 計算市場動量評分
      */
     private function calculateMarketMomentumScore(array $data): float
     {
-        // 定义各时间段的权重
-        $weights = [
-            '5m' => self::MOMENTUM_WEIGHT_5M,   // 0.4
-            '1h' => self::MOMENTUM_WEIGHT_1H,   // 0.3
-            '4h' => self::MOMENTUM_WEIGHT_4H,   // 0.2
-            '24h' => self::MOMENTUM_WEIGHT_24H  // 0.1
-        ];
-
-        $availableData = [];
+        $weights = ['5m' => 0.4, '1h' => 0.3, '4h' => 0.2, '24h' => 0.1];
         $totalWeight = 0;
-        $missingDataCount = 0;
+        $weightedScore = 0;
 
-        // 收集可用的数据和权重
-        foreach ($weights as $timeframe => $weight) {
-            $changeKey = 'change_' . $timeframe;
-
-            if (isset($data[$changeKey]) && $data[$changeKey] !== null) {
-                $availableData[$timeframe] = $this->normalizeChange($data[$changeKey]);
+        foreach ($weights as $tf => $weight) {
+            if (isset($data['change_' . $tf]) && is_numeric($data['change_' . $tf])) {
+                $change = $data['change_' . $tf];
+                // 簡化映射：+/-20% 的變化大致對應 0/100 分
+                $score = 50 + ($change * 2.5);
+                $weightedScore += $score * $weight;
                 $totalWeight += $weight;
-
-                Log::debug("市场数据可用", [
-                    'symbol' => $data['symbol'],
-                    'timeframe' => $timeframe,
-                    'change' => $data[$changeKey],
-                    'normalized_score' => $availableData[$timeframe],
-                    'weight' => $weight
-                ]);
-            } else {
-                $missingDataCount++;
-                Log::warning("市场数据缺失", [
-                    'symbol' => $data['symbol'],
-                    'timeframe' => $timeframe,
-                    'weight_lost' => $weight
-                ]);
             }
         }
-
-        // 计算数据质量评分（仅用于监控和日志记录）
-        $dataQualityScore = max(0, (4 - $missingDataCount) / 4);
-
-        // 如果所有数据都缺失，返回中性分（50分）
-        if ($totalWeight === 0) {
-            Log::warning("所有市场数据缺失，使用默认评分", [
-                'symbol' => $data['symbol'],
-                'default_score' => 50
-            ]);
-            return 50;
-        }
-
-        // 计算动态权重调整后的动量评分
-        $momentumScore = 0;
-        foreach ($availableData as $timeframe => $score) {
-            // 将权重重新归一化 (re-normalize)
-            $adjustedWeight = $weights[$timeframe] / $totalWeight;
-            $momentumScore += $score * $adjustedWeight;
-
-            Log::debug("动态权重调整", [
-                'symbol' => $data['symbol'],
-                'timeframe' => $timeframe,
-                'original_weight' => $weights[$timeframe],
-                'adjusted_weight' => $adjustedWeight,
-                'score' => $score,
-                'contribution' => $score * $adjustedWeight
-            ]);
-        }
-
-        // 计算交易量评分
-        $volumeScore = $this->calculateVolumeScore($data['volume_24h'] ?? '0');
-
-        // 综合市场评分：动量 + 交易量（已通过动态权重调整处理数据质量）
-        $finalMarketScore = ($momentumScore * self::MOMENTUM_SCORE_WEIGHT) + ($volumeScore * self::VOLUME_SCORE_WEIGHT);
-
-        Log::info("市场动量评分计算完成", [
-            'symbol' => $data['symbol'],
-            'available_data_count' => count($availableData),
-            'missing_data_count' => $missingDataCount,
-            'data_quality_info' => round($dataQualityScore, 3) . ' (handled by dynamic weights)',
-            'momentum_score' => round($momentumScore, 2),
-            'volume_score' => round($volumeScore, 2),
-            'final_market_score' => round($finalMarketScore, 2),
-            'logic' => 'dynamic_weight_adjustment_only'
-        ]);
-
-        // 确保评分在0-100范围内
-        return max(0, min(100, $finalMarketScore));
+        // 如果有可用數據，返回加權平均分；否則返回中性分50
+        return $totalWeight > 0 ? $weightedScore / $totalWeight : 50;
     }
 
     /**
-     * 标准化价格变化为0-100评分
-     */
-    private function normalizeChange(float $change): float
-    {
-        if ($change === 0) {
-            return 50; // 无变化给中等评分
-        }
-
-        // 将-10%到+10%的变化映射到0-100分
-        // 正向变化得分更高
-        $normalizedChange = ($change + 10) / 20 * 100;
-
-        // 确保在0-100范围内，并给正向变化额外加分
-        $score = max(0, min(100, $normalizedChange));
-
-        // 正向趋势加权：正向变化得分更高
-        if ($change > 0) {
-            $score = min(100, $score + self::POSITIVE_CHANGE_BONUS);
-        }
-
-        return $score;
-    }
-
-    /**
-     * 计算交易量评分
-     */
-    private function calculateVolumeScore(string $volume): float
-    {
-        $volumeValue = floatval($volume);
-
-        if ($volumeValue <= 0) {
-            return self::MIN_VOLUME_SCORE; // 无交易量数据给低分
-        }
-
-        // 对数缩放处理交易量，避免极端值
-        $logVolume = log10($volumeValue + 1);
-
-        // 将对数交易量映射到最低分-100分
-        // 假设log交易量在3-8之间（1K-100M USD）
-        $score = self::MIN_VOLUME_SCORE + (min($logVolume, 8) - 3) / 5 * (100 - self::MIN_VOLUME_SCORE);
-
-        return max(self::MIN_VOLUME_SCORE, min(100, $score));
-    }
-
-    /**
-     * 获取单个代币的市场数据
+     * 獲取單個代幣的市場數據
      */
     private function getTokenMarketData(string $symbol): array
     {
-        try {
-            $response = Http::timeout(10)->get("https://api.dexscreener.com/latest/dex/search", [
-                'q' => $symbol
-            ]);
-
-            if ($response->successful()) {
-                $data = $response->json();
-                if (isset($data['pairs']) && count($data['pairs']) > 0) {
-                    // 尝试找到最匹配的交易对
-                    $bestMatch = $this->findBestTokenMatch($data['pairs'], $symbol);
-
-                    if ($bestMatch) {
-                        return [
-                            'price' => $bestMatch['priceUsd'] ?? '0',
-                            'change_5m' => $bestMatch['priceChange']['m5'] ?? null,
-                            'change_1h' => $bestMatch['priceChange']['h1'] ?? null,
-                            'change_4h' => $bestMatch['priceChange']['h4'] ?? null,
-                            'change_24h' => $bestMatch['priceChange']['h24'] ?? null,
-                            'volume_24h' => $bestMatch['volume']['h24'] ?? '0',
-                            'market_cap' => $bestMatch['marketCap'] ?? null,
-                            'logo' => $bestMatch['baseToken']['logoURI'] ?? null,
-                            'name' => $bestMatch['baseToken']['name'] ?? $symbol,
-                        ];
-                    }
-                }
+        $response = Http::timeout(5)->get("https://api.dexscreener.com/latest/dex/search", ['q' => $symbol]);
+        if ($response->successful() && !empty($response->json()['pairs'])) {
+            $bestMatch = $this->findBestTokenMatch($response->json()['pairs'], $symbol);
+            if ($bestMatch) {
+                return [
+                    'change_5m' => $bestMatch['priceChange']['m5'] ?? null,
+                    'change_1h' => $bestMatch['priceChange']['h1'] ?? null,
+                    'change_4h' => $bestMatch['priceChange']['h4'] ?? null,
+                    'change_24h' => $bestMatch['priceChange']['h24'] ?? null,
+                ];
             }
-
-            return $this->getDefaultMarketData($symbol);
-
-        } catch (\Exception $e) {
-            Log::warning("API调用失败", ['symbol' => $symbol, 'error' => $e->getMessage()]);
-            return $this->getDefaultMarketData($symbol);
         }
+        return [];
     }
 
     /**
-     * 从多个交易对中找到最匹配的代币
+     * 從多個交易對中找到最匹配的代幣
      */
     private function findBestTokenMatch(array $pairs, string $targetSymbol): ?array
     {
         $targetSymbol = strtoupper($targetSymbol);
-
-        // 优先级1: 精确匹配 baseToken symbol
         foreach ($pairs as $pair) {
-            $baseSymbol = strtoupper($pair['baseToken']['symbol'] ?? '');
-            if ($baseSymbol === $targetSymbol) {
-                Log::info("找到精确匹配的代币", [
-                    'target' => $targetSymbol,
-                    'matched' => $baseSymbol,
-                    'name' => $pair['baseToken']['name'] ?? 'unknown'
-                ]);
-                return $pair;
-            }
+            if (strtoupper($pair['baseToken']['symbol'] ?? '') === $targetSymbol) return $pair;
         }
-
-        // 优先级2: 部分匹配 baseToken symbol (前缀匹配)
-        foreach ($pairs as $pair) {
-            $baseSymbol = strtoupper($pair['baseToken']['symbol'] ?? '');
-            if (str_starts_with($baseSymbol, $targetSymbol) || str_starts_with($targetSymbol, $baseSymbol)) {
-                Log::info("找到部分匹配的代币", [
-                    'target' => $targetSymbol,
-                    'matched' => $baseSymbol,
-                    'name' => $pair['baseToken']['name'] ?? 'unknown'
-                ]);
-                return $pair;
-            }
-        }
-
-        // 优先级3: 检查代币名称中是否包含目标符号
-        foreach ($pairs as $pair) {
-            $tokenName = strtoupper($pair['baseToken']['name'] ?? '');
-            if (str_contains($tokenName, $targetSymbol)) {
-                Log::info("通过名称匹配找到代币", [
-                    'target' => $targetSymbol,
-                    'matched_name' => $tokenName,
-                    'symbol' => $pair['baseToken']['symbol'] ?? 'unknown'
-                ]);
-                return $pair;
-            }
-        }
-
-        // 优先级4: 返回第一个结果（原有逻辑）
-        if (!empty($pairs)) {
-            Log::warning("使用第一个搜索结果作为备选", [
-                'target' => $targetSymbol,
-                'fallback_symbol' => $pairs[0]['baseToken']['symbol'] ?? 'unknown',
-                'fallback_name' => $pairs[0]['baseToken']['name'] ?? 'unknown'
-            ]);
-            return $pairs[0];
-        }
-
-        return null;
-    }
-
-    /**
-     * 获取默认市场数据（API失败时使用）
-     */
-    private function getDefaultMarketData(string $symbol): array
-    {
-        return [
-            'price' => '0',
-            'change_5m' => null,
-            'change_1h' => null,
-            'change_4h' => null,
-            'change_24h' => null,
-            'volume_24h' => '0',
-            'market_cap' => null,
-            'logo' => null,
-            'name' => $symbol,
-        ];
-    }
-
-    /**
-     * 获取分析使用的轮次数量
-     */
-    private function getAnalysisRoundsCount(): int
-    {
-        return GameRound::count();
-    }
-
-    /**
-     * 清除缓存的预测数据
-     */
-    public function clearCachedPrediction(): bool
-    {
-        try {
-            Cache::forget('game:current_prediction');
-            return true;
-        } catch (\Exception $e) {
-            Log::error('清除预测缓存失败', ['error' => $e->getMessage()]);
-            return false;
-        }
+        // 可以加入更多模糊匹配邏輯，但為保持簡潔，此處省略
+        return $pairs[0] ?? null; // 返回第一個作為備選
     }
 }

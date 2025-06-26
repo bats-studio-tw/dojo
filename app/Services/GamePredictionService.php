@@ -10,13 +10,14 @@ use Illuminate\Support\Facades\Cache;
 /**
  * 核心遊戲預測服務
  *
- * 演算法版本: v8.2 - h2h_breakeven_prediction
+ * 演算法版本: v8.3 - h2h_breakeven_prediction
  * 策略: 保本優先，基於歷史對戰關係 (H2H) 和嚴格的風險控制。
  * 核心邏輯:
  * 1.  **絕對分數 (Absolute Score)**: 完全由歷史保本率 (top3_rate) 決定，輔以少量數據可靠性加分。
  * 2.  **相對分數 (Relative Score)**: 基於當前對手組合的 H2H 歷史平均勝率。
  * 3.  **動態權重 (Dynamic Weighting)**: 根據 H2H 數據的覆蓋完整度，智能調整絕對分和相對分的權重。
- * 4.  **風險調整 (Risk Adjustment)**: 對歷史表現不穩定的代幣施加雙重懲罰，最終排名以此為準。
+ * 4.  **【v8.3 新增】動態 H2H 門檻**: 當 H2H 覆蓋率低於可靠性門檻時，進一步降低 H2H 權重，避免被不可靠數據誤導。
+ * 5.  **風險調整 (Risk Adjustment)**: 對歷史表現不穩定的代幣施加雙重懲罰，最終排名以此為準。
  */
 class GamePredictionService
 {
@@ -32,6 +33,10 @@ class GamePredictionService
     const H2H_DEFAULT_SCORE = 50;                 // 無法計算H2H分數時的基礎分（通常會被智能回退覆蓋）
     const MIN_H2H_COVERAGE_WEIGHT = 0.2;          // H2H數據覆蓋率貢獻的最低權重
     const MAX_H2H_COVERAGE_WEIGHT = 0.6;          // H2H數據覆蓋率貢獻的最高權重
+
+    // --- 動態 H2H 門檻與加權參數 (v8.3 新增) ---
+    const H2H_RELIABILITY_THRESHOLD = 0.5;        // H2H 可靠性門檻：低於此覆蓋率時進一步降低權重
+    const H2H_LOW_COVERAGE_PENALTY = 0.8;         // 低覆蓋率懲罰係數：對不可靠的H2H權重進行折扣
 
     // --- 風險控制與市場影響 ---
     const ENHANCED_STABILITY_PENALTY = 1.5;       // 基礎波動性懲罰因子
@@ -344,7 +349,17 @@ class GamePredictionService
         $absoluteScore = $this->calculateAbsoluteScore($data);
         $relativeScore = $data['h2h_score'] ?? self::H2H_DEFAULT_SCORE;
 
-        $dynamicRelativeWeight = self::MIN_H2H_COVERAGE_WEIGHT + ($h2hCoverageRatio * (self::MAX_H2H_COVERAGE_WEIGHT - self::MIN_H2H_COVERAGE_WEIGHT));
+                // 基礎動態權重計算
+        $originalRelativeWeight = self::MIN_H2H_COVERAGE_WEIGHT + ($h2hCoverageRatio * (self::MAX_H2H_COVERAGE_WEIGHT - self::MIN_H2H_COVERAGE_WEIGHT));
+        $dynamicRelativeWeight = $originalRelativeWeight;
+
+        // 【v8.3 新增】動態 H2H 門檻與加權：當覆蓋率不足時進一步降低 H2H 權重
+        $h2hReliabilityAdjusted = false;
+        if ($h2hCoverageRatio < self::H2H_RELIABILITY_THRESHOLD) {
+            $dynamicRelativeWeight *= self::H2H_LOW_COVERAGE_PENALTY;
+            $h2hReliabilityAdjusted = true;
+        }
+
         $dynamicAbsoluteWeight = 1.0 - $dynamicRelativeWeight;
 
         $predictedFinalValue = ($absoluteScore * $dynamicAbsoluteWeight) + ($relativeScore * $dynamicRelativeWeight);
@@ -361,7 +376,12 @@ class GamePredictionService
             'relative_score' => round($relativeScore, 2),
             'predicted_final_value' => round($predictedFinalValue, 2),
             'risk_adjusted_score' => round($riskAdjustedScore, 2),
-            'market_momentum_score' => round($marketMomentumScore, 2), // --- 新增此行 ---
+            'market_momentum_score' => round($marketMomentumScore, 2),
+            // 【v8.3 調試信息】權重分配與 H2H 可靠性分析
+            'h2h_coverage_ratio' => round($h2hCoverageRatio, 3),
+            'original_h2h_weight' => round($originalRelativeWeight, 3),
+            'final_h2h_weight' => round($dynamicRelativeWeight, 3),
+            'h2h_reliability_adjusted' => $h2hReliabilityAdjusted,
         ]);
     }
 

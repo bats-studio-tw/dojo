@@ -47,10 +47,17 @@ class GamePredictionService
     const TOTAL_MARKET_DATA_POINTS = 5;           // 总市场数据点数量
     const DATA_QUALITY_LOG_THRESHOLD = 0.8;       // 数据质量日志记录阈值
 
-    // 预测算法权重参数 (v7 基于数据分析优化)
-    const HISTORICAL_DATA_WEIGHT = 2.0;           // 历史数据整体权重：信任长期稳定性
-    const MARKET_DATA_WEIGHT = 0.5;               // 市场数据整体权重：降低短期噪音影响
-    const ENHANCED_STABILITY_PENALTY = 1.5;       // 增强稳定性惩罚因子：更严格的风险控制
+    // 预测算法权重参数 (v7 基于数据分析优化) - v8 保留作为绝对评分基础
+    const HISTORICAL_DATA_WEIGHT = 2.0;           // 历史数据整体权重：信任长期稳定性（v8中用于绝对分数计算）
+    const MARKET_DATA_WEIGHT = 0.5;               // 市场数据整体权重：降低短期噪音影响（v8中保留市场调整）
+    const ENHANCED_STABILITY_PENALTY = 1.5;       // 增强稳定性惩罚因子：更严格的风险控制（v8继承）
+
+    // === v8 演算法：H2H 相对关系模型权重参数 ===
+    const V8_ABSOLUTE_SCORE_WEIGHT = 0.6;         // 绝对分数（历史保本表现）的权重
+    const V8_RELATIVE_SCORE_WEIGHT = 0.4;         // 相对分数（H2H对战优势）的权重
+    const H2H_MIN_GAMES_THRESHOLD = 3;            // H2H 最少对战局数门槛
+    const H2H_DEFAULT_SCORE = 50;                 // 无H2H历史时的默认分数
+
     /**
      * 为指定代币列表生成预测分析数据并缓存
      */
@@ -76,8 +83,8 @@ class GamePredictionService
                 'round_id' => $roundId,
                 'analysis_data' => $analysisData,
                 'generated_at' => now()->toISOString(),
-                'algorithm' => 'data_driven_stability_prediction_v7',
-                'algorithm_description' => '基于数据分析优化的稳定性优先预测算法：信任历史稳定性',
+                'algorithm' => 'h2h_breakeven_prediction_v8',
+                'algorithm_description' => '基于H2H对战关系分析的保本优先预测算法：从统计学家进化为战术分析师',
                 'analysis_rounds_count' => $this->getAnalysisRoundsCount()
             ];
 
@@ -100,29 +107,33 @@ class GamePredictionService
                     'predicted_rank' => $prediction['predicted_rank'],
                     'predicted_value' => $prediction['predicted_final_value'],
                     'risk_adjusted_score' => $prediction['risk_adjusted_score'],
+                    'absolute_score' => $prediction['absolute_score'] ?? 0,
+                    'relative_score' => $prediction['relative_score'] ?? 0,
+                    'h2h_score' => $prediction['h2h_score'] ?? 0,
                     'confidence' => $prediction['rank_confidence'],
                     'stability' => $prediction['value_stddev']
                 ];
             }
 
-            Log::info('✅ 预测分析数据已生成并缓存 (v7 数据驱动优化算法)', [
+            Log::info('✅ 预测分析数据已生成并缓存 (v8 H2H对战关系分析算法)', [
                 'round_id' => $roundId,
-                'algorithm' => 'data_driven_stability_prediction_v7',
-                'algorithm_description' => '基于数据分析优化的稳定性优先预测算法：信任历史稳定性',
+                'algorithm' => 'h2h_breakeven_prediction_v8',
+                'algorithm_description' => '基于H2H对战关系分析的保本优先预测算法：从统计学家进化为战术分析师',
                 'tokens_analyzed' => count($analysisData),
                 'top_3_predictions' => $algorithmSummary,
                 'cache_expires' => now()->addMinutes(self::CACHE_DURATION_MINUTES)->toISOString(),
-                'sorting_strategy' => 'risk_adjusted_score (数据驱动的稳定性优先)',
-                'v7_optimizations' => [
-                    '📊 数据驱动权重调整：历史数据权重×2.0，市场数据权重×0.5',
-                    '🎯 信任长期稳定性：基于prediction_analysis.csv回测分析结果',
-                    '🛡️ 增强稳定性惩罚：惩罚因子从0.01提升至1.5',
-                    '📈 过滤高风险选项：更严格的波动性控制',
-                    '⚖️ 降低短期噪音：减少市场热度的误导影响'
+                'sorting_strategy' => 'risk_adjusted_score (H2H相对优势+绝对表现)',
+                'v8_innovations' => [
+                    '🆚 H2H对战关系分析：不只看个体强度，更重视具体对手匹配',
+                    '⚖️ 绝对+相对双重评分：60%绝对表现 + 40%相对优势',
+                    '🎯 战术分析师思维：从历史统计转向对战匹配分析',
+                    '🛡️ 保本率最大化：专注于提高稳定获胜概率',
+                    '📊 继承v7稳定性控制：保留增强的风险调整机制'
                 ],
                 'weight_parameters' => [
-                    'historical_weight' => self::HISTORICAL_DATA_WEIGHT,
-                    'market_weight' => self::MARKET_DATA_WEIGHT,
+                    'absolute_score_weight' => self::V8_ABSOLUTE_SCORE_WEIGHT,
+                    'relative_score_weight' => self::V8_RELATIVE_SCORE_WEIGHT,
+                    'h2h_min_games_threshold' => self::H2H_MIN_GAMES_THRESHOLD,
                     'stability_penalty' => self::ENHANCED_STABILITY_PENALTY
                 ]
             ]);
@@ -186,6 +197,9 @@ class GamePredictionService
         // 分析历史数据并计算统计指标（已包含基础评分计算）
         $tokenStats = $this->analyzeHistoricalPerformance($tokens, $recentRounds);
 
+        // v8 新增：计算 H2H 相对强度分数
+        $this->calculateHeadToHeadScores($tokenStats);
+
         // 获取市场数据并合并，基于预期分数进行预测
         $analysisData = $this->enrichWithMarketData($tokenStats);
 
@@ -199,7 +213,7 @@ class GamePredictionService
     {
         $tokenStats = [];
 
-        // 初始化统计数据 - 新增基于 value 的指标
+        // 初始化统计数据 - 新增基于 value 的指标 + v8 H2H 数据结构
         foreach ($tokens as $symbol) {
             $tokenStats[$symbol] = [
                 'symbol' => $symbol,
@@ -219,11 +233,53 @@ class GamePredictionService
                 'min_value' => PHP_FLOAT_MAX, // 历史最低分
                 'value_history' => [],      // 分数历史记录
                 'recent_value_trend' => [], // 最近10局的分数趋势
+
+                // v8 新增：H2H 对战关系数据
+                'h2h_stats' => [],          // 对战历史统计 [opponent => ['wins'=>x, 'losses'=>y, 'games'=>z]]
+                'h2h_score' => 0,           // 基于当前对手组合的相对强度分数
             ];
         }
 
-        // 遍历历史数据 - 收集 value 和 rank 数据
+        // 遍历历史数据 - 收集 value 和 rank 数据 + v8 H2H 对战数据
         foreach ($recentRounds as $round) {
+            // v8 新增：H2H 数据收集 - 获取这局历史比赛的所有参赛者及其成绩
+            $historicalTokensInRound = $round->roundResults->pluck('token_symbol')->map(function($symbol) {
+                return strtoupper($symbol);
+            })->all();
+            $historicalResultsMap = $round->roundResults->keyBy(function($result) {
+                return strtoupper($result->token_symbol);
+            });
+
+            // 找出当前正在预测的代币中，有哪些也出现在了这局历史比赛里
+            $competingTokens = array_intersect($tokens, $historicalTokensInRound);
+
+            // 如果至少有2个我们关心的代币在这局历史比赛中相遇了，这就是一次有效的 H2H 记录
+            if (count($competingTokens) > 1) {
+                // 遍历所有成对的竞争者 (A vs B)
+                foreach ($competingTokens as $tokenA) {
+                    foreach ($competingTokens as $tokenB) {
+                        if ($tokenA === $tokenB) continue;
+
+                        // 初始化 H2H 数据结构
+                        if (!isset($tokenStats[$tokenA]['h2h_stats'][$tokenB])) {
+                            $tokenStats[$tokenA]['h2h_stats'][$tokenB] = ['wins' => 0, 'losses' => 0, 'games' => 0];
+                        }
+
+                        // 比较排名，记录胜负
+                        $rankA = $historicalResultsMap[$tokenA]->rank;
+                        $rankB = $historicalResultsMap[$tokenB]->rank;
+
+                        if ($rankA < $rankB) {  // 排名越小越好
+                            $tokenStats[$tokenA]['h2h_stats'][$tokenB]['wins']++;
+                        } else {
+                            $tokenStats[$tokenA]['h2h_stats'][$tokenB]['losses']++;
+                        }
+                        $tokenStats[$tokenA]['h2h_stats'][$tokenB]['games']++;
+                    }
+                }
+            }
+
+            // 原有的个体数据收集逻辑
             foreach ($round->roundResults as $result) {
                 $symbol = strtoupper($result->token_symbol);
 
@@ -343,6 +399,95 @@ class GamePredictionService
     }
 
     /**
+     * v8 新增：计算 H2H 相对强度分数 - 对战优势模型的核心函数
+     */
+    private function calculateHeadToHeadScores(array &$tokenStats): void
+    {
+        // 获取当前局的所有代币
+        $currentTokenSymbols = array_keys($tokenStats);
+
+        Log::info('开始计算 H2H 相对强度分数', [
+            'participating_tokens' => $currentTokenSymbols,
+            'tokens_count' => count($currentTokenSymbols)
+        ]);
+
+        foreach ($tokenStats as $symbol => &$stats) {
+            $totalWinRate = 0;
+            $validOpponentCount = 0;
+            $h2hDetails = []; // 用于详细日志记录
+
+            // 计算此代币对当前局其他所有对手的平均历史胜率
+            foreach ($currentTokenSymbols as $opponent) {
+                if ($symbol === $opponent) continue;
+
+                $h2hData = $stats['h2h_stats'][$opponent] ?? null;
+
+                if ($h2hData && $h2hData['games'] >= self::H2H_MIN_GAMES_THRESHOLD) {
+                    $winRate = $h2hData['wins'] / $h2hData['games'];
+                    $totalWinRate += $winRate;
+                    $validOpponentCount++;
+
+                    $h2hDetails[] = [
+                        'opponent' => $opponent,
+                        'wins' => $h2hData['wins'],
+                        'losses' => $h2hData['losses'],
+                        'games' => $h2hData['games'],
+                        'win_rate' => round($winRate * 100, 1) . '%'
+                    ];
+                } else {
+                    // 记录H2H数据不足的对手
+                    $gamesCount = $h2hData ? $h2hData['games'] : 0;
+                    $h2hDetails[] = [
+                        'opponent' => $opponent,
+                        'games' => $gamesCount,
+                        'status' => 'insufficient_data'
+                    ];
+                }
+            }
+
+            // 计算 H2H 分数：如果有足够的对战历史，计算平均胜率并转换为0-100的分数
+            if ($validOpponentCount > 0) {
+                $averageWinRate = $totalWinRate / $validOpponentCount;
+                $stats['h2h_score'] = $averageWinRate * 100;
+
+                Log::info("H2H 分数计算完成（基于历史对战）", [
+                    'symbol' => $symbol,
+                    'valid_opponents' => $validOpponentCount,
+                    'total_opponents' => count($currentTokenSymbols) - 1,
+                    'average_win_rate' => round($averageWinRate * 100, 1) . '%',
+                    'h2h_score' => round($stats['h2h_score'], 1),
+                    'h2h_details' => $h2hDetails
+                ]);
+            } else {
+                // 没有足够的对战历史，给予中立的默认分数
+                $stats['h2h_score'] = self::H2H_DEFAULT_SCORE;
+
+                Log::info("H2H 分数使用默认值（无足够对战历史）", [
+                    'symbol' => $symbol,
+                    'valid_opponents' => $validOpponentCount,
+                    'total_opponents' => count($currentTokenSymbols) - 1,
+                    'h2h_score' => $stats['h2h_score'],
+                    'reason' => 'insufficient_h2h_data',
+                    'min_games_required' => self::H2H_MIN_GAMES_THRESHOLD
+                ]);
+            }
+
+            // 确保分数在合理范围
+            $stats['h2h_score'] = max(0, min(100, $stats['h2h_score']));
+        }
+
+        Log::info('H2H 相对强度分数计算完成', [
+            'tokens_processed' => count($tokenStats),
+            'h2h_scores' => array_map(function($stats) {
+                return [
+                    'symbol' => $stats['symbol'],
+                    'h2h_score' => round($stats['h2h_score'], 1)
+                ];
+            }, $tokenStats)
+        ]);
+    }
+
+    /**
      * 批量获取市场数据并合并到分析结果中
      */
     private function enrichWithMarketData(array $tokenStats): array
@@ -403,58 +548,107 @@ class GamePredictionService
     }
 
     /**
-     * 计算包含市场数据的增强预测评分 - v7 基于数据分析优化：信任历史稳定性
+     * 计算包含市场数据的增强预测评分 - v8 基于H2H对战关系分析：绝对+相对双重评分
      */
     private function calculateEnhancedPredictionScore(array $data): array
     {
-        // 步骤1：计算预测基础分数（基于历史 value 数据）
-        $predictedBaseValue = $this->calculatePredictedBaseValue($data);
+        // v8 步骤1：计算绝对分数（基于历史保本表现，继承v7的稳定性逻辑）
+        $absoluteScore = $this->calculateAbsoluteScore($data);
 
-        // 步骤2：计算市场调整分数（基于市场动量）
+        // v8 步骤2：获取相对分数（基于H2H对战优势）
+        $relativeScore = $data['h2h_score'] ?? self::H2H_DEFAULT_SCORE;
+
+        // v8 步骤3：结合绝对分与相对分，得到一个结合了对战关系的预期分数
+        $predictedFinalValue = ($absoluteScore * self::V8_ABSOLUTE_SCORE_WEIGHT) + ($relativeScore * self::V8_RELATIVE_SCORE_WEIGHT);
+
+        // v8 步骤4：应用市场影响调整（保留市场数据的影响）
         $marketAdjustmentValue = $this->calculateMarketAdjustmentValue($data);
+        $marketAdjustedValue = $predictedFinalValue + ($marketAdjustmentValue * 0.2); // 降低市场权重，重点在H2H
 
-        // 步骤3：计算最终预期分数 - 应用数据分析优化的权重
-        // 历史数据权重提升至2.0，市场数据权重降低至0.5
-        $weightedHistoricalScore = $predictedBaseValue * self::HISTORICAL_DATA_WEIGHT;
-        $weightedMarketScore = $marketAdjustmentValue * self::MARKET_DATA_WEIGHT;
-        $predictedFinalValue = $weightedHistoricalScore + $weightedMarketScore;
+        // v8 步骤5：应用稳定性惩罚（继承v7的风险控制机制）
+        $riskAdjustedScore = $this->calculateRiskAdjustedScore($marketAdjustedValue, $data);
 
-        // 步骤4：计算风险调整后分数（更严格的稳定性惩罚）
-        $riskAdjustedScore = $this->calculateRiskAdjustedScore($predictedFinalValue, $data);
-
-        // 添加新的预测指标到数据中
-        $data['predicted_base_value'] = round($predictedBaseValue, 4);
-        $data['market_adjustment_value'] = round($marketAdjustmentValue, 4);
-        $data['weighted_historical_score'] = round($weightedHistoricalScore, 4);
-        $data['weighted_market_score'] = round($weightedMarketScore, 4);
+        // v8 添加新的预测指标到数据中
+        $data['absolute_score'] = round($absoluteScore, 2);
+        $data['relative_score'] = round($relativeScore, 2);
         $data['predicted_final_value'] = round($predictedFinalValue, 4);
+        $data['market_adjustment_value'] = round($marketAdjustmentValue, 4);
+        $data['market_adjusted_value'] = round($marketAdjustedValue, 4);
         $data['risk_adjusted_score'] = round($riskAdjustedScore, 2);
 
         // 保留原有的市场动量评分（用于分析）
         $data['market_momentum_score'] = round($this->calculateMarketMomentumScore($data), 1);
 
-        // 设置最终预测评分为风险调整后分数
+        // v8 设置最终预测评分为风险调整后分数
         $data['final_prediction_score'] = $data['risk_adjusted_score'];
 
-        // 记录权重应用的详细日志
-        Log::info("v7 算法权重应用", [
+        // v8 记录权重应用的详细日志
+        Log::info("v8 H2H 算法权重应用", [
             'symbol' => $data['symbol'],
-            'base_historical_score' => round($predictedBaseValue, 4),
-            'base_market_adjustment' => round($marketAdjustmentValue, 4),
-            'weighted_historical' => round($weightedHistoricalScore, 4),
-            'weighted_market' => round($weightedMarketScore, 4),
-            'final_predicted_value' => round($predictedFinalValue, 4),
+            'absolute_score' => round($absoluteScore, 2),
+            'relative_score' => round($relativeScore, 2),
+            'h2h_score' => round($data['h2h_score'] ?? 0, 1),
+            'weighted_absolute' => round($absoluteScore * self::V8_ABSOLUTE_SCORE_WEIGHT, 2),
+            'weighted_relative' => round($relativeScore * self::V8_RELATIVE_SCORE_WEIGHT, 2),
+            'predicted_final_value' => round($predictedFinalValue, 4),
+            'market_adjustment' => round($marketAdjustmentValue, 4),
+            'market_adjusted_value' => round($marketAdjustedValue, 4),
             'risk_adjusted_score' => round($riskAdjustedScore, 2),
-            'historical_weight' => self::HISTORICAL_DATA_WEIGHT,
-            'market_weight' => self::MARKET_DATA_WEIGHT,
-            'strategy' => 'trust_historical_stability'
+            'absolute_weight' => self::V8_ABSOLUTE_SCORE_WEIGHT,
+            'relative_weight' => self::V8_RELATIVE_SCORE_WEIGHT,
+            'strategy' => 'h2h_tactical_analysis'
         ]);
 
         return $data;
     }
 
     /**
-     * 计算预测基础分数（基于历史 value 数据）
+     * v8 计算绝对分数（基于历史保本表现，重点关注 top3 率和稳定性）
+     */
+    private function calculateAbsoluteScore(array $data): float
+    {
+        // v8 绝对分数策略：重点关注保本能力（top3率）和历史稳定性
+        $top3Rate = $data['top3_rate'] ?? 0;
+        $avgValue = $data['avg_value'] ?? 0;
+        $recentAvgValue = $data['recent_avg_value'] ?? 0;
+        $totalGames = $data['total_games'] ?? 0;
+
+        // 基础分数：主要基于保本率（top3率）
+        $baseScore = $top3Rate * 0.8; // top3率是最重要的指标，占80%
+
+        // 稳定性加分：基于历史表现的一致性
+        if ($totalGames > 0) {
+            // 游戏次数越多，数据越可靠
+            $dataReliabilityBonus = min(15, $totalGames * 0.5); // 最多15分的可靠性加分
+            $baseScore += $dataReliabilityBonus;
+        }
+
+        // 近期表现调整：如果近期表现比历史表现好，给予加分
+        if ($recentAvgValue > 0 && $avgValue > 0 && $recentAvgValue > $avgValue) {
+            $improvementBonus = min(10, ($recentAvgValue - $avgValue) * 50); // 最多10分的进步加分
+            $baseScore += $improvementBonus;
+        }
+
+        // 确保分数在合理范围内
+        $finalScore = max(0, min(100, $baseScore));
+
+        Log::debug("v8 绝对分数计算", [
+            'symbol' => $data['symbol'],
+            'top3_rate' => $top3Rate,
+            'base_score_from_top3' => round($top3Rate * 0.8, 2),
+            'total_games' => $totalGames,
+            'data_reliability_bonus' => round(min(15, $totalGames * 0.5), 2),
+            'recent_avg_value' => $recentAvgValue,
+            'historical_avg_value' => $avgValue,
+            'improvement_bonus' => $recentAvgValue > $avgValue ? round(min(10, ($recentAvgValue - $avgValue) * 50), 2) : 0,
+            'final_absolute_score' => round($finalScore, 2)
+        ]);
+
+        return $finalScore;
+    }
+
+    /**
+     * 计算预测基础分数（基于历史 value 数据）- 保留为备用函数
      */
     private function calculatePredictedBaseValue(array $data): float
     {
@@ -564,15 +758,14 @@ class GamePredictionService
         $riskAdjustedScore = $predictedValue / $enhancedRiskPenalty;
 
         // 记录风险调整的详细计算过程
-        Log::debug("v7 风险调整计算", [
+        Log::debug("v8 风险调整计算（继承v7稳定性控制）", [
             'symbol' => $data['symbol'],
             'predicted_value' => round($predictedValue, 4),
             'value_stddev' => round($valueStddev, 4),
-            'old_penalty_factor' => self::RISK_WEIGHT_COEFFICIENT, // 0.01
-            'new_penalty_factor' => self::ENHANCED_STABILITY_PENALTY, // 1.5
+            'penalty_factor' => self::ENHANCED_STABILITY_PENALTY, // 1.5
             'enhanced_risk_penalty' => round($enhancedRiskPenalty, 4),
             'risk_adjusted_score' => round($riskAdjustedScore, 2),
-            'penalty_improvement' => 'stricter_stability_control'
+            'strategy' => 'v8_inherited_v7_stability_control'
         ]);
 
         // 确保评分在合理范围内（0-100）

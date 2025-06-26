@@ -41,8 +41,8 @@ class ExportPredictionAnalysis extends Command
         }
 
         $this->info("Found {$totalRounds} rounds to process.");
-
-        $filePath = 'prediction_analysis.csv';
+        $datetime = now()->format('Ymd_His');
+        $filePath = 'prediction_analysis_v7_' . $datetime . '.csv';
         // 使用 Storage Facade 來處理檔案，更安全
         Storage::disk('local')->put($filePath, ''); // 建立或清空檔案
         $fullPath = Storage::disk('local')->path($filePath);

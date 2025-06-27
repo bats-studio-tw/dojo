@@ -649,61 +649,109 @@ class GameDataController extends Controller
 
     /**
      * 从多个交易对中找到最匹配的代币 (与GamePredictionService保持一致)
+     * 在匹配的候选中选择流动性最高的
      */
     private function findBestTokenMatch(array $pairs, string $targetSymbol): ?array
     {
         $targetSymbol = strtoupper($targetSymbol);
 
-        // 优先级1: 精确匹配 baseToken symbol
+        // 优先级1: 精确匹配 baseToken symbol，选择流动性最高的
+        $exactMatches = [];
         foreach ($pairs as $pair) {
             $baseSymbol = strtoupper($pair['baseToken']['symbol'] ?? '');
             if ($baseSymbol === $targetSymbol) {
-                Log::info("Controller: 找到精确匹配的代币", [
-                    'target' => $targetSymbol,
-                    'matched' => $baseSymbol,
-                    'name' => $pair['baseToken']['name'] ?? 'unknown'
-                ]);
-                return $pair;
+                $exactMatches[] = $pair;
             }
         }
 
-        // 优先级2: 部分匹配 baseToken symbol (前缀匹配)
+        if (!empty($exactMatches)) {
+            $bestMatch = $this->selectHighestLiquidityPair($exactMatches);
+            Log::info("Controller: 找到精确匹配的代币，选择流动性最高的", [
+                'target' => $targetSymbol,
+                'matched' => $bestMatch['baseToken']['symbol'] ?? 'unknown',
+                'name' => $bestMatch['baseToken']['name'] ?? 'unknown',
+                'liquidity_usd' => $bestMatch['liquidity']['usd'] ?? 0
+            ]);
+            return $bestMatch;
+        }
+
+        // 优先级2: 部分匹配 baseToken symbol (前缀匹配)，选择流动性最高的
+        $partialMatches = [];
         foreach ($pairs as $pair) {
             $baseSymbol = strtoupper($pair['baseToken']['symbol'] ?? '');
             if (str_starts_with($baseSymbol, $targetSymbol) || str_starts_with($targetSymbol, $baseSymbol)) {
-                Log::info("Controller: 找到部分匹配的代币", [
-                    'target' => $targetSymbol,
-                    'matched' => $baseSymbol,
-                    'name' => $pair['baseToken']['name'] ?? 'unknown'
-                ]);
-                return $pair;
+                $partialMatches[] = $pair;
             }
         }
 
-        // 优先级3: 检查代币名称中是否包含目标符号
+        if (!empty($partialMatches)) {
+            $bestMatch = $this->selectHighestLiquidityPair($partialMatches);
+            Log::info("Controller: 找到部分匹配的代币，选择流动性最高的", [
+                'target' => $targetSymbol,
+                'matched' => $bestMatch['baseToken']['symbol'] ?? 'unknown',
+                'name' => $bestMatch['baseToken']['name'] ?? 'unknown',
+                'liquidity_usd' => $bestMatch['liquidity']['usd'] ?? 0
+            ]);
+            return $bestMatch;
+        }
+
+        // 优先级3: 检查代币名称中是否包含目标符号，选择流动性最高的
+        $nameMatches = [];
         foreach ($pairs as $pair) {
             $tokenName = strtoupper($pair['baseToken']['name'] ?? '');
             if (str_contains($tokenName, $targetSymbol)) {
-                Log::info("Controller: 通过名称匹配找到代币", [
-                    'target' => $targetSymbol,
-                    'matched_name' => $tokenName,
-                    'symbol' => $pair['baseToken']['symbol'] ?? 'unknown'
-                ]);
-                return $pair;
+                $nameMatches[] = $pair;
             }
         }
 
-        // 优先级4: 返回第一个结果（原有逻辑）
-        if (!empty($pairs)) {
-            Log::warning("Controller: 使用第一个搜索结果作为备选", [
+        if (!empty($nameMatches)) {
+            $bestMatch = $this->selectHighestLiquidityPair($nameMatches);
+            Log::info("Controller: 通过名称匹配找到代币，选择流动性最高的", [
                 'target' => $targetSymbol,
-                'fallback_symbol' => $pairs[0]['baseToken']['symbol'] ?? 'unknown',
-                'fallback_name' => $pairs[0]['baseToken']['name'] ?? 'unknown'
+                'matched_name' => $bestMatch['baseToken']['name'] ?? 'unknown',
+                'symbol' => $bestMatch['baseToken']['symbol'] ?? 'unknown',
+                'liquidity_usd' => $bestMatch['liquidity']['usd'] ?? 0
             ]);
-            return $pairs[0];
+            return $bestMatch;
+        }
+
+        // 优先级4: 返回流动性最高的结果（替代原有的第一个）
+        if (!empty($pairs)) {
+            $bestMatch = $this->selectHighestLiquidityPair($pairs);
+            Log::warning("Controller: 使用流动性最高的搜索结果作为备选", [
+                'target' => $targetSymbol,
+                'fallback_symbol' => $bestMatch['baseToken']['symbol'] ?? 'unknown',
+                'fallback_name' => $bestMatch['baseToken']['name'] ?? 'unknown',
+                'liquidity_usd' => $bestMatch['liquidity']['usd'] ?? 0
+            ]);
+            return $bestMatch;
         }
 
         return null;
+    }
+
+    /**
+     * 从交易对数组中选择流动性最高的
+     */
+    private function selectHighestLiquidityPair(array $pairs): ?array
+    {
+        if (empty($pairs)) {
+            return null;
+        }
+
+        $bestPair = null;
+        $highestLiquidity = 0;
+
+        foreach ($pairs as $pair) {
+            $liquidityUsd = floatval($pair['liquidity']['usd'] ?? 0);
+
+            if ($liquidityUsd > $highestLiquidity) {
+                $highestLiquidity = $liquidityUsd;
+                $bestPair = $pair;
+            }
+        }
+
+        return $bestPair ?? $pairs[0]; // 如果都没有流动性数据，返回第一个
     }
 
     /**

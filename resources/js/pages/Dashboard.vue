@@ -7,7 +7,7 @@
         <!-- v8 H2H 对战关系分析 -->
         <NCard
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="🆚 v8 H2H 对战关系分析"
+          title="名次預測"
           size="large"
         >
           <template #header-extra>
@@ -36,7 +36,7 @@
           </template>
 
           <div v-if="analysisData.length > 0" class="space-y-4">
-            <!-- 横向v8 H2H战术分析展示 -->
+            <!-- 横向名次預測展示 -->
             <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5">
               <div
                 v-for="(token, index) in analysisData"
@@ -102,6 +102,34 @@
                       </span>
                       <span v-else class="text-gray-500">-</span>
                     </span>
+                  </div>
+
+                  <!-- 价格变化数据 -->
+                  <div class="mt-2 border-t border-gray-600/30 pt-1">
+                    <div class="flex justify-between">
+                      <span class="text-gray-400">5分钟:</span>
+                      <span class="font-bold" :class="formatPriceChange(token.change_5m).color">
+                        {{ formatPriceChange(token.change_5m).text }}
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-400">1小时:</span>
+                      <span class="font-bold" :class="formatPriceChange(token.change_1h).color">
+                        {{ formatPriceChange(token.change_1h).text }}
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-400">4小时:</span>
+                      <span class="font-bold" :class="formatPriceChange(token.change_4h).color">
+                        {{ formatPriceChange(token.change_4h).text }}
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-400">24小时:</span>
+                      <span class="font-bold" :class="formatPriceChange(token.change_24h).color">
+                        {{ formatPriceChange(token.change_24h).text }}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -597,6 +625,20 @@
     if (index === 3)
       return 'border-blue-400/30 bg-gradient-to-br from-blue-500/10 to-indigo-600/5 hover:border-blue-400/50 hover:shadow-blue-500/20';
     return 'border-purple-400/30 bg-gradient-to-br from-purple-500/10 to-pink-600/5 hover:border-purple-400/50 hover:shadow-purple-500/20';
+  };
+
+  // 格式化价格变化百分比
+  const formatPriceChange = (change: number | null) => {
+    if (change === null || change === undefined) return { text: '-', color: 'text-gray-500' };
+
+    const value = change.toFixed(2);
+    if (change > 0) {
+      return { text: `+${value}%`, color: 'text-green-400' };
+    } else if (change < 0) {
+      return { text: `${value}%`, color: 'text-red-400' };
+    } else {
+      return { text: '0.00%', color: 'text-gray-400' };
+    }
   };
 
   const getScoreTextClass = (index: number) => {

@@ -160,32 +160,29 @@
             <div v-if="predictionHistoryData.length > 0" class="space-y-4">
               <!-- 局数选择器 -->
               <div
-                class="mb-4 border border-white/20 rounded-lg from-gray-500/10 to-slate-600/5 bg-gradient-to-br p-2 sm:p-3"
+                class="mb-3 border border-white/20 rounded-lg from-gray-500/10 to-slate-600/5 bg-gradient-to-br px-3 py-2"
               >
-                <div class="mb-2 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-1 sm:space-y-0">
+                <div class="mb-1 flex items-center justify-between">
                   <h4 class="text-sm text-white font-medium">📊 最新N局分析设置</h4>
                   <div class="text-xs text-gray-300">
-                    当前分析:
+                    当前:
                     <span class="text-cyan-400 font-bold">{{ recentRoundsCount }}</span>
                     局
                   </div>
                 </div>
-                <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-x-4 sm:space-y-0">
-                  <span class="text-xs text-gray-300 font-medium">局数:</span>
-                  <div class="flex-1">
+                <div class="flex items-center space-x-3">
+                  <span class="whitespace-nowrap text-xs text-gray-300 font-medium">局数:</span>
+                  <div class="min-w-0 flex-1">
                     <n-slider
                       v-model:value="recentRoundsCount"
                       :min="1"
                       :max="Math.min(300, predictionHistoryData.length)"
                       :step="1"
                       :tooltip="true"
-                      class="px-1"
                     />
                   </div>
-                  <div class="flex text-xs text-gray-400 space-x-1">
-                    <span>1局</span>
-                    <span>-</span>
-                    <span>{{ Math.min(300, predictionHistoryData.length) }}局</span>
+                  <div class="whitespace-nowrap text-xs text-gray-400">
+                    1-{{ Math.min(300, predictionHistoryData.length) }}局
                   </div>
                 </div>
               </div>

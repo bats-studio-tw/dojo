@@ -20,7 +20,7 @@
                 <span class="text-red">{{ analysisMeta.round_id }}</span>
                 <span class="font-medium">状态:</span>
                 <NTag :type="getStatusTagType(analysisMeta.status)" size="small">
-                  {{ getStatusText(analysisMeta.status) }}
+                  {{ analysisMeta.status }}
                 </NTag>
               </div>
               <n-button
@@ -35,177 +35,133 @@
             </div>
           </template>
 
-          <div v-if="analysisData.length > 0" class="space-y-3">
-            <!-- v8 H2H 对战关系预测卡片 -->
-            <div>
-              <h3 class="mb-4 text-base text-white font-semibold sm:text-lg">🆚 H2H 战术分析预测</h3>
-              <div class="grid grid-cols-1 gap-3 lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5 sm:gap-4">
-                <div
-                  v-for="(token, index) in analysisData"
-                  :key="`prediction-${index}-${token.symbol}-${token.name}`"
-                  class="relative border-2 rounded-lg p-3 transition-all duration-200 sm:p-4 hover:shadow-lg"
-                  :class="getPredictionCardClass(index)"
-                >
-                  <div class="mb-3 flex items-center justify-between">
-                    <div class="flex items-center space-x-2">
+          <div v-if="analysisData.length > 0" class="space-y-6">
+            <!-- 统一的v8 H2H战术分析展示 -->
+            <div class="space-y-4">
+              <div
+                v-for="(token, index) in analysisData"
+                :key="`unified-${index}-${token.symbol}-${token.name}`"
+                class="relative overflow-hidden border rounded-xl p-4 transition-all duration-300 sm:p-6 hover:shadow-lg"
+                :class="getUnifiedCardClass(index)"
+              >
+                <!-- 头部：排名、代币信息和核心评分 -->
+                <div class="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+                  <div class="flex items-center space-x-4">
+                    <!-- 排名图标 -->
+                    <div
+                      class="h-12 w-12 flex items-center justify-center rounded-full"
+                      :class="getRankBadgeClass(index)"
+                    >
+                      <span class="text-2xl">{{ getPredictionIcon(index) }}</span>
+                    </div>
+
+                    <!-- 代币信息 -->
+                    <div class="flex items-center space-x-3">
                       <img
                         v-if="token.logo"
                         :src="token.logo"
                         :alt="token.symbol"
-                        class="h-6 w-6 rounded-full"
+                        class="h-10 w-10 rounded-full"
                         @error="($event.target as HTMLImageElement).style.display = 'none'"
                       />
-                      <div v-else class="h-6 w-6 flex items-center justify-center rounded-full bg-gray-300 text-xs">
+                      <div
+                        v-else
+                        class="h-10 w-10 flex items-center justify-center rounded-full bg-gray-300 text-sm font-bold"
+                      >
                         {{ token.symbol.charAt(0) }}
                       </div>
-                      <span class="text-sm text-gray-800 font-bold sm:text-base">{{ token.symbol }}</span>
-                    </div>
-                    <div class="flex items-center space-x-1">
-                      <span class="text-base text-gray-700 font-medium sm:text-lg">#{{ index + 1 }}</span>
-                      <div v-if="token.rank_confidence" class="ml-1 text-xs text-gray-600">
-                        {{ token.rank_confidence.toFixed(0) }}%
+                      <div>
+                        <div class="text-lg text-white font-bold">{{ token.symbol }}</div>
+                        <div class="text-sm text-gray-300">{{ token.name || 'Unknown' }}</div>
                       </div>
                     </div>
                   </div>
 
-                  <div class="text-sm space-y-1">
-                    <!-- v8 核心指标：风险调整后分数 -->
-                    <div class="flex justify-between">
-                      <span class="text-gray-700 font-medium">最终评分:</span>
-                      <span class="text-gray-800 font-bold">
-                        {{
-                          (token.risk_adjusted_score || token.final_prediction_score || token.prediction_score).toFixed(
-                            1
-                          )
-                        }}
-                      </span>
+                  <!-- 核心评分 -->
+                  <div class="flex flex-col items-end">
+                    <div class="mb-1 text-sm text-gray-300">最终评分</div>
+                    <div class="text-3xl font-bold" :class="getScoreTextClass(index)">
+                      {{
+                        (
+                          token.risk_adjusted_score ||
+                          token.final_prediction_score ||
+                          token.prediction_score ||
+                          0
+                        ).toFixed(1)
+                      }}
                     </div>
-
-                    <!-- v8 双重评分系统 -->
-                    <div class="flex justify-between text-xs">
-                      <span class="text-gray-600">绝对分数:</span>
-                      <span class="text-purple-700 font-medium">{{ (token.absolute_score || 0).toFixed(1) }}</span>
-                    </div>
-                    <div class="flex justify-between text-xs">
-                      <span class="text-gray-600">相对分数:</span>
-                      <span class="text-orange-700 font-medium">
-                        {{ (token.relative_score || token.h2h_score || 0).toFixed(1) }}
-                      </span>
-                    </div>
-
-                    <!-- 传统保本指标（简化显示） -->
-                    <div class="flex justify-between text-xs">
-                      <span class="text-gray-600">历史保本率:</span>
-                      <span class="text-blue-700 font-medium">{{ token.top3_rate.toFixed(1) }}%</span>
+                    <div v-if="token.rank_confidence" class="mt-1 text-xs text-gray-400">
+                      置信度: {{ (token.rank_confidence || 0).toFixed(0) }}%
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            <!-- v8 H2H 战术分析详细数据表格 -->
-            <div>
-              <h3 class="mb-4 text-base text-white font-semibold sm:text-lg">🎯 v8 H2H 战术分析详情</h3>
-              <div class="overflow-x-auto border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
-                <table class="min-w-[800px] w-full text-xs sm:text-sm">
-                  <thead>
-                    <tr class="border-b border-white/20 bg-white/5">
-                      <th class="px-4 py-3 text-left text-white font-medium">排名</th>
-                      <th class="px-4 py-3 text-left text-white font-medium">代币</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">绝对分数</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">H2H分数</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">风险调整</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">置信度</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">稳定性</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">保本率</th>
-                      <th class="px-4 py-3 text-right text-white font-medium">市场动量</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="(token, index) in analysisData"
-                      :key="`table-${index}-${token.symbol}-${token.name}`"
-                      class="border-b border-white/10 transition-colors duration-200 hover:bg-white/10"
-                    >
-                      <td class="px-4 py-3">
-                        <div class="flex items-center space-x-2">
-                          <span class="text-lg">{{ getPredictionIcon(index) }}</span>
-                          <span class="text-white font-medium">#{{ index + 1 }}</span>
-                        </div>
-                      </td>
-                      <td class="px-4 py-3">
-                        <div class="flex items-center space-x-3">
-                          <img
-                            v-if="token.logo"
-                            :src="token.logo"
-                            :alt="token.symbol"
-                            class="h-8 w-8 rounded-full"
-                            @error="($event.target as HTMLImageElement).style.display = 'none'"
-                          />
-                          <div v-else class="h-8 w-8 flex items-center justify-center rounded-full bg-gray-300 text-xs">
-                            {{ token.symbol.charAt(0) }}
-                          </div>
-                          <div>
-                            <div class="text-white font-medium">{{ token.symbol }}</div>
-                            <div class="text-xs text-gray-300">{{ token.name }}</div>
-                          </div>
-                        </div>
-                      </td>
+                <!-- 详细数据网格 -->
+                <div class="grid grid-cols-2 gap-4 md:grid-cols-5 sm:grid-cols-3">
+                  <!-- 绝对分数 -->
+                  <div class="text-center">
+                    <div class="mb-1 text-xs text-gray-400">绝对分数</div>
+                    <div class="text-lg text-purple-400 font-bold">
+                      {{ (token.absolute_score || 0).toFixed(1) }}
+                    </div>
+                  </div>
 
-                      <!-- v8 绝对分数 -->
-                      <td class="px-4 py-3 text-right">
-                        <span class="text-purple-400 font-medium">
-                          {{ (token.absolute_score || 0).toFixed(1) }}
-                        </span>
-                      </td>
-                      <!-- v8 H2H对战分数 -->
-                      <td class="px-4 py-3 text-right">
-                        <span class="text-orange-400 font-medium">
-                          {{ (token.relative_score || token.h2h_score || 0).toFixed(1) }}
-                        </span>
-                      </td>
-                      <!-- v8 风险调整后分数 -->
-                      <td class="px-4 py-3 text-right">
-                        <div class="flex flex-col items-end">
-                          <span class="text-blue-400 font-medium">
-                            {{
-                              (
-                                token.risk_adjusted_score ||
-                                token.final_prediction_score ||
-                                token.prediction_score
-                              ).toFixed(1)
-                            }}
-                          </span>
-                        </div>
-                      </td>
-                      <!-- v8 置信度 -->
-                      <td class="px-4 py-3 text-right">
-                        <span v-if="token.rank_confidence" class="text-cyan-400 font-medium">
-                          {{ token.rank_confidence.toFixed(0) }}%
-                        </span>
-                        <span v-else class="text-gray-400">-</span>
-                      </td>
-                      <!-- v8 稳定性指标 -->
-                      <td class="px-4 py-3 text-right">
-                        <span v-if="token.value_stddev !== undefined" class="text-yellow-400 font-medium">
-                          {{ token.value_stddev.toFixed(3) }}
-                        </span>
-                        <span v-else class="text-gray-400">-</span>
-                      </td>
-                      <!-- 保本率 -->
-                      <td class="px-4 py-3 text-right">
-                        <span class="text-green-400 font-medium">{{ token.top3_rate.toFixed(1) }}%</span>
-                      </td>
-                      <!-- 市场动量 -->
-                      <td class="px-4 py-3 text-right">
-                        <span v-if="token.market_momentum_score" class="text-teal-400 font-medium">
-                          {{ token.market_momentum_score.toFixed(1) }}
-                        </span>
-                        <span v-else class="text-gray-400">-</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                  <!-- H2H分数 -->
+                  <div class="text-center">
+                    <div class="mb-1 text-xs text-gray-400">H2H分数</div>
+                    <div class="text-lg text-orange-400 font-bold">
+                      {{ (token.relative_score || token.h2h_score || 0).toFixed(1) }}
+                    </div>
+                  </div>
+
+                  <!-- 保本率 -->
+                  <div class="text-center">
+                    <div class="mb-1 text-xs text-gray-400">历史保本率</div>
+                    <div class="text-lg text-green-400 font-bold">{{ (token.top3_rate || 0).toFixed(1) }}%</div>
+                  </div>
+
+                  <!-- 稳定性 -->
+                  <div class="text-center">
+                    <div class="mb-1 text-xs text-gray-400">稳定性</div>
+                    <div class="text-lg text-yellow-400 font-bold">
+                      <span v-if="token.value_stddev !== undefined">
+                        {{ (token.value_stddev || 0).toFixed(3) }}
+                      </span>
+                      <span v-else class="text-gray-500">-</span>
+                    </div>
+                  </div>
+
+                  <!-- 市场动量 -->
+                  <div class="text-center">
+                    <div class="mb-1 text-xs text-gray-400">市场动量</div>
+                    <div class="text-lg text-teal-400 font-bold">
+                      <span v-if="token.market_momentum_score">
+                        {{ (token.market_momentum_score || 0).toFixed(1) }}
+                      </span>
+                      <span v-else class="text-gray-500">-</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 进度条：显示各项分数的视觉化对比 -->
+                <div class="mt-4 space-y-2">
+                  <div class="flex items-center justify-between text-xs text-gray-400">
+                    <span>评分分布</span>
+                    <span>100分制</span>
+                  </div>
+                  <div class="h-2 flex overflow-hidden rounded-full bg-gray-700/50 space-x-1">
+                    <div
+                      class="bg-purple-500 transition-all duration-300"
+                      :style="{ width: `${Math.max(5, token.absolute_score || 0)}%` }"
+                      :title="`绝对分数: ${(token.absolute_score || 0).toFixed(1)}`"
+                    ></div>
+                    <div
+                      class="bg-orange-500 transition-all duration-300"
+                      :style="{ width: `${Math.max(5, token.relative_score || token.h2h_score || 0)}%` }"
+                      :title="`H2H分数: ${(token.relative_score || token.h2h_score || 0).toFixed(1)}`"
+                    ></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -274,7 +230,7 @@
                   <div class="relative">
                     <div class="text-xs text-green-300 font-medium sm:text-sm">精准预测率</div>
                     <div class="mt-2 text-2xl text-green-400 font-bold sm:text-3xl">
-                      {{ calculateRoundBasedStats().exactRate.toFixed(1) }}
+                      {{ (calculateRoundBasedStats().exactRate || 0).toFixed(1) }}
                       <span class="text-base sm:text-lg">%</span>
                     </div>
                     <div class="mt-2 text-xs text-green-200/70">预测与实际完全相同</div>
@@ -308,15 +264,16 @@
                         <div class="mb-1 text-xs text-yellow-200/50">
                           全部历史 ({{ calculateRankBasedStats().rank1.total }}局)
                         </div>
+
                         <div class="flex items-center justify-between">
                           <span class="text-base text-yellow-400 font-bold sm:text-lg">
-                            {{ calculateRankBasedStats().rank1.breakevenRate.toFixed(1) }}%
+                            {{ (calculateRankBasedStats().rank1.breakevenRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-yellow-200/70">保本率</span>
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-amber-300 font-bold sm:text-lg">
-                            {{ calculateRankBasedStats().rank1.firstPlaceRate.toFixed(1) }}%
+                            {{ (calculateRankBasedStats().rank1.firstPlaceRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-amber-200/70">第一名率</span>
                         </div>
@@ -328,13 +285,13 @@
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-cyan-400 font-bold">
-                            {{ calculateRecentRankBasedStats.rank1.breakevenRate.toFixed(1) }}%
+                            {{ (calculateRecentRankBasedStats.rank1.breakevenRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-cyan-200/70">保本率</span>
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-teal-300 font-bold">
-                            {{ calculateRecentRankBasedStats.rank1.firstPlaceRate.toFixed(1) }}%
+                            {{ (calculateRecentRankBasedStats.rank1.firstPlaceRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-teal-200/70">第一名率</span>
                         </div>
@@ -358,13 +315,13 @@
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-slate-400 font-bold sm:text-lg">
-                            {{ calculateRankBasedStats().rank2.breakevenRate.toFixed(1) }}%
+                            {{ (calculateRankBasedStats().rank2.breakevenRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-slate-200/70">保本率</span>
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-gray-300 font-bold sm:text-lg">
-                            {{ calculateRankBasedStats().rank2.firstPlaceRate.toFixed(1) }}%
+                            {{ (calculateRankBasedStats().rank2.firstPlaceRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-gray-200/70">第一名率</span>
                         </div>
@@ -376,13 +333,13 @@
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-cyan-400 font-bold">
-                            {{ calculateRecentRankBasedStats.rank2.breakevenRate.toFixed(1) }}%
+                            {{ (calculateRecentRankBasedStats.rank2.breakevenRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-cyan-200/70">保本率</span>
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-teal-300 font-bold">
-                            {{ calculateRecentRankBasedStats.rank2.firstPlaceRate.toFixed(1) }}%
+                            {{ (calculateRecentRankBasedStats.rank2.firstPlaceRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-teal-200/70">第一名率</span>
                         </div>
@@ -406,13 +363,13 @@
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-orange-400 font-bold sm:text-lg">
-                            {{ calculateRankBasedStats().rank3.breakevenRate.toFixed(1) }}%
+                            {{ (calculateRankBasedStats().rank3.breakevenRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-orange-200/70">保本率</span>
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-red-300 font-bold sm:text-lg">
-                            {{ calculateRankBasedStats().rank3.firstPlaceRate.toFixed(1) }}%
+                            {{ (calculateRankBasedStats().rank3.firstPlaceRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-red-200/70">第一名率</span>
                         </div>
@@ -424,13 +381,13 @@
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-cyan-400 font-bold">
-                            {{ calculateRecentRankBasedStats.rank3.breakevenRate.toFixed(1) }}%
+                            {{ (calculateRecentRankBasedStats.rank3.breakevenRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-cyan-200/70">保本率</span>
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-teal-300 font-bold">
-                            {{ calculateRecentRankBasedStats.rank3.firstPlaceRate.toFixed(1) }}%
+                            {{ (calculateRecentRankBasedStats.rank3.firstPlaceRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-teal-200/70">第一名率</span>
                         </div>
@@ -694,16 +651,32 @@
   });
 
   // 工具函数
-  const getPredictionCardClass = (index: number) => {
+  const getUnifiedCardClass = (index: number) => {
     if (index === 0)
-      return 'border-2 border-yellow-400 bg-gradient-to-br from-yellow-50 to-amber-100 shadow-xl shadow-yellow-200/30 hover:shadow-yellow-300/50 transform hover:scale-105 transition-all duration-300';
+      return 'border-yellow-400/30 bg-gradient-to-br from-yellow-500/10 to-amber-600/5 hover:border-yellow-400/50 hover:shadow-yellow-500/20';
     if (index === 1)
-      return 'border-2 border-slate-400 bg-gradient-to-br from-slate-50 to-gray-100 shadow-xl shadow-slate-200/30 hover:shadow-slate-300/50 transform hover:scale-105 transition-all duration-300';
+      return 'border-slate-400/30 bg-gradient-to-br from-slate-500/10 to-gray-600/5 hover:border-slate-400/50 hover:shadow-slate-500/20';
     if (index === 2)
-      return 'border-2 border-orange-400 bg-gradient-to-br from-orange-50 to-red-100 shadow-xl shadow-orange-200/30 hover:shadow-orange-300/50 transform hover:scale-105 transition-all duration-300';
+      return 'border-orange-400/30 bg-gradient-to-br from-orange-500/10 to-red-600/5 hover:border-orange-400/50 hover:shadow-orange-500/20';
     if (index === 3)
-      return 'border-2 border-blue-400 bg-gradient-to-br from-blue-50 to-indigo-100 shadow-xl shadow-blue-200/30 hover:shadow-blue-300/50 transform hover:scale-105 transition-all duration-300';
-    return 'border-2 border-purple-400 bg-gradient-to-br from-purple-50 to-pink-100 shadow-xl shadow-purple-200/30 hover:shadow-purple-300/50 transform hover:scale-105 transition-all duration-300';
+      return 'border-blue-400/30 bg-gradient-to-br from-blue-500/10 to-indigo-600/5 hover:border-blue-400/50 hover:shadow-blue-500/20';
+    return 'border-purple-400/30 bg-gradient-to-br from-purple-500/10 to-pink-600/5 hover:border-purple-400/50 hover:shadow-purple-500/20';
+  };
+
+  const getRankBadgeClass = (index: number) => {
+    if (index === 0) return 'bg-gradient-to-br from-yellow-400 to-amber-500 text-white shadow-lg';
+    if (index === 1) return 'bg-gradient-to-br from-slate-400 to-gray-500 text-white shadow-lg';
+    if (index === 2) return 'bg-gradient-to-br from-orange-400 to-red-500 text-white shadow-lg';
+    if (index === 3) return 'bg-gradient-to-br from-blue-400 to-indigo-500 text-white shadow-lg';
+    return 'bg-gradient-to-br from-purple-400 to-pink-500 text-white shadow-lg';
+  };
+
+  const getScoreTextClass = (index: number) => {
+    if (index === 0) return 'text-yellow-400';
+    if (index === 1) return 'text-slate-400';
+    if (index === 2) return 'text-orange-400';
+    if (index === 3) return 'text-blue-400';
+    return 'text-purple-400';
   };
 
   const getPredictionIcon = (index: number) => {
@@ -736,22 +709,6 @@
         return 'info';
       default:
         return 'default';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'starting':
-        return '开始中';
-      case 'running':
-      case 'active':
-        return '进行中';
-      case 'settling':
-        return '结算中';
-      case 'settled':
-        return '已结算';
-      default:
-        return status;
     }
   };
 

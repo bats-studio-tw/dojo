@@ -160,18 +160,18 @@
             <div v-if="predictionHistoryData.length > 0" class="space-y-4">
               <!-- 局数选择器 -->
               <div
-                class="mb-6 border border-white/20 rounded-xl from-gray-500/10 to-slate-600/5 bg-gradient-to-br p-3 sm:p-4"
+                class="mb-4 border border-white/20 rounded-lg from-gray-500/10 to-slate-600/5 bg-gradient-to-br p-2 sm:p-3"
               >
-                <div class="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-                  <h4 class="text-sm text-white font-medium sm:text-base">📊 最新N局分析设置</h4>
-                  <div class="text-xs text-gray-300 sm:text-sm">
+                <div class="mb-2 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-1 sm:space-y-0">
+                  <h4 class="text-sm text-white font-medium">📊 最新N局分析设置</h4>
+                  <div class="text-xs text-gray-300">
                     当前分析:
                     <span class="text-cyan-400 font-bold">{{ recentRoundsCount }}</span>
                     局
                   </div>
                 </div>
-                <div class="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-x-4 sm:space-y-0">
-                  <span class="text-xs text-gray-300 font-medium sm:text-sm">局数:</span>
+                <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-x-4 sm:space-y-0">
+                  <span class="text-xs text-gray-300 font-medium">局数:</span>
                   <div class="flex-1">
                     <n-slider
                       v-model:value="recentRoundsCount"
@@ -179,10 +179,10 @@
                       :max="Math.min(300, predictionHistoryData.length)"
                       :step="1"
                       :tooltip="true"
-                      class="px-2"
+                      class="px-1"
                     />
                   </div>
-                  <div class="flex text-xs text-gray-400 space-x-2">
+                  <div class="flex text-xs text-gray-400 space-x-1">
                     <span>1局</span>
                     <span>-</span>
                     <span>{{ Math.min(300, predictionHistoryData.length) }}局</span>

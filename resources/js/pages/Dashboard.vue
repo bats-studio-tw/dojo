@@ -35,106 +35,80 @@
             </div>
           </template>
 
-          <div v-if="analysisData.length > 0" class="space-y-3">
-            <!-- 紧凑的v8 H2H战术分析展示 -->
-            <div class="space-y-3">
+          <div v-if="analysisData.length > 0" class="space-y-4">
+            <!-- 横向v8 H2H战术分析展示 -->
+            <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5">
               <div
                 v-for="(token, index) in analysisData"
                 :key="`unified-${index}-${token.symbol}-${token.name}`"
                 class="relative overflow-hidden border rounded-lg p-3 transition-all duration-300 hover:shadow-lg"
                 :class="getUnifiedCardClass(index)"
               >
-                <!-- 主要信息行 -->
+                <!-- 头部：排名图标和编号 -->
                 <div class="mb-3 flex items-center justify-between">
-                  <!-- 左侧：排名和代币信息 -->
-                  <div class="flex items-center space-x-3">
-                    <!-- 排名图标 -->
-                    <div
-                      class="h-8 w-8 flex items-center justify-center rounded-full text-lg"
-                      :class="getRankBadgeClass(index)"
-                    >
-                      {{ getPredictionIcon(index) }}
-                    </div>
-
-                    <!-- 代币信息 -->
-                    <div class="flex items-center space-x-2">
-                      <img
-                        v-if="token.logo"
-                        :src="token.logo"
-                        :alt="token.symbol"
-                        class="h-8 w-8 rounded-full"
-                        @error="($event.target as HTMLImageElement).style.display = 'none'"
-                      />
-                      <div
-                        v-else
-                        class="h-8 w-8 flex items-center justify-center rounded-full bg-gray-300 text-xs font-bold"
-                      >
-                        {{ token.symbol.charAt(0) }}
-                      </div>
-                      <div>
-                        <div class="text-lg text-white font-bold">{{ token.symbol }}</div>
-                        <div class="text-xs text-gray-400">{{ token.name || 'Unknown' }}</div>
-                      </div>
-                    </div>
+                  <div
+                    class="h-8 w-8 flex items-center justify-center rounded-full text-lg"
+                    :class="getRankBadgeClass(index)"
+                  >
+                    {{ getPredictionIcon(index) }}
                   </div>
+                  <div class="text-sm text-white font-bold">#{{ index + 1 }}</div>
+                </div>
 
-                  <!-- 右侧：核心评分 -->
-                  <div class="text-right">
-                    <div class="text-xs text-gray-400">最终评分</div>
-                    <div class="text-2xl font-bold" :class="getScoreTextClass(index)">
-                      {{
-                        (
-                          token.risk_adjusted_score ||
-                          token.final_prediction_score ||
-                          token.prediction_score ||
-                          0
-                        ).toFixed(1)
-                      }}
-                    </div>
-                    <div v-if="token.rank_confidence" class="text-xs text-gray-400">
-                      置信度: {{ (token.rank_confidence || 0).toFixed(0) }}%
-                    </div>
+                <!-- 代币信息 -->
+                <div class="mb-3 flex flex-col items-center">
+                  <img
+                    v-if="token.logo"
+                    :src="token.logo"
+                    :alt="token.symbol"
+                    class="mb-2 h-8 w-8 rounded-full"
+                    @error="($event.target as HTMLImageElement).style.display = 'none'"
+                  />
+                  <div
+                    v-else
+                    class="mb-2 h-8 w-8 flex items-center justify-center rounded-full bg-gray-300 text-xs font-bold"
+                  >
+                    {{ token.symbol.charAt(0) }}
+                  </div>
+                  <div class="text-center">
+                    <div class="text-sm text-white font-bold">{{ token.symbol }}</div>
+                    <div class="max-w-full truncate text-xs text-gray-400">{{ token.name || 'Unknown' }}</div>
                   </div>
                 </div>
 
-                <!-- 详细数据：2行3列布局 -->
-                <div class="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
-                  <!-- 第一行 -->
-                  <div class="text-center">
-                    <div class="text-xs text-gray-400">绝对分数</div>
-                    <div class="text-purple-400 font-bold">{{ (token.absolute_score || 0).toFixed(1) }}</div>
+                <!-- 核心评分 -->
+                <div class="mb-3 text-center">
+                  <div class="text-xs text-gray-400">最终评分</div>
+                  <div class="text-xl font-bold" :class="getScoreTextClass(index)">
+                    {{
+                      (
+                        token.risk_adjusted_score ||
+                        token.final_prediction_score ||
+                        token.prediction_score ||
+                        0
+                      ).toFixed(1)
+                    }}
                   </div>
-                  <div class="text-center">
-                    <div class="text-xs text-gray-400">H2H分数</div>
-                    <div class="text-orange-400 font-bold">
-                      {{ (token.relative_score || token.h2h_score || 0).toFixed(1) }}
-                    </div>
+                  <div v-if="token.rank_confidence" class="text-xs text-gray-400">
+                    {{ (token.rank_confidence || 0).toFixed(0) }}%
                   </div>
-                  <div class="text-center">
-                    <div class="text-xs text-gray-400">历史保本率</div>
-                    <div class="text-green-400 font-bold">{{ (token.top3_rate || 0).toFixed(1) }}%</div>
-                  </div>
+                </div>
 
-                  <!-- 第二行 -->
-                  <div class="text-center">
-                    <div class="text-xs text-gray-400">稳定性</div>
-                    <div class="text-yellow-400 font-bold">
-                      <span v-if="token.value_stddev !== undefined">{{ (token.value_stddev || 0).toFixed(3) }}</span>
-                      <span v-else class="text-gray-500">-</span>
-                    </div>
+                <!-- 关键数据 -->
+                <div class="text-xs space-y-1">
+                  <div class="flex justify-between">
+                    <span class="text-gray-400">绝对:</span>
+                    <span class="text-purple-400 font-bold">{{ (token.absolute_score || 0).toFixed(1) }}</span>
                   </div>
-                  <div class="text-center">
-                    <div class="text-xs text-gray-400">市场动量</div>
-                    <div class="text-teal-400 font-bold">
-                      <span v-if="token.market_momentum_score">
-                        {{ (token.market_momentum_score || 0).toFixed(1) }}
-                      </span>
-                      <span v-else class="text-gray-500">-</span>
-                    </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-400">H2H:</span>
+                    <span class="text-orange-400 font-bold">
+                      {{ (token.relative_score || token.h2h_score || 0).toFixed(1) }}
+                    </span>
                   </div>
-                  <div class="text-center">
-                    <div class="text-xs text-gray-400">排名</div>
-                    <div class="text-white font-bold">#{{ index + 1 }}</div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-400">保本率:</span>
+                    <span class="text-green-400 font-bold">{{ (token.top3_rate || 0).toFixed(1) }}%</span>
                   </div>
                 </div>
               </div>

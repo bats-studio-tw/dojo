@@ -163,7 +163,7 @@
                 class="mb-3 border border-white/20 rounded-lg from-gray-500/10 to-slate-600/5 bg-gradient-to-br px-3 py-2"
               >
                 <div class="mb-1 flex items-center justify-between">
-                  <h4 class="text-sm text-white font-medium">📊 最新N局分析设置</h4>
+                  <div class="py-1 text-sm text-white font-medium">📊 最新N局分析设置</div>
                   <div class="text-xs text-gray-300">
                     当前:
                     <span class="text-cyan-400 font-bold">{{ recentRoundsCount }}</span>

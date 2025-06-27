@@ -713,12 +713,12 @@
     // 设置定时刷新 - 分析数据5秒刷新，历史数据30秒刷新，预测历史数据60秒刷新
     setInterval(() => {
       fetchAnalysisData();
-    }, 5000);
+    }, 1000);
 
     setInterval(() => {
       fetchHistoryData();
       fetchPredictionHistoryData();
-    }, 30000);
+    }, 10000);
   });
 
   // 获取前三名预测对比数据 (带key属性用于DataTable)

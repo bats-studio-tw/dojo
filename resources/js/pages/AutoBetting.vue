@@ -33,7 +33,7 @@
           title="📈 系统状态监控"
           size="large"
         >
-          <div class="grid grid-cols-1 gap-4 lg:grid-cols-4 md:grid-cols-2">
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-4 md:grid-cols-2 xl:grid-cols-5">
             <!-- 运行状态 -->
             <div class="border border-white/10 rounded-lg bg-white/5 p-4">
               <div class="mb-2 flex items-center justify-between">
@@ -80,6 +80,18 @@
               >
                 ${{ (autoBettingStatus.today_profit_loss || 0).toFixed(2) }}
               </div>
+            </div>
+
+            <!-- OJO资金 -->
+            <div v-if="userInfo" class="border border-green-500/20 rounded-lg bg-green-500/10 p-4">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm text-gray-300">OJO余额</span>
+                <div class="text-xl">💰</div>
+              </div>
+              <div class="text-lg text-green-400 font-bold">
+                {{ userInfo.ojoValue?.toFixed(2) || '0.00' }}
+              </div>
+              <div class="mt-1 text-xs text-gray-400">可用: {{ userInfo.available?.toFixed(2) || '0.00' }}</div>
             </div>
           </div>
 
@@ -192,7 +204,7 @@
                       <div class="text-xs text-gray-400">预测 #{{ bet.predicted_rank }}</div>
                     </div>
                     <div class="text-right">
-                      <div class="text-sm text-green-400 font-bold">${{ bet.bet_amount }}</div>
+                      <div class="text-sm text-green-400 font-bold">{{ bet.bet_amount }} OJO</div>
                       <div class="text-xs text-gray-400">{{ bet.confidence.toFixed(1) }}%</div>
                     </div>
                   </div>
@@ -322,21 +334,35 @@
 
               <!-- 资金池 -->
               <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">资金池 ($)</label>
-                <n-input-number
-                  v-model:value="config.bankroll"
-                  :min="1"
-                  :max="1000000"
-                  :disabled="autoBettingStatus.is_running"
-                  class="w-full"
-                >
-                  <template #prefix>$</template>
-                </n-input-number>
+                <label class="text-sm text-gray-300 font-medium">资金池 (OJO)</label>
+                <div class="flex space-x-2">
+                  <n-input-number
+                    v-model:value="config.bankroll"
+                    :min="1"
+                    :max="userInfo?.ojoValue || 1000000"
+                    :disabled="autoBettingStatus.is_running"
+                    class="flex-1"
+                  >
+                    <template #prefix>OJO</template>
+                  </n-input-number>
+                  <n-button
+                    v-if="userInfo"
+                    @click="config.bankroll = Math.floor(userInfo.ojoValue || 0)"
+                    :disabled="autoBettingStatus.is_running"
+                    type="tertiary"
+                    size="medium"
+                  >
+                    全部
+                  </n-button>
+                </div>
+                <div v-if="userInfo" class="text-xs text-gray-400">
+                  当前OJO余额: {{ userInfo.ojoValue?.toFixed(2) || '0.00' }}
+                </div>
               </div>
 
               <!-- 下注金额 -->
               <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">下注金额 ($)</label>
+                <label class="text-sm text-gray-300 font-medium">下注金额 (OJO)</label>
                 <!-- 快速选择按钮 -->
                 <div class="mb-3 flex flex-wrap gap-2">
                   <n-button
@@ -345,7 +371,7 @@
                     :disabled="autoBettingStatus.is_running"
                     size="small"
                   >
-                    $200
+                    200
                   </n-button>
                   <n-button
                     @click="config.bet_amount = 500"
@@ -353,7 +379,7 @@
                     :disabled="autoBettingStatus.is_running"
                     size="small"
                   >
-                    $500
+                    500
                   </n-button>
                   <n-button
                     @click="config.bet_amount = 1000"
@@ -361,7 +387,7 @@
                     :disabled="autoBettingStatus.is_running"
                     size="small"
                   >
-                    $1000
+                    1000
                   </n-button>
                   <n-button
                     @click="config.bet_amount = 2000"
@@ -369,19 +395,19 @@
                     :disabled="autoBettingStatus.is_running"
                     size="small"
                   >
-                    $2000
+                    2000
                   </n-button>
                 </div>
                 <!-- 自定义金额滑动条 -->
                 <n-slider
                   v-model:value="config.bet_amount"
                   :min="200"
-                  :max="5000"
+                  :max="Math.min(5000, Math.floor((userInfo?.ojoValue || 5000) / 2))"
                   :step="50"
                   :disabled="autoBettingStatus.is_running"
                   :tooltip="true"
                 />
-                <div class="text-xs text-gray-400">当前下注金额: ${{ config.bet_amount }}</div>
+                <div class="text-xs text-gray-400">当前下注金额: {{ config.bet_amount }} OJO</div>
               </div>
 
               <!-- 每日停损 -->
@@ -396,7 +422,7 @@
                   :tooltip="true"
                 />
                 <div class="text-xs text-gray-400">
-                  停损金额: ${{ ((config.bankroll * config.daily_stop_loss_percentage) / 100).toFixed(2) }}
+                  停损金额: {{ ((config.bankroll * config.daily_stop_loss_percentage) / 100).toFixed(2) }} OJO
                 </div>
               </div>
             </div>
@@ -495,7 +521,7 @@
   import { ref, onMounted, watch } from 'vue';
   import { NEmpty, useMessage } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
-  import api from '@/utils/api';
+  import api, { getUserInfo } from '@/utils/api';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import WalletSetup from '@/components/WalletSetup.vue';
   import axios from 'axios';
@@ -525,6 +551,7 @@
   // 钱包验证状态
   const isWalletValidated = ref(false);
   const walletAddress = ref('');
+  const userInfo = ref<any>(null);
 
   // 自动下注配置 - 使用localStorage
   const config = ref({ ...defaultConfig });
@@ -896,21 +923,27 @@
     jwt_token: string;
     user_stats: any;
     today_stats: any;
+    user_info?: any;
   }) => {
     console.log('接收到钱包验证成功事件:', data);
 
     walletAddress.value = data.wallet_address;
     config.value.jwt_token = data.jwt_token;
+    userInfo.value = data.user_info;
     isWalletValidated.value = true;
 
     console.log('设置状态:', {
       walletAddress: walletAddress.value,
-      isWalletValidated: isWalletValidated.value
+      isWalletValidated: isWalletValidated.value,
+      userInfo: userInfo.value
     });
 
     // 保存验证状态到localStorage
     localStorage.setItem('walletValidated', 'true');
     localStorage.setItem('currentWalletAddress', data.wallet_address);
+    if (data.user_info) {
+      localStorage.setItem('userInfo', JSON.stringify(data.user_info));
+    }
 
     // 刷新状态和数据
     loadStatus();
@@ -953,7 +986,7 @@
   );
 
   // 初始化
-  onMounted(() => {
+  onMounted(async () => {
     console.log('AutoBetting组件初始化');
 
     // 从localStorage读取配置
@@ -977,9 +1010,31 @@
         config.value.jwt_token = walletData.jwt_token;
         isWalletValidated.value = true;
 
+        // 恢复用户信息
+        const savedUserInfo = localStorage.getItem('userInfo');
+        if (savedUserInfo) {
+          try {
+            userInfo.value = JSON.parse(savedUserInfo);
+          } catch (error) {
+            console.error('恢复用户信息失败:', error);
+          }
+        }
+
+        // 重新获取最新的用户信息
+        if (walletData.jwt_token) {
+          try {
+            const userInfoResponse = await getUserInfo(walletData.jwt_token);
+            userInfo.value = userInfoResponse.obj || userInfoResponse;
+            localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
+          } catch (error) {
+            console.warn('获取最新用户信息失败:', error);
+          }
+        }
+
         console.log('自动恢复钱包验证状态:', {
           walletAddress: walletAddress.value,
-          isWalletValidated: isWalletValidated.value
+          isWalletValidated: isWalletValidated.value,
+          userInfo: userInfo.value
         });
 
         loadStatus();
@@ -996,6 +1051,7 @@
         localStorage.removeItem('walletValidated');
         localStorage.removeItem('currentWalletAddress');
         localStorage.removeItem('walletSetupData');
+        localStorage.removeItem('userInfo');
       }
     } else {
       console.log('没有有效的钱包验证数据，显示验证界面');

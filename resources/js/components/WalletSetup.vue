@@ -46,12 +46,35 @@
             </div>
           </div>
 
+          <!-- 用户资金信息 -->
+          <div v-if="userInfo" class="border border-green-500/20 rounded-lg bg-green-500/10 p-3">
+            <h4 class="mb-2 text-sm text-green-400 font-semibold">💰 账户资金</h4>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-gray-400">OJO余额:</span>
+                <span class="text-green-400 font-bold">{{ userInfo.ojoValue?.toFixed(2) || '0.00' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">可用资金:</span>
+                <span class="text-green-400 font-bold">{{ userInfo.available?.toFixed(2) || '0.00' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">排名百分比:</span>
+                <span class="text-yellow-400 font-medium">{{ userInfo.rankPercent || 'N/A' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">排名分值:</span>
+                <span class="text-yellow-400 font-medium">{{ userInfo.rankValue || 'N/A' }}</span>
+              </div>
+            </div>
+          </div>
+
           <!-- 用户历史统计 (如果有) -->
           <div
             v-if="userStats && userStats.total_bets > 0"
             class="border border-blue-500/20 rounded-lg bg-blue-500/10 p-3"
           >
-            <h4 class="mb-2 text-sm text-blue-400 font-semibold">📊 您的历史记录</h4>
+            <h4 class="mb-2 text-sm text-blue-400 font-semibold">📊 下注历史记录</h4>
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div class="flex justify-between">
                 <span class="text-gray-400">总下注次数:</span>
@@ -106,7 +129,7 @@
 <script setup lang="ts">
   import { ref, watch, onMounted } from 'vue';
   import { useMessage } from 'naive-ui';
-  import api from '@/utils/api';
+  import api, { getUserInfo } from '@/utils/api';
 
   // Props
   interface Props {
@@ -117,7 +140,15 @@
 
   // Emits
   const emit = defineEmits<{
-    validated: [data: { wallet_address: string; jwt_token: string; user_stats: any; today_stats: any }];
+    validated: [
+      data: {
+        wallet_address: string;
+        jwt_token: string;
+        user_stats: any;
+        today_stats: any;
+        user_info?: any;
+      }
+    ];
   }>();
 
   // 获取message实例
@@ -141,6 +172,7 @@
   const error = ref('');
   const userStats = ref<any>(null);
   const todayStats = ref<any>(null);
+  const userInfo = ref<any>(null);
 
   // 从localStorage读取保存的数据
   const loadSavedData = () => {
@@ -196,6 +228,15 @@
       if (response.data.success) {
         console.log('钱包验证成功，响应数据:', response.data);
 
+        // 获取用户信息
+        try {
+          const userInfoResponse = await getUserInfo(form.value.jwt_token);
+          console.log('获取用户信息成功:', userInfoResponse);
+          userInfo.value = userInfoResponse.obj || userInfoResponse;
+        } catch (userInfoError) {
+          console.warn('获取用户信息失败，但继续验证流程:', userInfoError);
+        }
+
         // 保存到localStorage
         localStorage.setItem(
           'walletSetupData',
@@ -209,7 +250,8 @@
           wallet_address: form.value.wallet_address,
           jwt_token: form.value.jwt_token,
           user_stats: response.data.data.user_stats,
-          today_stats: response.data.data.today_stats
+          today_stats: response.data.data.today_stats,
+          user_info: userInfo.value
         };
 
         console.log('准备发送验证事件，数据:', validatedData);

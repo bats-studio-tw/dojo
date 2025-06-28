@@ -41,4 +41,29 @@ api.interceptors.response.use(
   }
 );
 
+// 创建 dojo quest API 实例
+const dojoQuestApi = axios.create({
+  baseURL: '/dojo-quest',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: '*/*'
+  }
+});
+
+// 获取用户信息的方法
+export const getUserInfo = async (jwtToken: string) => {
+  try {
+    const response = await dojoQuestApi.get('/customer/me?businessType=ojo,asset', {
+      headers: {
+        jwt_token: jwtToken
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('获取用户信息失败:', error);
+    throw error;
+  }
+};
+
 export default api;

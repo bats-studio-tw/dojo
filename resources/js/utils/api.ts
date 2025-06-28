@@ -65,6 +65,13 @@ const dojoGameApi = axios.create({
 // 获取用户信息的方法
 export const getUserInfo = async (jwtToken: string) => {
   try {
+    const res = await dojoGameApi.get('ladders/me', {
+      headers: {
+        jwt_token: jwtToken
+      }
+    });
+    console.log(res.data);
+
     const response = await dojoQuestApi.get('/customer/me?businessType=ojo,asset', {
       headers: {
         jwt_token: jwtToken

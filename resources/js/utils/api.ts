@@ -128,6 +128,21 @@ export const autoBettingApi = {
     result_data: any;
   }) => {
     return api.post('/auto-betting/record-result', data);
+  },
+
+  // 新增：获取用户配置
+  getConfig: (uid: string) => {
+    return api.get('/auto-betting/config', {
+      params: { uid }
+    });
+  },
+
+  // 新增：保存用户配置
+  saveConfig: (uid: string, configData: any) => {
+    return api.post('/auto-betting/config', {
+      uid,
+      ...configData
+    });
   }
 };
 

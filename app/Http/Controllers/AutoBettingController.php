@@ -9,11 +9,13 @@ use Inertia\Response;
 use App\Services\GameDataProcessorService;
 use App\Services\GamePredictionService;
 use App\Models\AutoBettingRecord;
+use App\Models\AutoBettingConfig;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Crypt;
 
 class AutoBettingController extends Controller
 {
@@ -528,6 +530,118 @@ class AutoBettingController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => '记录下注结果失败: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取用户的自动下注配置
+     */
+    public function getConfig(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'uid' => 'required|string'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'UID参数是必需的',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $uid = $request->input('uid');
+
+            // 获取或创建用户配置
+            $config = AutoBettingConfig::getByUid($uid);
+
+            // 解密JWT Token
+            $jwt_token = '';
+            if ($config->encrypted_jwt_token) {
+                try {
+                    $jwt_token = Crypt::decryptString($config->encrypted_jwt_token);
+                } catch (\Exception $e) {
+                    Log::warning('JWT Token解密失败', ['error' => $e->getMessage(), 'uid' => $uid]);
+                }
+            }
+
+            // 将payload和顶层字段合并后一起返回给前端
+            $response_data = array_merge(
+                $config->config_payload ?? AutoBettingConfig::getDefaultConfig(),
+                [
+                    'is_active' => $config->is_active,
+                    'jwt_token' => $jwt_token,
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'data' => $response_data
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => '获取配置失败: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 保存用户的自动下注配置
+     */
+    public function saveConfig(Request $request): JsonResponse
+    {
+        try {
+            // 验证必要的参数
+            $validator = Validator::make($request->all(), [
+                'uid' => 'required|string',
+                'is_active' => 'required|boolean',
+                'jwt_token' => 'present|string|nullable', // 允许jwt_token为空字符串或null
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '参数验证失败',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $uid = $request->input('uid');
+            $isActive = $request->input('is_active');
+            $jwtToken = $request->input('jwt_token');
+
+            // 获取payload数据（除了顶层字段外的所有数据）
+            $payload = $request->except(['uid', 'is_active', 'jwt_token']);
+
+            // 加密JWT Token
+            $encrypted_jwt = '';
+            if (!empty($jwtToken)) {
+                $encrypted_jwt = Crypt::encryptString($jwtToken);
+            }
+
+            // 更新或创建配置
+            AutoBettingConfig::updateOrCreate(
+                ['uid' => $uid],
+                [
+                    'is_active' => $isActive,
+                    'encrypted_jwt_token' => $encrypted_jwt,
+                    'config_payload' => $payload,
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => '配置已成功保存'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => '保存配置失败: ' . $e->getMessage()
             ], 500);
         }
     }

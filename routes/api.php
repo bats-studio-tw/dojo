@@ -48,4 +48,8 @@ Route::prefix('auto-betting')->group(function () {
     Route::post('/simulate', [AutoBettingController::class, 'simulateBet'])->name('api.auto-betting.simulate');
     Route::post('/execute', [AutoBettingController::class, 'executeAutoBetting'])->name('api.auto-betting.execute');
     Route::post('/record-result', [AutoBettingController::class, 'recordBetResult'])->name('api.auto-betting.record-result');
+
+    // 配置管理接口（基于uid，无需登录认证）
+    Route::get('/config', [AutoBettingController::class, 'getConfig'])->name('api.auto-betting.config.get');
+    Route::post('/config', [AutoBettingController::class, 'saveConfig'])->name('api.auto-betting.config.save');
 });

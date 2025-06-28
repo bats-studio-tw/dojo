@@ -22,6 +22,21 @@
           <div class="flex-1 text-center">
             <h1 class="text-3xl text-white font-bold">🤖 自动下注控制中心</h1>
             <p class="text-gray-300">基于数据驱动的智能下注系统</p>
+            <!-- 配置同步状态提示 -->
+            <div v-if="currentUID" class="mt-2">
+              <span
+                class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs text-green-800 font-medium"
+              >
+                ☁️ 配置已云端同步 (UID: {{ currentUID.slice(0, 8) }}...)
+              </span>
+            </div>
+            <div v-else class="mt-2">
+              <span
+                class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs text-yellow-800 font-medium"
+              >
+                💾 配置本地存储 - 完成Token验证后可云端同步
+              </span>
+            </div>
           </div>
           <div class="w-32"></div>
           <!-- 占位符保持标题居中 -->
@@ -336,14 +351,31 @@
             </div>
           </div>
 
-          <!-- 保存配置按钮 -->
-          <div class="mt-6 text-center">
-            <n-button @click="saveConfig" :disabled="autoBettingStatus.is_running" type="primary" size="large">
+          <!-- 保存配置按钮和状态提示 -->
+          <div class="mt-6 text-center space-y-3">
+            <n-button
+              @click="manualSaveConfig"
+              :disabled="autoBettingStatus.is_running"
+              :loading="configSaving"
+              type="primary"
+              size="large"
+            >
               <template #icon>
                 <span>💾</span>
               </template>
-              保存配置
+              {{ currentUID ? '保存配置到云端' : '保存配置到本地' }}
             </n-button>
+
+            <!-- 配置同步状态 -->
+            <div v-if="configSyncStatus" class="text-xs text-gray-400">
+              <div v-if="configSyncStatus.type === 'success'" class="text-green-400">
+                ✅ {{ configSyncStatus.message }}
+              </div>
+              <div v-else-if="configSyncStatus.type === 'error'" class="text-red-400">
+                ❌ {{ configSyncStatus.message }}
+              </div>
+              <div v-else class="text-blue-400">ℹ️ {{ configSyncStatus.message }}</div>
+            </div>
           </div>
         </NCard>
 
@@ -386,7 +418,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, watch } from 'vue';
+  import { ref, onMounted, watch, reactive } from 'vue';
   import { NEmpty, useMessage } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import { getUserInfo, autoBettingApi, gameApi } from '@/utils/api';
@@ -394,18 +426,13 @@
   import WalletSetup from '@/components/WalletSetup.vue';
   import type { UserInfo } from '@/types';
 
-  // 延迟获取message实例，避免在providers还未准备好时调用
-  const getMessageInstance = () => {
-    try {
-      return useMessage();
-    } catch {
-      console.warn('Message provider not ready yet');
-      return null;
-    }
-  };
+  // 身份验证状态
+  const isTokenValidated = ref(false);
+  const currentUID = ref('');
+  const userInfo = ref<UserInfo | null>(null);
 
-  // 预设配置
-  const defaultConfig = {
+  // 自动下注配置 - 使用reactive进行深度响应
+  const config = reactive({
     jwt_token: '',
     bankroll: 1000,
     bet_amount: 200,
@@ -413,16 +440,13 @@
     confidence_threshold: 88,
     score_gap_threshold: 6.0,
     min_total_games: 25,
-    strategy: 'single_bet' as const
-  };
+    strategy: 'single_bet' as const,
+    is_active: false
+  });
 
-  // 身份验证状态
-  const isTokenValidated = ref(false);
-  const currentUID = ref('');
-  const userInfo = ref<UserInfo | null>(null);
-
-  // 自动下注配置 - 使用localStorage
-  const config = ref({ ...defaultConfig });
+  // 配置同步状态
+  const configSaving = ref(false);
+  const configSyncStatus = ref<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
   // 自动下注状态
   const autoBettingStatus = ref({
@@ -444,6 +468,148 @@
   const toggleLoading = ref(false);
   const executeLoading = ref(false);
   const analysisLoading = ref(false);
+
+  // 防抖器用于自动保存
+  let saveConfigTimeout: number | null = null;
+
+  // 延迟获取message实例，避免在providers还未准备好时调用
+  const getMessageInstance = () => {
+    try {
+      return useMessage();
+    } catch {
+      console.warn('Message provider not ready yet');
+      return null;
+    }
+  };
+
+  // 从云端加载配置
+  const loadConfigFromCloud = async (): Promise<boolean> => {
+    if (!currentUID.value) return false;
+
+    try {
+      const response = await autoBettingApi.getConfig(currentUID.value);
+      if (response.data.success) {
+        Object.assign(config, response.data.data);
+        configSyncStatus.value = { type: 'success', message: '已从云端加载配置' };
+        return true;
+      } else {
+        configSyncStatus.value = { type: 'error', message: '加载云端配置失败' };
+        return false;
+      }
+    } catch (error) {
+      console.error('加载云端配置失败:', error);
+      configSyncStatus.value = { type: 'error', message: '网络错误，无法加载云端配置' };
+      return false;
+    }
+  };
+
+  // 保存配置到云端
+  const saveConfigToCloud = async (): Promise<boolean> => {
+    if (!currentUID.value) return false;
+
+    try {
+      const response = await autoBettingApi.saveConfig(currentUID.value, config);
+      if (response.data.success) {
+        configSyncStatus.value = { type: 'success', message: '配置已保存到云端' };
+        return true;
+      } else {
+        configSyncStatus.value = { type: 'error', message: '保存云端配置失败' };
+        return false;
+      }
+    } catch (error) {
+      console.error('保存云端配置失败:', error);
+      configSyncStatus.value = { type: 'error', message: '网络错误，无法保存到云端' };
+      return false;
+    }
+  };
+
+  // 从localStorage加载配置
+  const loadConfigFromLocalStorage = () => {
+    const savedConfig = localStorage.getItem('autoBettingConfig');
+    if (savedConfig) {
+      try {
+        const parsed = JSON.parse(savedConfig);
+        Object.assign(config, { ...parsed });
+        configSyncStatus.value = { type: 'info', message: '已从本地存储加载配置' };
+      } catch (error) {
+        console.error('加载本地配置失败:', error);
+        Object.assign(config, {
+          jwt_token: '',
+          bankroll: 1000,
+          bet_amount: 200,
+          daily_stop_loss_percentage: 15,
+          confidence_threshold: 88,
+          score_gap_threshold: 6.0,
+          min_total_games: 25,
+          strategy: 'single_bet' as const,
+          is_active: false
+        });
+        configSyncStatus.value = { type: 'error', message: '本地配置损坏，已重置为默认配置' };
+      }
+    }
+  };
+
+  // 保存配置到localStorage
+  const saveConfigToLocalStorage = () => {
+    try {
+      localStorage.setItem('autoBettingConfig', JSON.stringify(config));
+      if (!currentUID.value) {
+        configSyncStatus.value = { type: 'success', message: '配置已保存到本地存储' };
+      }
+    } catch (error) {
+      console.error('保存本地配置失败:', error);
+      configSyncStatus.value = { type: 'error', message: '保存本地配置失败' };
+    }
+  };
+
+  // 自动保存配置（带防抖）
+  const autoSaveConfig = async () => {
+    if (saveConfigTimeout) {
+      clearTimeout(saveConfigTimeout);
+    }
+
+    saveConfigTimeout = setTimeout(async () => {
+      // 总是保存到localStorage作为备份
+      saveConfigToLocalStorage();
+
+      // 如果有UID，也保存到云端
+      if (currentUID.value) {
+        await saveConfigToCloud();
+      }
+    }, 1000); // 1秒防抖
+  };
+
+  // 手动保存配置
+  const manualSaveConfig = async () => {
+    configSaving.value = true;
+
+    try {
+      // 总是保存到localStorage
+      saveConfigToLocalStorage();
+
+      // 如果有UID，也保存到云端
+      if (currentUID.value) {
+        await saveConfigToCloud();
+        getMessageInstance()?.success('配置已保存到云端');
+      } else {
+        getMessageInstance()?.success('配置已保存到本地');
+      }
+    } catch (err) {
+      console.error('保存配置失败:', err);
+      getMessageInstance()?.error('保存配置失败');
+    } finally {
+      configSaving.value = false;
+    }
+  };
+
+  // 监听配置变化，自动保存
+  watch(
+    config,
+    () => {
+      autoSaveConfig();
+    },
+    { deep: true, flush: 'post' }
+  );
 
   // 获取分析数据
   const fetchAnalysisData = async () => {
@@ -588,7 +754,7 @@
     executeLoading.value = true;
     try {
       // 先获取下注建议
-      const response = await autoBettingApi.execute(currentUID.value, config.value);
+      const response = await autoBettingApi.execute(currentUID.value, config);
       if (response.data.success) {
         const { recommended_bets, round_id, jwt_token } = response.data.data;
 
@@ -644,13 +810,13 @@
     isTokenValidated.value = false;
     currentUID.value = '';
     userInfo.value = null;
-    config.value.jwt_token = '';
+    config.jwt_token = '';
 
     getMessageInstance()?.info('已清除验证状态，请重新验证');
   };
 
   // Token验证成功回调
-  const onTokenValidated = (data: {
+  const onTokenValidated = async (data: {
     uid: string;
     jwt_token: string;
     user_stats: any;
@@ -660,7 +826,7 @@
     console.log('接收到Token验证成功事件:', data);
 
     currentUID.value = data.uid;
-    config.value.jwt_token = data.jwt_token;
+    config.jwt_token = data.jwt_token;
     userInfo.value = data.user_info;
     isTokenValidated.value = true;
 
@@ -677,6 +843,13 @@
       localStorage.setItem('userInfo', JSON.stringify(data.user_info));
     }
 
+    // 有了UID后，优先从云端加载配置
+    const cloudLoaded = await loadConfigFromCloud();
+    if (!cloudLoaded) {
+      // 云端加载失败，使用本地配置并同步到云端
+      await saveConfigToCloud();
+    }
+
     // 刷新状态和数据
     loadStatus();
     fetchAnalysisData();
@@ -684,39 +857,10 @@
     console.log('Token验证完成，界面应该切换了');
   };
 
-  // 从localStorage读取配置
-  const loadConfigFromLocalStorage = () => {
-    const savedConfig = localStorage.getItem('autoBettingConfig');
-    if (savedConfig) {
-      try {
-        const parsed = JSON.parse(savedConfig);
-        config.value = { ...defaultConfig, ...parsed };
-      } catch (error) {
-        console.error('加载保存的配置失败:', error);
-        config.value = { ...defaultConfig };
-      }
-    }
-  };
-
-  // 保存配置到localStorage
-  const saveConfig = () => {
-    localStorage.setItem('autoBettingConfig', JSON.stringify(config.value));
-    getMessageInstance()?.success('配置已保存');
-  };
-
-  // 监听配置变化，自动保存
-  watch(
-    config,
-    () => {
-      localStorage.setItem('autoBettingConfig', JSON.stringify(config.value));
-    },
-    { deep: true, flush: 'post' }
-  );
-
   onMounted(async () => {
     console.log('AutoBetting组件初始化');
 
-    // 从localStorage读取配置
+    // 先从localStorage读取配置
     loadConfigFromLocalStorage();
 
     // 检查Token验证状态
@@ -734,7 +878,7 @@
       try {
         const tokenData = JSON.parse(savedTokenData);
         currentUID.value = savedUID;
-        config.value.jwt_token = tokenData.jwt_token;
+        config.jwt_token = tokenData.jwt_token;
         isTokenValidated.value = true;
 
         // 恢复用户信息
@@ -763,6 +907,9 @@
           isTokenValidated: isTokenValidated.value,
           userInfo: userInfo.value
         });
+
+        // 有UID后，尝试从云端同步配置
+        await loadConfigFromCloud();
 
         loadStatus();
         fetchAnalysisData();

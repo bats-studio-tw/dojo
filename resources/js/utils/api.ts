@@ -178,12 +178,13 @@ export const gameApi = {
   placeBet: (roundId: string, betId: string, token: string, amount: number, jwtToken: string) => {
     return dojoGameApi.post(
       `/games/battle/${roundId}/real/bets`,
+      {},
       {
-        betId,
-        token,
-        amount
-      },
-      {
+        params: {
+          betId,
+          token,
+          amount
+        },
         headers: {
           jwt_token: jwtToken,
           'Content-Type': 'application/json'

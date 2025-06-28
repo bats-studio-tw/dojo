@@ -1,10 +1,10 @@
 <?php
 
-use App\Http\Controllers\GameDataController;
-use App\Http\Controllers\PredictionAnalysisController;
-use App\Http\Controllers\AutoBettingController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\GameDataController;
+use App\Http\Controllers\AutoBettingController;
+use App\Http\Controllers\PredictionAnalysisController;
 
 /*
 |--------------------------------------------------------------------------
@@ -44,7 +44,7 @@ Route::prefix('auto-betting')->group(function () {
     Route::get('/user-stats', [AutoBettingController::class, 'getUserStats'])->name('api.auto-betting.user-stats');
     Route::get('/status', [AutoBettingController::class, 'getStatus'])->name('api.auto-betting.status');
     Route::post('/toggle', [AutoBettingController::class, 'toggleAutoBetting'])->name('api.auto-betting.toggle');
-    Route::post('/test-connection', [AutoBettingController::class, 'testConnection'])->name('api.auto-betting.test-connection');
+
     Route::get('/history', [AutoBettingController::class, 'getBettingHistory'])->name('api.auto-betting.history');
     Route::post('/simulate', [AutoBettingController::class, 'simulateBet'])->name('api.auto-betting.simulate');
     Route::post('/execute', [AutoBettingController::class, 'executeAutoBetting'])->name('api.auto-betting.execute');

@@ -821,25 +821,44 @@
     connectionTesting.value = true;
     connectionResult.value = null;
     try {
-      const response = await api.post('/auto-betting/test-connection', {
-        jwt_token: config.value.jwt_token
-      });
-      connectionResult.value = {
-        success: response.data.success,
-        message: response.data.message
-      };
-      if (response.data.success) {
+      // 直接调用getUserInfo来测试JWT Token连接
+      const userInfoResponse = await getUserInfo(config.value.jwt_token);
+
+      if (userInfoResponse && (userInfoResponse.obj || userInfoResponse.ojoValue !== undefined)) {
+        // 连接成功，更新用户信息
+        userInfo.value = userInfoResponse.obj || userInfoResponse;
+        localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
+
+        connectionResult.value = {
+          success: true,
+          message: `连接成功！OJO余额: ${userInfo.value.ojoValue?.toFixed(2) || '0.00'}`
+        };
         getMessageInstance()?.success('JWT Token连接测试成功');
       } else {
-        getMessageInstance()?.error(response.data.message || 'JWT Token连接测试失败');
+        connectionResult.value = {
+          success: false,
+          message: 'JWT Token无效或已过期'
+        };
+        getMessageInstance()?.error('JWT Token无效或已过期');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('连接测试失败:', error);
+      let errorMessage = 'JWT Token连接测试失败';
+
+      // 根据错误类型提供更具体的错误信息
+      if (error?.response?.status === 401) {
+        errorMessage = 'JWT Token无效或已过期';
+      } else if (error?.response?.status === 403) {
+        errorMessage = 'JWT Token权限不足';
+      } else if (error?.code === 'NETWORK_ERROR') {
+        errorMessage = '网络连接失败';
+      }
+
       connectionResult.value = {
         success: false,
-        message: '连接测试失败'
+        message: errorMessage
       };
-      getMessageInstance()?.error('连接测试失败');
+      getMessageInstance()?.error(errorMessage);
     } finally {
       connectionTesting.value = false;
     }

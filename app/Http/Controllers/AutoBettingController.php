@@ -233,49 +233,7 @@ class AutoBettingController extends Controller
         }
     }
 
-    /**
-     * 测试JWT Token连接
-     */
-    public function testConnection(Request $request): JsonResponse
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'jwt_token' => 'required|string'
-            ]);
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'JWT Token不能为空',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            $jwtToken = $request->jwt_token;
-
-            // 简单格式验证
-            if (strlen($jwtToken) < 50) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'JWT Token格式无效'
-                ], 422);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'JWT Token格式验证通过，请在前端测试实际连接',
-                'data' => [
-                    'token_valid' => true,
-                    'connection_time' => now()->toISOString()
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => '连接测试失败: ' . $e->getMessage()
-            ], 500);
-        }
-    }
 
     /**
      * 获取下注历史记录

@@ -68,7 +68,7 @@ app/Http/Controllers/AutoBettingController.php
 - `updateConfig()`: 更新配置参数
 - `getStatus()`: 获取运行状态
 - `toggleAutoBetting()`: 启动/停止自动下注
-- `testConnection()`: 测试JWT Token连接
+
 - `simulateBet()`: 模拟下注分析
 - `checkBettingTriggers()`: 验证触发条件
 - `calculateBetAmounts()`: 计算下注金额
@@ -83,7 +83,7 @@ routes/api.php - /api/auto-betting/*
 - `POST /config` - 保存配置
 - `GET /status` - 获取状态
 - `POST /toggle` - 控制启停
-- `POST /test-connection` - 测试连接
+
 - `POST /simulate` - 模拟下注
 
 ### 前端组件 (Vue.js)

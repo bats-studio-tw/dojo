@@ -2,7 +2,13 @@
   <DefaultLayout>
     <Head title="自动下注控制" />
 
-    <div class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br p-3 sm:p-6">
+    <!-- 钱包验证模态框 -->
+    <WalletSetup :visible="!isWalletValidated" @validated="onWalletValidated" />
+
+    <div
+      v-if="isWalletValidated"
+      class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br p-3 sm:p-6"
+    >
       <div class="mx-auto max-w-7xl">
         <!-- 导航栏 -->
         <div class="mb-6 flex items-center justify-between">
@@ -491,6 +497,7 @@
   import { Head } from '@inertiajs/vue3';
   import api from '@/utils/api';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
+  import WalletSetup from '@/components/WalletSetup.vue';
   import axios from 'axios';
 
   // 延迟获取message实例，避免在providers还未准备好时调用
@@ -514,6 +521,10 @@
     min_total_games: 25,
     strategy: 'single_bet' as const
   };
+
+  // 钱包验证状态
+  const isWalletValidated = ref(false);
+  const walletAddress = ref('');
 
   // 自动下注配置 - 使用localStorage
   const config = ref({ ...defaultConfig });
@@ -666,6 +677,7 @@
       if (betResponse.data.success) {
         // 记录下注结果到后端
         await api.post('/auto-betting/record-result', {
+          wallet_address: walletAddress.value,
           round_id: roundId,
           token_symbol: tokenSymbol,
           amount,
@@ -678,6 +690,7 @@
         console.error('下注失败:', betResponse.data);
         // 记录失败结果
         await api.post('/auto-betting/record-result', {
+          wallet_address: walletAddress.value,
           round_id: roundId,
           token_symbol: tokenSymbol,
           amount,
@@ -695,9 +708,13 @@
 
   // API调用函数
   const loadStatus = async () => {
+    if (!walletAddress.value) return;
+
     statusLoading.value = true;
     try {
-      const response = await api.get('/auto-betting/status');
+      const response = await api.get('/auto-betting/status', {
+        params: { wallet_address: walletAddress.value }
+      });
       if (response.data.success) {
         autoBettingStatus.value = response.data.data;
       } else {
@@ -713,7 +730,10 @@
   const startAutoBetting = async () => {
     toggleLoading.value = true;
     try {
-      const response = await api.post('/auto-betting/toggle', { action: 'start' });
+      const response = await api.post('/auto-betting/toggle', {
+        action: 'start',
+        wallet_address: walletAddress.value
+      });
       if (response.data.success) {
         getMessageInstance()?.success('自动下注已启动');
         await loadStatus();
@@ -731,7 +751,10 @@
   const stopAutoBetting = async () => {
     toggleLoading.value = true;
     try {
-      const response = await api.post('/auto-betting/toggle', { action: 'stop' });
+      const response = await api.post('/auto-betting/toggle', {
+        action: 'stop',
+        wallet_address: walletAddress.value
+      });
       if (response.data.success) {
         getMessageInstance()?.success('自动下注已停止');
         await loadStatus();
@@ -821,6 +844,7 @@
     try {
       // 先获取下注建议
       const response = await api.post('/auto-betting/execute', {
+        wallet_address: walletAddress.value,
         config: config.value
       });
       if (response.data.success) {
@@ -866,6 +890,26 @@
 
   const refreshAnalysis = () => fetchAnalysisData();
 
+  // 钱包验证成功回调
+  const onWalletValidated = (data: {
+    wallet_address: string;
+    jwt_token: string;
+    user_stats: any;
+    today_stats: any;
+  }) => {
+    walletAddress.value = data.wallet_address;
+    config.value.jwt_token = data.jwt_token;
+    isWalletValidated.value = true;
+
+    // 保存验证状态到localStorage
+    localStorage.setItem('walletValidated', 'true');
+    localStorage.setItem('currentWalletAddress', data.wallet_address);
+
+    // 刷新状态和数据
+    loadStatus();
+    fetchAnalysisData();
+  };
+
   // 从localStorage读取配置
   const loadConfigFromLocalStorage = () => {
     try {
@@ -904,14 +948,23 @@
     // 从localStorage读取配置
     loadConfigFromLocalStorage();
 
-    loadStatus();
-    fetchAnalysisData();
+    // 检查钱包验证状态
+    const savedWalletValidated = localStorage.getItem('walletValidated');
+    const savedWalletAddress = localStorage.getItem('currentWalletAddress');
 
-    // 定时刷新状态和分析数据
-    setInterval(() => {
+    if (savedWalletValidated === 'true' && savedWalletAddress) {
+      walletAddress.value = savedWalletAddress;
+      isWalletValidated.value = true;
+
       loadStatus();
       fetchAnalysisData();
-    }, 5000);
+
+      // 定时刷新状态和分析数据
+      setInterval(() => {
+        loadStatus();
+        fetchAnalysisData();
+      }, 5000);
+    }
   });
 </script>
 

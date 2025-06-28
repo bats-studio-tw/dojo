@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use App\Services\GameDataProcessorService;
 use App\Services\GamePredictionService;
+use App\Models\AutoBettingRecord;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Http;
@@ -36,14 +37,110 @@ class AutoBettingController extends Controller
     }
 
     /**
+     * 验证钱包地址和JWT Token
+     */
+    public function validateWallet(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'wallet_address' => 'required|string|max:255',
+                'jwt_token' => 'required|string'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '参数验证失败',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $walletAddress = $request->wallet_address;
+            $jwtToken = $request->jwt_token;
+
+            // 简单格式验证
+            if (strlen($jwtToken) < 50) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'JWT Token格式无效'
+                ], 422);
+            }
+
+            // 获取用户统计信息
+            $userStats = AutoBettingRecord::getUserStats($walletAddress);
+            $todayStats = AutoBettingRecord::getTodayStats($walletAddress);
+
+            return response()->json([
+                'success' => true,
+                'message' => '验证成功',
+                'data' => [
+                    'wallet_address' => $walletAddress,
+                    'user_stats' => $userStats,
+                    'today_stats' => $todayStats
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => '验证失败: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取用户统计信息
+     */
+    public function getUserStats(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'wallet_address' => 'required|string'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '钱包地址不能为空',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $walletAddress = $request->wallet_address;
+            $userStats = AutoBettingRecord::getUserStats($walletAddress);
+            $todayStats = AutoBettingRecord::getTodayStats($walletAddress);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'user_stats' => $userStats,
+                    'today_stats' => $todayStats
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => '获取统计信息失败: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * 获取自动下注状态
      */
     public function getStatus(Request $request): JsonResponse
     {
         try {
-            // 使用 session ID 作为每个匿名访客的唯一标识
-            $sessionId = Session::getId();
-            $status = Cache::get("auto_betting_status_{$sessionId}", [
+            $walletAddress = $request->input('wallet_address');
+
+            if (!$walletAddress) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '需要钱包地址'
+                ], 422);
+            }
+
+            // 使用钱包地址作为唯一标识
+            $status = Cache::get("auto_betting_status_{$walletAddress}", [
                 'is_running' => false,
                 'current_round_id' => null,
                 'last_bet_at' => null,
@@ -53,6 +150,14 @@ class AutoBettingController extends Controller
                 'consecutive_losses' => 0,
                 'last_error' => null
             ]);
+
+            // 从数据库获取实际的统计数据
+            $userStats = AutoBettingRecord::getUserStats($walletAddress);
+            $todayStats = AutoBettingRecord::getTodayStats($walletAddress);
+
+            $status['total_bets'] = $userStats['total_bets'];
+            $status['total_profit_loss'] = $userStats['total_profit_loss'];
+            $status['today_profit_loss'] = $todayStats['today_profit_loss'];
 
             return response()->json([
                 'success' => true,
@@ -73,7 +178,8 @@ class AutoBettingController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'action' => 'required|in:start,stop'
+                'action' => 'required|in:start,stop',
+                'wallet_address' => 'required|string'
             ]);
 
             if ($validator->fails()) {
@@ -84,18 +190,21 @@ class AutoBettingController extends Controller
                 ], 422);
             }
 
-            $sessionId = Session::getId();
+            $walletAddress = $request->wallet_address;
             $action = $request->action;
 
             if ($action === 'start') {
                 // 启动自动下注
-                Cache::put("auto_betting_status_{$sessionId}", [
+                $userStats = AutoBettingRecord::getUserStats($walletAddress);
+                $todayStats = AutoBettingRecord::getTodayStats($walletAddress);
+
+                Cache::put("auto_betting_status_{$walletAddress}", [
                     'is_running' => true,
                     'current_round_id' => null,
                     'last_bet_at' => null,
-                    'total_bets' => 0,
-                    'total_profit_loss' => 0,
-                    'today_profit_loss' => 0,
+                    'total_bets' => $userStats['total_bets'],
+                    'total_profit_loss' => $userStats['total_profit_loss'],
+                    'today_profit_loss' => $todayStats['today_profit_loss'],
                     'consecutive_losses' => 0,
                     'last_error' => null,
                     'started_at' => now()->toISOString()
@@ -104,10 +213,10 @@ class AutoBettingController extends Controller
                 $message = '自动下注已启动';
             } else {
                 // 停止自动下注
-                $status = Cache::get("auto_betting_status_{$sessionId}", []);
+                $status = Cache::get("auto_betting_status_{$walletAddress}", []);
                 $status['is_running'] = false;
                 $status['stopped_at'] = now()->toISOString();
-                Cache::put("auto_betting_status_{$sessionId}", $status, now()->addDays(1));
+                Cache::put("auto_betting_status_{$walletAddress}", $status, now()->addDays(1));
 
                 $message = '自动下注已停止';
             }
@@ -174,10 +283,20 @@ class AutoBettingController extends Controller
     public function getBettingHistory(Request $request): JsonResponse
     {
         try {
-            $sessionId = Session::getId();
+            $walletAddress = $request->input('wallet_address');
 
-            // 从缓存获取下注历史数据
-            $history = Cache::get("auto_betting_history_{$sessionId}", []);
+            if (!$walletAddress) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '需要钱包地址'
+                ], 422);
+            }
+
+            // 从数据库获取历史记录
+            $history = AutoBettingRecord::where('wallet_address', $walletAddress)
+                ->orderBy('created_at', 'desc')
+                ->limit(100)
+                ->get();
 
             return response()->json([
                 'success' => true,
@@ -347,20 +466,31 @@ class AutoBettingController extends Controller
     public function executeAutoBetting(Request $request): JsonResponse
     {
         try {
-            $sessionId = Session::getId();
+            $validator = Validator::make($request->all(), [
+                'wallet_address' => 'required|string',
+                'config' => 'required|array'
+            ]);
 
-            // 从请求中获取配置参数（由前端传递）
-            $config = $request->input('config', []);
-
-            if (empty($config) || empty($config['jwt_token'])) {
+            if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
-                    'message' => '缺少JWT Token或配置参数'
+                    'message' => '参数验证失败',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $walletAddress = $request->wallet_address;
+            $config = $request->config;
+
+            if (empty($config['jwt_token'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '缺少JWT Token'
                 ], 422);
             }
 
             // 检查当前状态
-            $status = Cache::get("auto_betting_status_{$sessionId}");
+            $status = Cache::get("auto_betting_status_{$walletAddress}");
             if (!$status || !$status['is_running']) {
                 return response()->json([
                     'success' => false,
@@ -413,14 +543,15 @@ class AutoBettingController extends Controller
                     'trigger_details' => $trigger['details'],
                     'recommended_bets' => $recommendedBets,
                     'round_id' => $currentRoundId,
-                    'jwt_token' => $config['jwt_token']
+                    'jwt_token' => $config['jwt_token'],
+                    'wallet_address' => $walletAddress
                 ]
             ]);
 
         } catch (\Exception $e) {
             Log::error('自动下注执行失败', [
                 'error' => $e->getMessage(),
-                'session_id' => $sessionId
+                'wallet_address' => $walletAddress ?? 'unknown'
             ]);
             return response()->json([
                 'success' => false,
@@ -430,33 +561,19 @@ class AutoBettingController extends Controller
     }
 
     /**
-     * 记录下注历史
-     */
-    private function recordBettingHistory(string $sessionId, array $betData): void
-    {
-        $history = Cache::get("auto_betting_history_{$sessionId}", []);
-        $history[] = $betData;
-
-        // 只保留最近100条记录
-        if (count($history) > 100) {
-            $history = array_slice($history, -100);
-        }
-
-        Cache::put("auto_betting_history_{$sessionId}", $history, now()->addDays(30));
-    }
-
-    /**
      * 记录下注结果（由前端调用）
      */
     public function recordBetResult(Request $request): JsonResponse
     {
         try {
             $validator = Validator::make($request->all(), [
+                'wallet_address' => 'required|string',
                 'round_id' => 'required|string',
                 'token_symbol' => 'required|string',
                 'amount' => 'required|numeric',
                 'bet_id' => 'required|string',
                 'success' => 'required|boolean',
+                'prediction_data' => 'nullable|array',
                 'result_data' => 'nullable|array'
             ]);
 
@@ -468,30 +585,38 @@ class AutoBettingController extends Controller
                 ], 422);
             }
 
-            $sessionId = Session::getId();
+            $walletAddress = $request->wallet_address;
 
-            // 记录下注历史
-            $this->recordBettingHistory($sessionId, [
+            // 保存到数据库
+            $record = AutoBettingRecord::create([
+                'wallet_address' => $walletAddress,
                 'round_id' => $request->round_id,
                 'token_symbol' => $request->token_symbol,
-                'amount' => $request->amount,
+                'bet_amount' => $request->amount,
                 'bet_id' => $request->bet_id,
                 'success' => $request->success,
+                'prediction_data' => $request->prediction_data,
                 'result_data' => $request->result_data,
-                'placed_at' => now()->toISOString()
+                'status' => $request->success ? 'success' : 'failed'
             ]);
 
-            // 更新统计
-            $status = Cache::get("auto_betting_status_{$sessionId}", []);
+            // 更新缓存中的统计
+            $status = Cache::get("auto_betting_status_{$walletAddress}", []);
             if ($request->success) {
-                $status['total_bets'] = ($status['total_bets'] ?? 0) + 1;
+                $userStats = AutoBettingRecord::getUserStats($walletAddress);
+                $todayStats = AutoBettingRecord::getTodayStats($walletAddress);
+
+                $status['total_bets'] = $userStats['total_bets'];
+                $status['total_profit_loss'] = $userStats['total_profit_loss'];
+                $status['today_profit_loss'] = $todayStats['today_profit_loss'];
                 $status['last_bet_at'] = now()->toISOString();
             }
-            Cache::put("auto_betting_status_{$sessionId}", $status, now()->addDays(1));
+            Cache::put("auto_betting_status_{$walletAddress}", $status, now()->addDays(1));
 
             return response()->json([
                 'success' => true,
-                'message' => '下注记录已保存'
+                'message' => '下注记录已保存',
+                'data' => $record
             ]);
 
         } catch (\Exception $e) {

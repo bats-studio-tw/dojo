@@ -897,9 +897,16 @@
     user_stats: any;
     today_stats: any;
   }) => {
+    console.log('接收到钱包验证成功事件:', data);
+
     walletAddress.value = data.wallet_address;
     config.value.jwt_token = data.jwt_token;
     isWalletValidated.value = true;
+
+    console.log('设置状态:', {
+      walletAddress: walletAddress.value,
+      isWalletValidated: isWalletValidated.value
+    });
 
     // 保存验证状态到localStorage
     localStorage.setItem('walletValidated', 'true');
@@ -908,6 +915,8 @@
     // 刷新状态和数据
     loadStatus();
     fetchAnalysisData();
+
+    console.log('钱包验证完成，界面应该切换了');
   };
 
   // 从localStorage读取配置
@@ -945,25 +954,51 @@
 
   // 初始化
   onMounted(() => {
+    console.log('AutoBetting组件初始化');
+
     // 从localStorage读取配置
     loadConfigFromLocalStorage();
 
     // 检查钱包验证状态
     const savedWalletValidated = localStorage.getItem('walletValidated');
     const savedWalletAddress = localStorage.getItem('currentWalletAddress');
+    const savedWalletData = localStorage.getItem('walletSetupData');
 
-    if (savedWalletValidated === 'true' && savedWalletAddress) {
-      walletAddress.value = savedWalletAddress;
-      isWalletValidated.value = true;
+    console.log('检查保存的验证状态:', {
+      savedWalletValidated,
+      savedWalletAddress,
+      savedWalletData
+    });
 
-      loadStatus();
-      fetchAnalysisData();
+    if (savedWalletValidated === 'true' && savedWalletAddress && savedWalletData) {
+      try {
+        const walletData = JSON.parse(savedWalletData);
+        walletAddress.value = savedWalletAddress;
+        config.value.jwt_token = walletData.jwt_token;
+        isWalletValidated.value = true;
 
-      // 定时刷新状态和分析数据
-      setInterval(() => {
+        console.log('自动恢复钱包验证状态:', {
+          walletAddress: walletAddress.value,
+          isWalletValidated: isWalletValidated.value
+        });
+
         loadStatus();
         fetchAnalysisData();
-      }, 5000);
+
+        // 定时刷新状态和分析数据
+        setInterval(() => {
+          loadStatus();
+          fetchAnalysisData();
+        }, 5000);
+      } catch (error) {
+        console.error('恢复钱包数据失败:', error);
+        // 清除无效数据
+        localStorage.removeItem('walletValidated');
+        localStorage.removeItem('currentWalletAddress');
+        localStorage.removeItem('walletSetupData');
+      }
+    } else {
+      console.log('没有有效的钱包验证数据，显示验证界面');
     }
   });
 </script>

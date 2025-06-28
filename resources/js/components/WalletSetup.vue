@@ -193,6 +193,8 @@
       });
 
       if (response.data.success) {
+        console.log('钱包验证成功，响应数据:', response.data);
+
         // 保存到localStorage
         localStorage.setItem(
           'walletSetupData',
@@ -202,15 +204,22 @@
           })
         );
 
-        getMessageInstance()?.success('验证成功！');
-
-        // 发送验证成功事件
-        emit('validated', {
+        const validatedData = {
           wallet_address: form.value.wallet_address,
           jwt_token: form.value.jwt_token,
           user_stats: response.data.data.user_stats,
           today_stats: response.data.data.today_stats
-        });
+        };
+
+        console.log('准备发送验证事件，数据:', validatedData);
+
+        getMessageInstance()?.success('验证成功！');
+
+        // 延迟一点发送事件，确保消息显示后再切换界面
+        setTimeout(() => {
+          console.log('发送验证成功事件...');
+          emit('validated', validatedData);
+        }, 500);
       } else {
         error.value = response.data.message || '验证失败';
       }

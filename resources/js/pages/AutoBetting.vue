@@ -116,13 +116,22 @@
           </div>
 
           <!-- 调试控制按钮 -->
-          <div v-if="!debugInfo.showDebugPanel" class="mb-4 text-center">
+          <div v-if="!debugInfo.showDebugPanel" class="mb-4 text-center space-y-3">
             <n-button @click="debugInfo.showDebugPanel = true" type="warning" size="small">
               <template #icon>
                 <span>🐛</span>
               </template>
               显示调试信息
             </n-button>
+
+            <div>
+              <n-button @click="runApiDiagnostics" :loading="diagnosticsLoading" type="info" size="small">
+                <template #icon>
+                  <span>🔬</span>
+                </template>
+                运行API连接诊断
+              </n-button>
+            </div>
           </div>
           <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
             <!-- 用户信息卡片 -->
@@ -1224,6 +1233,7 @@
   const toggleLoading = ref(false);
   const executeLoading = ref(false);
   const analysisLoading = ref(false);
+  const diagnosticsLoading = ref(false);
 
   // 调试信息状态
   const debugInfo = reactive({
@@ -1583,7 +1593,26 @@
     }
 
     try {
+      addDebugLog('info', '📡 开始获取分析数据...');
       const response = await gameApi.getCurrentAnalysis();
+
+      // 详细记录响应数据
+      addDebugLog('info', `📡 API响应状态: ${response.status}`);
+      addDebugLog(
+        'info',
+        `📊 响应数据结构: success=${response.data?.success}, hasData=${!!response.data?.data}, hasMeta=${!!response.data?.data?.meta}`
+      );
+
+      if (response.data?.data?.meta?.round_id) {
+        addDebugLog('info', `🎮 获取到轮次ID: ${response.data.data.meta.round_id}`);
+      }
+
+      if (response.data?.data?.predictions) {
+        addDebugLog('info', `🎯 获取到预测数据: ${response.data.data.predictions.length}个`);
+      } else {
+        addDebugLog('warn', '❌ 响应中没有预测数据 (predictions字段为空)');
+      }
+
       if (response.data.success && response.data.data?.meta?.round_id) {
         const currentRoundId = response.data.data.meta.round_id;
         const isNewRound = lastKnownRoundId.value && lastKnownRoundId.value !== currentRoundId;
@@ -1690,32 +1719,73 @@
           currentAnalysis.value = response.data.data;
         }
       } else {
-        addDebugLog('warn', '❌ 获取分析数据失败或数据格式错误');
+        // 更详细的错误信息
+        if (!response.data) {
+          addDebugLog('error', '❌ API响应为空');
+        } else if (!response.data.success) {
+          addDebugLog('error', `❌ API返回失败: ${response.data.message || '未知原因'}`);
+        } else if (!response.data.data) {
+          addDebugLog('error', '❌ API响应中缺少data字段');
+        } else if (!response.data.data.meta) {
+          addDebugLog('error', '❌ API响应中缺少meta字段');
+        } else if (!response.data.data.meta.round_id) {
+          addDebugLog('error', '❌ API响应中缺少round_id字段');
+        } else {
+          addDebugLog('error', '❌ 获取分析数据失败或数据格式错误 (未知原因)');
+        }
+
+        // 记录完整的响应数据用于调试
+        addDebugLog('info', `🔍 完整响应数据: ${JSON.stringify(response.data, null, 2).slice(0, 500)}...`);
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      addDebugLog('error', `检查轮次变化失败: ${errorMsg}`);
+      addDebugLog('error', `📡 API调用异常: ${errorMsg}`);
+
+      // 记录更多错误信息
+      if (error instanceof Error) {
+        addDebugLog('error', `📡 错误堆栈: ${error.stack?.slice(0, 200)}...`);
+      }
+
+      // 检查网络连接
+      addDebugLog('info', '🌐 检查网络连接状态...');
+      if (navigator.onLine) {
+        addDebugLog('info', '✅ 网络连接正常');
+      } else {
+        addDebugLog('error', '❌ 网络连接异常');
+      }
     }
   };
 
   // 获取分析数据
   const fetchAnalysisData = async () => {
+    addDebugLog('info', '📡 手动刷新分析数据...');
     analysisLoading.value = true;
     try {
       const response = await gameApi.getCurrentAnalysis();
+
+      // 详细记录响应
+      addDebugLog('info', `📡 手动刷新API响应: status=${response.status}, success=${response.data?.success}`);
+
       if (response.data.success) {
         currentAnalysis.value = response.data.data;
+        addDebugLog('success', '✅ 手动刷新分析数据成功');
 
         // 初始化轮次监控
         if (response.data.data?.meta?.round_id && !lastKnownRoundId.value) {
           lastKnownRoundId.value = response.data.data.meta.round_id;
-          console.log(`🎮 初始化轮次监控: ${lastKnownRoundId.value}`);
+          addDebugLog('info', `🎮 初始化轮次监控: ${lastKnownRoundId.value}`);
+        }
+
+        // 记录获取到的数据信息
+        if (response.data.data?.predictions) {
+          addDebugLog('info', `🎯 手动刷新获取到${response.data.data.predictions.length}个预测`);
         }
       } else {
-        console.error('获取分析数据失败:', response.data.message);
+        addDebugLog('error', `❌ 手动刷新失败: ${response.data.message || '未知原因'}`);
       }
     } catch (error) {
-      console.error('获取分析数据失败:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      addDebugLog('error', `❌ 手动刷新异常: ${errorMsg}`);
     } finally {
       analysisLoading.value = false;
     }
@@ -2084,6 +2154,121 @@
   };
 
   const refreshAnalysis = () => fetchAnalysisData();
+
+  // API连接诊断工具
+  const runApiDiagnostics = async () => {
+    addDebugLog('info', '🔬 开始运行API连接诊断...');
+    diagnosticsLoading.value = true;
+
+    try {
+      // 1. 测试基本API连接
+      addDebugLog('info', '📡 测试基本API连接...');
+      try {
+        const basicResponse = await fetch('/api/game/current-analysis');
+        addDebugLog('info', `📡 基本连接状态: ${basicResponse.status} ${basicResponse.statusText}`);
+
+        if (basicResponse.ok) {
+          const responseText = await basicResponse.text();
+          addDebugLog('info', `📡 响应长度: ${responseText.length} 字符`);
+
+          try {
+            const data = JSON.parse(responseText);
+            addDebugLog('info', `📊 JSON解析成功: success=${data.success}, message=${data.message || '无'}`);
+
+            if (data.success && data.data) {
+              addDebugLog('success', `✅ API响应正常: 获取到${data.data.length || 0}条数据`);
+
+              if (data.meta) {
+                addDebugLog('info', `🎮 元数据: round_id=${data.meta.round_id}, status=${data.meta.status}`);
+              }
+            } else {
+              addDebugLog('warn', `⚠️ API返回失败: ${data.message || '未知原因'}`);
+            }
+          } catch (jsonError) {
+            addDebugLog(
+              'error',
+              `❌ JSON解析失败: ${jsonError instanceof Error ? jsonError.message : String(jsonError)}`
+            );
+            addDebugLog('info', `🔍 原始响应前200字符: ${responseText.slice(0, 200)}...`);
+          }
+        } else {
+          addDebugLog('error', `❌ HTTP错误: ${basicResponse.status} ${basicResponse.statusText}`);
+        }
+      } catch (fetchError) {
+        addDebugLog('error', `❌ 连接失败: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`);
+      }
+
+      // 2. 测试缓存状态
+      addDebugLog('info', '🗄️ 检查游戏缓存状态...');
+      try {
+        const cacheResponse = await fetch('/api/game/current-analysis');
+        if (cacheResponse.ok) {
+          const data = await cacheResponse.json();
+          if (data.meta?.source) {
+            addDebugLog('info', `📦 数据源: ${data.meta.source}`);
+            if (data.meta.source === 'cached_prediction') {
+              addDebugLog('success', '✅ 使用缓存预测数据');
+            } else if (data.meta.source === 'realtime_calculation') {
+              addDebugLog('warn', '⚠️ 使用实时计算 (缓存可能为空)');
+            }
+          }
+
+          if (data.meta?.current_tokens) {
+            addDebugLog('info', `🎯 当前轮次代币: ${data.meta.current_tokens.join(', ')}`);
+          }
+        }
+      } catch (error) {
+        addDebugLog('error', `❌ 缓存检查失败: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      // 3. 测试预测服务
+      addDebugLog('info', '🧠 检查预测服务状态...');
+      const hasCurrentAnalysis = !!currentAnalysis.value;
+      const hasPredictions = !!currentAnalysis.value?.predictions?.length;
+
+      addDebugLog('info', `📊 本地分析数据: ${hasCurrentAnalysis ? '存在' : '不存在'}`);
+      addDebugLog(
+        'info',
+        `🎯 本地预测数据: ${hasPredictions ? `${currentAnalysis.value.predictions.length}条` : '不存在'}`
+      );
+
+      // 4. 检查数据库状态
+      addDebugLog('info', '🗃️ 检查历史数据状态...');
+      try {
+        const historyResponse = await fetch('/api/game/history');
+        if (historyResponse.ok) {
+          const historyData = await historyResponse.json();
+          if (historyData.success && historyData.data) {
+            addDebugLog('success', `✅ 历史数据正常: ${historyData.data.length}条记录`);
+          } else {
+            addDebugLog('warn', '⚠️ 历史数据为空或异常');
+          }
+        }
+      } catch (error) {
+        addDebugLog('error', `❌ 历史数据检查失败: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      // 5. 网络状态检查
+      addDebugLog('info', '🌐 检查网络状态...');
+      addDebugLog('info', `📶 在线状态: ${navigator.onLine ? '在线' : '离线'}`);
+      addDebugLog('info', `🔗 当前域名: ${window.location.hostname}`);
+      addDebugLog('info', `🚪 当前端口: ${window.location.port || '默认'}`);
+
+      // 6. Laravel相关检查
+      addDebugLog('info', '🎭 检查Laravel环境...');
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+      addDebugLog('info', `🔐 CSRF Token: ${csrfToken ? '存在' : '不存在'}`);
+
+      addDebugLog('success', '🔬 API诊断完成！请查看上述日志分析问题原因');
+      window.$message?.success('API诊断完成，请查看调试日志');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      addDebugLog('error', `❌ 诊断过程出错: ${errorMsg}`);
+      window.$message?.error('诊断过程出错');
+    } finally {
+      diagnosticsLoading.value = false;
+    }
+  };
 
   // 重新验证Token
   const reconnectToken = () => {

@@ -379,11 +379,44 @@
           </div>
         </NCard>
 
-        <!-- 当前分析详情 -->
+        <!-- 当前预测展示 -->
+        <div class="mb-6">
+          <PredictionDisplay
+            :analysis-data="predictionStore.currentAnalysis"
+            :analysis-meta="predictionStore.analysisMeta"
+            :loading="predictionStore.analysisLoading"
+            @refresh="predictionStore.fetchCurrentAnalysis"
+          />
+        </div>
+
+        <!-- 预测统计分析 -->
+        <div class="mb-6">
+          <PredictionStats
+            :exact-rate="predictionStats.calculateRoundBasedStats.value.exactRate"
+            :total-rounds="predictionStats.calculatePortfolioStats.value.totalRounds"
+            :all-stats="predictionStats.calculateRankBasedStats.value"
+            :recent-stats="predictionStats.calculateRecentRankBasedStats.value"
+            v-model:recent-rounds-count="recentRoundsCount"
+            :max-rounds="predictionStore.totalHistoryRounds"
+            :loading="predictionStore.historyLoading"
+            @refresh="predictionStore.fetchPredictionHistory"
+          />
+        </div>
+
+        <!-- 预测历史对比表格 -->
+        <div class="mb-6">
+          <PredictionHistoryTable
+            :prediction-data="predictionStats.getPredictionComparisonData.value"
+            :loading="predictionStore.historyLoading"
+            @refresh="predictionStore.fetchPredictionHistory"
+          />
+        </div>
+
+        <!-- 当前分析详情 (保留原有的简化版本作为自动下注参考) -->
         <NCard
           v-if="currentAnalysis?.predictions && currentAnalysis.predictions.length > 0"
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="🎮 当前轮次游戏分析"
+          title="🎮 自动下注匹配分析"
           size="large"
         >
           <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 sm:grid-cols-2">
@@ -418,18 +451,33 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, watch, reactive } from 'vue';
+  import { ref, onMounted, watch, reactive, computed } from 'vue';
   import { NEmpty, useMessage } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import { getUserInfo, autoBettingApi, gameApi } from '@/utils/api';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import WalletSetup from '@/components/WalletSetup.vue';
+  import PredictionDisplay from '@/components/PredictionDisplay.vue';
+  import PredictionStats from '@/components/PredictionStats.vue';
+  import PredictionHistoryTable from '@/components/PredictionHistoryTable.vue';
   import type { UserInfo } from '@/types';
+  import { useGamePredictionStore } from '@/stores/gamePrediction';
+  import { usePredictionStats } from '@/composables/usePredictionStats';
 
   // 身份验证状态
   const isTokenValidated = ref(false);
   const currentUID = ref('');
   const userInfo = ref<UserInfo | null>(null);
+
+  // 使用预测相关Store和Composables
+  const predictionStore = useGamePredictionStore();
+  const recentRoundsCount = ref(50);
+
+  // 使用预测统计composable
+  const predictionStats = usePredictionStats(
+    computed(() => predictionStore.predictionHistory),
+    recentRoundsCount
+  );
 
   // 自动下注配置 - 使用reactive进行深度响应
   const config = reactive({
@@ -854,6 +902,9 @@
     loadStatus();
     fetchAnalysisData();
 
+    // 初始化预测数据
+    predictionStore.refreshAllPredictionData();
+
     console.log('Token验证完成，界面应该切换了');
   };
 
@@ -914,11 +965,21 @@
         loadStatus();
         fetchAnalysisData();
 
+        // 初始化预测数据
+        predictionStore.refreshAllPredictionData();
+
         // 定时刷新状态和分析数据
         setInterval(() => {
           loadStatus();
           fetchAnalysisData();
+          // 定期刷新预测数据
+          predictionStore.fetchCurrentAnalysis();
         }, 5000);
+
+        // 预测历史数据刷新频率较低
+        setInterval(() => {
+          predictionStore.fetchPredictionHistory();
+        }, 30000);
       } catch (error) {
         console.error('恢复验证状态失败:', error);
         // 清除错误的保存状态
@@ -928,6 +989,9 @@
         localStorage.removeItem('userInfo');
       }
     }
+
+    // 无论是否有验证状态，都初始化基础预测数据展示
+    predictionStore.refreshAllPredictionData();
   });
 </script>
 

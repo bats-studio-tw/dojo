@@ -1,5 +1,6 @@
 <template>
   <div
+    v-if="visible"
     class="fixed inset-0 z-50 flex items-center justify-center from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br p-4"
   >
     <div class="mx-auto w-full max-w-md">

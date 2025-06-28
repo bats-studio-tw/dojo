@@ -424,7 +424,7 @@
 
 <script setup lang="ts">
   import { ref, onMounted, computed, h } from 'vue';
-  import { NEmpty, useMessage, type DataTableColumn } from 'naive-ui';
+  import { NEmpty, type DataTableColumn } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import api from '@/utils/api';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
@@ -550,16 +550,6 @@
 
   // 最新N局分析的局数选择器
   const recentRoundsCount = ref(50);
-
-  // 延迟获取message实例，避免在providers还未准备好时调用
-  const getMessageInstance = () => {
-    try {
-      return useMessage();
-    } catch {
-      console.warn('Message provider not ready yet');
-      return null;
-    }
-  };
 
   // 工具函数：获取指定排名的所有代币
   const getTokensByRank = (tokens: RoundToken[], rank: number): string => {
@@ -701,11 +691,11 @@
         analysisData.value = response.data.data;
         analysisMeta.value = response.data.meta || null;
       } else {
-        getMessageInstance()?.error(response.data.message || '获取 H2H 对战分析数据失败');
+        window.$message?.error(response.data.message || '获取 H2H 对战分析数据失败');
       }
     } catch (error) {
       console.error('获取 H2H 对战分析数据失败:', error);
-      getMessageInstance()?.error('获取 H2H 对战分析数据失败');
+      window.$message?.error('获取 H2H 对战分析数据失败');
     } finally {
       analysisLoading.value = false;
     }
@@ -718,11 +708,11 @@
       if (response.data.success) {
         historyData.value = response.data.data;
       } else {
-        getMessageInstance()?.error(response.data.message || '获取历史数据失败');
+        window.$message?.error(response.data.message || '获取历史数据失败');
       }
     } catch (error) {
       console.error('获取历史数据失败:', error);
-      getMessageInstance()?.error('获取历史数据失败');
+      window.$message?.error('获取历史数据失败');
     } finally {
       historyLoading.value = false;
     }
@@ -735,11 +725,11 @@
       if (response.data.success) {
         predictionHistoryData.value = response.data.data;
       } else {
-        getMessageInstance()?.error(response.data.message || '获取预测历史数据失败');
+        window.$message?.error(response.data.message || '获取预测历史数据失败');
       }
     } catch (error) {
       console.error('获取预测历史数据失败:', error);
-      getMessageInstance()?.error('获取预测历史数据失败');
+      window.$message?.error('获取预测历史数据失败');
     } finally {
       predictionHistoryLoading.value = false;
     }

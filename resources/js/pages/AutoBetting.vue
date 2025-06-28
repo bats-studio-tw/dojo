@@ -132,22 +132,26 @@
               <div v-if="currentAnalysis" class="text-sm text-gray-300 space-y-2">
                 <div class="flex justify-between">
                   <span>当前轮次:</span>
-                  <span class="text-purple-400 font-mono">{{ currentAnalysis.meta?.round_id }}</span>
+                  <span class="text-purple-400 font-mono">{{ currentAnalysis.meta?.round_id || '未知' }}</span>
                 </div>
                 <div class="flex justify-between">
                   <span>游戏数量:</span>
-                  <span class="text-purple-400">{{ currentAnalysis.predictions?.length || 0 }}</span>
+                  <span class="text-purple-400">{{ currentAnalysis.data?.length || 0 }}</span>
                 </div>
                 <div class="flex justify-between">
                   <span>数据状态:</span>
-                  <n-tag :type="getStatusTagType(currentAnalysis.status)" size="small">
-                    {{ currentAnalysis.status }}
+                  <n-tag :type="getStatusTagType(currentAnalysis.meta?.status)" size="small">
+                    {{ currentAnalysis.meta?.status || '未知' }}
                   </n-tag>
                 </div>
                 <div class="flex justify-between">
                   <span>更新时间:</span>
                   <span class="text-xs text-purple-400">
-                    {{ new Date(currentAnalysis.updated_at).toLocaleTimeString() }}
+                    {{
+                      currentAnalysis.meta?.timestamp
+                        ? new Date(currentAnalysis.meta.timestamp).toLocaleTimeString()
+                        : '无效时间'
+                    }}
                   </span>
                 </div>
               </div>
@@ -948,7 +952,7 @@
 
 <script setup lang="ts">
   import { ref, onMounted, watch, reactive, computed } from 'vue';
-  import { NEmpty, useMessage } from 'naive-ui';
+  import { NEmpty } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import { getUserInfo, autoBettingApi, gameApi } from '@/utils/api';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
@@ -1148,16 +1152,6 @@
   // 防抖器用于自动保存
   let saveConfigTimeout: number | null = null;
 
-  // 延迟获取message实例，避免在providers还未准备好时调用
-  const getMessageInstance = () => {
-    try {
-      return useMessage();
-    } catch {
-      console.warn('Message provider not ready yet');
-      return null;
-    }
-  };
-
   // 评估预测是否符合策略条件
   const evaluatePredictionMatch = (prediction: any): boolean => {
     // 基础条件检查
@@ -1288,7 +1282,7 @@
     selectedTemplate.value = templateKey;
     customStrategyMode.value = false;
 
-    getMessageInstance()?.success(`已应用${template.name}`);
+    window.$message?.success(`已应用${template.name}`);
     validateCurrentStrategy();
   };
 
@@ -1296,14 +1290,14 @@
   const switchToCustomMode = () => {
     customStrategyMode.value = true;
     selectedTemplate.value = '';
-    getMessageInstance()?.info('已切换到自定义策略模式，现在可以手动调整所有参数');
+    window.$message?.info('已切换到自定义策略模式，现在可以手动调整所有参数');
   };
 
   // 重置为模板模式
   const resetToTemplateMode = () => {
     customStrategyMode.value = false;
     selectedTemplate.value = '';
-    getMessageInstance()?.info('已返回模板模式，请选择一个预设策略模板');
+    window.$message?.info('已返回模板模式，请选择一个预设策略模板');
   };
 
   // 从云端加载配置
@@ -1414,13 +1408,13 @@
       // 如果有UID，也保存到云端
       if (currentUID.value) {
         await saveConfigToCloud();
-        getMessageInstance()?.success('配置已保存到云端');
+        window.$message?.success('配置已保存到云端');
       } else {
-        getMessageInstance()?.success('配置已保存到本地');
+        window.$message?.success('配置已保存到本地');
       }
     } catch (err) {
       console.error('保存配置失败:', err);
-      getMessageInstance()?.error('保存配置失败');
+      window.$message?.error('保存配置失败');
     } finally {
       configSaving.value = false;
     }
@@ -1476,7 +1470,7 @@
 
               // 如果有余额变化，显示提示
               if (Math.abs(balanceChange) > 0.01) {
-                getMessageInstance()?.info(
+                window.$message?.info(
                   `🎲 游戏结算完成！余额变化: ${balanceChange >= 0 ? '+' : ''}$${balanceChange.toFixed(2)}`
                 );
               }
@@ -1488,9 +1482,13 @@
           // 第2步：更新分析数据
           currentAnalysis.value = response.data.data;
 
-          // 第3步：如果自动下注已启动，记录新轮次开始
+          // 第3步：如果自动下注已启动，触发自动下注流程
           if (autoBettingStatus.value.is_running) {
-            console.log('🤖 自动下注已启动，新轮次开始，将通过定时器检查下注条件');
+            console.log('🤖 自动下注已启动，新轮次开始，正在触发自动下注...');
+            // 延迟一点时间让数据更新完成，然后触发自动下注
+            setTimeout(() => {
+              triggerAutomaticBetting(currentRoundId);
+            }, 1000);
           } else {
             console.log('⏸️ 自动下注未启动，仅更新数据');
           }
@@ -1620,7 +1618,7 @@
       if (response.data.success) {
         autoBettingStatus.value = response.data.data;
       } else {
-        getMessageInstance()?.error(response.data.message || '加载状态失败');
+        window.$message?.error(response.data.message || '加载状态失败');
       }
     } catch (error) {
       console.error('加载状态失败:', error);
@@ -1634,14 +1632,14 @@
     try {
       const response = await autoBettingApi.toggle('start', currentUID.value);
       if (response.data.success) {
-        getMessageInstance()?.success('自动下注已启动');
+        window.$message?.success('自动下注已启动');
         await loadStatus();
       } else {
-        getMessageInstance()?.error(response.data.message || '启动失败');
+        window.$message?.error(response.data.message || '启动失败');
       }
     } catch (error) {
       console.error('启动失败:', error);
-      getMessageInstance()?.error('启动失败');
+      window.$message?.error('启动失败');
     } finally {
       toggleLoading.value = false;
     }
@@ -1652,14 +1650,14 @@
     try {
       const response = await autoBettingApi.toggle('stop', currentUID.value);
       if (response.data.success) {
-        getMessageInstance()?.success('自动下注已停止');
+        window.$message?.success('自动下注已停止');
         await loadStatus();
       } else {
-        getMessageInstance()?.error(response.data.message || '停止失败');
+        window.$message?.error(response.data.message || '停止失败');
       }
     } catch (error) {
       console.error('停止失败:', error);
-      getMessageInstance()?.error('停止失败');
+      window.$message?.error('停止失败');
     } finally {
       toggleLoading.value = false;
     }
@@ -1678,13 +1676,11 @@
         const actualBalance = userInfo.value?.ojoValue || 0;
 
         if (totalBetAmount > actualBalance) {
-          getMessageInstance()?.error(
-            `余额不足！需要 $${totalBetAmount.toFixed(2)}，当前余额 $${actualBalance.toFixed(2)}`
-          );
+          window.$message?.error(`余额不足！需要 $${totalBetAmount.toFixed(2)}，当前余额 $${actualBalance.toFixed(2)}`);
           return;
         }
 
-        getMessageInstance()?.info('开始执行自动下注...');
+        window.$message?.info('开始执行自动下注...');
 
         let successCount = 0;
         let failCount = 0;
@@ -1705,18 +1701,18 @@
         }
 
         if (successCount > 0) {
-          getMessageInstance()?.success(`自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+          window.$message?.success(`自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
         } else {
-          getMessageInstance()?.error('自动下注全部失败');
+          window.$message?.error('自动下注全部失败');
         }
 
         await loadStatus();
       } else {
-        getMessageInstance()?.error(response.data.message || '获取下注建议失败');
+        window.$message?.error(response.data.message || '获取下注建议失败');
       }
     } catch (error) {
       console.error('执行自动下注失败:', error);
-      getMessageInstance()?.error('执行自动下注失败');
+      window.$message?.error('执行自动下注失败');
     } finally {
       executeLoading.value = false;
     }
@@ -1725,13 +1721,13 @@
   // 执行策略下注
   const executeStrategyBetting = async () => {
     if (!strategyValidation.value?.matches.length) {
-      getMessageInstance()?.warning('没有符合条件的游戏可以下注');
+      window.$message?.warning('没有符合条件的游戏可以下注');
       return;
     }
 
     // 检查余额是否足够
     if (!strategyValidation.value?.balance_sufficient) {
-      getMessageInstance()?.error(
+      window.$message?.error(
         `余额不足！需要 $${strategyValidation.value?.required_balance.toFixed(2)}，当前余额 $${strategyValidation.value?.actual_balance.toFixed(2)}`
       );
       return;
@@ -1739,14 +1735,14 @@
 
     executeLoading.value = true;
     try {
-      getMessageInstance()?.info('开始执行策略下注...');
+      window.$message?.info('开始执行策略下注...');
 
       let successCount = 0;
       let failCount = 0;
       const roundId = currentAnalysis.value?.meta?.round_id;
 
       if (!roundId) {
-        getMessageInstance()?.error('无法获取当前轮次ID');
+        window.$message?.error('无法获取当前轮次ID');
         return;
       }
 
@@ -1766,16 +1762,16 @@
       }
 
       if (successCount > 0) {
-        getMessageInstance()?.success(`策略下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+        window.$message?.success(`策略下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
       } else {
-        getMessageInstance()?.error('策略下注全部失败');
+        window.$message?.error('策略下注全部失败');
       }
 
       await loadStatus();
       validateCurrentStrategy(); // 重新验证策略
     } catch (error) {
       console.error('执行策略下注失败:', error);
-      getMessageInstance()?.error('执行策略下注失败');
+      window.$message?.error('执行策略下注失败');
     } finally {
       executeLoading.value = false;
     }
@@ -1784,13 +1780,13 @@
   // 策略回测
   const runBacktest = async () => {
     if (!predictionStore.predictionHistory?.length) {
-      getMessageInstance()?.warning('没有足够的历史数据进行回测');
+      window.$message?.warning('没有足够的历史数据进行回测');
       return;
     }
 
     backtestLoading.value = true;
     try {
-      getMessageInstance()?.info('正在运行策略回测...');
+      window.$message?.info('正在运行策略回测...');
 
       // 模拟回测逻辑
       const history = predictionStore.predictionHistory.slice(0, 50); // 使用最近50轮数据
@@ -1877,10 +1873,10 @@
         best_strategy: bestStrategy
       };
 
-      getMessageInstance()?.success('策略回测完成');
+      window.$message?.success('策略回测完成');
     } catch (error) {
       console.error('回测失败:', error);
-      getMessageInstance()?.error('策略回测失败');
+      window.$message?.error('策略回测失败');
     } finally {
       backtestLoading.value = false;
     }
@@ -1903,7 +1899,7 @@
           `🎯 发现符合条件的下注机会: ${strategyValidation.value.matches.length}个游戏，总金额: $${totalBetAmount.toFixed(2)}`
         );
 
-        getMessageInstance()?.info(`🤖 自动下注触发：发现${strategyValidation.value.matches.length}个符合条件的游戏`);
+        window.$message?.info(`🤖 自动下注触发：发现${strategyValidation.value.matches.length}个符合条件的游戏`);
 
         // 执行自动下注
         let successCount = 0;
@@ -1926,25 +1922,25 @@
         }
 
         if (successCount > 0) {
-          getMessageInstance()?.success(`🎯 自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+          window.$message?.success(`🎯 自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
         } else if (failCount > 0) {
-          getMessageInstance()?.error('🚫 自动下注全部失败');
+          window.$message?.error('🚫 自动下注全部失败');
         }
 
         // 更新状态
         await loadStatus();
       } else if (strategyValidation.value?.matches.length && !strategyValidation.value?.balance_sufficient) {
         console.log('💸 发现下注机会但余额不足');
-        getMessageInstance()?.warning(
+        window.$message?.warning(
           `💸 发现${strategyValidation.value.matches.length}个下注机会，但余额不足($${strategyValidation.value.required_balance.toFixed(2)})`
         );
       } else {
         console.log('📊 当前轮次不符合下注条件');
-        getMessageInstance()?.info('📊 当前轮次暂无符合策略的下注机会');
+        window.$message?.info('📊 当前轮次暂无符合策略的下注机会');
       }
     } catch (error) {
       console.error('自动下注流程执行失败:', error);
-      getMessageInstance()?.error('自动下注流程执行失败');
+      window.$message?.error('自动下注流程执行失败');
     }
   };
 
@@ -1962,7 +1958,7 @@
     userInfo.value = null;
     config.jwt_token = '';
 
-    getMessageInstance()?.info('已清除验证状态，请重新验证');
+    window.$message?.info('已清除验证状态，请重新验证');
   };
 
   // Token验证成功回调

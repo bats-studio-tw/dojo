@@ -90,6 +90,28 @@
               </div>
             </div>
 
+            <!-- 最近下注结果 -->
+            <div v-if="debugInfo.lastBetResults.length > 0" class="mt-4 border-t border-yellow-500/30 pt-3">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-xs text-yellow-400 font-medium">🎯 最近下注结果 (最近10条)</span>
+                <n-button @click="debugInfo.lastBetResults = []" type="tertiary" size="tiny">清空记录</n-button>
+              </div>
+              <div class="max-h-32 overflow-y-auto rounded bg-black/30 p-2 text-xs text-gray-300 font-mono">
+                <div
+                  v-for="(bet, index) in debugInfo.lastBetResults.slice(-10).reverse()"
+                  :key="index"
+                  class="py-1"
+                  :class="{
+                    'text-green-400': bet.success,
+                    'text-red-400': !bet.success
+                  }"
+                >
+                  [{{ bet.time }}] {{ bet.symbol }} ${{ bet.amount }} - {{ bet.success ? '✅ 成功' : '❌ 失败' }}
+                  <span v-if="!bet.success && bet.error" class="text-gray-500">({{ bet.error }})</span>
+                </div>
+              </div>
+            </div>
+
             <!-- 详细日志 -->
             <div class="mt-4 border-t border-yellow-500/30 pt-3">
               <div class="mb-2 flex items-center justify-between">
@@ -654,7 +676,7 @@
 
               <!-- 单次下注金额 -->
               <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">单次下注金额 (USD)</label>
+                <label class="text-sm text-gray-300 font-medium">单次下注金额</label>
                 <n-input-number
                   v-model:value="config.bet_amount"
                   :min="200"
@@ -663,7 +685,7 @@
                   :disabled="autoBettingStatus.is_running"
                   class="w-full"
                 />
-                <div class="text-xs text-gray-400">每次下注的固定金额，最低200美元</div>
+                <div class="text-xs text-gray-400">每次下注的固定金额，最低200</div>
               </div>
 
               <!-- 每日止损百分比 -->
@@ -839,12 +861,12 @@
 
                 <!-- 统一金额设置 -->
                 <div v-if="!config.rank_betting_different_amounts" class="space-y-2">
-                  <label class="text-sm text-gray-300 font-medium">每个排名下注金额 (USD)</label>
+                  <label class="text-sm text-gray-300 font-medium">每个排名下注金额</label>
                   <n-input-number
                     v-model:value="config.rank_betting_amount_per_rank"
-                    :min="10"
+                    :min="200"
                     :max="1000"
-                    :step="10"
+                    :step="100"
                     :disabled="autoBettingStatus.is_running"
                     class="w-full"
                   />
@@ -854,7 +876,7 @@
                 <!-- 分别设置金额 -->
                 <div v-else class="grid grid-cols-1 gap-3 md:grid-cols-3">
                   <div v-if="config.rank_betting_enabled_ranks.includes(1)" class="space-y-2">
-                    <label class="text-xs text-gray-400">第1名金额 (USD)</label>
+                    <label class="text-xs text-gray-400">第1名金额</label>
                     <n-input-number
                       v-model:value="config.rank_betting_rank1_amount"
                       :min="10"
@@ -866,7 +888,7 @@
                     />
                   </div>
                   <div v-if="config.rank_betting_enabled_ranks.includes(2)" class="space-y-2">
-                    <label class="text-xs text-gray-400">第2名金额 (USD)</label>
+                    <label class="text-xs text-gray-400">第2名金额</label>
                     <n-input-number
                       v-model:value="config.rank_betting_rank2_amount"
                       :min="10"
@@ -878,7 +900,7 @@
                     />
                   </div>
                   <div v-if="config.rank_betting_enabled_ranks.includes(3)" class="space-y-2">
-                    <label class="text-xs text-gray-400">第3名金额 (USD)</label>
+                    <label class="text-xs text-gray-400">第3名金额</label>
                     <n-input-number
                       v-model:value="config.rank_betting_rank3_amount"
                       :min="10"
@@ -2070,8 +2092,98 @@
                   debugInfo.lastExecutionTime = new Date().toLocaleTimeString();
                   addDebugLog('info', `📋 开始执行${strategyValidation.value.matches.length}个下注...`);
 
-                  // 在这里可以添加实际的下注执行逻辑
-                  // 但由于代码结构，通常会通过其他方法触发
+                  // 实际执行自动下注逻辑
+                  let successCount = 0;
+                  let failCount = 0;
+
+                  for (const match of strategyValidation.value.matches) {
+                    try {
+                      addDebugLog('info', `🎯 正在下注 ${match.symbol}: $${match.bet_amount}`);
+                      const betSuccess = await executeSingleBet(
+                        currentRoundId,
+                        match.symbol,
+                        match.bet_amount,
+                        config.jwt_token
+                      );
+                      if (betSuccess) {
+                        successCount++;
+                        addDebugLog('success', `✅ ${match.symbol} 下注成功: $${match.bet_amount}`);
+
+                        // 记录下注结果到调试信息
+                        debugInfo.lastBetResults.push({
+                          time: new Date().toLocaleTimeString(),
+                          symbol: match.symbol,
+                          amount: match.bet_amount,
+                          success: true
+                        });
+                      } else {
+                        failCount++;
+                        addDebugLog('error', `❌ ${match.symbol} 下注失败: $${match.bet_amount}`);
+
+                        debugInfo.lastBetResults.push({
+                          time: new Date().toLocaleTimeString(),
+                          symbol: match.symbol,
+                          amount: match.bet_amount,
+                          success: false,
+                          error: 'API调用失败'
+                        });
+                      }
+                    } catch (error) {
+                      failCount++;
+                      const errorMsg = error instanceof Error ? error.message : String(error);
+                      addDebugLog('error', `❌ ${match.symbol} 下注异常: ${errorMsg}`);
+
+                      debugInfo.lastBetResults.push({
+                        time: new Date().toLocaleTimeString(),
+                        symbol: match.symbol,
+                        amount: match.bet_amount,
+                        success: false,
+                        error: errorMsg
+                      });
+                    }
+                  }
+
+                  // 限制下注结果记录数量
+                  if (debugInfo.lastBetResults.length > 20) {
+                    debugInfo.lastBetResults = debugInfo.lastBetResults.slice(-15);
+                  }
+
+                  // 显示执行结果
+                  if (successCount > 0) {
+                    addDebugLog('success', `🎉 自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+                    window.$message?.success(`🤖 自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+                  } else {
+                    addDebugLog('error', `❌ 自动下注全部失败：${failCount} 个`);
+                    window.$message?.error(`❌ 自动下注全部失败：${failCount} 个`);
+                  }
+
+                  // 重新加载状态和余额
+                  setTimeout(async () => {
+                    try {
+                      const statusResponse = await autoBettingApi.getStatus(currentUID.value);
+                      if (statusResponse.data.success) {
+                        autoBettingStatus.value = statusResponse.data.data;
+                        addDebugLog('info', '📊 下注后刷新状态完成');
+                      }
+                    } catch (error) {
+                      addDebugLog('error', `刷新状态失败: ${error instanceof Error ? error.message : String(error)}`);
+                    }
+                  }, 500);
+
+                  // 更新用户余额
+                  try {
+                    const userInfoResponse = await getUserInfo(config.jwt_token);
+                    if (userInfoResponse.success && userInfoResponse.obj) {
+                      userInfo.value = userInfoResponse.obj;
+                      localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
+                      addDebugLog('info', `💰 下注后更新余额: $${userInfo.value.ojoValue.toFixed(2)}`);
+                    }
+                  } catch (error) {
+                    addDebugLog(
+                      'error',
+                      `下注后更新用户信息失败: ${error instanceof Error ? error.message : String(error)}`
+                    );
+                  }
                 } else if (strategyValidation.value?.matches.length && !strategyValidation.value?.balance_sufficient) {
                   addDebugLog(
                     'warn',

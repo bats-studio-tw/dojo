@@ -1619,6 +1619,107 @@
     { deep: true }
   );
 
+  // 执行单次下注的通用方法
+  const executeSingleBet = async (
+    roundId: string,
+    tokenSymbol: string,
+    amount: number,
+    jwtToken: string
+  ): Promise<boolean> => {
+    try {
+      // 第一步：获取betId
+      const betIdResponse = await gameApi.getBetId(roundId, jwtToken);
+
+      if (!betIdResponse.data.success) {
+        console.error('获取betId失败:', betIdResponse.data);
+        return false;
+      }
+
+      const betId = betIdResponse.data.data;
+
+      // 第二步：执行下注
+      const betResponse = await gameApi.placeBet(roundId, betId, tokenSymbol, amount, jwtToken);
+
+      if (betResponse.data.success) {
+        // 记录下注结果到后端
+        await autoBettingApi.recordResult({
+          uid: currentUID.value,
+          round_id: roundId,
+          token_symbol: tokenSymbol,
+          amount,
+          bet_id: betId,
+          success: true,
+          result_data: betResponse.data.data
+        });
+
+        // 下注成功后重新获取用户信息更新余额
+        try {
+          const userInfoResponse = await getUserInfo(jwtToken);
+          if (userInfoResponse.success && userInfoResponse.obj) {
+            userInfo.value = userInfoResponse.obj;
+            localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
+            console.log('下注后更新余额:', userInfo.value.ojoValue);
+          }
+        } catch (error) {
+          console.warn('下注后更新用户信息失败:', error);
+        }
+
+        return true;
+      } else {
+        console.error('下注失败:', betResponse.data);
+        // 记录失败结果
+        await autoBettingApi.recordResult({
+          uid: currentUID.value,
+          round_id: roundId,
+          token_symbol: tokenSymbol,
+          amount,
+          bet_id: betId,
+          success: false,
+          result_data: betResponse.data
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error('下注过程出错:', error);
+      return false;
+    }
+  };
+
+  // 检查指定轮次是否已经下过注
+  const checkRoundAlreadyBet = async (roundId: string): Promise<boolean> => {
+    if (!currentUID.value) {
+      addDebugLog('warn', '❌ 缺少用户UID，无法检查重复下注');
+      return false;
+    }
+
+    try {
+      addDebugLog('info', `🔍 检查轮次 ${roundId} 是否已下注...`);
+      const response = await autoBettingApi.checkRoundBet(currentUID.value, roundId);
+
+      if (response.data.success) {
+        const hasAlreadyBet = response.data.data.has_bet;
+        const betCount = response.data.data.bet_count;
+
+        if (hasAlreadyBet) {
+          addDebugLog('warn', `⚠️ 轮次 ${roundId} 已存在 ${betCount} 个下注记录，跳过重复下注`);
+          return true;
+        } else {
+          addDebugLog('info', `✅ 轮次 ${roundId} 未发现下注记录，可以继续下注`);
+          return false;
+        }
+      } else {
+        addDebugLog('error', `❌ 检查重复下注失败: ${response.data.message}`);
+        // 出错时为安全起见，假设已经下过注
+        return true;
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      addDebugLog('error', `❌ 检查重复下注异常: ${errorMsg}`);
+      // 出错时为安全起见，假设已经下过注
+      return true;
+    }
+  };
+
   // 监控游戏轮次变化并触发完整的自动下注流程
   const checkRoundChange = async () => {
     debugInfo.roundCheckCount++;
@@ -1658,7 +1759,47 @@
         if (isNewRound) {
           addDebugLog('success', `🎮 检测到新轮次开始: ${lastKnownRoundId.value} → ${currentRoundId}`);
 
-          // 第1步：更新余额（结算上一轮的盈亏）
+          // 第1步：检查该轮次是否已经下过注（重复下注防呆）
+          const alreadyBet = await checkRoundAlreadyBet(currentRoundId);
+          if (alreadyBet) {
+            addDebugLog('warn', `🚫 轮次 ${currentRoundId} 已存在下注记录，跳过自动下注流程`);
+
+            // 仍然更新数据和余额，但不执行下注
+            currentAnalysis.value = {
+              predictions: response.data.data,
+              meta: response.data.meta
+            };
+            lastKnownRoundId.value = currentRoundId;
+
+            // 更新余额
+            try {
+              const userInfoResponse = await getUserInfo(config.jwt_token);
+              if (userInfoResponse.success && userInfoResponse.obj) {
+                const oldBalance = userInfo.value?.ojoValue || 0;
+                userInfo.value = userInfoResponse.obj;
+                localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
+
+                const newBalance = userInfo.value.ojoValue;
+                const balanceChange = newBalance - oldBalance;
+
+                if (Math.abs(balanceChange) > 0.01) {
+                  addDebugLog(
+                    'success',
+                    `🎲 游戏结算完成！余额变化: ${balanceChange >= 0 ? '+' : ''}$${balanceChange.toFixed(2)}`
+                  );
+                  window.$message?.info(
+                    `🎲 游戏结算完成！余额变化: ${balanceChange >= 0 ? '+' : ''}$${balanceChange.toFixed(2)}`
+                  );
+                }
+              }
+            } catch (error) {
+              addDebugLog('error', `更新用户信息失败: ${error instanceof Error ? error.message : String(error)}`);
+            }
+
+            return; // 提前退出，不执行下注逻辑
+          }
+
+          // 第2步：更新余额（结算上一轮的盈亏）
           try {
             const userInfoResponse = await getUserInfo(config.jwt_token);
             if (userInfoResponse.success && userInfoResponse.obj) {
@@ -1692,14 +1833,14 @@
             );
           }
 
-          // 第2步：更新分析数据
+          // 第3步：更新分析数据
           currentAnalysis.value = {
             predictions: response.data.data,
             meta: response.data.meta
           };
           addDebugLog('info', '📊 更新分析数据完成');
 
-          // 第3步：如果自动下注已启动，触发自动下注流程
+          // 第4步：如果自动下注已启动，触发自动下注流程
           if (autoBettingStatus.value.is_running) {
             debugInfo.autoTriggerCount++;
             debugInfo.lastAutoTriggerTime = new Date().toLocaleTimeString();
@@ -1727,6 +1868,9 @@
 
                   debugInfo.lastExecutionTime = new Date().toLocaleTimeString();
                   addDebugLog('info', `📋 开始执行${strategyValidation.value.matches.length}个下注...`);
+
+                  // 在这里可以添加实际的下注执行逻辑
+                  // 但由于代码结构，通常会通过其他方法触发
                 } else if (strategyValidation.value?.matches.length && !strategyValidation.value?.balance_sufficient) {
                   addDebugLog(
                     'warn',
@@ -1850,72 +1994,6 @@
         return 'info';
       default:
         return 'default';
-    }
-  };
-
-  // 执行单次下注的通用方法
-  const executeSingleBet = async (
-    roundId: string,
-    tokenSymbol: string,
-    amount: number,
-    jwtToken: string
-  ): Promise<boolean> => {
-    try {
-      // 第一步：获取betId
-      const betIdResponse = await gameApi.getBetId(roundId, jwtToken);
-
-      if (!betIdResponse.data.success) {
-        console.error('获取betId失败:', betIdResponse.data);
-        return false;
-      }
-
-      const betId = betIdResponse.data.data;
-
-      // 第二步：执行下注
-      const betResponse = await gameApi.placeBet(roundId, betId, tokenSymbol, amount, jwtToken);
-
-      if (betResponse.data.success) {
-        // 记录下注结果到后端
-        await autoBettingApi.recordResult({
-          uid: currentUID.value,
-          round_id: roundId,
-          token_symbol: tokenSymbol,
-          amount,
-          bet_id: betId,
-          success: true,
-          result_data: betResponse.data.data
-        });
-
-        // 下注成功后重新获取用户信息更新余额
-        try {
-          const userInfoResponse = await getUserInfo(jwtToken);
-          if (userInfoResponse.success && userInfoResponse.obj) {
-            userInfo.value = userInfoResponse.obj;
-            localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
-            console.log('下注后更新余额:', userInfo.value.ojoValue);
-          }
-        } catch (error) {
-          console.warn('下注后更新用户信息失败:', error);
-        }
-
-        return true;
-      } else {
-        console.error('下注失败:', betResponse.data);
-        // 记录失败结果
-        await autoBettingApi.recordResult({
-          uid: currentUID.value,
-          round_id: roundId,
-          token_symbol: tokenSymbol,
-          amount,
-          bet_id: betId,
-          success: false,
-          result_data: betResponse.data
-        });
-        return false;
-      }
-    } catch (error) {
-      console.error('下注过程出错:', error);
-      return false;
     }
   };
 

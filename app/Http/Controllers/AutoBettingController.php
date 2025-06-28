@@ -535,6 +535,68 @@ class AutoBettingController extends Controller
     }
 
     /**
+     * 检查指定轮次是否已经下过注（防止重复下注）
+     */
+    public function checkRoundBet(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'uid' => 'required|string',
+                'round_id' => 'required|string'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '参数验证失败',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $uid = $request->input('uid');
+            $roundId = $request->input('round_id');
+
+            // 查询该用户在该轮次的下注记录
+            $existingBets = AutoBettingRecord::where('uid', $uid)
+                ->where('round_id', $roundId)
+                ->get();
+
+            $hasBet = $existingBets->count() > 0;
+            $betCount = $existingBets->count();
+            $successfulBets = $existingBets->where('success', true)->count();
+
+            // 返回详细的检查结果
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'has_bet' => $hasBet,
+                    'bet_count' => $betCount,
+                    'successful_bets' => $successfulBets,
+                    'failed_bets' => $betCount - $successfulBets,
+                    'round_id' => $roundId,
+                    'uid' => $uid,
+                    'bet_records' => $existingBets->map(function ($record) {
+                        return [
+                            'id' => $record->id,
+                            'token_symbol' => $record->token_symbol,
+                            'bet_amount' => $record->bet_amount,
+                            'success' => $record->success,
+                            'status' => $record->status,
+                            'created_at' => $record->created_at->toISOString()
+                        ];
+                    })
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => '检查轮次下注状态失败: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * 获取用户的自动下注配置
      */
     public function getConfig(Request $request): JsonResponse

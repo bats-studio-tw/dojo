@@ -49,6 +49,9 @@ Route::prefix('auto-betting')->group(function () {
     Route::post('/execute', [AutoBettingController::class, 'executeAutoBetting'])->name('api.auto-betting.execute');
     Route::post('/record-result', [AutoBettingController::class, 'recordBetResult'])->name('api.auto-betting.record-result');
 
+    // 防重复下注：检查指定轮次是否已经下过注
+    Route::get('/check-round-bet', [AutoBettingController::class, 'checkRoundBet'])->name('api.auto-betting.check-round-bet');
+
     // 配置管理接口（基于uid，无需登录认证）
     Route::get('/config', [AutoBettingController::class, 'getConfig'])->name('api.auto-betting.config.get');
     Route::post('/config', [AutoBettingController::class, 'saveConfig'])->name('api.auto-betting.config.save');

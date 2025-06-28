@@ -143,6 +143,13 @@ export const autoBettingApi = {
       uid,
       ...configData
     });
+  },
+
+  // 新增：检查指定轮次是否已经下过注
+  checkRoundBet: (uid: string, roundId: string) => {
+    return api.get('/auto-betting/check-round-bet', {
+      params: { uid, round_id: roundId }
+    });
   }
 };
 

@@ -40,8 +40,6 @@ Route::prefix('prediction-analysis')->group(function () {
 
 // 自动下注API路由组
 Route::prefix('auto-betting')->group(function () {
-    Route::get('/config', [AutoBettingController::class, 'getConfig'])->name('api.auto-betting.config');
-    Route::post('/config', [AutoBettingController::class, 'updateConfig'])->name('api.auto-betting.update-config');
     Route::get('/status', [AutoBettingController::class, 'getStatus'])->name('api.auto-betting.status');
     Route::post('/toggle', [AutoBettingController::class, 'toggleAutoBetting'])->name('api.auto-betting.toggle');
     Route::post('/test-connection', [AutoBettingController::class, 'testConnection'])->name('api.auto-betting.test-connection');

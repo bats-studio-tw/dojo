@@ -15,7 +15,7 @@
           </a>
           <div class="flex-1 text-center">
             <h1 class="text-3xl text-white font-bold">🤖 自动下注控制中心</h1>
-            <p class="text-gray-300">基于数据驱动的智能下注系统</p>
+            <p class="text-gray-300">基于数据驱动的智能下注系统 - 免登入模式</p>
           </div>
           <div class="w-32"></div>
           <!-- 占位符保持标题居中 -->
@@ -453,15 +453,6 @@
 
           <!-- 控制按钮 -->
           <div class="mt-6 flex flex-wrap justify-center gap-3">
-            <n-button
-              @click="saveConfig"
-              :loading="configSaving"
-              :disabled="autoBettingStatus.is_running"
-              type="primary"
-              size="large"
-            >
-              💾 保存配置
-            </n-button>
             <n-button @click="simulateBetting" :loading="simulateLoading" type="warning" size="large">
               🎮 模拟下注
             </n-button>
@@ -495,7 +486,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted } from 'vue';
+  import { ref, onMounted, watch } from 'vue';
   import { NEmpty, useMessage } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import api from '@/utils/api';
@@ -512,9 +503,8 @@
     }
   };
 
-  // 自动下注配置
-  const config = ref({
-    enabled: false,
+  // 预设配置
+  const defaultConfig = {
     jwt_token: '',
     bankroll: 1000,
     bet_amount: 200,
@@ -522,8 +512,11 @@
     confidence_threshold: 88,
     score_gap_threshold: 6.0,
     min_total_games: 25,
-    strategy: 'single_bet' as 'single_bet'
-  });
+    strategy: 'single_bet' as const
+  };
+
+  // 自动下注配置 - 使用localStorage
+  const config = ref({ ...defaultConfig });
 
   // 自动下注状态
   const autoBettingStatus = ref({
@@ -573,8 +566,6 @@
   const analysisMeta = ref<any>(null);
 
   // 加载状态
-  const configLoading = ref(false);
-  const configSaving = ref(false);
   const statusLoading = ref(false);
   const toggleLoading = ref(false);
   const connectionTesting = ref(false);
@@ -703,40 +694,6 @@
   };
 
   // API调用函数
-  const loadConfig = async () => {
-    configLoading.value = true;
-    try {
-      const response = await api.get('/auto-betting/config');
-      if (response.data.success) {
-        config.value = response.data.data;
-      } else {
-        getMessageInstance()?.error(response.data.message || '加载配置失败');
-      }
-    } catch (error) {
-      console.error('加载配置失败:', error);
-      getMessageInstance()?.error('加载配置失败');
-    } finally {
-      configLoading.value = false;
-    }
-  };
-
-  const saveConfig = async () => {
-    configSaving.value = true;
-    try {
-      const response = await api.post('/auto-betting/config', config.value);
-      if (response.data.success) {
-        getMessageInstance()?.success('配置已保存');
-      } else {
-        getMessageInstance()?.error(response.data.message || '保存配置失败');
-      }
-    } catch (error) {
-      console.error('保存配置失败:', error);
-      getMessageInstance()?.error('保存配置失败');
-    } finally {
-      configSaving.value = false;
-    }
-  };
-
   const loadStatus = async () => {
     statusLoading.value = true;
     try {
@@ -838,7 +795,9 @@
   const simulateBetting = async () => {
     simulateLoading.value = true;
     try {
-      const response = await api.post('/auto-betting/simulate');
+      const response = await api.post('/auto-betting/simulate', {
+        config: config.value
+      });
       if (response.data.success) {
         simulationResult.value = response.data.data;
         if (simulationResult.value.trigger_met) {
@@ -861,7 +820,9 @@
     executeLoading.value = true;
     try {
       // 先获取下注建议
-      const response = await api.post('/auto-betting/execute');
+      const response = await api.post('/auto-betting/execute', {
+        config: config.value
+      });
       if (response.data.success) {
         const { recommended_bets, round_id, jwt_token } = response.data.data;
 
@@ -905,9 +866,44 @@
 
   const refreshAnalysis = () => fetchAnalysisData();
 
+  // 从localStorage读取配置
+  const loadConfigFromLocalStorage = () => {
+    try {
+      const savedConfig = localStorage.getItem('autoBettingConfig');
+      if (savedConfig) {
+        // 合并保存的配置与预设配置，以防未来新增字段
+        config.value = { ...defaultConfig, ...JSON.parse(savedConfig) };
+      }
+    } catch (error) {
+      console.error('从localStorage读取配置失败:', error);
+      // 如果读取失败，使用默认配置
+      config.value = { ...defaultConfig };
+    }
+  };
+
+  // 保存配置到localStorage
+  const saveConfigToLocalStorage = () => {
+    try {
+      localStorage.setItem('autoBettingConfig', JSON.stringify(config.value));
+    } catch (error) {
+      console.error('保存配置到localStorage失败:', error);
+    }
+  };
+
+  // 监听config对象的变化，并自动存入localStorage
+  watch(
+    config,
+    () => {
+      saveConfigToLocalStorage();
+    },
+    { deep: true }
+  );
+
   // 初始化
   onMounted(() => {
-    loadConfig();
+    // 从localStorage读取配置
+    loadConfigFromLocalStorage();
+
     loadStatus();
     fetchAnalysisData();
 

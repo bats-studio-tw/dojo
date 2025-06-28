@@ -301,6 +301,27 @@
             <div class="space-y-4">
               <h3 class="mb-4 text-lg text-white font-semibold">📊 基础配置</h3>
 
+              <!-- 钱包地址 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">钱包地址</label>
+                <div class="flex space-x-2">
+                  <n-input :value="walletAddress" placeholder="未连接钱包" disabled class="flex-1">
+                    <template #prefix>
+                      <span class="text-gray-400">🔗</span>
+                    </template>
+                  </n-input>
+                  <n-button
+                    @click="reconnectWallet"
+                    :disabled="autoBettingStatus.is_running"
+                    type="tertiary"
+                    size="medium"
+                  >
+                    重连
+                  </n-button>
+                </div>
+                <div class="text-xs text-gray-400">当前连接的钱包地址，用于记录下注历史</div>
+              </div>
+
               <!-- JWT Token -->
               <div class="space-y-2">
                 <label class="text-sm text-gray-300 font-medium">JWT Token *</label>
@@ -916,6 +937,23 @@
   };
 
   const refreshAnalysis = () => fetchAnalysisData();
+
+  // 重新连接钱包
+  const reconnectWallet = () => {
+    // 清除所有保存的验证状态
+    localStorage.removeItem('walletValidated');
+    localStorage.removeItem('currentWalletAddress');
+    localStorage.removeItem('walletSetupData');
+    localStorage.removeItem('userInfo');
+
+    // 重置状态
+    isWalletValidated.value = false;
+    walletAddress.value = '';
+    userInfo.value = null;
+    config.value.jwt_token = '';
+
+    getMessageInstance()?.info('已断开钱包连接，请重新验证');
+  };
 
   // 钱包验证成功回调
   const onWalletValidated = (data: {

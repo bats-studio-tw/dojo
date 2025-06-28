@@ -221,7 +221,7 @@
                 </div>
                 <div class="flex justify-between">
                   <span>游戏数量:</span>
-                  <span class="text-purple-400">{{ currentAnalysis.data?.length || 0 }}</span>
+                  <span class="text-purple-400">{{ currentAnalysis.predictions?.length || 0 }}</span>
                 </div>
                 <div class="flex justify-between">
                   <span>数据状态:</span>
@@ -238,6 +238,15 @@
                         : '无效时间'
                     }}
                   </span>
+                </div>
+                <!-- 显示第一个预测的映射数据作为样本 -->
+                <div
+                  v-if="currentAnalysis.predictions && currentAnalysis.predictions.length > 0"
+                  class="mt-2 border-t border-gray-600 pt-1 text-xs text-gray-400"
+                >
+                  <div>样本数据 ({{ currentAnalysis.predictions[0].symbol }}):</div>
+                  <div>置信度: {{ mapPredictionData(currentAnalysis.predictions[0]).confidence }}%</div>
+                  <div>评分: {{ mapPredictionData(currentAnalysis.predictions[0]).score.toFixed(1) }}</div>
                 </div>
               </div>
               <div v-else class="text-center text-gray-400">
@@ -1006,25 +1015,30 @@
         >
           <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 sm:grid-cols-2">
             <div
-              v-for="(prediction, index) in currentAnalysis.predictions"
+              v-for="(rawPrediction, index) in currentAnalysis.predictions"
               :key="index"
               class="border border-gray-500/30 rounded-lg bg-gray-500/10 p-4"
             >
               <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm text-gray-300 font-medium">{{ prediction.symbol }}</span>
-                <n-tag :type="prediction.confidence > config.confidence_threshold ? 'success' : 'default'" size="small">
-                  {{ prediction.confidence.toFixed(1) }}%
+                <span class="text-sm text-gray-300 font-medium">{{ rawPrediction.symbol }}</span>
+                <n-tag
+                  :type="
+                    mapPredictionData(rawPrediction).confidence > config.confidence_threshold ? 'success' : 'default'
+                  "
+                  size="small"
+                >
+                  {{ mapPredictionData(rawPrediction).confidence.toFixed(1) }}%
                 </n-tag>
               </div>
 
               <div class="text-xs text-gray-400 space-y-1">
-                <div>预测方向: {{ prediction.direction }}</div>
-                <div>分数: {{ prediction.score.toFixed(2) }}</div>
-                <div>历史胜率: {{ (prediction.historical_accuracy * 100).toFixed(1) }}%</div>
-                <div>样本数量: {{ prediction.sample_count }}</div>
+                <div>预测排名: {{ rawPrediction.predicted_rank }}</div>
+                <div>评分: {{ mapPredictionData(rawPrediction).score.toFixed(2) }}</div>
+                <div>历史胜率: {{ (mapPredictionData(rawPrediction).historical_accuracy * 100).toFixed(1) }}%</div>
+                <div>样本数量: {{ mapPredictionData(rawPrediction).sample_count }}</div>
               </div>
 
-              <div v-if="prediction.confidence > config.confidence_threshold" class="mt-2">
+              <div v-if="mapPredictionData(rawPrediction).confidence > config.confidence_threshold" class="mt-2">
                 <n-tag type="success" size="small">符合下注条件</n-tag>
               </div>
             </div>
@@ -1289,6 +1303,21 @@
     }
   };
 
+  // 数据映射函数：将API返回的数据格式转换为策略验证期望的格式
+  const mapPredictionData = (rawPrediction: any): any => {
+    return {
+      ...rawPrediction,
+      // 映射字段名
+      confidence: rawPrediction.rank_confidence || rawPrediction.confidence || 0,
+      score: rawPrediction.predicted_final_value || rawPrediction.score || 0,
+      sample_count: rawPrediction.total_games || rawPrediction.sample_count || 0,
+      historical_accuracy: (rawPrediction.win_rate || 0) / 100, // 转换为0-1范围
+      // 保留原有字段
+      symbol: rawPrediction.symbol,
+      predicted_rank: rawPrediction.predicted_rank
+    };
+  };
+
   // 评估预测是否符合策略条件
   const evaluatePredictionMatch = (prediction: any): boolean => {
     // 基础条件检查
@@ -1365,8 +1394,16 @@
     let totalMatchedValue = 0;
     let estimatedProfit = 0;
 
-    predictions.forEach((prediction: any) => {
+    predictions.forEach((rawPrediction: any) => {
+      // 映射数据格式
+      const prediction = mapPredictionData(rawPrediction);
       const isMatch = evaluatePredictionMatch(prediction);
+
+      addDebugLog(
+        'info',
+        `🎲 检查 ${prediction.symbol}: confidence=${prediction.confidence}%, score=${prediction.score}, 样本=${prediction.sample_count}, 胜率=${(prediction.historical_accuracy * 100).toFixed(1)}%, 匹配=${isMatch ? '✅' : '❌'}`
+      );
+
       if (isMatch) {
         const betAmount = calculateBetAmount(prediction);
         matches.push({
@@ -1603,18 +1640,18 @@
         `📊 响应数据结构: success=${response.data?.success}, hasData=${!!response.data?.data}, hasMeta=${!!response.data?.data?.meta}`
       );
 
-      if (response.data?.data?.meta?.round_id) {
-        addDebugLog('info', `🎮 获取到轮次ID: ${response.data.data.meta.round_id}`);
+      if (response.data?.meta?.round_id) {
+        addDebugLog('info', `🎮 获取到轮次ID: ${response.data.meta.round_id}`);
       }
 
-      if (response.data?.data?.predictions) {
-        addDebugLog('info', `🎯 获取到预测数据: ${response.data.data.predictions.length}个`);
+      if (response.data?.data && Array.isArray(response.data.data)) {
+        addDebugLog('info', `🎯 获取到预测数据: ${response.data.data.length}个`);
       } else {
-        addDebugLog('warn', '❌ 响应中没有预测数据 (predictions字段为空)');
+        addDebugLog('warn', '❌ 响应中没有预测数据 (data字段为空或非数组)');
       }
 
-      if (response.data.success && response.data.data?.meta?.round_id) {
-        const currentRoundId = response.data.data.meta.round_id;
+      if (response.data.success && response.data.meta?.round_id) {
+        const currentRoundId = response.data.meta.round_id;
         const isNewRound = lastKnownRoundId.value && lastKnownRoundId.value !== currentRoundId;
 
         // 检测到轮次变化（新游戏开始）
@@ -1656,7 +1693,10 @@
           }
 
           // 第2步：更新分析数据
-          currentAnalysis.value = response.data.data;
+          currentAnalysis.value = {
+            predictions: response.data.data,
+            meta: response.data.meta
+          };
           addDebugLog('info', '📊 更新分析数据完成');
 
           // 第3步：如果自动下注已启动，触发自动下注流程
@@ -1716,7 +1756,10 @@
         // 更新已知轮次ID和分析数据
         lastKnownRoundId.value = currentRoundId;
         if (!isNewRound) {
-          currentAnalysis.value = response.data.data;
+          currentAnalysis.value = {
+            predictions: response.data.data,
+            meta: response.data.meta
+          };
         }
       } else {
         // 更详细的错误信息
@@ -1726,9 +1769,11 @@
           addDebugLog('error', `❌ API返回失败: ${response.data.message || '未知原因'}`);
         } else if (!response.data.data) {
           addDebugLog('error', '❌ API响应中缺少data字段');
-        } else if (!response.data.data.meta) {
+        } else if (!Array.isArray(response.data.data)) {
+          addDebugLog('error', '❌ API响应中data字段不是数组');
+        } else if (!response.data.meta) {
           addDebugLog('error', '❌ API响应中缺少meta字段');
-        } else if (!response.data.data.meta.round_id) {
+        } else if (!response.data.meta.round_id) {
           addDebugLog('error', '❌ API响应中缺少round_id字段');
         } else {
           addDebugLog('error', '❌ 获取分析数据失败或数据格式错误 (未知原因)');
@@ -1767,18 +1812,21 @@
       addDebugLog('info', `📡 手动刷新API响应: status=${response.status}, success=${response.data?.success}`);
 
       if (response.data.success) {
-        currentAnalysis.value = response.data.data;
+        currentAnalysis.value = {
+          predictions: response.data.data,
+          meta: response.data.meta
+        };
         addDebugLog('success', '✅ 手动刷新分析数据成功');
 
         // 初始化轮次监控
-        if (response.data.data?.meta?.round_id && !lastKnownRoundId.value) {
-          lastKnownRoundId.value = response.data.data.meta.round_id;
+        if (response.data.meta?.round_id && !lastKnownRoundId.value) {
+          lastKnownRoundId.value = response.data.meta.round_id;
           addDebugLog('info', `🎮 初始化轮次监控: ${lastKnownRoundId.value}`);
         }
 
         // 记录获取到的数据信息
-        if (response.data.data?.predictions) {
-          addDebugLog('info', `🎯 手动刷新获取到${response.data.data.predictions.length}个预测`);
+        if (response.data.data && Array.isArray(response.data.data)) {
+          addDebugLog('info', `🎯 手动刷新获取到${response.data.data.length}个预测`);
         }
       } else {
         addDebugLog('error', `❌ 手动刷新失败: ${response.data.message || '未知原因'}`);
@@ -2074,7 +2122,8 @@
 
         const matches: any[] = [];
         // 模拟当前策略在历史数据上的表现
-        round.predictions.forEach((prediction: any) => {
+        round.predictions.forEach((rawPrediction: any) => {
+          const prediction = mapPredictionData(rawPrediction);
           const isMatch = evaluatePredictionMatch(prediction);
           if (isMatch) {
             const betAmount = calculateBetAmount(prediction);
@@ -2231,6 +2280,20 @@
         'info',
         `🎯 本地预测数据: ${hasPredictions ? `${currentAnalysis.value.predictions.length}条` : '不存在'}`
       );
+
+      // 测试数据映射
+      if (hasPredictions && currentAnalysis.value.predictions.length > 0) {
+        const samplePrediction = currentAnalysis.value.predictions[0];
+        const mappedPrediction = mapPredictionData(samplePrediction);
+        addDebugLog(
+          'info',
+          `🔄 数据映射测试 - 原始字段: rank_confidence=${samplePrediction.rank_confidence}, win_rate=${samplePrediction.win_rate}`
+        );
+        addDebugLog(
+          'info',
+          `🔄 数据映射测试 - 映射后: confidence=${mappedPrediction.confidence}, historical_accuracy=${mappedPrediction.historical_accuracy}`
+        );
+      }
 
       // 4. 检查数据库状态
       addDebugLog('info', '🗃️ 检查历史数据状态...');

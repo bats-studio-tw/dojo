@@ -48,7 +48,7 @@
               </div>
               <div class="flex justify-between">
                 <span>可用余额:</span>
-                <span class="text-green-400 font-semibold">${{ userInfo.available.toFixed(2) }}</span>
+                <span class="text-green-400 font-semibold">${{ userInfo.ojoValue.toFixed(2) }}</span>
               </div>
               <div class="flex justify-between">
                 <span>排名:</span>

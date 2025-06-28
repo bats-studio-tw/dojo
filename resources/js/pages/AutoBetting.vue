@@ -63,7 +63,7 @@
                 </div>
                 <div class="flex justify-between">
                   <span>可用余额:</span>
-                  <span class="text-green-400 font-semibold">${{ userInfo.available.toFixed(2) }}</span>
+                  <span class="text-green-400 font-semibold">${{ userInfo.ojoValue.toFixed(2) }}</span>
                 </div>
                 <div class="flex justify-between">
                   <span>排名:</span>
@@ -132,7 +132,7 @@
               <div v-if="currentAnalysis" class="text-sm text-gray-300 space-y-2">
                 <div class="flex justify-between">
                   <span>当前轮次:</span>
-                  <span class="text-purple-400 font-mono">{{ currentAnalysis.round_id }}</span>
+                  <span class="text-purple-400 font-mono">{{ currentAnalysis.meta?.round_id }}</span>
                 </div>
                 <div class="flex justify-between">
                   <span>游戏数量:</span>
@@ -381,19 +381,41 @@
 
               <!-- 一键执行按钮 -->
               <div class="text-center">
+                <!-- 余额不足警告 -->
+                <div
+                  v-if="strategyValidation && !strategyValidation.balance_sufficient"
+                  class="mb-4 border border-red-500/30 rounded-lg bg-red-500/10 p-3"
+                >
+                  <div class="flex items-center space-x-2">
+                    <span class="text-red-400">⚠️</span>
+                    <span class="text-sm text-red-400 font-medium">余额不足警告</span>
+                  </div>
+                  <div class="mt-1 text-xs text-gray-300">
+                    需要 ${{ strategyValidation.required_balance.toFixed(2) }}， 当前余额 ${{
+                      strategyValidation.actual_balance.toFixed(2)
+                    }}， 缺少 ${{
+                      (strategyValidation.required_balance - strategyValidation.actual_balance).toFixed(2)
+                    }}
+                  </div>
+                </div>
+
                 <n-button
                   v-if="strategyValidation.matches.length > 0"
                   @click="executeStrategyBetting"
                   :loading="executeLoading"
-                  :disabled="!currentUID || autoBettingStatus.is_running"
-                  type="success"
+                  :disabled="!currentUID || autoBettingStatus.is_running || !strategyValidation.balance_sufficient"
+                  :type="strategyValidation.balance_sufficient ? 'success' : 'error'"
                   size="large"
                   class="shadow-green-500/25 shadow-lg hover:shadow-green-500/40"
                 >
                   <template #icon>
-                    <span>🚀</span>
+                    <span>{{ strategyValidation.balance_sufficient ? '🚀' : '⚠️' }}</span>
                   </template>
-                  一键执行策略下注 ({{ strategyValidation.matches.length }}个)
+                  {{
+                    strategyValidation.balance_sufficient
+                      ? `一键执行策略下注 (${strategyValidation.matches.length}个)`
+                      : '余额不足，无法执行'
+                  }}
                 </n-button>
                 <div v-else class="text-center text-gray-400">
                   <NEmpty description="当前没有符合策略条件的游戏" />
@@ -1081,6 +1103,9 @@
     estimated_profit: number;
     risk_level: string;
     success_probability: number;
+    balance_sufficient: boolean;
+    required_balance: number;
+    actual_balance: number;
   } | null>(null);
 
   // 策略回测状态
@@ -1109,6 +1134,10 @@
 
   // 当前分析数据 (复用Dashboard的接口类型)
   const currentAnalysis = ref<any>(null);
+
+  // 轮次监控状态
+  const lastKnownRoundId = ref<string | null>(null);
+  const isMonitoringRounds = ref(false);
 
   // 加载状态
   const statusLoading = ref(false);
@@ -1220,12 +1249,19 @@
     if (totalMatchedValue > config.bankroll * 0.2) riskLevel = 'high';
     else if (totalMatchedValue > config.bankroll * 0.1) riskLevel = 'medium';
 
+    // 检查实际余额是否足够
+    const actualBalance = userInfo.value?.ojoValue || 0;
+    const balanceInsufficient = totalMatchedValue > actualBalance;
+
     strategyValidation.value = {
       matches,
       total_matched: matches.length,
       estimated_profit: estimatedProfit,
       risk_level: riskLevel,
-      success_probability: successProbability
+      success_probability: successProbability,
+      balance_sufficient: !balanceInsufficient,
+      required_balance: totalMatchedValue,
+      actual_balance: actualBalance
     };
   };
 
@@ -1409,6 +1445,68 @@
     { deep: true }
   );
 
+  // 监控游戏轮次变化并触发完整的自动下注流程
+  const checkRoundChange = async () => {
+    if (!isTokenValidated.value || !config.jwt_token) return;
+
+    try {
+      const response = await gameApi.getCurrentAnalysis();
+      if (response.data.success && response.data.data?.meta?.round_id) {
+        const currentRoundId = response.data.data.meta.round_id;
+        const isNewRound = lastKnownRoundId.value && lastKnownRoundId.value !== currentRoundId;
+
+        // 检测到轮次变化（新游戏开始）
+        if (isNewRound) {
+          console.log(`🎮 检测到新轮次开始: ${lastKnownRoundId.value} → ${currentRoundId}`);
+
+          // 第1步：更新余额（结算上一轮的盈亏）
+          try {
+            const userInfoResponse = await getUserInfo(config.jwt_token);
+            if (userInfoResponse.success && userInfoResponse.obj) {
+              const oldBalance = userInfo.value?.ojoValue || 0;
+              userInfo.value = userInfoResponse.obj;
+              localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
+
+              const newBalance = userInfo.value.ojoValue;
+              const balanceChange = newBalance - oldBalance;
+
+              console.log(
+                `💰 余额结算更新: $${oldBalance.toFixed(2)} → $${newBalance.toFixed(2)} (${balanceChange >= 0 ? '+' : ''}${balanceChange.toFixed(2)})`
+              );
+
+              // 如果有余额变化，显示提示
+              if (Math.abs(balanceChange) > 0.01) {
+                getMessageInstance()?.info(
+                  `🎲 游戏结算完成！余额变化: ${balanceChange >= 0 ? '+' : ''}$${balanceChange.toFixed(2)}`
+                );
+              }
+            }
+          } catch (error) {
+            console.warn('轮次变化时更新用户信息失败:', error);
+          }
+
+          // 第2步：更新分析数据
+          currentAnalysis.value = response.data.data;
+
+          // 第3步：如果自动下注已启动，记录新轮次开始
+          if (autoBettingStatus.value.is_running) {
+            console.log('🤖 自动下注已启动，新轮次开始，将通过定时器检查下注条件');
+          } else {
+            console.log('⏸️ 自动下注未启动，仅更新数据');
+          }
+        }
+
+        // 更新已知轮次ID和分析数据
+        lastKnownRoundId.value = currentRoundId;
+        if (!isNewRound) {
+          currentAnalysis.value = response.data.data;
+        }
+      }
+    } catch (error) {
+      console.error('检查轮次变化失败:', error);
+    }
+  };
+
   // 获取分析数据
   const fetchAnalysisData = async () => {
     analysisLoading.value = true;
@@ -1416,6 +1514,12 @@
       const response = await gameApi.getCurrentAnalysis();
       if (response.data.success) {
         currentAnalysis.value = response.data.data;
+
+        // 初始化轮次监控
+        if (response.data.data?.meta?.round_id && !lastKnownRoundId.value) {
+          lastKnownRoundId.value = response.data.data.meta.round_id;
+          console.log(`🎮 初始化轮次监控: ${lastKnownRoundId.value}`);
+        }
       } else {
         console.error('获取分析数据失败:', response.data.message);
       }
@@ -1472,6 +1576,19 @@
           success: true,
           result_data: betResponse.data.data
         });
+
+        // 下注成功后重新获取用户信息更新余额
+        try {
+          const userInfoResponse = await getUserInfo(jwtToken);
+          if (userInfoResponse.success && userInfoResponse.obj) {
+            userInfo.value = userInfoResponse.obj;
+            localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
+            console.log('下注后更新余额:', userInfo.value.ojoValue);
+          }
+        } catch (error) {
+          console.warn('下注后更新用户信息失败:', error);
+        }
+
         return true;
       } else {
         console.error('下注失败:', betResponse.data);
@@ -1556,6 +1673,17 @@
       if (response.data.success) {
         const { recommended_bets, round_id, jwt_token } = response.data.data;
 
+        // 检查实际余额是否足够
+        const totalBetAmount = recommended_bets.reduce((sum: number, bet: any) => sum + bet.bet_amount, 0);
+        const actualBalance = userInfo.value?.ojoValue || 0;
+
+        if (totalBetAmount > actualBalance) {
+          getMessageInstance()?.error(
+            `余额不足！需要 $${totalBetAmount.toFixed(2)}，当前余额 $${actualBalance.toFixed(2)}`
+          );
+          return;
+        }
+
         getMessageInstance()?.info('开始执行自动下注...');
 
         let successCount = 0;
@@ -1601,13 +1729,21 @@
       return;
     }
 
+    // 检查余额是否足够
+    if (!strategyValidation.value?.balance_sufficient) {
+      getMessageInstance()?.error(
+        `余额不足！需要 $${strategyValidation.value?.required_balance.toFixed(2)}，当前余额 $${strategyValidation.value?.actual_balance.toFixed(2)}`
+      );
+      return;
+    }
+
     executeLoading.value = true;
     try {
       getMessageInstance()?.info('开始执行策略下注...');
 
       let successCount = 0;
       let failCount = 0;
-      const roundId = currentAnalysis.value?.round_id;
+      const roundId = currentAnalysis.value?.meta?.round_id;
 
       if (!roundId) {
         getMessageInstance()?.error('无法获取当前轮次ID');
@@ -1752,6 +1888,66 @@
 
   const refreshAnalysis = () => fetchAnalysisData();
 
+  // 触发自动下注流程
+  const triggerAutomaticBetting = async (currentRoundId: string) => {
+    try {
+      // 重新验证策略
+      validateCurrentStrategy();
+
+      // 等待一小段时间让策略验证完成
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      if (strategyValidation.value?.matches.length && strategyValidation.value?.balance_sufficient) {
+        const totalBetAmount = strategyValidation.value.required_balance;
+        console.log(
+          `🎯 发现符合条件的下注机会: ${strategyValidation.value.matches.length}个游戏，总金额: $${totalBetAmount.toFixed(2)}`
+        );
+
+        getMessageInstance()?.info(`🤖 自动下注触发：发现${strategyValidation.value.matches.length}个符合条件的游戏`);
+
+        // 执行自动下注
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const match of strategyValidation.value.matches) {
+          try {
+            const betSuccess = await executeSingleBet(currentRoundId, match.symbol, match.bet_amount, config.jwt_token);
+            if (betSuccess) {
+              successCount++;
+              console.log(`✅ 自动下注成功: ${match.symbol} $${match.bet_amount}`);
+            } else {
+              failCount++;
+              console.log(`❌ 自动下注失败: ${match.symbol} $${match.bet_amount}`);
+            }
+          } catch (error) {
+            console.error(`自动下注出错 ${match.symbol}:`, error);
+            failCount++;
+          }
+        }
+
+        if (successCount > 0) {
+          getMessageInstance()?.success(`🎯 自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+        } else if (failCount > 0) {
+          getMessageInstance()?.error('🚫 自动下注全部失败');
+        }
+
+        // 更新状态
+        await loadStatus();
+      } else if (strategyValidation.value?.matches.length && !strategyValidation.value?.balance_sufficient) {
+        console.log('💸 发现下注机会但余额不足');
+        getMessageInstance()?.warning(
+          `💸 发现${strategyValidation.value.matches.length}个下注机会，但余额不足($${strategyValidation.value.required_balance.toFixed(2)})`
+        );
+      } else {
+        console.log('📊 当前轮次不符合下注条件');
+        getMessageInstance()?.info('📊 当前轮次暂无符合策略的下注机会');
+      }
+    } catch (error) {
+      console.error('自动下注流程执行失败:', error);
+      getMessageInstance()?.error('自动下注流程执行失败');
+    }
+  };
+
   // 重新验证Token
   const reconnectToken = () => {
     // 清除所有保存的验证状态
@@ -1807,6 +2003,14 @@
     // 刷新状态和数据
     loadStatus();
     fetchAnalysisData();
+
+    // 启动游戏轮次监控
+    if (!isMonitoringRounds.value) {
+      isMonitoringRounds.value = true;
+      setInterval(() => {
+        checkRoundChange();
+      }, 3000); // 3秒检查一次轮次变化
+    }
 
     // 初始化预测数据
     predictionStore.refreshAllPredictionData();
@@ -1874,13 +2078,20 @@
         // 初始化预测数据
         predictionStore.refreshAllPredictionData();
 
-        // 定时刷新状态和分析数据
+        // 启动游戏轮次监控（较高频率检查轮次变化）
+        if (!isMonitoringRounds.value) {
+          isMonitoringRounds.value = true;
+          setInterval(() => {
+            checkRoundChange();
+          }, 3000); // 3秒检查一次轮次变化
+        }
+
+        // 定时刷新状态和分析数据（较低频率）
         setInterval(() => {
           loadStatus();
-          fetchAnalysisData();
           // 定期刷新预测数据
           predictionStore.fetchCurrentAnalysis();
-        }, 5000);
+        }, 10000); // 10秒刷新一次状态
 
         // 预测历史数据刷新频率较低
         setInterval(() => {

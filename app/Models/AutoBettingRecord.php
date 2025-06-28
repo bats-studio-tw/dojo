@@ -10,6 +10,7 @@ class AutoBettingRecord extends Model
     use HasFactory;
 
     protected $fillable = [
+        'uid',
         'wallet_address',
         'round_id',
         'token_symbol',
@@ -42,11 +43,11 @@ class AutoBettingRecord extends Model
     }
 
     /**
-     * 根据钱包地址获取用户的下注统计
+     * 根据用户UID获取用户的下注统计
      */
-    public static function getUserStats(string $walletAddress): array
+    public static function getUserStats(string $uid): array
     {
-        $records = static::where('wallet_address', $walletAddress)->get();
+        $records = static::where('uid', $uid)->get();
 
         return [
             'total_bets' => $records->count(),
@@ -61,10 +62,10 @@ class AutoBettingRecord extends Model
     /**
      * 获取用户今日的下注统计
      */
-    public static function getTodayStats(string $walletAddress): array
+    public static function getTodayStats(string $uid): array
     {
         $today = now()->startOfDay();
-        $records = static::where('wallet_address', $walletAddress)
+        $records = static::where('uid', $uid)
             ->where('created_at', '>=', $today)
             ->get();
 

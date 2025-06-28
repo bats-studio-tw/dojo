@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { GetUserInfoResponse } from '@/types';
 
 // 创建axios实例
 const api = axios.create({
@@ -63,7 +64,7 @@ const dojoGameApi = axios.create({
 });
 
 // 获取用户信息的方法
-export const getUserInfo = async (jwtToken: string) => {
+export const getUserInfo = async (jwtToken: string): Promise<GetUserInfoResponse> => {
   try {
     const res = await dojoGameApi.get('ladders/me', {
       headers: {
@@ -87,17 +88,17 @@ export const getUserInfo = async (jwtToken: string) => {
 // 自动下注相关API
 export const autoBettingApi = {
   // 获取自动下注状态
-  getStatus: (walletAddress: string) => {
+  getStatus: (uid: string) => {
     return api.get('/auto-betting/status', {
-      params: { wallet_address: walletAddress }
+      params: { uid }
     });
   },
 
   // 启动/停止自动下注
-  toggle: (action: 'start' | 'stop', walletAddress: string) => {
+  toggle: (action: 'start' | 'stop', uid: string) => {
     return api.post('/auto-betting/toggle', {
       action,
-      wallet_address: walletAddress
+      uid
     });
   },
 
@@ -109,16 +110,16 @@ export const autoBettingApi = {
   },
 
   // 执行自动下注
-  execute: (walletAddress: string, config: any) => {
+  execute: (uid: string, config: any) => {
     return api.post('/auto-betting/execute', {
-      wallet_address: walletAddress,
+      uid,
       config
     });
   },
 
   // 记录下注结果
   recordResult: (data: {
-    wallet_address: string;
+    uid: string;
     round_id: string;
     token_symbol: string;
     amount: number;

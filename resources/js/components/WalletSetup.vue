@@ -7,24 +7,12 @@
       <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" size="large">
         <template #header>
           <div class="text-center">
-            <h2 class="text-2xl text-white font-bold">🔐 钱包验证</h2>
-            <p class="mt-1 text-sm text-gray-300">请输入您的钱包地址和JWT Token以开始使用自动下注功能</p>
+            <h2 class="text-2xl text-white font-bold">🔐 身份验证</h2>
+            <p class="mt-1 text-sm text-gray-300">请输入您的JWT Token以开始使用自动下注功能</p>
           </div>
         </template>
 
         <div class="space-y-6">
-          <!-- 钱包地址输入 -->
-          <div class="space-y-2">
-            <label class="text-sm text-gray-300 font-medium">钱包地址 *</label>
-            <n-input
-              v-model:value="form.wallet_address"
-              placeholder="请输入您的钱包地址 (如: 0x...)"
-              :disabled="loading"
-              @keydown.enter="validateAndProceed"
-            />
-            <div class="text-xs text-gray-400">用于记录和追踪您的自动下注历史</div>
-          </div>
-
           <!-- JWT Token输入 -->
           <div class="space-y-2">
             <label class="text-sm text-gray-300 font-medium">JWT Token *</label>
@@ -46,58 +34,62 @@
             </div>
           </div>
 
-          <!-- 用户资金信息 -->
-          <div v-if="userInfo" class="border border-green-500/20 rounded-lg bg-green-500/10 p-3">
-            <h4 class="mb-2 text-sm text-green-400 font-semibold">💰 账户资金</h4>
-            <div class="grid grid-cols-2 gap-2 text-xs">
+          <!-- 用户信息显示 -->
+          <div v-if="userInfo" class="rounded-lg border border-green-500/30 bg-green-500/10 p-4">
+            <div class="mb-2 flex items-center space-x-2">
+              <span class="text-lg">👤</span>
+              <span class="text-sm text-green-400 font-medium">用户信息</span>
+            </div>
+
+            <div class="space-y-2 text-sm text-gray-300">
               <div class="flex justify-between">
-                <span class="text-gray-400">OJO余额:</span>
-                <span class="text-green-400 font-bold">{{ userInfo.ojoValue?.toFixed(2) || '0.00' }}</span>
+                <span>用户ID:</span>
+                <span class="text-green-400 font-mono">{{ userInfo.uid }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-gray-400">可用资金:</span>
-                <span class="text-green-400 font-bold">{{ userInfo.available?.toFixed(2) || '0.00' }}</span>
+                <span>可用余额:</span>
+                <span class="text-green-400 font-semibold">${{ userInfo.available.toFixed(2) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-gray-400">排名百分比:</span>
-                <span class="text-yellow-400 font-medium">{{ userInfo.rankPercent || 'N/A' }}</span>
+                <span>排名:</span>
+                <span class="text-green-400">{{ userInfo.rankPercent }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-gray-400">排名分值:</span>
-                <span class="text-yellow-400 font-medium">{{ userInfo.rankValue || 'N/A' }}</span>
+                <span>OJO价值:</span>
+                <span class="text-green-400">${{ userInfo.ojoValue.toFixed(2) }}</span>
               </div>
             </div>
           </div>
 
-          <!-- 用户历史统计 (如果有) -->
-          <div
-            v-if="userStats && userStats.total_bets > 0"
-            class="border border-blue-500/20 rounded-lg bg-blue-500/10 p-3"
-          >
-            <h4 class="mb-2 text-sm text-blue-400 font-semibold">📊 下注历史记录</h4>
-            <div class="grid grid-cols-2 gap-2 text-xs">
-              <div class="flex justify-between">
-                <span class="text-gray-400">总下注次数:</span>
-                <span class="text-white font-medium">{{ userStats.total_bets }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">成功率:</span>
-                <span class="text-white font-medium">{{ userStats.success_rate.toFixed(1) }}%</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">总盈亏:</span>
-                <span class="font-medium" :class="userStats.total_profit_loss >= 0 ? 'text-green-400' : 'text-red-400'">
-                  ${{ userStats.total_profit_loss.toFixed(2) }}
-                </span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">今日盈亏:</span>
-                <span
-                  class="font-medium"
-                  :class="(todayStats?.today_profit_loss || 0) >= 0 ? 'text-green-400' : 'text-red-400'"
+          <!-- 用户资金信息 -->
+          <div v-if="userStats || todayStats" class="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
+            <div class="mb-2 flex items-center space-x-2">
+              <span class="text-lg">📊</span>
+              <span class="text-sm text-blue-400 font-medium">下注统计</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div v-if="userStats" class="space-y-1">
+                <div class="text-gray-400">总体统计</div>
+                <div class="text-blue-400">下注次数: {{ userStats.total_bets }}</div>
+                <div class="text-blue-400">成功率: {{ userStats.success_rate.toFixed(1) }}%</div>
+                <div
+                  class="font-semibold"
+                  :class="userStats.total_profit_loss >= 0 ? 'text-green-400' : 'text-red-400'"
                 >
-                  ${{ (todayStats?.today_profit_loss || 0).toFixed(2) }}
-                </span>
+                  总盈亏: ${{ userStats.total_profit_loss.toFixed(2) }}
+                </div>
+              </div>
+
+              <div v-if="todayStats" class="space-y-1">
+                <div class="text-gray-400">今日统计</div>
+                <div class="text-blue-400">今日下注: {{ todayStats.today_bets }}</div>
+                <div
+                  class="font-semibold"
+                  :class="todayStats.today_profit_loss >= 0 ? 'text-green-400' : 'text-red-400'"
+                >
+                  今日盈亏: ${{ todayStats.today_profit_loss.toFixed(2) }}
+                </div>
               </div>
             </div>
           </div>
@@ -107,18 +99,16 @@
             <n-button
               @click="validateAndProceed"
               :loading="loading"
-              :disabled="!form.wallet_address || !form.jwt_token"
+              :disabled="!form.jwt_token"
               type="primary"
               size="large"
               class="flex-1"
             >
-              {{ userStats && userStats.total_bets > 0 ? '继续使用' : '开始使用' }}
+              <template #icon>
+                <span>🚀</span>
+              </template>
+              {{ userInfo ? '进入控制台' : '验证Token' }}
             </n-button>
-          </div>
-
-          <!-- 免责声明 -->
-          <div class="border-t border-white/10 pt-4 text-xs text-gray-500">
-            <p>⚠️ 请确保您的JWT Token安全，不要与他人分享。所有下注操作将使用您提供的Token执行。</p>
           </div>
         </div>
       </NCard>
@@ -127,77 +117,45 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, watch, onMounted } from 'vue';
-  import { useMessage } from 'naive-ui';
-  import api, { getUserInfo } from '@/utils/api';
+  import { ref, defineProps, defineEmits } from 'vue';
+  import { NCard, NInput, NButton } from 'naive-ui';
+  import { getUserInfo } from '@/utils/api';
+  import type { UserInfo } from '@/types';
+  import api from '@/utils/api';
 
-  // Props
-  interface Props {
+  // Props和Events
+  defineProps<{
     visible: boolean;
-  }
+  }>();
 
-  defineProps<Props>();
-
-  // Emits
   const emit = defineEmits<{
     validated: [
       data: {
-        wallet_address: string;
+        uid: string;
         jwt_token: string;
         user_stats: any;
         today_stats: any;
-        user_info?: any;
+        user_info: UserInfo;
       }
     ];
   }>();
 
-  // 获取message实例
-  const getMessageInstance = () => {
-    try {
-      return useMessage();
-    } catch {
-      console.warn('Message provider not ready yet');
-      return null;
-    }
-  };
-
-  // 表单数据
+  // 响应式数据
+  const loading = ref(false);
+  const error = ref('');
   const form = ref({
-    wallet_address: '',
     jwt_token: ''
   });
 
-  // 状态
-  const loading = ref(false);
-  const error = ref('');
+  const userInfo = ref<UserInfo | null>(null);
   const userStats = ref<any>(null);
   const todayStats = ref<any>(null);
-  const userInfo = ref<any>(null);
 
-  // 从localStorage读取保存的数据
-  const loadSavedData = () => {
-    try {
-      const saved = localStorage.getItem('walletSetupData');
-      if (saved) {
-        const data = JSON.parse(saved);
-        form.value.wallet_address = data.wallet_address || '';
-        form.value.jwt_token = data.jwt_token || '';
-
-        // 如果有钱包地址，尝试获取统计信息
-        if (data.wallet_address) {
-          loadUserStats(data.wallet_address);
-        }
-      }
-    } catch (err) {
-      console.error('读取保存的数据失败:', err);
-    }
-  };
-
-  // 获取用户统计信息
-  const loadUserStats = async (walletAddress: string) => {
+  // 加载用户统计数据
+  const loadUserStats = async (uid: string) => {
     try {
       const response = await api.get('/auto-betting/user-stats', {
-        params: { wallet_address: walletAddress }
+        params: { uid }
       });
 
       if (response.data.success) {
@@ -211,8 +169,8 @@
 
   // 验证并继续
   const validateAndProceed = async () => {
-    if (!form.value.wallet_address || !form.value.jwt_token) {
-      error.value = '请填写所有必填字段';
+    if (!form.value.jwt_token) {
+      error.value = '请输入JWT Token';
       return;
     }
 
@@ -220,77 +178,47 @@
     error.value = '';
 
     try {
-      const response = await api.post('/auto-betting/validate-wallet', {
-        wallet_address: form.value.wallet_address,
-        jwt_token: form.value.jwt_token
-      });
+      // 获取用户信息（同时验证JWT Token）
+      const userInfoResponse = await getUserInfo(form.value.jwt_token);
 
-      if (response.data.success) {
-        console.log('钱包验证成功，响应数据:', response.data);
-
-        // 获取用户信息
-        try {
-          const userInfoResponse = await getUserInfo(form.value.jwt_token);
-          console.log('获取用户信息成功:', userInfoResponse);
-          userInfo.value = userInfoResponse.obj || userInfoResponse;
-        } catch (userInfoError) {
-          console.warn('获取用户信息失败，但继续验证流程:', userInfoError);
-        }
-
-        // 保存到localStorage
-        localStorage.setItem(
-          'walletSetupData',
-          JSON.stringify({
-            wallet_address: form.value.wallet_address,
-            jwt_token: form.value.jwt_token
-          })
-        );
-
-        const validatedData = {
-          wallet_address: form.value.wallet_address,
-          jwt_token: form.value.jwt_token,
-          user_stats: response.data.data.user_stats,
-          today_stats: response.data.data.today_stats,
-          user_info: userInfo.value
-        };
-
-        console.log('准备发送验证事件，数据:', validatedData);
-
-        getMessageInstance()?.success('验证成功！');
-
-        // 延迟一点发送事件，确保消息显示后再切换界面
-        setTimeout(() => {
-          console.log('发送验证成功事件...');
-          emit('validated', validatedData);
-        }, 500);
-      } else {
-        error.value = response.data.message || '验证失败';
+      if (!userInfoResponse.success || !userInfoResponse.obj) {
+        throw new Error('获取用户信息失败');
       }
+
+      userInfo.value = userInfoResponse.obj;
+
+      // 加载用户统计数据
+      await loadUserStats(userInfo.value.uid);
+
+      // 保存验证状态到localStorage
+      localStorage.setItem('tokenValidated', 'true');
+      localStorage.setItem('currentUID', userInfo.value.uid);
+      localStorage.setItem(
+        'tokenSetupData',
+        JSON.stringify({
+          jwt_token: form.value.jwt_token
+        })
+      );
+      localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
+
+      // 发送验证成功事件
+      emit('validated', {
+        uid: userInfo.value.uid,
+        jwt_token: form.value.jwt_token,
+        user_stats: userStats.value,
+        today_stats: todayStats.value,
+        user_info: userInfo.value
+      });
     } catch (err: any) {
       console.error('验证失败:', err);
-      error.value = err.response?.data?.message || '验证失败，请检查网络连接';
+      error.value = err.response?.data?.message || err.message || '验证失败，请检查JWT Token是否正确';
+      userInfo.value = null;
+      userStats.value = null;
+      todayStats.value = null;
     } finally {
       loading.value = false;
     }
   };
-
-  // 监听钱包地址变化，获取统计信息
-  watch(
-    () => form.value.wallet_address,
-    (newAddress) => {
-      if (newAddress && newAddress.length > 10) {
-        loadUserStats(newAddress);
-      } else {
-        userStats.value = null;
-        todayStats.value = null;
-      }
-    }
-  );
-
-  // 组件挂载时读取保存的数据
-  onMounted(() => {
-    loadSavedData();
-  });
 </script>
 
 <style scoped>

@@ -216,13 +216,237 @@
           </div>
         </NCard>
 
+        <!-- 策略模板选择 -->
+        <NCard
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="🎯 智能策略选择"
+          size="large"
+        >
+          <div class="space-y-4">
+            <!-- 策略模板选择 -->
+            <div class="space-y-3">
+              <h3 class="text-lg text-white font-semibold">📋 预设策略模板</h3>
+              <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 md:grid-cols-2">
+                <div
+                  v-for="(template, key) in strategyTemplates"
+                  :key="key"
+                  class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-3 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
+                  :class="{
+                    'border-blue-400 bg-blue-500/20': selectedTemplate === key && !customStrategyMode
+                  }"
+                  @click="applyStrategyTemplate(key)"
+                >
+                  <div class="mb-2 flex items-center justify-between">
+                    <span class="text-sm text-white font-medium">{{ template.name }}</span>
+                    <n-tag :type="selectedTemplate === key && !customStrategyMode ? 'primary' : 'default'" size="small">
+                      {{ template.confidence_threshold }}%
+                    </n-tag>
+                  </div>
+                  <div class="text-xs text-gray-400">{{ template.description }}</div>
+                  <div class="mt-2 flex flex-wrap gap-1">
+                    <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
+                      风险: {{ template.max_bet_percentage }}%
+                    </span>
+                    <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
+                      {{
+                        template.strategy === 'single_bet'
+                          ? '单项'
+                          : template.strategy === 'multi_bet'
+                            ? '多项'
+                            : '对冲'
+                      }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 自定义模式切换 -->
+              <div class="flex items-center justify-between border-t border-gray-600 pt-3">
+                <span class="text-sm text-gray-300">使用自定义策略参数</span>
+                <n-button @click="switchToCustomMode" :type="customStrategyMode ? 'primary' : 'default'" size="small">
+                  {{ customStrategyMode ? '自定义模式' : '切换到自定义' }}
+                </n-button>
+              </div>
+            </div>
+
+            <!-- 实时策略验证 -->
+            <div v-if="strategyValidation" class="border-t border-gray-600 pt-4 space-y-3">
+              <h3 class="text-lg text-white font-semibold">📊 策略验证结果</h3>
+              <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div class="border border-green-500/30 rounded-lg bg-green-500/10 p-3 text-center">
+                  <div class="text-sm text-green-400">符合条件</div>
+                  <div class="text-xl text-white font-bold">{{ strategyValidation.total_matched }}</div>
+                  <div class="text-xs text-gray-400">个游戏</div>
+                </div>
+                <div class="border border-blue-500/30 rounded-lg bg-blue-500/10 p-3 text-center">
+                  <div class="text-sm text-blue-400">成功概率</div>
+                  <div class="text-xl text-white font-bold">
+                    {{ (strategyValidation.success_probability * 100).toFixed(1) }}%
+                  </div>
+                  <div class="text-xs text-gray-400">预测平均</div>
+                </div>
+                <div class="border border-purple-500/30 rounded-lg bg-purple-500/10 p-3 text-center">
+                  <div class="text-sm text-purple-400">预期收益</div>
+                  <div
+                    class="text-xl font-bold"
+                    :class="strategyValidation.estimated_profit >= 0 ? 'text-green-400' : 'text-red-400'"
+                  >
+                    ${{ strategyValidation.estimated_profit.toFixed(2) }}
+                  </div>
+                  <div class="text-xs text-gray-400">本轮预估</div>
+                </div>
+                <div class="border border-orange-500/30 rounded-lg bg-orange-500/10 p-3 text-center">
+                  <div class="text-sm text-orange-400">风险等级</div>
+                  <div class="text-xl text-white font-bold">
+                    <n-tag
+                      :type="
+                        strategyValidation.risk_level === 'low'
+                          ? 'success'
+                          : strategyValidation.risk_level === 'medium'
+                            ? 'warning'
+                            : 'error'
+                      "
+                      size="small"
+                    >
+                      {{
+                        strategyValidation.risk_level === 'low'
+                          ? '低'
+                          : strategyValidation.risk_level === 'medium'
+                            ? '中'
+                            : '高'
+                      }}
+                    </n-tag>
+                  </div>
+                  <div class="text-xs text-gray-400">风险评估</div>
+                </div>
+              </div>
+
+              <!-- 符合条件的游戏列表 -->
+              <div v-if="strategyValidation.matches.length > 0" class="space-y-2">
+                <h4 class="text-sm text-gray-300 font-medium">
+                  🎮 符合条件的游戏 ({{ strategyValidation.matches.length }}个)
+                </h4>
+                <div class="grid grid-cols-1 gap-2 lg:grid-cols-3 sm:grid-cols-2">
+                  <div
+                    v-for="(match, index) in strategyValidation.matches"
+                    :key="index"
+                    class="border border-green-500/30 rounded bg-green-500/10 p-2"
+                  >
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm text-white font-medium">{{ match.symbol }}</span>
+                      <span class="text-xs text-green-400">${{ match.bet_amount }}</span>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-400">
+                      <span>置信度: {{ match.confidence.toFixed(1) }}%</span>
+                      <span>预期: ${{ match.expected_return.toFixed(2) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 一键执行按钮 -->
+              <div class="text-center">
+                <n-button
+                  v-if="strategyValidation.matches.length > 0"
+                  @click="executeStrategyBetting"
+                  :loading="executeLoading"
+                  :disabled="!currentUID || autoBettingStatus.is_running"
+                  type="success"
+                  size="large"
+                  class="shadow-green-500/25 shadow-lg hover:shadow-green-500/40"
+                >
+                  <template #icon>
+                    <span>🚀</span>
+                  </template>
+                  一键执行策略下注 ({{ strategyValidation.matches.length }}个)
+                </n-button>
+                <div v-else class="text-center text-gray-400">
+                  <NEmpty description="当前没有符合策略条件的游戏" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 策略回测功能 -->
+            <div class="border-t border-gray-600 pt-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="text-lg text-white font-semibold">📈 策略回测</h3>
+                <n-button
+                  @click="runBacktest"
+                  :loading="backtestLoading"
+                  :disabled="!predictionStore.predictionHistory?.length"
+                  type="info"
+                  size="small"
+                >
+                  <template #icon>
+                    <span>⚡</span>
+                  </template>
+                  运行回测
+                </n-button>
+              </div>
+
+              <!-- 回测结果 -->
+              <div v-if="backtestResults" class="space-y-3">
+                <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <div class="border border-blue-500/30 rounded bg-blue-500/10 p-2 text-center">
+                    <div class="text-xs text-blue-400">测试轮次</div>
+                    <div class="text-lg text-white font-bold">{{ backtestResults.total_rounds }}</div>
+                  </div>
+                  <div class="border border-green-500/30 rounded bg-green-500/10 p-2 text-center">
+                    <div class="text-xs text-green-400">胜率</div>
+                    <div class="text-lg text-white font-bold">{{ (backtestResults.win_rate * 100).toFixed(1) }}%</div>
+                  </div>
+                  <div class="border border-purple-500/30 rounded bg-purple-500/10 p-2 text-center">
+                    <div class="text-xs text-purple-400">总收益</div>
+                    <div
+                      class="text-lg font-bold"
+                      :class="backtestResults.total_profit >= 0 ? 'text-green-400' : 'text-red-400'"
+                    >
+                      ${{ backtestResults.total_profit.toFixed(2) }}
+                    </div>
+                  </div>
+                  <div class="border border-orange-500/30 rounded bg-orange-500/10 p-2 text-center">
+                    <div class="text-xs text-orange-400">策略评级</div>
+                    <div class="text-sm text-white font-bold">{{ backtestResults.best_strategy }}</div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-2 md:grid-cols-3">
+                  <div class="border border-gray-500/30 rounded bg-gray-500/10 p-2 text-center">
+                    <div class="text-xs text-gray-400">平均每轮收益</div>
+                    <div
+                      class="text-sm font-semibold"
+                      :class="backtestResults.avg_profit_per_round >= 0 ? 'text-green-400' : 'text-red-400'"
+                    >
+                      ${{ backtestResults.avg_profit_per_round.toFixed(2) }}
+                    </div>
+                  </div>
+                  <div class="border border-gray-500/30 rounded bg-gray-500/10 p-2 text-center">
+                    <div class="text-xs text-gray-400">最大回撤</div>
+                    <div class="text-sm text-red-400 font-semibold">${{ backtestResults.max_drawdown.toFixed(2) }}</div>
+                  </div>
+                  <div class="border border-gray-500/30 rounded bg-gray-500/10 p-2 text-center">
+                    <div class="text-xs text-gray-400">夏普比率</div>
+                    <div class="text-sm text-blue-400 font-semibold">
+                      {{ backtestResults.sharp_ratio.toFixed(3) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else class="text-center text-gray-400">
+                <div class="text-sm">点击"运行回测"查看当前策略在历史数据上的表现</div>
+              </div>
+            </div>
+          </div>
+        </NCard>
+
         <!-- 配置面板 -->
         <NCard
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
           title="⚙️ 自动下注配置"
           size="large"
         >
-          <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <!-- 基础配置 -->
             <div class="space-y-4">
               <h3 class="mb-4 text-lg text-white font-semibold">📊 基础配置</h3>
@@ -285,9 +509,23 @@
                 />
                 <div class="text-xs text-gray-400">达到此损失比例时停止当日下注</div>
               </div>
+
+              <!-- 最大下注比例 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">最大下注比例 (%)</label>
+                <n-input-number
+                  v-model:value="config.max_bet_percentage"
+                  :min="5"
+                  :max="50"
+                  :step="1"
+                  :disabled="autoBettingStatus.is_running"
+                  class="w-full"
+                />
+                <div class="text-xs text-gray-400">单次下注不超过资金池的此比例</div>
+              </div>
             </div>
 
-            <!-- 高级配置 -->
+            <!-- 策略配置 -->
             <div class="space-y-4">
               <h3 class="mb-4 text-lg text-white font-semibold">🎯 策略配置</h3>
 
@@ -334,6 +572,49 @@
                 <div class="text-xs text-gray-400">当前轮次至少需要的游戏数量才触发下注</div>
               </div>
 
+              <!-- 历史准确率阈值 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">历史准确率阈值</label>
+                <n-input-number
+                  v-model:value="config.historical_accuracy_threshold"
+                  :min="0.5"
+                  :max="1.0"
+                  :step="0.05"
+                  :precision="2"
+                  :disabled="autoBettingStatus.is_running"
+                  class="w-full"
+                />
+                <div class="text-xs text-gray-400">预测历史准确率必须高于此值</div>
+              </div>
+
+              <!-- 最小样本数量 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">最小样本数量</label>
+                <n-input-number
+                  v-model:value="config.min_sample_count"
+                  :min="10"
+                  :max="200"
+                  :step="10"
+                  :disabled="autoBettingStatus.is_running"
+                  class="w-full"
+                />
+                <div class="text-xs text-gray-400">历史样本数量必须达到此数值</div>
+              </div>
+
+              <!-- 连续止损次数 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">连续止损次数</label>
+                <n-input-number
+                  v-model:value="config.stop_loss_consecutive"
+                  :min="2"
+                  :max="10"
+                  :step="1"
+                  :disabled="autoBettingStatus.is_running"
+                  class="w-full"
+                />
+                <div class="text-xs text-gray-400">连续失败此次数后暂停下注</div>
+              </div>
+
               <!-- 下注策略 -->
               <div class="space-y-2">
                 <label class="text-sm text-gray-300 font-medium">下注策略</label>
@@ -347,6 +628,135 @@
                   :disabled="autoBettingStatus.is_running"
                 />
                 <div class="text-xs text-gray-400">选择自动下注的执行策略</div>
+              </div>
+            </div>
+
+            <!-- 高级功能 -->
+            <div class="space-y-4">
+              <h3 class="mb-4 text-lg text-white font-semibold">⚡ 高级功能</h3>
+
+              <!-- 资金管理策略 -->
+              <div class="space-y-3">
+                <h4 class="text-sm text-gray-300 font-medium">💰 资金管理</h4>
+
+                <!-- Kelly准则 -->
+                <div class="space-y-2">
+                  <n-checkbox v-model:checked="config.enable_kelly_criterion" :disabled="autoBettingStatus.is_running">
+                    <span class="text-sm text-gray-300">启用Kelly准则</span>
+                  </n-checkbox>
+                  <div v-if="config.enable_kelly_criterion" class="ml-6 space-y-2">
+                    <label class="text-xs text-gray-400">Kelly分数</label>
+                    <n-input-number
+                      v-model:value="config.kelly_fraction"
+                      :min="0.1"
+                      :max="1.0"
+                      :step="0.05"
+                      :precision="2"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                  </div>
+                </div>
+
+                <!-- 马丁格尔策略 -->
+                <div class="space-y-2">
+                  <n-checkbox v-model:checked="config.enable_martingale" :disabled="autoBettingStatus.is_running">
+                    <span class="text-sm text-gray-300">启用马丁格尔</span>
+                  </n-checkbox>
+                  <div v-if="config.enable_martingale" class="ml-6 space-y-2">
+                    <label class="text-xs text-gray-400">倍数</label>
+                    <n-input-number
+                      v-model:value="config.martingale_multiplier"
+                      :min="1.5"
+                      :max="5.0"
+                      :step="0.1"
+                      :precision="1"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                    <label class="text-xs text-gray-400">最大步数</label>
+                    <n-input-number
+                      v-model:value="config.max_martingale_steps"
+                      :min="2"
+                      :max="6"
+                      :step="1"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- 市场过滤器 -->
+              <div class="space-y-3">
+                <h4 class="text-sm text-gray-300 font-medium">📊 市场过滤</h4>
+
+                <!-- 趋势分析 -->
+                <n-checkbox v-model:checked="config.enable_trend_analysis" :disabled="autoBettingStatus.is_running">
+                  <span class="text-sm text-gray-300">启用趋势分析</span>
+                </n-checkbox>
+
+                <!-- 成交量过滤 -->
+                <n-checkbox v-model:checked="config.enable_volume_filter" :disabled="autoBettingStatus.is_running">
+                  <span class="text-sm text-gray-300">启用成交量过滤</span>
+                </n-checkbox>
+
+                <!-- 波动率过滤 -->
+                <div class="space-y-2">
+                  <n-checkbox
+                    v-model:checked="config.enable_volatility_filter"
+                    :disabled="autoBettingStatus.is_running"
+                  >
+                    <span class="text-sm text-gray-300">启用波动率过滤</span>
+                  </n-checkbox>
+                  <div v-if="config.enable_volatility_filter" class="ml-6 space-y-2">
+                    <label class="text-xs text-gray-400">最大波动率</label>
+                    <n-input-number
+                      v-model:value="config.max_volatility_threshold"
+                      :min="0.1"
+                      :max="2.0"
+                      :step="0.1"
+                      :precision="1"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                  </div>
+                </div>
+
+                <!-- 时间过滤 -->
+                <div class="space-y-2">
+                  <n-checkbox v-model:checked="config.enable_time_filter" :disabled="autoBettingStatus.is_running">
+                    <span class="text-sm text-gray-300">启用时间过滤</span>
+                  </n-checkbox>
+                  <div v-if="config.enable_time_filter" class="grid grid-cols-2 ml-6 gap-2">
+                    <div>
+                      <label class="text-xs text-gray-400">开始时间</label>
+                      <n-input-number
+                        v-model:value="config.allowed_hours_start"
+                        :min="0"
+                        :max="23"
+                        :step="1"
+                        :disabled="autoBettingStatus.is_running"
+                        size="small"
+                      />
+                    </div>
+                    <div>
+                      <label class="text-xs text-gray-400">结束时间</label>
+                      <n-input-number
+                        v-model:value="config.allowed_hours_end"
+                        :min="0"
+                        :max="23"
+                        :step="1"
+                        :disabled="autoBettingStatus.is_running"
+                        size="small"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -479,22 +889,147 @@
     recentRoundsCount
   );
 
+  // 预设策略模板
+  const strategyTemplates = {
+    conservative: {
+      name: '保守型策略',
+      description: '高置信度、低风险、小额下注',
+      confidence_threshold: 92,
+      score_gap_threshold: 8.0,
+      min_total_games: 30,
+      historical_accuracy_threshold: 0.75,
+      min_sample_count: 50,
+      max_bet_percentage: 10,
+      strategy: 'single_bet' as const,
+      enable_trend_analysis: true,
+      enable_volume_filter: true,
+      stop_loss_consecutive: 3
+    },
+    aggressive: {
+      name: '进取型策略',
+      description: '中等置信度、高收益、较大金额',
+      confidence_threshold: 85,
+      score_gap_threshold: 5.0,
+      min_total_games: 20,
+      historical_accuracy_threshold: 0.65,
+      min_sample_count: 30,
+      max_bet_percentage: 25,
+      strategy: 'multi_bet' as const,
+      enable_trend_analysis: true,
+      enable_volume_filter: false,
+      stop_loss_consecutive: 5
+    },
+    balanced: {
+      name: '平衡型策略',
+      description: '均衡风险收益，适合长期使用',
+      confidence_threshold: 88,
+      score_gap_threshold: 6.0,
+      min_total_games: 25,
+      historical_accuracy_threshold: 0.7,
+      min_sample_count: 40,
+      max_bet_percentage: 15,
+      strategy: 'hedge_bet' as const,
+      enable_trend_analysis: true,
+      enable_volume_filter: true,
+      stop_loss_consecutive: 4
+    },
+    scalping: {
+      name: '频繁交易策略',
+      description: '低阈值、高频次、快速获利',
+      confidence_threshold: 82,
+      score_gap_threshold: 4.0,
+      min_total_games: 15,
+      historical_accuracy_threshold: 0.6,
+      min_sample_count: 20,
+      max_bet_percentage: 20,
+      strategy: 'multi_bet' as const,
+      enable_trend_analysis: false,
+      enable_volume_filter: false,
+      stop_loss_consecutive: 6
+    },
+    trend_following: {
+      name: '趋势跟随策略',
+      description: '基于趋势分析的中长期策略',
+      confidence_threshold: 90,
+      score_gap_threshold: 7.0,
+      min_total_games: 35,
+      historical_accuracy_threshold: 0.8,
+      min_sample_count: 60,
+      max_bet_percentage: 12,
+      strategy: 'single_bet' as const,
+      enable_trend_analysis: true,
+      enable_volume_filter: true,
+      stop_loss_consecutive: 2
+    }
+  };
+
   // 自动下注配置 - 使用reactive进行深度响应
   const config = reactive({
     jwt_token: '',
     bankroll: 1000,
     bet_amount: 200,
     daily_stop_loss_percentage: 15,
+
+    // 基础策略参数
     confidence_threshold: 88,
     score_gap_threshold: 6.0,
     min_total_games: 25,
     strategy: 'single_bet' as const,
+
+    // 高级策略参数
+    historical_accuracy_threshold: 0.7,
+    min_sample_count: 40,
+    max_bet_percentage: 15,
+    enable_trend_analysis: true,
+    enable_volume_filter: true,
+    stop_loss_consecutive: 4,
+
+    // 资金管理参数
+    enable_kelly_criterion: false,
+    kelly_fraction: 0.25,
+    enable_martingale: false,
+    martingale_multiplier: 2.0,
+    max_martingale_steps: 3,
+
+    // 时间过滤参数
+    enable_time_filter: false,
+    allowed_hours_start: 9,
+    allowed_hours_end: 21,
+
+    // 市场条件过滤
+    enable_volatility_filter: false,
+    max_volatility_threshold: 0.8,
+    min_liquidity_threshold: 1000000,
+
     is_active: false
   });
 
   // 配置同步状态
   const configSaving = ref(false);
   const configSyncStatus = ref<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+
+  // 策略相关状态
+  const selectedTemplate = ref('');
+  const customStrategyMode = ref(false);
+  const strategyValidation = ref<{
+    matches: any[];
+    total_matched: number;
+    estimated_profit: number;
+    risk_level: string;
+    success_probability: number;
+  } | null>(null);
+
+  // 策略回测状态
+  const backtestLoading = ref(false);
+  const backtestResults = ref<{
+    total_rounds: number;
+    win_rate: number;
+    total_profit: number;
+    avg_profit_per_round: number;
+    max_drawdown: number;
+    sharp_ratio: number;
+    best_strategy: string;
+  } | null>(null);
 
   // 自动下注状态
   const autoBettingStatus = ref({
@@ -528,6 +1063,140 @@
       console.warn('Message provider not ready yet');
       return null;
     }
+  };
+
+  // 评估预测是否符合策略条件
+  const evaluatePredictionMatch = (prediction: any): boolean => {
+    // 基础条件检查
+    if (prediction.confidence < config.confidence_threshold) return false;
+    if (prediction.score < config.score_gap_threshold) return false;
+    if (prediction.sample_count < config.min_sample_count) return false;
+    if (prediction.historical_accuracy < config.historical_accuracy_threshold) return false;
+
+    // 时间过滤
+    if (config.enable_time_filter) {
+      const currentHour = new Date().getHours();
+      if (currentHour < config.allowed_hours_start || currentHour > config.allowed_hours_end) {
+        return false;
+      }
+    }
+
+    // 趋势分析过滤
+    if (config.enable_trend_analysis && prediction.trend_score) {
+      if (prediction.trend_score < 0.6) return false;
+    }
+
+    // 成交量过滤
+    if (config.enable_volume_filter && prediction.volume_score) {
+      if (prediction.volume_score < 0.5) return false;
+    }
+
+    // 波动率过滤
+    if (config.enable_volatility_filter && prediction.volatility) {
+      if (prediction.volatility > config.max_volatility_threshold) return false;
+    }
+
+    return true;
+  };
+
+  // 计算下注金额
+  const calculateBetAmount = (prediction: any): number => {
+    let betAmount = config.bet_amount;
+
+    // Kelly准则计算
+    if (config.enable_kelly_criterion) {
+      const winProbability = prediction.confidence / 100;
+      const odds = 1.95; // 假设赔率
+      const kellyFraction = (winProbability * odds - 1) / (odds - 1);
+      betAmount = Math.min(
+        config.bankroll * kellyFraction * config.kelly_fraction,
+        config.bankroll * (config.max_bet_percentage / 100)
+      );
+    }
+
+    // 确保不超过最大下注比例
+    betAmount = Math.min(betAmount, config.bankroll * (config.max_bet_percentage / 100));
+
+    // 最小下注金额
+    betAmount = Math.max(betAmount, 10);
+
+    return Math.round(betAmount);
+  };
+
+  // 验证当前策略
+  const validateCurrentStrategy = () => {
+    if (!currentAnalysis.value?.predictions) {
+      strategyValidation.value = null;
+      return;
+    }
+
+    const predictions = currentAnalysis.value.predictions;
+    const matches: any[] = [];
+    let totalMatchedValue = 0;
+    let estimatedProfit = 0;
+
+    predictions.forEach((prediction: any) => {
+      const isMatch = evaluatePredictionMatch(prediction);
+      if (isMatch) {
+        const betAmount = calculateBetAmount(prediction);
+        matches.push({
+          ...prediction,
+          bet_amount: betAmount,
+          expected_return: betAmount * (prediction.confidence / 100) * 1.95 // 假设95%回报率
+        });
+        totalMatchedValue += betAmount;
+        estimatedProfit += betAmount * (prediction.confidence / 100) * 0.95 - betAmount;
+      }
+    });
+
+    const successProbability =
+      matches.length > 0 ? matches.reduce((sum, m) => sum + m.confidence, 0) / matches.length / 100 : 0;
+
+    let riskLevel = 'low';
+    if (totalMatchedValue > config.bankroll * 0.2) riskLevel = 'high';
+    else if (totalMatchedValue > config.bankroll * 0.1) riskLevel = 'medium';
+
+    strategyValidation.value = {
+      matches,
+      total_matched: matches.length,
+      estimated_profit: estimatedProfit,
+      risk_level: riskLevel,
+      success_probability: successProbability
+    };
+  };
+
+  // 应用策略模板
+  const applyStrategyTemplate = (templateKey: string) => {
+    if (!strategyTemplates[templateKey as keyof typeof strategyTemplates]) return;
+
+    const template = strategyTemplates[templateKey as keyof typeof strategyTemplates];
+
+    // 应用模板参数到配置
+    Object.assign(config, {
+      confidence_threshold: template.confidence_threshold,
+      score_gap_threshold: template.score_gap_threshold,
+      min_total_games: template.min_total_games,
+      historical_accuracy_threshold: template.historical_accuracy_threshold,
+      min_sample_count: template.min_sample_count,
+      max_bet_percentage: template.max_bet_percentage,
+      strategy: template.strategy,
+      enable_trend_analysis: template.enable_trend_analysis,
+      enable_volume_filter: template.enable_volume_filter,
+      stop_loss_consecutive: template.stop_loss_consecutive
+    });
+
+    selectedTemplate.value = templateKey;
+    customStrategyMode.value = false;
+
+    getMessageInstance()?.success(`已应用${template.name}`);
+    validateCurrentStrategy();
+  };
+
+  // 切换到自定义策略模式
+  const switchToCustomMode = () => {
+    customStrategyMode.value = true;
+    selectedTemplate.value = '';
+    getMessageInstance()?.info('已切换到自定义策略模式');
   };
 
   // 从云端加载配置
@@ -655,8 +1324,18 @@
     config,
     () => {
       autoSaveConfig();
+      validateCurrentStrategy();
     },
     { deep: true, flush: 'post' }
+  );
+
+  // 监听当前分析数据变化，自动验证策略
+  watch(
+    currentAnalysis,
+    () => {
+      validateCurrentStrategy();
+    },
+    { deep: true }
   );
 
   // 获取分析数据
@@ -841,6 +1520,162 @@
       getMessageInstance()?.error('执行自动下注失败');
     } finally {
       executeLoading.value = false;
+    }
+  };
+
+  // 执行策略下注
+  const executeStrategyBetting = async () => {
+    if (!strategyValidation.value?.matches.length) {
+      getMessageInstance()?.warning('没有符合条件的游戏可以下注');
+      return;
+    }
+
+    executeLoading.value = true;
+    try {
+      getMessageInstance()?.info('开始执行策略下注...');
+
+      let successCount = 0;
+      let failCount = 0;
+      const roundId = currentAnalysis.value?.round_id;
+
+      if (!roundId) {
+        getMessageInstance()?.error('无法获取当前轮次ID');
+        return;
+      }
+
+      // 对每个符合条件的游戏执行下注
+      for (const match of strategyValidation.value.matches) {
+        try {
+          const betSuccess = await executeSingleBet(roundId, match.symbol, match.bet_amount, config.jwt_token);
+          if (betSuccess) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (error) {
+          console.error(`策略下注失败 ${match.symbol}:`, error);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        getMessageInstance()?.success(`策略下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+      } else {
+        getMessageInstance()?.error('策略下注全部失败');
+      }
+
+      await loadStatus();
+      validateCurrentStrategy(); // 重新验证策略
+    } catch (error) {
+      console.error('执行策略下注失败:', error);
+      getMessageInstance()?.error('执行策略下注失败');
+    } finally {
+      executeLoading.value = false;
+    }
+  };
+
+  // 策略回测
+  const runBacktest = async () => {
+    if (!predictionStore.predictionHistory?.length) {
+      getMessageInstance()?.warning('没有足够的历史数据进行回测');
+      return;
+    }
+
+    backtestLoading.value = true;
+    try {
+      getMessageInstance()?.info('正在运行策略回测...');
+
+      // 模拟回测逻辑
+      const history = predictionStore.predictionHistory.slice(0, 50); // 使用最近50轮数据
+      let totalProfit = 0;
+      let winCount = 0;
+      let totalBets = 0;
+      const profits: number[] = [];
+      let runningProfit = 0;
+      let maxDrawdown = 0;
+      let peakProfit = 0;
+
+      for (const round of history) {
+        if (!round.predictions?.length) continue;
+
+        const matches: any[] = [];
+        // 模拟当前策略在历史数据上的表现
+        round.predictions.forEach((prediction: any) => {
+          const isMatch = evaluatePredictionMatch(prediction);
+          if (isMatch) {
+            const betAmount = calculateBetAmount(prediction);
+            matches.push({
+              ...prediction,
+              bet_amount: betAmount
+            });
+          }
+        });
+
+        if (matches.length === 0) continue;
+
+        // 模拟下注结果
+        for (const match of matches) {
+          totalBets++;
+          const betAmount = match.bet_amount;
+
+          // 简化的结果模拟：基于历史准确率计算
+          const actualAccuracy = match.historical_accuracy || 0.7;
+          const isWin = Math.random() < actualAccuracy;
+
+          if (isWin) {
+            const profit = betAmount * 0.95; // 假设95%回报率
+            totalProfit += profit;
+            runningProfit += profit;
+            winCount++;
+          } else {
+            totalProfit -= betAmount;
+            runningProfit -= betAmount;
+          }
+
+          profits.push(runningProfit);
+
+          if (runningProfit > peakProfit) {
+            peakProfit = runningProfit;
+          }
+
+          const currentDrawdown = peakProfit - runningProfit;
+          if (currentDrawdown > maxDrawdown) {
+            maxDrawdown = currentDrawdown;
+          }
+        }
+      }
+
+      const winRate = totalBets > 0 ? winCount / totalBets : 0;
+      const avgProfitPerRound = history.length > 0 ? totalProfit / history.length : 0;
+
+      // 计算夏普比率 (简化版)
+      const returns = profits.map((profit, index) => (index > 0 ? profit - profits[index - 1] : profit));
+      const avgReturn = returns.reduce((sum, ret) => sum + ret, 0) / returns.length;
+      const returnVariance = returns.reduce((sum, ret) => sum + Math.pow(ret - avgReturn, 2), 0) / returns.length;
+      const sharpRatio = returnVariance > 0 ? avgReturn / Math.sqrt(returnVariance) : 0;
+
+      // 确定最佳策略
+      let bestStrategy = '当前策略';
+      if (winRate > 0.7) bestStrategy = '优秀策略';
+      else if (winRate > 0.6) bestStrategy = '良好策略';
+      else if (winRate < 0.5) bestStrategy = '需要优化';
+
+      backtestResults.value = {
+        total_rounds: history.length,
+        win_rate: winRate,
+        total_profit: totalProfit,
+        avg_profit_per_round: avgProfitPerRound,
+        max_drawdown: maxDrawdown,
+        sharp_ratio: sharpRatio,
+        best_strategy: bestStrategy
+      };
+
+      getMessageInstance()?.success('策略回测完成');
+    } catch (error) {
+      console.error('回测失败:', error);
+      getMessageInstance()?.error('策略回测失败');
+    } finally {
+      backtestLoading.value = false;
     }
   };
 

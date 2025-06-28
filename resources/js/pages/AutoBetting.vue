@@ -807,7 +807,8 @@
                   :options="[
                     { label: '单项下注 - 只下注最高置信度选项', value: 'single_bet' },
                     { label: '多项下注 - 下注所有符合条件的选项', value: 'multi_bet' },
-                    { label: '对冲下注 - 下注前两个最高置信度选项', value: 'hedge_bet' }
+                    { label: '对冲下注 - 下注前两个最高置信度选项', value: 'hedge_bet' },
+                    { label: '指定排名下注 - 每局自动下注预测前几名', value: 'rank_betting' }
                   ]"
                   :disabled="autoBettingStatus.is_running"
                 />
@@ -818,6 +819,105 @@
             <!-- 高级功能 -->
             <div class="space-y-4">
               <h3 class="mb-4 text-lg text-white font-semibold">⚡ 高级功能</h3>
+
+              <!-- 指定排名下注配置 -->
+              <div v-if="config.strategy === 'rank_betting'" class="space-y-3">
+                <h4 class="text-sm text-gray-300 font-medium">🎯 指定排名下注设置</h4>
+
+                <!-- 启用的排名选择 -->
+                <div class="space-y-2">
+                  <label class="text-sm text-gray-300 font-medium">选择要下注的排名</label>
+                  <div class="flex flex-wrap gap-2">
+                    <n-checkbox
+                      v-for="rank in Array.from({ length: config.rank_betting_max_ranks }, (_, i) => i + 1)"
+                      :key="rank"
+                      :checked="config.rank_betting_enabled_ranks.includes(rank)"
+                      @update:checked="(checked: boolean) => toggleRankBetting(rank, checked)"
+                      :disabled="autoBettingStatus.is_running"
+                    >
+                      <span class="text-sm text-gray-300">第{{ rank }}名</span>
+                    </n-checkbox>
+                  </div>
+                  <div class="text-xs text-gray-400">已选择: {{ config.rank_betting_enabled_ranks.join('、') }}名</div>
+                </div>
+
+                <!-- 下注金额设置模式 -->
+                <div class="space-y-2">
+                  <n-checkbox
+                    v-model:checked="config.rank_betting_different_amounts"
+                    :disabled="autoBettingStatus.is_running"
+                  >
+                    <span class="text-sm text-gray-300">为不同排名设置不同金额</span>
+                  </n-checkbox>
+                </div>
+
+                <!-- 统一金额设置 -->
+                <div v-if="!config.rank_betting_different_amounts" class="space-y-2">
+                  <label class="text-sm text-gray-300 font-medium">每个排名下注金额 (USD)</label>
+                  <n-input-number
+                    v-model:value="config.rank_betting_amount_per_rank"
+                    :min="10"
+                    :max="1000"
+                    :step="10"
+                    :disabled="autoBettingStatus.is_running"
+                    class="w-full"
+                  />
+                  <div class="text-xs text-gray-400">每个选中的排名都使用相同金额下注</div>
+                </div>
+
+                <!-- 分别设置金额 -->
+                <div v-else class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div v-if="config.rank_betting_enabled_ranks.includes(1)" class="space-y-2">
+                    <label class="text-xs text-gray-400">第1名金额 (USD)</label>
+                    <n-input-number
+                      v-model:value="config.rank_betting_rank1_amount"
+                      :min="10"
+                      :max="1000"
+                      :step="10"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                  </div>
+                  <div v-if="config.rank_betting_enabled_ranks.includes(2)" class="space-y-2">
+                    <label class="text-xs text-gray-400">第2名金额 (USD)</label>
+                    <n-input-number
+                      v-model:value="config.rank_betting_rank2_amount"
+                      :min="10"
+                      :max="1000"
+                      :step="10"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                  </div>
+                  <div v-if="config.rank_betting_enabled_ranks.includes(3)" class="space-y-2">
+                    <label class="text-xs text-gray-400">第3名金额 (USD)</label>
+                    <n-input-number
+                      v-model:value="config.rank_betting_rank3_amount"
+                      :min="10"
+                      :max="1000"
+                      :step="10"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                  </div>
+                </div>
+
+                <!-- 排名下注预览 -->
+                <div class="border border-blue-500/30 rounded-lg bg-blue-500/5 p-3">
+                  <div class="mb-2 text-sm text-blue-400 font-medium">📋 下注预览</div>
+                  <div class="text-xs text-gray-300 space-y-1">
+                    <div v-for="rank in config.rank_betting_enabled_ranks" :key="rank">
+                      第{{ rank }}名: ${{ getRankBettingAmount(rank).toFixed(2) }}
+                    </div>
+                    <div class="mt-2 border-t border-blue-500/30 pt-1">
+                      <strong>每局总金额: ${{ getTotalRankBettingAmount().toFixed(2) }}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <!-- 资金管理策略 -->
               <div class="space-y-3">
@@ -1149,6 +1249,20 @@
       enable_trend_analysis: true,
       enable_volume_filter: true,
       stop_loss_consecutive: 2
+    },
+    rank_betting: {
+      name: '指定排名下注',
+      description: '每局自动下注预测前几名，无其他条件限制',
+      confidence_threshold: 0, // 无条件限制
+      score_gap_threshold: 0.0,
+      min_total_games: 1, // 只要有预测就下注
+      historical_accuracy_threshold: 0.0,
+      min_sample_count: 1,
+      max_bet_percentage: 30,
+      strategy: 'rank_betting' as const,
+      enable_trend_analysis: false,
+      enable_volume_filter: false,
+      stop_loss_consecutive: 10 // 较高的容错次数
     }
   };
 
@@ -1163,7 +1277,7 @@
     confidence_threshold: 88,
     score_gap_threshold: 6.0,
     min_total_games: 25,
-    strategy: 'single_bet' as const,
+    strategy: 'single_bet' as 'single_bet' | 'multi_bet' | 'hedge_bet' | 'rank_betting',
 
     // 高级策略参数
     historical_accuracy_threshold: 0.7,
@@ -1190,7 +1304,16 @@
     max_volatility_threshold: 0.8,
     min_liquidity_threshold: 1000000,
 
-    is_active: false
+    is_active: false,
+
+    // 指定排名下注相关配置
+    rank_betting_enabled_ranks: [1, 2, 3], // 默认下注前三名
+    rank_betting_amount_per_rank: 100, // 每个排名的下注金额
+    rank_betting_different_amounts: false, // 是否为不同排名设置不同金额
+    rank_betting_rank1_amount: 200, // 第1名下注金额
+    rank_betting_rank2_amount: 150, // 第2名下注金额
+    rank_betting_rank3_amount: 100, // 第3名下注金额
+    rank_betting_max_ranks: 5 // 最多支持前几名（1-5名）
   });
 
   // 配置同步状态
@@ -1276,6 +1399,44 @@
   // 防抖器用于自动保存
   let saveConfigTimeout: number | null = null;
 
+  // 指定排名下注相关方法
+  const toggleRankBetting = (rank: number, checked: boolean) => {
+    if (checked) {
+      if (!config.rank_betting_enabled_ranks.includes(rank)) {
+        config.rank_betting_enabled_ranks.push(rank);
+        config.rank_betting_enabled_ranks.sort((a, b) => a - b);
+      }
+    } else {
+      const index = config.rank_betting_enabled_ranks.indexOf(rank);
+      if (index > -1) {
+        config.rank_betting_enabled_ranks.splice(index, 1);
+      }
+    }
+  };
+
+  const getRankBettingAmount = (rank: number): number => {
+    if (!config.rank_betting_different_amounts) {
+      return config.rank_betting_amount_per_rank;
+    }
+
+    switch (rank) {
+      case 1:
+        return config.rank_betting_rank1_amount;
+      case 2:
+        return config.rank_betting_rank2_amount;
+      case 3:
+        return config.rank_betting_rank3_amount;
+      default:
+        return config.rank_betting_amount_per_rank;
+    }
+  };
+
+  const getTotalRankBettingAmount = (): number => {
+    return config.rank_betting_enabled_ranks.reduce((total, rank) => {
+      return total + getRankBettingAmount(rank);
+    }, 0);
+  };
+
   // 调试日志功能
   const addDebugLog = (level: 'info' | 'warn' | 'error' | 'success', message: string) => {
     const time = new Date().toLocaleTimeString();
@@ -1320,7 +1481,13 @@
 
   // 评估预测是否符合策略条件
   const evaluatePredictionMatch = (prediction: any): boolean => {
-    // 基础条件检查
+    // 如果是指定排名下注策略，使用不同的逻辑
+    if (config.strategy === 'rank_betting') {
+      // 指定排名下注：只检查预测排名是否在启用的排名列表中
+      return config.rank_betting_enabled_ranks.includes(prediction.predicted_rank);
+    }
+
+    // 传统策略的条件检查
     if (prediction.confidence < config.confidence_threshold) return false;
     if (prediction.score < config.score_gap_threshold) return false;
     if (prediction.sample_count < config.min_sample_count) return false;
@@ -1354,6 +1521,12 @@
 
   // 计算下注金额
   const calculateBetAmount = (prediction: any): number => {
+    // 如果是指定排名下注策略，使用排名专用的金额计算
+    if (config.strategy === 'rank_betting') {
+      return getRankBettingAmount(prediction.predicted_rank);
+    }
+
+    // 传统策略的金额计算
     let betAmount = config.bet_amount;
 
     // Kelly准则计算
@@ -1394,30 +1567,58 @@
     let totalMatchedValue = 0;
     let estimatedProfit = 0;
 
-    predictions.forEach((rawPrediction: any) => {
-      // 映射数据格式
-      const prediction = mapPredictionData(rawPrediction);
-      const isMatch = evaluatePredictionMatch(prediction);
+    // 如果是指定排名下注策略，使用简化的匹配逻辑
+    if (config.strategy === 'rank_betting') {
+      predictions.forEach((rawPrediction: any) => {
+        const prediction = mapPredictionData(rawPrediction);
+        const predictedRank = prediction.predicted_rank;
 
-      addDebugLog(
-        'info',
-        `🎲 检查 ${prediction.symbol}: confidence=${prediction.confidence}%, score=${prediction.score}, 样本=${prediction.sample_count}, 胜率=${(prediction.historical_accuracy * 100).toFixed(1)}%, 匹配=${isMatch ? '✅' : '❌'}`
-      );
+        // 检查预测排名是否在启用的排名列表中
+        const isMatch = config.rank_betting_enabled_ranks.includes(predictedRank);
 
-      if (isMatch) {
-        const betAmount = calculateBetAmount(prediction);
-        matches.push({
-          ...prediction,
-          bet_amount: betAmount,
-          expected_return: betAmount * (prediction.confidence / 100) * 1.95 // 假设95%回报率
-        });
-        totalMatchedValue += betAmount;
-        estimatedProfit += betAmount * (prediction.confidence / 100) * 0.95 - betAmount;
-      }
-    });
+        addDebugLog(
+          'info',
+          `🎲 排名下注检查 ${prediction.symbol}: 预测排名=${predictedRank}, 启用排名=[${config.rank_betting_enabled_ranks.join(',')}], 匹配=${isMatch ? '✅' : '❌'}`
+        );
+
+        if (isMatch) {
+          const betAmount = getRankBettingAmount(predictedRank);
+          matches.push({
+            ...prediction,
+            bet_amount: betAmount,
+            expected_return: betAmount * 1.95 // 简化的期望回报计算
+          });
+          totalMatchedValue += betAmount;
+          estimatedProfit += betAmount * 0.95 - betAmount; // 假设95%回报率
+        }
+      });
+    } else {
+      // 传统策略的复杂匹配逻辑
+      predictions.forEach((rawPrediction: any) => {
+        // 映射数据格式
+        const prediction = mapPredictionData(rawPrediction);
+        const isMatch = evaluatePredictionMatch(prediction);
+
+        addDebugLog(
+          'info',
+          `🎲 检查 ${prediction.symbol}: confidence=${prediction.confidence}%, score=${prediction.score}, 样本=${prediction.sample_count}, 胜率=${(prediction.historical_accuracy * 100).toFixed(1)}%, 匹配=${isMatch ? '✅' : '❌'}`
+        );
+
+        if (isMatch) {
+          const betAmount = calculateBetAmount(prediction);
+          matches.push({
+            ...prediction,
+            bet_amount: betAmount,
+            expected_return: betAmount * (prediction.confidence / 100) * 1.95 // 假设95%回报率
+          });
+          totalMatchedValue += betAmount;
+          estimatedProfit += betAmount * (prediction.confidence / 100) * 0.95 - betAmount;
+        }
+      });
+    }
 
     const successProbability =
-      matches.length > 0 ? matches.reduce((sum, m) => sum + m.confidence, 0) / matches.length / 100 : 0;
+      matches.length > 0 ? matches.reduce((sum, m) => sum + (m.confidence || 70), 0) / matches.length / 100 : 0;
 
     let riskLevel = 'low';
     if (totalMatchedValue > config.bankroll * 0.2) riskLevel = 'high';
@@ -1437,6 +1638,16 @@
       required_balance: totalMatchedValue,
       actual_balance: actualBalance
     };
+
+    // 记录策略验证结果
+    if (config.strategy === 'rank_betting') {
+      addDebugLog(
+        'success',
+        `🎯 排名下注策略验证完成: ${matches.length}个匹配, 总金额$${totalMatchedValue.toFixed(2)}`
+      );
+    } else {
+      addDebugLog('success', `🎯 传统策略验证完成: ${matches.length}个匹配, 总金额$${totalMatchedValue.toFixed(2)}`);
+    }
   };
 
   // 应用策略模板
@@ -1539,7 +1750,7 @@
           confidence_threshold: 88,
           score_gap_threshold: 6.0,
           min_total_games: 25,
-          strategy: 'single_bet' as const,
+          strategy: 'single_bet' as 'single_bet' | 'multi_bet' | 'hedge_bet' | 'rank_betting',
           is_active: false
         });
         configSyncStatus.value = { type: 'error', message: '本地配置损坏，已重置为默认配置' };

@@ -269,7 +269,7 @@ class AutoBettingController extends Controller
     private function checkBettingTriggers(array $analysisData, array $config): array
     {
         $details = [];
-        $allConditionsMet = true;
+        $strategy = $config['strategy'] ?? 'single_bet';
 
         if (empty($analysisData)) {
             return [
@@ -278,6 +278,34 @@ class AutoBettingController extends Controller
             ];
         }
 
+        // 如果是指定排名下注策略，使用简化的检查逻辑
+        if ($strategy === 'rank_betting') {
+            $enabledRanks = $config['rank_betting_enabled_ranks'] ?? [1, 2, 3];
+            $hasEnabledRanks = false;
+
+            // 检查是否有符合启用排名的预测数据
+            foreach ($analysisData as $token) {
+                $predictedRank = $token['predicted_rank'] ?? 999;
+                if (in_array($predictedRank, $enabledRanks)) {
+                    $hasEnabledRanks = true;
+                    break;
+                }
+            }
+
+            $details['rank_betting_check'] = [
+                'enabled_ranks' => $enabledRanks,
+                'has_matching_ranks' => $hasEnabledRanks,
+                'met' => $hasEnabledRanks
+            ];
+
+            return [
+                'met' => $hasEnabledRanks,
+                'details' => $details
+            ];
+        }
+
+        // 传统策略的复杂条件检查
+        $allConditionsMet = true;
         $topToken = $analysisData[0] ?? null;
         $secondToken = $analysisData[1] ?? null;
 
@@ -345,6 +373,49 @@ class AutoBettingController extends Controller
                     'bet_amount' => $betAmount,
                     'confidence' => $confidence
                 ];
+            }
+        } elseif ($strategy === 'rank_betting') {
+            // 指定排名下注策略：按配置的排名进行下注
+            $enabledRanks = $config['rank_betting_enabled_ranks'] ?? [1, 2, 3];
+            $differentAmounts = $config['rank_betting_different_amounts'] ?? false;
+            $amountPerRank = $config['rank_betting_amount_per_rank'] ?? 100;
+
+            // 按预测排名排序
+            usort($analysisData, function($a, $b) {
+                return ($a['predicted_rank'] ?? 999) - ($b['predicted_rank'] ?? 999);
+            });
+
+            foreach ($analysisData as $token) {
+                $predictedRank = $token['predicted_rank'] ?? 999;
+
+                // 只有在启用的排名列表中才下注
+                if (in_array($predictedRank, $enabledRanks)) {
+                    // 计算该排名的下注金额
+                    $rankBetAmount = $amountPerRank;
+                    if ($differentAmounts) {
+                        switch ($predictedRank) {
+                            case 1:
+                                $rankBetAmount = $config['rank_betting_rank1_amount'] ?? 200;
+                                break;
+                            case 2:
+                                $rankBetAmount = $config['rank_betting_rank2_amount'] ?? 150;
+                                break;
+                            case 3:
+                                $rankBetAmount = $config['rank_betting_rank3_amount'] ?? 100;
+                                break;
+                            default:
+                                $rankBetAmount = $amountPerRank;
+                                break;
+                        }
+                    }
+
+                    $bets[] = [
+                        'symbol' => $token['symbol'],
+                        'predicted_rank' => $predictedRank,
+                        'bet_amount' => $rankBetAmount,
+                        'confidence' => $token['rank_confidence'] ?? 0
+                    ];
+                }
             }
         }
 

@@ -96,20 +96,54 @@
                 </n-input-number>
               </div>
 
-              <!-- 单位大小百分比 -->
+              <!-- 下注金额 -->
               <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">单位大小 (% of 资金池)</label>
+                <label class="text-sm text-gray-300 font-medium">下注金额 ($)</label>
+                <!-- 快速选择按钮 -->
+                <div class="mb-3 flex flex-wrap gap-2">
+                  <n-button
+                    @click="config.bet_amount = 200"
+                    :type="config.bet_amount === 200 ? 'primary' : 'tertiary'"
+                    :disabled="autoBettingStatus.is_running"
+                    size="small"
+                  >
+                    $200
+                  </n-button>
+                  <n-button
+                    @click="config.bet_amount = 500"
+                    :type="config.bet_amount === 500 ? 'primary' : 'tertiary'"
+                    :disabled="autoBettingStatus.is_running"
+                    size="small"
+                  >
+                    $500
+                  </n-button>
+                  <n-button
+                    @click="config.bet_amount = 1000"
+                    :type="config.bet_amount === 1000 ? 'primary' : 'tertiary'"
+                    :disabled="autoBettingStatus.is_running"
+                    size="small"
+                  >
+                    $1000
+                  </n-button>
+                  <n-button
+                    @click="config.bet_amount = 2000"
+                    :type="config.bet_amount === 2000 ? 'primary' : 'tertiary'"
+                    :disabled="autoBettingStatus.is_running"
+                    size="small"
+                  >
+                    $2000
+                  </n-button>
+                </div>
+                <!-- 自定义金额滑动条 -->
                 <n-slider
-                  v-model:value="config.unit_size_percentage"
-                  :min="0.1"
-                  :max="10"
-                  :step="0.1"
+                  v-model:value="config.bet_amount"
+                  :min="200"
+                  :max="5000"
+                  :step="50"
                   :disabled="autoBettingStatus.is_running"
                   :tooltip="true"
                 />
-                <div class="text-xs text-gray-400">
-                  当前单位大小: ${{ ((config.bankroll * config.unit_size_percentage) / 100).toFixed(2) }}
-                </div>
+                <div class="text-xs text-gray-400">当前下注金额: ${{ config.bet_amount }}</div>
               </div>
 
               <!-- 每日停损 -->
@@ -171,84 +205,15 @@
                 />
               </div>
 
-              <!-- 策略选择 -->
+              <!-- 下注策略说明 -->
               <div class="space-y-2">
                 <label class="text-sm text-gray-300 font-medium">下注策略</label>
-                <n-radio-group
-                  v-model:value="config.strategy"
-                  :disabled="autoBettingStatus.is_running"
-                  class="flex flex-col space-y-2"
-                >
-                  <n-radio value="single_bet" class="text-white">
-                    <span class="text-white">单点突破 - 只下注预测第一名</span>
-                  </n-radio>
-                  <n-radio value="portfolio_hedging" class="text-white">
-                    <span class="text-white">保本对冲组合 - 分散下注前三名</span>
-                  </n-radio>
-                </n-radio-group>
-              </div>
-
-              <!-- 投资组合分配 (仅在对冲策略时显示) -->
-              <div v-if="config.strategy === 'portfolio_hedging'" class="space-y-3">
-                <label class="text-sm text-gray-300 font-medium">投资组合分配 (%)</label>
-                <div class="space-y-2">
-                  <div class="flex items-center space-x-3">
-                    <span class="w-12 text-xs text-yellow-400">第1名:</span>
-                    <n-slider
-                      v-model:value="config.portfolio_allocation.rank1"
-                      :min="0"
-                      :max="100"
-                      :step="1"
-                      :disabled="autoBettingStatus.is_running"
-                      class="flex-1"
-                    />
-                    <span class="w-12 text-xs text-gray-400">{{ config.portfolio_allocation.rank1 }}%</span>
+                <div class="border border-blue-500/20 rounded-lg bg-blue-500/10 p-3">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-lg">🎯</span>
+                    <span class="text-white font-medium">单点预测</span>
                   </div>
-                  <div class="flex items-center space-x-3">
-                    <span class="w-12 text-xs text-slate-400">第2名:</span>
-                    <n-slider
-                      v-model:value="config.portfolio_allocation.rank2"
-                      :min="0"
-                      :max="100"
-                      :step="1"
-                      :disabled="autoBettingStatus.is_running"
-                      class="flex-1"
-                    />
-                    <span class="w-12 text-xs text-gray-400">{{ config.portfolio_allocation.rank2 }}%</span>
-                  </div>
-                  <div class="flex items-center space-x-3">
-                    <span class="w-12 text-xs text-orange-400">第3名:</span>
-                    <n-slider
-                      v-model:value="config.portfolio_allocation.rank3"
-                      :min="0"
-                      :max="100"
-                      :step="1"
-                      :disabled="autoBettingStatus.is_running"
-                      class="flex-1"
-                    />
-                    <span class="w-12 text-xs text-gray-400">{{ config.portfolio_allocation.rank3 }}%</span>
-                  </div>
-                  <div class="text-xs text-gray-400">
-                    总计:
-                    {{
-                      config.portfolio_allocation.rank1 +
-                      config.portfolio_allocation.rank2 +
-                      config.portfolio_allocation.rank3
-                    }}%
-                    <span
-                      v-if="
-                        Math.abs(
-                          config.portfolio_allocation.rank1 +
-                            config.portfolio_allocation.rank2 +
-                            config.portfolio_allocation.rank3 -
-                            100
-                        ) > 0.1
-                      "
-                      class="ml-2 text-red-400"
-                    >
-                      (必须为100%)
-                    </span>
-                  </div>
+                  <div class="mt-1 text-xs text-gray-400">只下注预测评分最高的第一名代币，集中火力获得最大收益</div>
                 </div>
               </div>
             </div>
@@ -647,17 +612,12 @@
     enabled: false,
     jwt_token: '',
     bankroll: 1000,
-    unit_size_percentage: 1.5,
+    bet_amount: 200,
     daily_stop_loss_percentage: 15,
     confidence_threshold: 88,
     score_gap_threshold: 6.0,
     min_total_games: 25,
-    strategy: 'portfolio_hedging' as 'single_bet' | 'portfolio_hedging',
-    portfolio_allocation: {
-      rank1: 50,
-      rank2: 30,
-      rank3: 20
-    }
+    strategy: 'single_bet' as 'single_bet'
   });
 
   // 自动下注状态
@@ -794,7 +754,7 @@
         {},
         {
           headers: {
-            Authorization: `Bearer ${jwtToken}`,
+            jwt_token: jwtToken,
             'Content-Type': 'application/json'
           }
         }
@@ -817,7 +777,7 @@
         },
         {
           headers: {
-            Authorization: `Bearer ${jwtToken}`,
+            jwt_token: jwtToken,
             'Content-Type': 'application/json'
           }
         }

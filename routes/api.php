@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\GameDataController;
 use App\Http\Controllers\PredictionAnalysisController;
+use App\Http\Controllers\AutoBettingController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -35,4 +36,15 @@ Route::prefix('prediction-analysis')->group(function () {
     Route::get('/accuracy', [PredictionAnalysisController::class, 'getOverallAccuracy'])->name('api.prediction.accuracy');
     Route::get('/performance', [PredictionAnalysisController::class, 'getPerformanceSummary'])->name('api.prediction.performance');
     Route::get('/token/{tokenSymbol}/history', [PredictionAnalysisController::class, 'getTokenHistory'])->name('api.prediction.token-history');
+});
+
+// 自动下注API路由组
+Route::prefix('auto-betting')->group(function () {
+    Route::get('/config', [AutoBettingController::class, 'getConfig'])->name('api.auto-betting.config');
+    Route::post('/config', [AutoBettingController::class, 'updateConfig'])->name('api.auto-betting.update-config');
+    Route::get('/status', [AutoBettingController::class, 'getStatus'])->name('api.auto-betting.status');
+    Route::post('/toggle', [AutoBettingController::class, 'toggleAutoBetting'])->name('api.auto-betting.toggle');
+    Route::post('/test-connection', [AutoBettingController::class, 'testConnection'])->name('api.auto-betting.test-connection');
+    Route::get('/history', [AutoBettingController::class, 'getBettingHistory'])->name('api.auto-betting.history');
+    Route::post('/simulate', [AutoBettingController::class, 'simulateBet'])->name('api.auto-betting.simulate');
 });

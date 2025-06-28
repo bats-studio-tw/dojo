@@ -4,6 +4,19 @@
 
     <div class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br p-3 sm:p-6">
       <div class="mx-auto max-w-7xl">
+        <!-- 导航栏 -->
+        <div class="mb-6 flex items-center justify-between">
+          <h1 class="text-2xl text-white font-bold">📊 数据分析面板</h1>
+          <div class="flex space-x-3">
+            <a
+              href="/auto-betting"
+              class="flex items-center rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors duration-200 space-x-2 hover:bg-purple-700"
+            >
+              <span>🤖</span>
+              <span>自动下注控制</span>
+            </a>
+          </div>
+        </div>
         <!-- v8 H2H 对战关系分析 -->
         <NCard
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"

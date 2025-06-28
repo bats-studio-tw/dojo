@@ -223,22 +223,38 @@
           size="large"
         >
           <div class="space-y-4">
+            <!-- 策略模式状态指示器 -->
+            <div class="mb-4 flex items-center justify-between">
+              <h3 class="text-lg text-white font-semibold">📋 策略选择</h3>
+              <div class="flex items-center space-x-2">
+                <n-tag :type="customStrategyMode ? 'warning' : 'success'" size="small">
+                  {{ customStrategyMode ? '🎨 自定义模式' : '📋 模板模式' }}
+                </n-tag>
+                <n-button
+                  @click="customStrategyMode ? resetToTemplateMode() : switchToCustomMode()"
+                  :type="customStrategyMode ? 'default' : 'primary'"
+                  size="small"
+                >
+                  {{ customStrategyMode ? '返回模板' : '自定义设置' }}
+                </n-button>
+              </div>
+            </div>
+
             <!-- 策略模板选择 -->
-            <div class="space-y-3">
-              <h3 class="text-lg text-white font-semibold">📋 预设策略模板</h3>
+            <div v-if="!customStrategyMode" class="space-y-3">
               <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 md:grid-cols-2">
                 <div
                   v-for="(template, key) in strategyTemplates"
                   :key="key"
                   class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-3 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
                   :class="{
-                    'border-blue-400 bg-blue-500/20': selectedTemplate === key && !customStrategyMode
+                    'border-blue-400 bg-blue-500/20': selectedTemplate === key
                   }"
                   @click="applyStrategyTemplate(key)"
                 >
                   <div class="mb-2 flex items-center justify-between">
                     <span class="text-sm text-white font-medium">{{ template.name }}</span>
-                    <n-tag :type="selectedTemplate === key && !customStrategyMode ? 'primary' : 'default'" size="small">
+                    <n-tag :type="selectedTemplate === key ? 'primary' : 'default'" size="small">
                       {{ template.confidence_threshold }}%
                     </n-tag>
                   </div>
@@ -259,13 +275,32 @@
                   </div>
                 </div>
               </div>
+            </div>
 
-              <!-- 自定义模式切换 -->
-              <div class="flex items-center justify-between border-t border-gray-600 pt-3">
-                <span class="text-sm text-gray-300">使用自定义策略参数</span>
-                <n-button @click="switchToCustomMode" :type="customStrategyMode ? 'primary' : 'default'" size="small">
-                  {{ customStrategyMode ? '自定义模式' : '切换到自定义' }}
-                </n-button>
+            <!-- 自定义模式提示 -->
+            <div v-else class="space-y-3">
+              <div class="border border-orange-500/30 rounded-lg bg-orange-500/10 p-4">
+                <div class="mb-2 flex items-center space-x-2">
+                  <span class="text-orange-400">🎨</span>
+                  <span class="text-sm text-orange-400 font-medium">自定义策略模式</span>
+                </div>
+                <div class="text-xs text-gray-300">
+                  您现在处于自定义模式，可以在下方"自动下注配置"面板中手动调整所有参数。
+                  预设模板功能已禁用，所有参数变更将实时应用。
+                </div>
+                <div class="mt-3 flex items-center justify-between">
+                  <span class="text-xs text-gray-400">
+                    当前参数: 置信度{{ config.confidence_threshold }}% | 风险{{ config.max_bet_percentage }}% |
+                    {{
+                      config.strategy === 'single_bet'
+                        ? '单项下注'
+                        : config.strategy === 'multi_bet'
+                          ? '多项下注'
+                          : '对冲下注'
+                    }}
+                  </span>
+                  <n-button @click="resetToTemplateMode()" type="tertiary" size="tiny">重置为模板模式</n-button>
+                </div>
               </div>
             </div>
 
@@ -443,9 +478,38 @@
         <!-- 配置面板 -->
         <NCard
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="⚙️ 自动下注配置"
+          :title="
+            customStrategyMode
+              ? '🎨 自定义策略配置'
+              : `⚙️ 自动下注配置 ${selectedTemplate ? `(${strategyTemplates[selectedTemplate as keyof typeof strategyTemplates]?.name})` : ''}`
+          "
           size="large"
         >
+          <!-- 模式说明 -->
+          <div v-if="customStrategyMode" class="mb-4 border border-orange-500/30 rounded-lg bg-orange-500/5 p-3">
+            <div class="flex items-center space-x-2">
+              <span class="text-orange-400">🎨</span>
+              <span class="text-sm text-orange-400 font-medium">自定义策略模式已激活</span>
+            </div>
+            <div class="mt-1 text-xs text-gray-400">
+              所有参数都可以自由调整，变更会实时应用到策略验证中。如需使用预设模板，请点击上方"返回模板"按钮。
+            </div>
+          </div>
+
+          <div v-else-if="selectedTemplate" class="mb-4 border border-blue-500/30 rounded-lg bg-blue-500/5 p-3">
+            <div class="flex items-center space-x-2">
+              <span class="text-blue-400">📋</span>
+              <span class="text-sm text-blue-400 font-medium">
+                当前模板: {{ strategyTemplates[selectedTemplate as keyof typeof strategyTemplates]?.name }}
+              </span>
+            </div>
+            <div class="mt-1 text-xs text-gray-400">
+              {{ strategyTemplates[selectedTemplate as keyof typeof strategyTemplates]?.description }}
+              <br />
+              您可以在此基础上微调参数，或切换到自定义模式进行完全控制。
+            </div>
+          </div>
+
           <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <!-- 基础配置 -->
             <div class="space-y-4">
@@ -1196,7 +1260,14 @@
   const switchToCustomMode = () => {
     customStrategyMode.value = true;
     selectedTemplate.value = '';
-    getMessageInstance()?.info('已切换到自定义策略模式');
+    getMessageInstance()?.info('已切换到自定义策略模式，现在可以手动调整所有参数');
+  };
+
+  // 重置为模板模式
+  const resetToTemplateMode = () => {
+    customStrategyMode.value = false;
+    selectedTemplate.value = '';
+    getMessageInstance()?.info('已返回模板模式，请选择一个预设策略模板');
   };
 
   // 从云端加载配置

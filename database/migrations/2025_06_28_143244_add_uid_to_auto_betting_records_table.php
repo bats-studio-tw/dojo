@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('auto_betting_records', function (Blueprint $table) {
-            //
+            $table->string('uid')->nullable()->after('id')->index(); // 用户唯一标识符
         });
     }
 
@@ -22,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('auto_betting_records', function (Blueprint $table) {
-            //
+            $table->dropColumn('uid');
         });
     }
 };

@@ -48,6 +48,82 @@
           title="📈 系统状态监控"
           size="large"
         >
+          <!-- 调试信息面板 -->
+          <div v-if="debugInfo.showDebugPanel" class="mb-6 border border-yellow-500/30 rounded-lg bg-yellow-500/10 p-4">
+            <div class="mb-3 flex items-center justify-between">
+              <h3 class="text-lg text-yellow-400 font-semibold">🐛 调试信息面板</h3>
+              <n-button @click="debugInfo.showDebugPanel = false" type="tertiary" size="tiny">隐藏调试</n-button>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 md:grid-cols-2">
+              <!-- 轮次监控状态 -->
+              <div class="border border-blue-500/30 rounded bg-blue-500/10 p-3">
+                <div class="mb-2 text-xs text-blue-400 font-medium">🎮 轮次监控</div>
+                <div class="text-xs text-gray-300 space-y-1">
+                  <div>监控状态: {{ isMonitoringRounds ? '✅ 运行中' : '❌ 未启动' }}</div>
+                  <div>当前轮次: {{ lastKnownRoundId || '未知' }}</div>
+                  <div>最后检查: {{ debugInfo.lastRoundCheckTime || '未检查' }}</div>
+                  <div>检查次数: {{ debugInfo.roundCheckCount }}</div>
+                </div>
+              </div>
+
+              <!-- 自动下注状态 -->
+              <div class="border border-green-500/30 rounded bg-green-500/10 p-3">
+                <div class="mb-2 text-xs text-green-400 font-medium">🤖 自动下注</div>
+                <div class="text-xs text-gray-300 space-y-1">
+                  <div>系统状态: {{ autoBettingStatus.is_running ? '✅ 已启动' : '❌ 未启动' }}</div>
+                  <div>触发次数: {{ debugInfo.autoTriggerCount }}</div>
+                  <div>最后触发: {{ debugInfo.lastAutoTriggerTime || '未触发' }}</div>
+                  <div>最后执行: {{ debugInfo.lastExecutionTime || '未执行' }}</div>
+                </div>
+              </div>
+
+              <!-- 策略验证状态 -->
+              <div class="border border-purple-500/30 rounded bg-purple-500/10 p-3">
+                <div class="mb-2 text-xs text-purple-400 font-medium">🎯 策略验证</div>
+                <div class="text-xs text-gray-300 space-y-1">
+                  <div>符合条件: {{ strategyValidation?.total_matched || 0 }}个</div>
+                  <div>余额充足: {{ strategyValidation?.balance_sufficient ? '✅' : '❌' }}</div>
+                  <div>验证次数: {{ debugInfo.strategyValidationCount }}</div>
+                  <div>最后验证: {{ debugInfo.lastValidationTime || '未验证' }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 详细日志 -->
+            <div class="mt-4 border-t border-yellow-500/30 pt-3">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-xs text-yellow-400 font-medium">📋 系统日志 (最近20条)</span>
+                <n-button @click="debugInfo.logs = []" type="tertiary" size="tiny">清空日志</n-button>
+              </div>
+              <div class="max-h-40 overflow-y-auto rounded bg-black/30 p-2 text-xs text-gray-300 font-mono">
+                <div
+                  v-for="(log, index) in debugInfo.logs.slice(-20).reverse()"
+                  :key="index"
+                  class="py-1"
+                  :class="{
+                    'text-red-400': log.level === 'error',
+                    'text-yellow-400': log.level === 'warn',
+                    'text-green-400': log.level === 'success',
+                    'text-blue-400': log.level === 'info'
+                  }"
+                >
+                  [{{ log.time }}] {{ log.message }}
+                </div>
+                <div v-if="debugInfo.logs.length === 0" class="py-2 text-center text-gray-500">暂无日志记录</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 调试控制按钮 -->
+          <div v-if="!debugInfo.showDebugPanel" class="mb-4 text-center">
+            <n-button @click="debugInfo.showDebugPanel = true" type="warning" size="small">
+              <template #icon>
+                <span>🐛</span>
+              </template>
+              显示调试信息
+            </n-button>
+          </div>
           <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
             <!-- 用户信息卡片 -->
             <div class="border border-blue-500/30 rounded-lg bg-blue-500/10 p-4">
@@ -1149,8 +1225,59 @@
   const executeLoading = ref(false);
   const analysisLoading = ref(false);
 
+  // 调试信息状态
+  const debugInfo = reactive({
+    showDebugPanel: false,
+    logs: [] as Array<{
+      time: string;
+      level: 'info' | 'warn' | 'error' | 'success';
+      message: string;
+    }>,
+    roundCheckCount: 0,
+    lastRoundCheckTime: '',
+    autoTriggerCount: 0,
+    lastAutoTriggerTime: '',
+    lastExecutionTime: '',
+    strategyValidationCount: 0,
+    lastValidationTime: '',
+    lastBetResults: [] as Array<{
+      time: string;
+      symbol: string;
+      amount: number;
+      success: boolean;
+      error?: string;
+    }>
+  });
+
   // 防抖器用于自动保存
   let saveConfigTimeout: number | null = null;
+
+  // 调试日志功能
+  const addDebugLog = (level: 'info' | 'warn' | 'error' | 'success', message: string) => {
+    const time = new Date().toLocaleTimeString();
+    debugInfo.logs.push({ time, level, message });
+
+    // 同时输出到控制台
+    const consoleMessage = `[AutoBetting ${time}] ${message}`;
+    switch (level) {
+      case 'error':
+        console.error(consoleMessage);
+        break;
+      case 'warn':
+        console.warn(consoleMessage);
+        break;
+      case 'success':
+      case 'info':
+      default:
+        console.log(consoleMessage);
+        break;
+    }
+
+    // 限制日志数量，避免内存过大
+    if (debugInfo.logs.length > 100) {
+      debugInfo.logs = debugInfo.logs.slice(-80);
+    }
+  };
 
   // 评估预测是否符合策略条件
   const evaluatePredictionMatch = (prediction: any): boolean => {
@@ -1212,10 +1339,16 @@
 
   // 验证当前策略
   const validateCurrentStrategy = () => {
+    debugInfo.strategyValidationCount++;
+    debugInfo.lastValidationTime = new Date().toLocaleTimeString();
+
     if (!currentAnalysis.value?.predictions) {
       strategyValidation.value = null;
+      addDebugLog('warn', '❌ 没有预测数据，跳过策略验证');
       return;
     }
+
+    addDebugLog('info', `🎯 开始策略验证 - 共有${currentAnalysis.value.predictions.length}个预测数据`);
 
     const predictions = currentAnalysis.value.predictions;
     const matches: any[] = [];
@@ -1441,7 +1574,13 @@
 
   // 监控游戏轮次变化并触发完整的自动下注流程
   const checkRoundChange = async () => {
-    if (!isTokenValidated.value || !config.jwt_token) return;
+    debugInfo.roundCheckCount++;
+    debugInfo.lastRoundCheckTime = new Date().toLocaleTimeString();
+
+    if (!isTokenValidated.value || !config.jwt_token) {
+      addDebugLog('warn', '❌ Token未验证或JWT Token为空，跳过轮次检查');
+      return;
+    }
 
     try {
       const response = await gameApi.getCurrentAnalysis();
@@ -1451,7 +1590,7 @@
 
         // 检测到轮次变化（新游戏开始）
         if (isNewRound) {
-          console.log(`🎮 检测到新轮次开始: ${lastKnownRoundId.value} → ${currentRoundId}`);
+          addDebugLog('success', `🎮 检测到新轮次开始: ${lastKnownRoundId.value} → ${currentRoundId}`);
 
           // 第1步：更新余额（结算上一轮的盈亏）
           try {
@@ -1464,34 +1603,85 @@
               const newBalance = userInfo.value.ojoValue;
               const balanceChange = newBalance - oldBalance;
 
-              console.log(
+              addDebugLog(
+                'info',
                 `💰 余额结算更新: $${oldBalance.toFixed(2)} → $${newBalance.toFixed(2)} (${balanceChange >= 0 ? '+' : ''}${balanceChange.toFixed(2)})`
               );
 
               // 如果有余额变化，显示提示
               if (Math.abs(balanceChange) > 0.01) {
+                addDebugLog(
+                  'success',
+                  `🎲 游戏结算完成！余额变化: ${balanceChange >= 0 ? '+' : ''}$${balanceChange.toFixed(2)}`
+                );
                 window.$message?.info(
                   `🎲 游戏结算完成！余额变化: ${balanceChange >= 0 ? '+' : ''}$${balanceChange.toFixed(2)}`
                 );
               }
             }
           } catch (error) {
-            console.warn('轮次变化时更新用户信息失败:', error);
+            addDebugLog(
+              'error',
+              `轮次变化时更新用户信息失败: ${error instanceof Error ? error.message : String(error)}`
+            );
           }
 
           // 第2步：更新分析数据
           currentAnalysis.value = response.data.data;
+          addDebugLog('info', '📊 更新分析数据完成');
 
           // 第3步：如果自动下注已启动，触发自动下注流程
           if (autoBettingStatus.value.is_running) {
-            console.log('🤖 自动下注已启动，新轮次开始，正在触发自动下注...');
-            // 延迟一点时间让数据更新完成，然后触发自动下注
-            setTimeout(() => {
-              triggerAutomaticBetting(currentRoundId);
+            debugInfo.autoTriggerCount++;
+            debugInfo.lastAutoTriggerTime = new Date().toLocaleTimeString();
+            addDebugLog('info', '🤖 自动下注已启动，新轮次开始，正在触发自动下注...');
+
+            // 延迟一点时间让数据更新完成，然后内联执行自动下注
+            setTimeout(async () => {
+              try {
+                // 重新验证策略
+                validateCurrentStrategy();
+                addDebugLog('info', '🎯 重新验证策略完成');
+
+                // 等待一小段时间让策略验证完成
+                await new Promise((resolve) => setTimeout(resolve, 200));
+
+                if (strategyValidation.value?.matches.length && strategyValidation.value?.balance_sufficient) {
+                  const totalBetAmount = strategyValidation.value.required_balance;
+                  addDebugLog(
+                    'success',
+                    `🎯 发现符合条件的下注机会: ${strategyValidation.value.matches.length}个游戏，总金额: $${totalBetAmount.toFixed(2)}`
+                  );
+                  window.$message?.info(
+                    `🤖 自动下注触发：发现${strategyValidation.value.matches.length}个符合条件的游戏`
+                  );
+
+                  debugInfo.lastExecutionTime = new Date().toLocaleTimeString();
+                  addDebugLog('info', `📋 开始执行${strategyValidation.value.matches.length}个下注...`);
+                } else if (strategyValidation.value?.matches.length && !strategyValidation.value?.balance_sufficient) {
+                  addDebugLog(
+                    'warn',
+                    `💸 发现${strategyValidation.value.matches.length}个下注机会，但余额不足($${strategyValidation.value.required_balance.toFixed(2)})`
+                  );
+                  window.$message?.warning(
+                    `💸 发现${strategyValidation.value.matches.length}个下注机会，但余额不足($${strategyValidation.value.required_balance.toFixed(2)})`
+                  );
+                } else {
+                  addDebugLog('info', '📊 当前轮次暂无符合策略的下注机会');
+                  window.$message?.info('📊 当前轮次暂无符合策略的下注机会');
+                }
+              } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                addDebugLog('error', `自动下注流程执行失败: ${errorMsg}`);
+                window.$message?.error('自动下注流程执行失败');
+              }
             }, 1000);
           } else {
-            console.log('⏸️ 自动下注未启动，仅更新数据');
+            addDebugLog('info', '⏸️ 自动下注未启动，仅更新数据');
           }
+        } else {
+          // 非新轮次的常规检查
+          addDebugLog('info', `🔄 常规检查 - 轮次: ${currentRoundId}`);
         }
 
         // 更新已知轮次ID和分析数据
@@ -1499,9 +1689,12 @@
         if (!isNewRound) {
           currentAnalysis.value = response.data.data;
         }
+      } else {
+        addDebugLog('warn', '❌ 获取分析数据失败或数据格式错误');
       }
     } catch (error) {
-      console.error('检查轮次变化失败:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      addDebugLog('error', `检查轮次变化失败: ${errorMsg}`);
     }
   };
 
@@ -1628,17 +1821,21 @@
   };
 
   const startAutoBetting = async () => {
+    addDebugLog('info', '🎬 用户点击启动自动下注');
     toggleLoading.value = true;
     try {
       const response = await autoBettingApi.toggle('start', currentUID.value);
       if (response.data.success) {
+        addDebugLog('success', '✅ 自动下注启动成功');
         window.$message?.success('自动下注已启动');
         await loadStatus();
       } else {
+        addDebugLog('error', `❌ 自动下注启动失败: ${response.data.message || '未知错误'}`);
         window.$message?.error(response.data.message || '启动失败');
       }
     } catch (error) {
-      console.error('启动失败:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      addDebugLog('error', `❌ 启动自动下注时出错: ${errorMsg}`);
       window.$message?.error('启动失败');
     } finally {
       toggleLoading.value = false;
@@ -1646,17 +1843,21 @@
   };
 
   const stopAutoBetting = async () => {
+    addDebugLog('info', '🛑 用户点击停止自动下注');
     toggleLoading.value = true;
     try {
       const response = await autoBettingApi.toggle('stop', currentUID.value);
       if (response.data.success) {
+        addDebugLog('success', '✅ 自动下注停止成功');
         window.$message?.success('自动下注已停止');
         await loadStatus();
       } else {
+        addDebugLog('error', `❌ 自动下注停止失败: ${response.data.message || '未知错误'}`);
         window.$message?.error(response.data.message || '停止失败');
       }
     } catch (error) {
-      console.error('停止失败:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      addDebugLog('error', `❌ 停止自动下注时出错: ${errorMsg}`);
       window.$message?.error('停止失败');
     } finally {
       toggleLoading.value = false;
@@ -1884,66 +2085,6 @@
 
   const refreshAnalysis = () => fetchAnalysisData();
 
-  // 触发自动下注流程
-  const triggerAutomaticBetting = async (currentRoundId: string) => {
-    try {
-      // 重新验证策略
-      validateCurrentStrategy();
-
-      // 等待一小段时间让策略验证完成
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      if (strategyValidation.value?.matches.length && strategyValidation.value?.balance_sufficient) {
-        const totalBetAmount = strategyValidation.value.required_balance;
-        console.log(
-          `🎯 发现符合条件的下注机会: ${strategyValidation.value.matches.length}个游戏，总金额: $${totalBetAmount.toFixed(2)}`
-        );
-
-        window.$message?.info(`🤖 自动下注触发：发现${strategyValidation.value.matches.length}个符合条件的游戏`);
-
-        // 执行自动下注
-        let successCount = 0;
-        let failCount = 0;
-
-        for (const match of strategyValidation.value.matches) {
-          try {
-            const betSuccess = await executeSingleBet(currentRoundId, match.symbol, match.bet_amount, config.jwt_token);
-            if (betSuccess) {
-              successCount++;
-              console.log(`✅ 自动下注成功: ${match.symbol} $${match.bet_amount}`);
-            } else {
-              failCount++;
-              console.log(`❌ 自动下注失败: ${match.symbol} $${match.bet_amount}`);
-            }
-          } catch (error) {
-            console.error(`自动下注出错 ${match.symbol}:`, error);
-            failCount++;
-          }
-        }
-
-        if (successCount > 0) {
-          window.$message?.success(`🎯 自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
-        } else if (failCount > 0) {
-          window.$message?.error('🚫 自动下注全部失败');
-        }
-
-        // 更新状态
-        await loadStatus();
-      } else if (strategyValidation.value?.matches.length && !strategyValidation.value?.balance_sufficient) {
-        console.log('💸 发现下注机会但余额不足');
-        window.$message?.warning(
-          `💸 发现${strategyValidation.value.matches.length}个下注机会，但余额不足($${strategyValidation.value.required_balance.toFixed(2)})`
-        );
-      } else {
-        console.log('📊 当前轮次不符合下注条件');
-        window.$message?.info('📊 当前轮次暂无符合策略的下注机会');
-      }
-    } catch (error) {
-      console.error('自动下注流程执行失败:', error);
-      window.$message?.error('自动下注流程执行失败');
-    }
-  };
-
   // 重新验证Token
   const reconnectToken = () => {
     // 清除所有保存的验证状态
@@ -2015,10 +2156,14 @@
   };
 
   onMounted(async () => {
-    console.log('AutoBetting组件初始化');
+    addDebugLog('info', '🚀 AutoBetting组件初始化开始');
+
+    // 默认显示调试面板
+    debugInfo.showDebugPanel = true;
 
     // 先从localStorage读取配置
     loadConfigFromLocalStorage();
+    addDebugLog('info', '📥 从本地存储加载配置完成');
 
     // 检查Token验证状态
     const savedTokenValidated = localStorage.getItem('tokenValidated');

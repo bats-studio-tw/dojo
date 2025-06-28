@@ -21,6 +21,238 @@
           <!-- 占位符保持标题居中 -->
         </div>
 
+        <!-- 系统状态监控 -->
+        <NCard
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="📈 系统状态监控"
+          size="large"
+        >
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-4 md:grid-cols-2">
+            <!-- 运行状态 -->
+            <div class="border border-white/10 rounded-lg bg-white/5 p-4">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm text-gray-300">运行状态</span>
+                <div class="text-xl">{{ autoBettingStatus.is_running ? '🟢' : '🔴' }}</div>
+              </div>
+              <div class="text-lg font-bold" :class="autoBettingStatus.is_running ? 'text-green-400' : 'text-gray-400'">
+                {{ autoBettingStatus.is_running ? '运行中' : '已停止' }}
+              </div>
+            </div>
+
+            <!-- 总下注次数 -->
+            <div class="border border-white/10 rounded-lg bg-white/5 p-4">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm text-gray-300">总下注次数</span>
+                <div class="text-xl">🎲</div>
+              </div>
+              <div class="text-lg text-blue-400 font-bold">{{ autoBettingStatus.total_bets || 0 }}</div>
+            </div>
+
+            <!-- 总盈亏 -->
+            <div class="border border-white/10 rounded-lg bg-white/5 p-4">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm text-gray-300">总盈亏</span>
+                <div class="text-xl">💰</div>
+              </div>
+              <div
+                class="text-lg font-bold"
+                :class="(autoBettingStatus.total_profit_loss || 0) >= 0 ? 'text-green-400' : 'text-red-400'"
+              >
+                ${{ (autoBettingStatus.total_profit_loss || 0).toFixed(2) }}
+              </div>
+            </div>
+
+            <!-- 今日盈亏 -->
+            <div class="border border-white/10 rounded-lg bg-white/5 p-4">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm text-gray-300">今日盈亏</span>
+                <div class="text-xl">📊</div>
+              </div>
+              <div
+                class="text-lg font-bold"
+                :class="(autoBettingStatus.today_profit_loss || 0) >= 0 ? 'text-green-400' : 'text-red-400'"
+              >
+                ${{ (autoBettingStatus.today_profit_loss || 0).toFixed(2) }}
+              </div>
+            </div>
+          </div>
+
+          <!-- 错误信息 -->
+          <div v-if="autoBettingStatus.last_error" class="mt-4 border border-red-500/30 rounded-lg bg-red-500/10 p-3">
+            <div class="text-sm text-red-400">
+              <strong>最新错误:</strong>
+              {{ autoBettingStatus.last_error }}
+            </div>
+          </div>
+        </NCard>
+
+        <!-- 当前分析数据展示 (复用Dashboard的逻辑) -->
+        <NCard
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="📊 当前预测分析"
+          size="large"
+        >
+          <template #header-extra>
+            <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-x-3 sm:space-y-0">
+              <div
+                v-if="analysisMeta"
+                class="flex flex-wrap items-center gap-1 text-xs text-gray-300 sm:gap-2 sm:text-sm"
+              >
+                <span class="font-medium">轮次:</span>
+                <span class="text-red">{{ analysisMeta.round_id }}</span>
+                <span class="font-medium">状态:</span>
+                <NTag :type="getStatusTagType(analysisMeta.status)" size="small">
+                  {{ analysisMeta.status }}
+                </NTag>
+              </div>
+              <n-button
+                :loading="analysisLoading"
+                @click="refreshAnalysis"
+                type="primary"
+                size="small"
+                class="self-end sm:self-auto"
+              >
+                🔄 刷新分析
+              </n-button>
+            </div>
+          </template>
+
+          <div v-if="analysisData.length > 0" class="space-y-4">
+            <!-- 触发条件检查 -->
+            <div v-if="simulationResult" class="mb-4 border border-blue-500/30 rounded-lg bg-blue-500/10 p-4">
+              <h4 class="mb-3 text-lg text-blue-400 font-semibold">🎯 下注条件检查</h4>
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div class="flex items-center justify-between rounded-lg bg-white/5 p-3">
+                  <span class="text-sm text-gray-300">信赖度</span>
+                  <div class="flex items-center space-x-2">
+                    <span
+                      class="text-sm font-medium"
+                      :class="simulationResult.trigger_details.confidence?.met ? 'text-green-400' : 'text-red-400'"
+                    >
+                      {{ (simulationResult.trigger_details.confidence?.value || 0).toFixed(1) }}%
+                    </span>
+                    <span class="text-xs text-gray-500">
+                      ≥ {{ simulationResult.trigger_details.confidence?.threshold }}%
+                    </span>
+                    <span class="text-lg">{{ simulationResult.trigger_details.confidence?.met ? '✅' : '❌' }}</span>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between rounded-lg bg-white/5 p-3">
+                  <span class="text-sm text-gray-300">分数差距</span>
+                  <div class="flex items-center space-x-2">
+                    <span
+                      class="text-sm font-medium"
+                      :class="simulationResult.trigger_details.score_gap?.met ? 'text-green-400' : 'text-red-400'"
+                    >
+                      {{ (simulationResult.trigger_details.score_gap?.value || 0).toFixed(1) }}
+                    </span>
+                    <span class="text-xs text-gray-500">
+                      ≥ {{ simulationResult.trigger_details.score_gap?.threshold }}
+                    </span>
+                    <span class="text-lg">{{ simulationResult.trigger_details.score_gap?.met ? '✅' : '❌' }}</span>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between rounded-lg bg-white/5 p-3">
+                  <span class="text-sm text-gray-300">历史局数</span>
+                  <div class="flex items-center space-x-2">
+                    <span
+                      class="text-sm font-medium"
+                      :class="simulationResult.trigger_details.total_games?.met ? 'text-green-400' : 'text-red-400'"
+                    >
+                      {{ simulationResult.trigger_details.total_games?.value || 0 }}
+                    </span>
+                    <span class="text-xs text-gray-500">
+                      ≥ {{ simulationResult.trigger_details.total_games?.threshold }}
+                    </span>
+                    <span class="text-lg">{{ simulationResult.trigger_details.total_games?.met ? '✅' : '❌' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 推荐下注 -->
+              <div
+                v-if="simulationResult.recommended_bets && simulationResult.recommended_bets.length > 0"
+                class="mt-4"
+              >
+                <h5 class="mb-2 text-sm text-green-400 font-semibold">💰 推荐下注方案</h5>
+                <div class="grid grid-cols-1 gap-2 lg:grid-cols-3 sm:grid-cols-2">
+                  <div
+                    v-for="bet in simulationResult.recommended_bets"
+                    :key="bet.symbol"
+                    class="flex items-center justify-between border border-green-500/20 rounded-lg bg-green-500/10 p-3"
+                  >
+                    <div>
+                      <span class="text-sm text-white font-medium">{{ bet.symbol }}</span>
+                      <div class="text-xs text-gray-400">预测 #{{ bet.predicted_rank }}</div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-sm text-green-400 font-bold">${{ bet.bet_amount }}</div>
+                      <div class="text-xs text-gray-400">{{ bet.confidence.toFixed(1) }}%</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 横向名次預測展示 (复用Dashboard组件) -->
+            <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5">
+              <div
+                v-for="(token, index) in analysisData"
+                :key="`unified-${index}-${token.symbol}-${token.name}`"
+                class="relative overflow-hidden border rounded-lg p-3 transition-all duration-300 hover:shadow-lg"
+                :class="getUnifiedCardClass(index)"
+              >
+                <!-- 简洁头部 -->
+                <div class="mb-2 flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <div class="text-lg">{{ getPredictionIcon(index) }}</div>
+                    <div class="text-sm text-white font-bold">{{ token.symbol }}</div>
+                  </div>
+                  <div class="text-xs text-gray-400">#{{ index + 1 }}</div>
+                </div>
+
+                <!-- 核心评分 -->
+                <div class="mb-3 text-center">
+                  <div class="text-xs text-gray-400">最终评分</div>
+                  <div class="text-lg font-bold" :class="getScoreTextClass(index)">
+                    {{
+                      (
+                        token.risk_adjusted_score ||
+                        token.final_prediction_score ||
+                        token.prediction_score ||
+                        0
+                      ).toFixed(1)
+                    }}
+                  </div>
+                  <div v-if="token.rank_confidence" class="text-xs text-gray-400">
+                    置信度 {{ (token.rank_confidence || 0).toFixed(0) }}%
+                  </div>
+                </div>
+
+                <!-- 关键数据参数 -->
+                <div class="text-xs space-y-1">
+                  <div class="flex justify-between">
+                    <span class="text-gray-400">保本率:</span>
+                    <span class="text-green-400 font-bold">{{ (token.top3_rate || 0).toFixed(1) }}%</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-400">总局数:</span>
+                    <span class="text-purple-400 font-bold">{{ token.total_games || 0 }}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-400">稳定性:</span>
+                    <span class="text-yellow-400 font-bold">
+                      <span v-if="token.value_stddev !== undefined">{{ (token.value_stddev || 0).toFixed(3) }}</span>
+                      <span v-else class="text-gray-500">-</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <NEmpty v-else description="暂无分析数据" class="py-8" />
+        </NCard>
+
         <!-- 自动下注控制面板 -->
         <NCard
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
@@ -257,340 +489,13 @@
             </n-button>
           </div>
         </NCard>
-
-        <!-- 当前分析数据展示 (复用Dashboard的逻辑) -->
-        <NCard
-          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="📊 当前预测分析"
-          size="large"
-        >
-          <template #header-extra>
-            <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-x-3 sm:space-y-0">
-              <div
-                v-if="analysisMeta"
-                class="flex flex-wrap items-center gap-1 text-xs text-gray-300 sm:gap-2 sm:text-sm"
-              >
-                <span class="font-medium">轮次:</span>
-                <span class="text-red">{{ analysisMeta.round_id }}</span>
-                <span class="font-medium">状态:</span>
-                <NTag :type="getStatusTagType(analysisMeta.status)" size="small">
-                  {{ analysisMeta.status }}
-                </NTag>
-              </div>
-              <n-button
-                :loading="analysisLoading"
-                @click="refreshAnalysis"
-                type="primary"
-                size="small"
-                class="self-end sm:self-auto"
-              >
-                🔄 刷新分析
-              </n-button>
-            </div>
-          </template>
-
-          <div v-if="analysisData.length > 0" class="space-y-4">
-            <!-- 触发条件检查 -->
-            <div v-if="simulationResult" class="mb-4 border border-blue-500/30 rounded-lg bg-blue-500/10 p-4">
-              <h4 class="mb-3 text-lg text-blue-400 font-semibold">🎯 下注条件检查</h4>
-              <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div class="flex items-center justify-between rounded-lg bg-white/5 p-3">
-                  <span class="text-sm text-gray-300">信赖度</span>
-                  <div class="flex items-center space-x-2">
-                    <span
-                      class="text-sm font-medium"
-                      :class="simulationResult.trigger_details.confidence?.met ? 'text-green-400' : 'text-red-400'"
-                    >
-                      {{ (simulationResult.trigger_details.confidence?.value || 0).toFixed(1) }}%
-                    </span>
-                    <span class="text-xs text-gray-500">
-                      ≥ {{ simulationResult.trigger_details.confidence?.threshold }}%
-                    </span>
-                    <span class="text-lg">{{ simulationResult.trigger_details.confidence?.met ? '✅' : '❌' }}</span>
-                  </div>
-                </div>
-                <div class="flex items-center justify-between rounded-lg bg-white/5 p-3">
-                  <span class="text-sm text-gray-300">分数差距</span>
-                  <div class="flex items-center space-x-2">
-                    <span
-                      class="text-sm font-medium"
-                      :class="simulationResult.trigger_details.score_gap?.met ? 'text-green-400' : 'text-red-400'"
-                    >
-                      {{ (simulationResult.trigger_details.score_gap?.value || 0).toFixed(1) }}
-                    </span>
-                    <span class="text-xs text-gray-500">
-                      ≥ {{ simulationResult.trigger_details.score_gap?.threshold }}
-                    </span>
-                    <span class="text-lg">{{ simulationResult.trigger_details.score_gap?.met ? '✅' : '❌' }}</span>
-                  </div>
-                </div>
-                <div class="flex items-center justify-between rounded-lg bg-white/5 p-3">
-                  <span class="text-sm text-gray-300">历史局数</span>
-                  <div class="flex items-center space-x-2">
-                    <span
-                      class="text-sm font-medium"
-                      :class="simulationResult.trigger_details.total_games?.met ? 'text-green-400' : 'text-red-400'"
-                    >
-                      {{ simulationResult.trigger_details.total_games?.value || 0 }}
-                    </span>
-                    <span class="text-xs text-gray-500">
-                      ≥ {{ simulationResult.trigger_details.total_games?.threshold }}
-                    </span>
-                    <span class="text-lg">{{ simulationResult.trigger_details.total_games?.met ? '✅' : '❌' }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 推荐下注 -->
-              <div
-                v-if="simulationResult.recommended_bets && simulationResult.recommended_bets.length > 0"
-                class="mt-4"
-              >
-                <h5 class="mb-2 text-sm text-green-400 font-semibold">💰 推荐下注方案</h5>
-                <div class="grid grid-cols-1 gap-2 lg:grid-cols-3 sm:grid-cols-2">
-                  <div
-                    v-for="bet in simulationResult.recommended_bets"
-                    :key="bet.symbol"
-                    class="flex items-center justify-between border border-green-500/20 rounded-lg bg-green-500/10 p-3"
-                  >
-                    <div>
-                      <span class="text-sm text-white font-medium">{{ bet.symbol }}</span>
-                      <div class="text-xs text-gray-400">预测 #{{ bet.predicted_rank }}</div>
-                    </div>
-                    <div class="text-right">
-                      <div class="text-sm text-green-400 font-bold">${{ bet.bet_amount }}</div>
-                      <div class="text-xs text-gray-400">{{ bet.confidence.toFixed(1) }}%</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 横向名次預測展示 (复用Dashboard组件) -->
-            <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5">
-              <div
-                v-for="(token, index) in analysisData"
-                :key="`unified-${index}-${token.symbol}-${token.name}`"
-                class="relative overflow-hidden border rounded-lg p-3 transition-all duration-300 hover:shadow-lg"
-                :class="getUnifiedCardClass(index)"
-              >
-                <!-- 简洁头部 -->
-                <div class="mb-2 flex items-center justify-between">
-                  <div class="flex items-center space-x-2">
-                    <div class="text-lg">{{ getPredictionIcon(index) }}</div>
-                    <div class="text-sm text-white font-bold">{{ token.symbol }}</div>
-                  </div>
-                  <div class="text-xs text-gray-400">#{{ index + 1 }}</div>
-                </div>
-
-                <!-- 核心评分 -->
-                <div class="mb-3 text-center">
-                  <div class="text-xs text-gray-400">最终评分</div>
-                  <div class="text-lg font-bold" :class="getScoreTextClass(index)">
-                    {{
-                      (
-                        token.risk_adjusted_score ||
-                        token.final_prediction_score ||
-                        token.prediction_score ||
-                        0
-                      ).toFixed(1)
-                    }}
-                  </div>
-                  <div v-if="token.rank_confidence" class="text-xs text-gray-400">
-                    置信度 {{ (token.rank_confidence || 0).toFixed(0) }}%
-                  </div>
-                </div>
-
-                <!-- 关键数据参数 -->
-                <div class="text-xs space-y-1">
-                  <div class="flex justify-between">
-                    <span class="text-gray-400">保本率:</span>
-                    <span class="text-green-400 font-bold">{{ (token.top3_rate || 0).toFixed(1) }}%</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-400">总局数:</span>
-                    <span class="text-purple-400 font-bold">{{ token.total_games || 0 }}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-400">稳定性:</span>
-                    <span class="text-yellow-400 font-bold">
-                      <span v-if="token.value_stddev !== undefined">{{ (token.value_stddev || 0).toFixed(3) }}</span>
-                      <span v-else class="text-gray-500">-</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <NEmpty v-else description="暂无分析数据" class="py-8" />
-        </NCard>
-
-        <!-- 系统状态监控 -->
-        <NCard
-          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="📈 系统状态监控"
-          size="large"
-        >
-          <div class="grid grid-cols-1 gap-4 lg:grid-cols-4 md:grid-cols-2">
-            <!-- 运行状态 -->
-            <div class="border border-white/10 rounded-lg bg-white/5 p-4">
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm text-gray-300">运行状态</span>
-                <div class="text-xl">{{ autoBettingStatus.is_running ? '🟢' : '🔴' }}</div>
-              </div>
-              <div class="text-lg font-bold" :class="autoBettingStatus.is_running ? 'text-green-400' : 'text-gray-400'">
-                {{ autoBettingStatus.is_running ? '运行中' : '已停止' }}
-              </div>
-            </div>
-
-            <!-- 总下注次数 -->
-            <div class="border border-white/10 rounded-lg bg-white/5 p-4">
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm text-gray-300">总下注次数</span>
-                <div class="text-xl">🎲</div>
-              </div>
-              <div class="text-lg text-blue-400 font-bold">{{ autoBettingStatus.total_bets || 0 }}</div>
-            </div>
-
-            <!-- 总盈亏 -->
-            <div class="border border-white/10 rounded-lg bg-white/5 p-4">
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm text-gray-300">总盈亏</span>
-                <div class="text-xl">💰</div>
-              </div>
-              <div
-                class="text-lg font-bold"
-                :class="(autoBettingStatus.total_profit_loss || 0) >= 0 ? 'text-green-400' : 'text-red-400'"
-              >
-                ${{ (autoBettingStatus.total_profit_loss || 0).toFixed(2) }}
-              </div>
-            </div>
-
-            <!-- 今日盈亏 -->
-            <div class="border border-white/10 rounded-lg bg-white/5 p-4">
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm text-gray-300">今日盈亏</span>
-                <div class="text-xl">📊</div>
-              </div>
-              <div
-                class="text-lg font-bold"
-                :class="(autoBettingStatus.today_profit_loss || 0) >= 0 ? 'text-green-400' : 'text-red-400'"
-              >
-                ${{ (autoBettingStatus.today_profit_loss || 0).toFixed(2) }}
-              </div>
-            </div>
-          </div>
-
-          <!-- 错误信息 -->
-          <div v-if="autoBettingStatus.last_error" class="mt-4 border border-red-500/30 rounded-lg bg-red-500/10 p-3">
-            <div class="text-sm text-red-400">
-              <strong>最新错误:</strong>
-              {{ autoBettingStatus.last_error }}
-            </div>
-          </div>
-        </NCard>
-
-        <!-- 手动下注面板 -->
-        <NCard
-          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="🎯 手动下注面板"
-          size="large"
-        >
-          <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <!-- 下注表单 -->
-            <div class="space-y-4">
-              <h3 class="mb-4 text-lg text-white font-semibold">💰 下注参数</h3>
-
-              <!-- 轮次ID -->
-              <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">轮次ID</label>
-                <div class="flex space-x-2">
-                  <n-input
-                    v-model:value="manualBet.roundId"
-                    placeholder="请输入轮次ID (如: 202506270300174652807119284)"
-                    class="flex-1"
-                  />
-                  <n-button @click="autoFillCurrentRound" type="tertiary" size="medium">自动填入当前轮次</n-button>
-                </div>
-              </div>
-
-              <!-- 代币选择 -->
-              <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">下注代币</label>
-                <n-select
-                  v-model:value="manualBet.tokenSymbol"
-                  :options="tokenOptions"
-                  placeholder="选择要下注的代币"
-                />
-              </div>
-
-              <!-- 下注金额 -->
-              <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">下注金额 ($)</label>
-                <n-input-number v-model:value="manualBet.amount" :min="1" :max="10000" class="w-full">
-                  <template #prefix>$</template>
-                </n-input-number>
-              </div>
-            </div>
-
-            <!-- 快速下注选项 -->
-            <div class="space-y-4">
-              <h3 class="mb-4 text-lg text-white font-semibold">⚡ 快速下注</h3>
-
-              <!-- 基于推荐下注 -->
-              <div
-                v-if="
-                  simulationResult && simulationResult.recommended_bets && simulationResult.recommended_bets.length > 0
-                "
-                class="space-y-3"
-              >
-                <label class="text-sm text-gray-300 font-medium">基于AI推荐</label>
-                <div class="space-y-2">
-                  <div
-                    v-for="bet in simulationResult.recommended_bets"
-                    :key="bet.symbol"
-                    class="flex items-center justify-between border border-blue-500/20 rounded-lg bg-blue-500/10 p-3"
-                  >
-                    <div>
-                      <span class="text-sm text-white font-medium">{{ bet.symbol }}</span>
-                      <div class="text-xs text-gray-400">推荐金额: ${{ bet.bet_amount }}</div>
-                    </div>
-                    <n-button
-                      @click="quickBet(bet)"
-                      :loading="manualBetLoading"
-                      :disabled="!config.jwt_token"
-                      type="primary"
-                      size="small"
-                    >
-                      快速下注
-                    </n-button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 手动下注按钮 -->
-              <div class="mt-6">
-                <n-button
-                  @click="placeBet"
-                  :loading="manualBetLoading"
-                  :disabled="!manualBet.roundId || !manualBet.tokenSymbol || !manualBet.amount || !config.jwt_token"
-                  type="success"
-                  size="large"
-                  class="w-full"
-                >
-                  🚀 立即下注
-                </n-button>
-              </div>
-            </div>
-          </div>
-        </NCard>
       </div>
     </div>
   </DefaultLayout>
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, computed } from 'vue';
+  import { ref, onMounted } from 'vue';
   import { NEmpty, useMessage } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import api from '@/utils/api';
@@ -676,28 +581,12 @@
   const analysisLoading = ref(false);
   const simulateLoading = ref(false);
   const executeLoading = ref(false);
-  const manualBetLoading = ref(false);
 
   // 连接测试结果
   const connectionResult = ref<{ success: boolean; message: string } | null>(null);
 
   // 模拟结果
   const simulationResult = ref<any>(null);
-
-  // 手动下注数据
-  const manualBet = ref({
-    roundId: '',
-    tokenSymbol: '',
-    amount: 100
-  });
-
-  // 代币选项 (computed from analysisData)
-  const tokenOptions = computed(() => {
-    return analysisData.value.map((token) => ({
-      label: `${token.symbol} - ${token.name}`,
-      value: token.symbol
-    }));
-  });
 
   // 工具函数 (复用Dashboard的函数)
   const getUnifiedCardClass = (index: number) => {
@@ -1014,56 +903,7 @@
     }
   };
 
-  const placeBet = async () => {
-    manualBetLoading.value = true;
-    try {
-      const success = await executeSingleBet(
-        manualBet.value.roundId,
-        manualBet.value.tokenSymbol,
-        manualBet.value.amount,
-        config.value.jwt_token
-      );
-
-      if (success) {
-        getMessageInstance()?.success('下注成功！');
-        // 重置表单
-        manualBet.value = {
-          roundId: '',
-          tokenSymbol: '',
-          amount: 100
-        };
-        await loadStatus();
-      } else {
-        getMessageInstance()?.error('下注失败');
-      }
-    } catch (error) {
-      console.error('下注失败:', error);
-      getMessageInstance()?.error('下注失败');
-    } finally {
-      manualBetLoading.value = false;
-    }
-  };
-
   const refreshAnalysis = () => fetchAnalysisData();
-
-  // 手动下注相关方法
-  const autoFillCurrentRound = () => {
-    if (analysisMeta.value && analysisMeta.value.round_id) {
-      manualBet.value.roundId = analysisMeta.value.round_id;
-      getMessageInstance()?.success('已自动填入当前轮次ID');
-    } else {
-      getMessageInstance()?.warning('无法获取当前轮次ID');
-    }
-  };
-
-  const quickBet = async (bet: any) => {
-    manualBet.value.tokenSymbol = bet.symbol;
-    manualBet.value.amount = bet.bet_amount;
-    if (analysisMeta.value && analysisMeta.value.round_id) {
-      manualBet.value.roundId = analysisMeta.value.round_id;
-    }
-    await placeBet();
-  };
 
   // 初始化
   onMounted(() => {

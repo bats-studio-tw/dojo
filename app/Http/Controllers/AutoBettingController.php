@@ -10,6 +10,8 @@ use App\Services\GameDataProcessorService;
 use App\Services\GamePredictionService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class AutoBettingController extends Controller
 {
@@ -254,8 +256,7 @@ class AutoBettingController extends Controller
 
             $jwtToken = $request->jwt_token;
 
-            // TODO: 这里应该实际测试JWT Token的有效性
-            // 目前只是模拟测试
+            // 简单格式验证
             if (strlen($jwtToken) < 50) {
                 return response()->json([
                     'success' => false,
@@ -265,7 +266,7 @@ class AutoBettingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'JWT Token连接测试成功',
+                'message' => 'JWT Token格式验证通过，请在前端测试实际连接',
                 'data' => [
                     'token_valid' => true,
                     'connection_time' => now()->toISOString()
@@ -458,5 +459,191 @@ class AutoBettingController extends Controller
         }
 
         return $bets;
+    }
+
+    /**
+     * 获取当前轮次ID
+     */
+    private function getCurrentRoundId(): ?string
+    {
+        try {
+            // 这里应该根据你的业务逻辑来获取当前轮次ID
+            // 可能从GameRound模型、缓存或其他数据源获取
+            $latestRound = \App\Models\GameRound::latest()->first();
+            return $latestRound ? $latestRound->round_id : null;
+        } catch (\Exception $e) {
+            Log::error('获取当前轮次ID失败', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /**
+     * 执行自动下注（基于当前分析结果）- 返回下注建议给前端
+     */
+    public function executeAutoBetting(Request $request): JsonResponse
+    {
+        try {
+            $userId = $request->user()?->id ?? 'guest';
+            $config = Cache::get("auto_betting_config_{$userId}");
+
+            if (!$config || !$config['enabled']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '自动下注未启用或配置不存在'
+                ], 422);
+            }
+
+            // 检查当前状态
+            $status = Cache::get("auto_betting_status_{$userId}");
+            if (!$status || !$status['is_running']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '自动下注系统未运行'
+                ], 422);
+            }
+
+            // 获取当前分析数据
+            $currentAnalysis = $this->gamePredictionService->getCurrentRoundPredictions();
+            if (empty($currentAnalysis)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '当前无可用分析数据'
+                ], 422);
+            }
+
+            // 检查触发条件
+            $trigger = $this->checkBettingTriggers($currentAnalysis, $config);
+            if (!$trigger['met']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '当前条件不满足下注要求',
+                    'trigger_details' => $trigger['details']
+                ], 422);
+            }
+
+            // 计算推荐下注
+            $recommendedBets = $this->calculateBetAmounts($currentAnalysis, $config);
+            if (empty($recommendedBets)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '无推荐下注方案'
+                ], 422);
+            }
+
+            // 获取当前轮次ID
+            $currentRoundId = $this->getCurrentRoundId();
+            if (!$currentRoundId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '无法获取当前轮次ID'
+                ], 422);
+            }
+
+            // 返回下注建议给前端，让前端直接调用API
+            return response()->json([
+                'success' => true,
+                'message' => '自动下注条件满足，返回下注建议',
+                'data' => [
+                    'trigger_details' => $trigger['details'],
+                    'recommended_bets' => $recommendedBets,
+                    'round_id' => $currentRoundId,
+                    'jwt_token' => $config['jwt_token']
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('自动下注执行失败', [
+                'error' => $e->getMessage(),
+                'user_id' => $userId
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => '自动下注执行失败: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 记录下注历史
+     */
+    private function recordBettingHistory(string $userId, array $betData): void
+    {
+        $history = Cache::get("auto_betting_history_{$userId}", []);
+        $history[] = $betData;
+
+        // 只保留最近100条记录
+        if (count($history) > 100) {
+            $history = array_slice($history, -100);
+        }
+
+        Cache::put("auto_betting_history_{$userId}", $history, now()->addDays(30));
+    }
+
+    /**
+     * 执行实际下注
+     */
+    public function placeBet(Request $request): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => '请在前端直接调用dojo API进行下注'
+        ], 422);
+    }
+
+    /**
+     * 记录下注结果（由前端调用）
+     */
+    public function recordBetResult(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'round_id' => 'required|string',
+                'token_symbol' => 'required|string',
+                'amount' => 'required|numeric',
+                'bet_id' => 'required|string',
+                'success' => 'required|boolean',
+                'result_data' => 'nullable|array'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '参数验证失败',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $userId = $request->user()?->id ?? 'guest';
+
+            // 记录下注历史
+            $this->recordBettingHistory($userId, [
+                'round_id' => $request->round_id,
+                'token_symbol' => $request->token_symbol,
+                'amount' => $request->amount,
+                'bet_id' => $request->bet_id,
+                'success' => $request->success,
+                'result_data' => $request->result_data,
+                'placed_at' => now()->toISOString()
+            ]);
+
+            // 更新统计
+            $status = Cache::get("auto_betting_status_{$userId}", []);
+            if ($request->success) {
+                $status['total_bets'] = ($status['total_bets'] ?? 0) + 1;
+                $status['last_bet_at'] = now()->toISOString();
+            }
+            Cache::put("auto_betting_status_{$userId}", $status, now()->addDays(1));
+
+            return response()->json([
+                'success' => true,
+                'message' => '下注记录已保存'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => '记录下注结果失败: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

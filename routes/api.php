@@ -47,4 +47,6 @@ Route::prefix('auto-betting')->group(function () {
     Route::post('/test-connection', [AutoBettingController::class, 'testConnection'])->name('api.auto-betting.test-connection');
     Route::get('/history', [AutoBettingController::class, 'getBettingHistory'])->name('api.auto-betting.history');
     Route::post('/simulate', [AutoBettingController::class, 'simulateBet'])->name('api.auto-betting.simulate');
+    Route::post('/execute', [AutoBettingController::class, 'executeAutoBetting'])->name('api.auto-betting.execute');
+    Route::post('/record-result', [AutoBettingController::class, 'recordBetResult'])->name('api.auto-betting.record-result');
 });

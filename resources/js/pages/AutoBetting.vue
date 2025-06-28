@@ -269,6 +269,15 @@
               🎮 模拟下注
             </n-button>
             <n-button
+              @click="executeAutoBetting"
+              :loading="executeLoading"
+              :disabled="!config.jwt_token || !autoBettingStatus.is_running"
+              type="info"
+              size="large"
+            >
+              🎯 执行自动下注
+            </n-button>
+            <n-button
               v-if="!autoBettingStatus.is_running"
               @click="startAutoBetting"
               :loading="toggleLoading"
@@ -515,6 +524,101 @@
             </div>
           </div>
         </NCard>
+
+        <!-- 手动下注面板 -->
+        <NCard
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="🎯 手动下注面板"
+          size="large"
+        >
+          <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <!-- 下注表单 -->
+            <div class="space-y-4">
+              <h3 class="mb-4 text-lg text-white font-semibold">💰 下注参数</h3>
+
+              <!-- 轮次ID -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">轮次ID</label>
+                <div class="flex space-x-2">
+                  <n-input
+                    v-model:value="manualBet.roundId"
+                    placeholder="请输入轮次ID (如: 202506270300174652807119284)"
+                    class="flex-1"
+                  />
+                  <n-button @click="autoFillCurrentRound" type="tertiary" size="medium">自动填入当前轮次</n-button>
+                </div>
+              </div>
+
+              <!-- 代币选择 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">下注代币</label>
+                <n-select
+                  v-model:value="manualBet.tokenSymbol"
+                  :options="tokenOptions"
+                  placeholder="选择要下注的代币"
+                />
+              </div>
+
+              <!-- 下注金额 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">下注金额 ($)</label>
+                <n-input-number v-model:value="manualBet.amount" :min="1" :max="10000" class="w-full">
+                  <template #prefix>$</template>
+                </n-input-number>
+              </div>
+            </div>
+
+            <!-- 快速下注选项 -->
+            <div class="space-y-4">
+              <h3 class="mb-4 text-lg text-white font-semibold">⚡ 快速下注</h3>
+
+              <!-- 基于推荐下注 -->
+              <div
+                v-if="
+                  simulationResult && simulationResult.recommended_bets && simulationResult.recommended_bets.length > 0
+                "
+                class="space-y-3"
+              >
+                <label class="text-sm text-gray-300 font-medium">基于AI推荐</label>
+                <div class="space-y-2">
+                  <div
+                    v-for="bet in simulationResult.recommended_bets"
+                    :key="bet.symbol"
+                    class="flex items-center justify-between border border-blue-500/20 rounded-lg bg-blue-500/10 p-3"
+                  >
+                    <div>
+                      <span class="text-sm text-white font-medium">{{ bet.symbol }}</span>
+                      <div class="text-xs text-gray-400">推荐金额: ${{ bet.bet_amount }}</div>
+                    </div>
+                    <n-button
+                      @click="quickBet(bet)"
+                      :loading="manualBetLoading"
+                      :disabled="!config.jwt_token"
+                      type="primary"
+                      size="small"
+                    >
+                      快速下注
+                    </n-button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 手动下注按钮 -->
+              <div class="mt-6">
+                <n-button
+                  @click="placeBet"
+                  :loading="manualBetLoading"
+                  :disabled="!manualBet.roundId || !manualBet.tokenSymbol || !manualBet.amount || !config.jwt_token"
+                  type="success"
+                  size="large"
+                  class="w-full"
+                >
+                  🚀 立即下注
+                </n-button>
+              </div>
+            </div>
+          </div>
+        </NCard>
       </div>
     </div>
   </DefaultLayout>
@@ -522,10 +626,11 @@
 
 <script setup lang="ts">
   import { ref, onMounted, computed } from 'vue';
-  import { NEmpty, useMessage, type DataTableColumn } from 'naive-ui';
+  import { NEmpty, useMessage } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import api from '@/utils/api';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
+  import axios from 'axios';
 
   // 延迟获取message实例，避免在providers还未准备好时调用
   const getMessageInstance = () => {
@@ -610,12 +715,29 @@
   const connectionTesting = ref(false);
   const analysisLoading = ref(false);
   const simulateLoading = ref(false);
+  const executeLoading = ref(false);
+  const manualBetLoading = ref(false);
 
   // 连接测试结果
   const connectionResult = ref<{ success: boolean; message: string } | null>(null);
 
   // 模拟结果
   const simulationResult = ref<any>(null);
+
+  // 手动下注数据
+  const manualBet = ref({
+    roundId: '',
+    tokenSymbol: '',
+    amount: 100
+  });
+
+  // 代币选项 (computed from analysisData)
+  const tokenOptions = computed(() => {
+    return analysisData.value.map((token) => ({
+      label: `${token.symbol} - ${token.name}`,
+      value: token.symbol
+    }));
+  });
 
   // 工具函数 (复用Dashboard的函数)
   const getUnifiedCardClass = (index: number) => {
@@ -655,6 +777,79 @@
         return 'info';
       default:
         return 'default';
+    }
+  };
+
+  // 执行单次下注的通用方法
+  const executeSingleBet = async (
+    roundId: string,
+    tokenSymbol: string,
+    amount: number,
+    jwtToken: string
+  ): Promise<boolean> => {
+    try {
+      // 第一步：获取betId
+      const betIdResponse = await axios.post(
+        `/dojo-api/${roundId}/bets/id`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!betIdResponse.data.success) {
+        console.error('获取betId失败:', betIdResponse.data);
+        return false;
+      }
+
+      const betId = betIdResponse.data.data;
+
+      // 第二步：执行下注
+      const betResponse = await axios.post(
+        `/dojo-api/${roundId}/real/bets`,
+        {
+          betId,
+          token: tokenSymbol,
+          amount
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (betResponse.data.success) {
+        // 记录下注结果到后端
+        await api.post('/auto-betting/record-result', {
+          round_id: roundId,
+          token_symbol: tokenSymbol,
+          amount,
+          bet_id: betId,
+          success: true,
+          result_data: betResponse.data.data
+        });
+        return true;
+      } else {
+        console.error('下注失败:', betResponse.data);
+        // 记录失败结果
+        await api.post('/auto-betting/record-result', {
+          round_id: roundId,
+          token_symbol: tokenSymbol,
+          amount,
+          bet_id: betId,
+          success: false,
+          result_data: betResponse.data
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error('下注过程出错:', error);
+      return false;
     }
   };
 
@@ -813,7 +1008,102 @@
     }
   };
 
+  const executeAutoBetting = async () => {
+    executeLoading.value = true;
+    try {
+      // 先获取下注建议
+      const response = await api.post('/auto-betting/execute');
+      if (response.data.success) {
+        const { recommended_bets, round_id, jwt_token } = response.data.data;
+
+        getMessageInstance()?.info('开始执行自动下注...');
+
+        let successCount = 0;
+        let failCount = 0;
+
+        // 对每个推荐下注执行API调用
+        for (const bet of recommended_bets) {
+          try {
+            const betSuccess = await executeSingleBet(round_id, bet.symbol, bet.bet_amount, jwt_token);
+            if (betSuccess) {
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } catch (error) {
+            console.error(`下注失败 ${bet.symbol}:`, error);
+            failCount++;
+          }
+        }
+
+        if (successCount > 0) {
+          getMessageInstance()?.success(`自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+        } else {
+          getMessageInstance()?.error('自动下注全部失败');
+        }
+
+        await loadStatus();
+      } else {
+        getMessageInstance()?.error(response.data.message || '获取下注建议失败');
+      }
+    } catch (error) {
+      console.error('执行自动下注失败:', error);
+      getMessageInstance()?.error('执行自动下注失败');
+    } finally {
+      executeLoading.value = false;
+    }
+  };
+
+  const placeBet = async () => {
+    manualBetLoading.value = true;
+    try {
+      const success = await executeSingleBet(
+        manualBet.value.roundId,
+        manualBet.value.tokenSymbol,
+        manualBet.value.amount,
+        config.value.jwt_token
+      );
+
+      if (success) {
+        getMessageInstance()?.success('下注成功！');
+        // 重置表单
+        manualBet.value = {
+          roundId: '',
+          tokenSymbol: '',
+          amount: 100
+        };
+        await loadStatus();
+      } else {
+        getMessageInstance()?.error('下注失败');
+      }
+    } catch (error) {
+      console.error('下注失败:', error);
+      getMessageInstance()?.error('下注失败');
+    } finally {
+      manualBetLoading.value = false;
+    }
+  };
+
   const refreshAnalysis = () => fetchAnalysisData();
+
+  // 手动下注相关方法
+  const autoFillCurrentRound = () => {
+    if (analysisMeta.value && analysisMeta.value.round_id) {
+      manualBet.value.roundId = analysisMeta.value.round_id;
+      getMessageInstance()?.success('已自动填入当前轮次ID');
+    } else {
+      getMessageInstance()?.warning('无法获取当前轮次ID');
+    }
+  };
+
+  const quickBet = async (bet: any) => {
+    manualBet.value.tokenSymbol = bet.symbol;
+    manualBet.value.amount = bet.bet_amount;
+    if (analysisMeta.value && analysisMeta.value.round_id) {
+      manualBet.value.roundId = analysisMeta.value.round_id;
+    }
+    await placeBet();
+  };
 
   // 初始化
   onMounted(() => {

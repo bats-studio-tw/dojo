@@ -542,10 +542,9 @@
   import { ref, onMounted, watch } from 'vue';
   import { NEmpty, useMessage } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
-  import api, { getUserInfo } from '@/utils/api';
+  import { getUserInfo, autoBettingApi, gameApi } from '@/utils/api';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import WalletSetup from '@/components/WalletSetup.vue';
-  import axios from 'axios';
 
   // 延迟获取message实例，避免在providers还未准备好时调用
   const getMessageInstance = () => {
@@ -688,16 +687,7 @@
   ): Promise<boolean> => {
     try {
       // 第一步：获取betId
-      const betIdResponse = await axios.post(
-        `/dojo-api/${roundId}/bets/id`,
-        {},
-        {
-          headers: {
-            jwt_token: jwtToken,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      const betIdResponse = await gameApi.getBetId(roundId, jwtToken);
 
       if (!betIdResponse.data.success) {
         console.error('获取betId失败:', betIdResponse.data);
@@ -707,24 +697,11 @@
       const betId = betIdResponse.data.data;
 
       // 第二步：执行下注
-      const betResponse = await axios.post(
-        `/dojo-api/${roundId}/real/bets`,
-        {
-          betId,
-          token: tokenSymbol,
-          amount
-        },
-        {
-          headers: {
-            jwt_token: jwtToken,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      const betResponse = await gameApi.placeBet(roundId, betId, tokenSymbol, amount, jwtToken);
 
       if (betResponse.data.success) {
         // 记录下注结果到后端
-        await api.post('/auto-betting/record-result', {
+        await autoBettingApi.recordResult({
           wallet_address: walletAddress.value,
           round_id: roundId,
           token_symbol: tokenSymbol,
@@ -737,7 +714,7 @@
       } else {
         console.error('下注失败:', betResponse.data);
         // 记录失败结果
-        await api.post('/auto-betting/record-result', {
+        await autoBettingApi.recordResult({
           wallet_address: walletAddress.value,
           round_id: roundId,
           token_symbol: tokenSymbol,
@@ -760,9 +737,7 @@
 
     statusLoading.value = true;
     try {
-      const response = await api.get('/auto-betting/status', {
-        params: { wallet_address: walletAddress.value }
-      });
+      const response = await autoBettingApi.getStatus(walletAddress.value);
       if (response.data.success) {
         autoBettingStatus.value = response.data.data;
       } else {
@@ -778,10 +753,7 @@
   const startAutoBetting = async () => {
     toggleLoading.value = true;
     try {
-      const response = await api.post('/auto-betting/toggle', {
-        action: 'start',
-        wallet_address: walletAddress.value
-      });
+      const response = await autoBettingApi.toggle('start', walletAddress.value);
       if (response.data.success) {
         getMessageInstance()?.success('自动下注已启动');
         await loadStatus();
@@ -799,10 +771,7 @@
   const stopAutoBetting = async () => {
     toggleLoading.value = true;
     try {
-      const response = await api.post('/auto-betting/toggle', {
-        action: 'stop',
-        wallet_address: walletAddress.value
-      });
+      const response = await autoBettingApi.toggle('stop', walletAddress.value);
       if (response.data.success) {
         getMessageInstance()?.success('自动下注已停止');
         await loadStatus();
@@ -867,7 +836,7 @@
   const fetchAnalysisData = async () => {
     analysisLoading.value = true;
     try {
-      const response = await api.get('/game/current-analysis');
+      const response = await gameApi.getCurrentAnalysis();
       if (response.data.success) {
         analysisData.value = response.data.data;
         analysisMeta.value = response.data.meta || null;
@@ -885,9 +854,7 @@
   const simulateBetting = async () => {
     simulateLoading.value = true;
     try {
-      const response = await api.post('/auto-betting/simulate', {
-        config: config.value
-      });
+      const response = await autoBettingApi.simulate(config.value);
       if (response.data.success) {
         simulationResult.value = response.data.data;
         if (simulationResult.value.trigger_met) {
@@ -910,10 +877,7 @@
     executeLoading.value = true;
     try {
       // 先获取下注建议
-      const response = await api.post('/auto-betting/execute', {
-        wallet_address: walletAddress.value,
-        config: config.value
-      });
+      const response = await autoBettingApi.execute(walletAddress.value, config.value);
       if (response.data.success) {
         const { recommended_bets, round_id, jwt_token } = response.data.data;
 

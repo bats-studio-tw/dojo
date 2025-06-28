@@ -8,12 +8,12 @@
         <div class="mb-6 flex items-center justify-between">
           <a
             href="/"
-            class="px-4 py-2 rounded-lg bg-slate-600 text-white hover:bg-slate-700 transition-colors duration-200 flex items-center space-x-2"
+            class="flex items-center rounded-lg bg-slate-600 px-4 py-2 text-white transition-colors duration-200 space-x-2 hover:bg-slate-700"
           >
             <span>📊</span>
             <span>返回数据面板</span>
           </a>
-          <div class="text-center flex-1">
+          <div class="flex-1 text-center">
             <h1 class="text-3xl text-white font-bold">🤖 自动下注控制中心</h1>
             <p class="text-gray-300">基于数据驱动的智能下注系统</p>
           </div>
@@ -31,17 +31,17 @@
             <div class="flex items-center space-x-3">
               <div
                 v-if="autoBettingStatus.is_running"
-                class="flex items-center space-x-2 px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30"
+                class="flex items-center border border-green-500/30 rounded-full bg-green-500/20 px-3 py-1 space-x-2"
               >
-                <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-                <span class="text-green-400 text-sm font-medium">运行中</span>
+                <div class="h-2 w-2 animate-pulse rounded-full bg-green-400"></div>
+                <span class="text-sm text-green-400 font-medium">运行中</span>
               </div>
               <div
                 v-else
-                class="flex items-center space-x-2 px-3 py-1 rounded-full bg-gray-500/20 border border-gray-500/30"
+                class="flex items-center border border-gray-500/30 rounded-full bg-gray-500/20 px-3 py-1 space-x-2"
               >
-                <div class="w-2 h-2 rounded-full bg-gray-400"></div>
-                <span class="text-gray-400 text-sm font-medium">已停止</span>
+                <div class="h-2 w-2 rounded-full bg-gray-400"></div>
+                <span class="text-sm text-gray-400 font-medium">已停止</span>
               </div>
             </div>
           </template>
@@ -49,7 +49,7 @@
           <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <!-- 基础配置 -->
             <div class="space-y-4">
-              <h3 class="text-lg text-white font-semibold mb-4">📊 基础配置</h3>
+              <h3 class="mb-4 text-lg text-white font-semibold">📊 基础配置</h3>
 
               <!-- JWT Token -->
               <div class="space-y-2">
@@ -131,7 +131,7 @@
 
             <!-- 策略配置 -->
             <div class="space-y-4">
-              <h3 class="text-lg text-white font-semibold mb-4">🎲 策略配置</h3>
+              <h3 class="mb-4 text-lg text-white font-semibold">🎲 策略配置</h3>
 
               <!-- 信赖度阈值 -->
               <div class="space-y-2">
@@ -193,7 +193,7 @@
                 <label class="text-sm text-gray-300 font-medium">投资组合分配 (%)</label>
                 <div class="space-y-2">
                   <div class="flex items-center space-x-3">
-                    <span class="text-xs text-yellow-400 w-12">第1名:</span>
+                    <span class="w-12 text-xs text-yellow-400">第1名:</span>
                     <n-slider
                       v-model:value="config.portfolio_allocation.rank1"
                       :min="0"
@@ -202,10 +202,10 @@
                       :disabled="autoBettingStatus.is_running"
                       class="flex-1"
                     />
-                    <span class="text-xs text-gray-400 w-12">{{ config.portfolio_allocation.rank1 }}%</span>
+                    <span class="w-12 text-xs text-gray-400">{{ config.portfolio_allocation.rank1 }}%</span>
                   </div>
                   <div class="flex items-center space-x-3">
-                    <span class="text-xs text-slate-400 w-12">第2名:</span>
+                    <span class="w-12 text-xs text-slate-400">第2名:</span>
                     <n-slider
                       v-model:value="config.portfolio_allocation.rank2"
                       :min="0"
@@ -214,10 +214,10 @@
                       :disabled="autoBettingStatus.is_running"
                       class="flex-1"
                     />
-                    <span class="text-xs text-gray-400 w-12">{{ config.portfolio_allocation.rank2 }}%</span>
+                    <span class="w-12 text-xs text-gray-400">{{ config.portfolio_allocation.rank2 }}%</span>
                   </div>
                   <div class="flex items-center space-x-3">
-                    <span class="text-xs text-orange-400 w-12">第3名:</span>
+                    <span class="w-12 text-xs text-orange-400">第3名:</span>
                     <n-slider
                       v-model:value="config.portfolio_allocation.rank3"
                       :min="0"
@@ -226,7 +226,7 @@
                       :disabled="autoBettingStatus.is_running"
                       class="flex-1"
                     />
-                    <span class="text-xs text-gray-400 w-12">{{ config.portfolio_allocation.rank3 }}%</span>
+                    <span class="w-12 text-xs text-gray-400">{{ config.portfolio_allocation.rank3 }}%</span>
                   </div>
                   <div class="text-xs text-gray-400">
                     总计:
@@ -244,7 +244,7 @@
                             100
                         ) > 0.1
                       "
-                      class="text-red-400 ml-2"
+                      class="ml-2 text-red-400"
                     >
                       (必须为100%)
                     </span>
@@ -255,7 +255,7 @@
           </div>
 
           <!-- 控制按钮 -->
-          <div class="mt-6 flex flex-wrap gap-3 justify-center">
+          <div class="mt-6 flex flex-wrap justify-center gap-3">
             <n-button
               @click="saveConfig"
               :loading="configSaving"
@@ -317,10 +317,10 @@
 
           <div v-if="analysisData.length > 0" class="space-y-4">
             <!-- 触发条件检查 -->
-            <div v-if="simulationResult" class="mb-4 p-4 rounded-lg border border-blue-500/30 bg-blue-500/10">
-              <h4 class="text-lg text-blue-400 font-semibold mb-3">🎯 下注条件检查</h4>
+            <div v-if="simulationResult" class="mb-4 border border-blue-500/30 rounded-lg bg-blue-500/10 p-4">
+              <h4 class="mb-3 text-lg text-blue-400 font-semibold">🎯 下注条件检查</h4>
               <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div class="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                <div class="flex items-center justify-between rounded-lg bg-white/5 p-3">
                   <span class="text-sm text-gray-300">信赖度</span>
                   <div class="flex items-center space-x-2">
                     <span
@@ -335,7 +335,7 @@
                     <span class="text-lg">{{ simulationResult.trigger_details.confidence?.met ? '✅' : '❌' }}</span>
                   </div>
                 </div>
-                <div class="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                <div class="flex items-center justify-between rounded-lg bg-white/5 p-3">
                   <span class="text-sm text-gray-300">分数差距</span>
                   <div class="flex items-center space-x-2">
                     <span
@@ -350,7 +350,7 @@
                     <span class="text-lg">{{ simulationResult.trigger_details.score_gap?.met ? '✅' : '❌' }}</span>
                   </div>
                 </div>
-                <div class="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                <div class="flex items-center justify-between rounded-lg bg-white/5 p-3">
                   <span class="text-sm text-gray-300">历史局数</span>
                   <div class="flex items-center space-x-2">
                     <span
@@ -372,12 +372,12 @@
                 v-if="simulationResult.recommended_bets && simulationResult.recommended_bets.length > 0"
                 class="mt-4"
               >
-                <h5 class="text-sm text-green-400 font-semibold mb-2">💰 推荐下注方案</h5>
-                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <h5 class="mb-2 text-sm text-green-400 font-semibold">💰 推荐下注方案</h5>
+                <div class="grid grid-cols-1 gap-2 lg:grid-cols-3 sm:grid-cols-2">
                   <div
                     v-for="bet in simulationResult.recommended_bets"
                     :key="bet.symbol"
-                    class="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20"
+                    class="flex items-center justify-between border border-green-500/20 rounded-lg bg-green-500/10 p-3"
                   >
                     <div>
                       <span class="text-sm text-white font-medium">{{ bet.symbol }}</span>
@@ -457,10 +457,10 @@
           title="📈 系统状态监控"
           size="large"
         >
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-4 md:grid-cols-2">
             <!-- 运行状态 -->
-            <div class="p-4 rounded-lg bg-white/5 border border-white/10">
-              <div class="flex items-center justify-between mb-2">
+            <div class="border border-white/10 rounded-lg bg-white/5 p-4">
+              <div class="mb-2 flex items-center justify-between">
                 <span class="text-sm text-gray-300">运行状态</span>
                 <div class="text-xl">{{ autoBettingStatus.is_running ? '🟢' : '🔴' }}</div>
               </div>
@@ -470,8 +470,8 @@
             </div>
 
             <!-- 总下注次数 -->
-            <div class="p-4 rounded-lg bg-white/5 border border-white/10">
-              <div class="flex items-center justify-between mb-2">
+            <div class="border border-white/10 rounded-lg bg-white/5 p-4">
+              <div class="mb-2 flex items-center justify-between">
                 <span class="text-sm text-gray-300">总下注次数</span>
                 <div class="text-xl">🎲</div>
               </div>
@@ -479,8 +479,8 @@
             </div>
 
             <!-- 总盈亏 -->
-            <div class="p-4 rounded-lg bg-white/5 border border-white/10">
-              <div class="flex items-center justify-between mb-2">
+            <div class="border border-white/10 rounded-lg bg-white/5 p-4">
+              <div class="mb-2 flex items-center justify-between">
                 <span class="text-sm text-gray-300">总盈亏</span>
                 <div class="text-xl">💰</div>
               </div>
@@ -493,8 +493,8 @@
             </div>
 
             <!-- 今日盈亏 -->
-            <div class="p-4 rounded-lg bg-white/5 border border-white/10">
-              <div class="flex items-center justify-between mb-2">
+            <div class="border border-white/10 rounded-lg bg-white/5 p-4">
+              <div class="mb-2 flex items-center justify-between">
                 <span class="text-sm text-gray-300">今日盈亏</span>
                 <div class="text-xl">📊</div>
               </div>
@@ -508,7 +508,7 @@
           </div>
 
           <!-- 错误信息 -->
-          <div v-if="autoBettingStatus.last_error" class="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+          <div v-if="autoBettingStatus.last_error" class="mt-4 border border-red-500/30 rounded-lg bg-red-500/10 p-3">
             <div class="text-sm text-red-400">
               <strong>最新错误:</strong>
               {{ autoBettingStatus.last_error }}
@@ -527,8 +527,15 @@
   import api from '@/utils/api';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
 
-  // 消息实例
-  const message = useMessage();
+  // 延迟获取message实例，避免在providers还未准备好时调用
+  const getMessageInstance = () => {
+    try {
+      return useMessage();
+    } catch {
+      console.warn('Message provider not ready yet');
+      return null;
+    }
+  };
 
   // 自动下注配置
   const config = ref({
@@ -659,11 +666,11 @@
       if (response.data.success) {
         config.value = response.data.data;
       } else {
-        message.error(response.data.message || '加载配置失败');
+        getMessageInstance()?.error(response.data.message || '加载配置失败');
       }
     } catch (error) {
       console.error('加载配置失败:', error);
-      message.error('加载配置失败');
+      getMessageInstance()?.error('加载配置失败');
     } finally {
       configLoading.value = false;
     }
@@ -674,13 +681,13 @@
     try {
       const response = await api.post('/auto-betting/config', config.value);
       if (response.data.success) {
-        message.success('配置已保存');
+        getMessageInstance()?.success('配置已保存');
       } else {
-        message.error(response.data.message || '保存配置失败');
+        getMessageInstance()?.error(response.data.message || '保存配置失败');
       }
     } catch (error) {
       console.error('保存配置失败:', error);
-      message.error('保存配置失败');
+      getMessageInstance()?.error('保存配置失败');
     } finally {
       configSaving.value = false;
     }
@@ -693,7 +700,7 @@
       if (response.data.success) {
         autoBettingStatus.value = response.data.data;
       } else {
-        message.error(response.data.message || '加载状态失败');
+        getMessageInstance()?.error(response.data.message || '加载状态失败');
       }
     } catch (error) {
       console.error('加载状态失败:', error);
@@ -707,14 +714,14 @@
     try {
       const response = await api.post('/auto-betting/toggle', { action: 'start' });
       if (response.data.success) {
-        message.success('自动下注已启动');
+        getMessageInstance()?.success('自动下注已启动');
         await loadStatus();
       } else {
-        message.error(response.data.message || '启动失败');
+        getMessageInstance()?.error(response.data.message || '启动失败');
       }
     } catch (error) {
       console.error('启动失败:', error);
-      message.error('启动失败');
+      getMessageInstance()?.error('启动失败');
     } finally {
       toggleLoading.value = false;
     }
@@ -725,14 +732,14 @@
     try {
       const response = await api.post('/auto-betting/toggle', { action: 'stop' });
       if (response.data.success) {
-        message.success('自动下注已停止');
+        getMessageInstance()?.success('自动下注已停止');
         await loadStatus();
       } else {
-        message.error(response.data.message || '停止失败');
+        getMessageInstance()?.error(response.data.message || '停止失败');
       }
     } catch (error) {
       console.error('停止失败:', error);
-      message.error('停止失败');
+      getMessageInstance()?.error('停止失败');
     } finally {
       toggleLoading.value = false;
     }
@@ -750,9 +757,9 @@
         message: response.data.message
       };
       if (response.data.success) {
-        message.success('JWT Token连接测试成功');
+        getMessageInstance()?.success('JWT Token连接测试成功');
       } else {
-        message.error(response.data.message || 'JWT Token连接测试失败');
+        getMessageInstance()?.error(response.data.message || 'JWT Token连接测试失败');
       }
     } catch (error) {
       console.error('连接测试失败:', error);
@@ -760,7 +767,7 @@
         success: false,
         message: '连接测试失败'
       };
-      message.error('连接测试失败');
+      getMessageInstance()?.error('连接测试失败');
     } finally {
       connectionTesting.value = false;
     }
@@ -774,11 +781,11 @@
         analysisData.value = response.data.data;
         analysisMeta.value = response.data.meta || null;
       } else {
-        message.error(response.data.message || '获取分析数据失败');
+        getMessageInstance()?.error(response.data.message || '获取分析数据失败');
       }
     } catch (error) {
       console.error('获取分析数据失败:', error);
-      message.error('获取分析数据失败');
+      getMessageInstance()?.error('获取分析数据失败');
     } finally {
       analysisLoading.value = false;
     }
@@ -791,16 +798,16 @@
       if (response.data.success) {
         simulationResult.value = response.data.data;
         if (simulationResult.value.trigger_met) {
-          message.success('触发条件满足，可以进行下注');
+          getMessageInstance()?.success('触发条件满足，可以进行下注');
         } else {
-          message.warning('当前条件不满足下注要求');
+          getMessageInstance()?.warning('当前条件不满足下注要求');
         }
       } else {
-        message.error(response.data.message || '模拟下注失败');
+        getMessageInstance()?.error(response.data.message || '模拟下注失败');
       }
     } catch (error) {
       console.error('模拟下注失败:', error);
-      message.error('模拟下注失败');
+      getMessageInstance()?.error('模拟下注失败');
     } finally {
       simulateLoading.value = false;
     }

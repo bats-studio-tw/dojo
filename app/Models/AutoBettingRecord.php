@@ -11,7 +11,6 @@ class AutoBettingRecord extends Model
 
     protected $fillable = [
         'uid',
-        'wallet_address',
         'round_id',
         'token_symbol',
         'bet_amount',

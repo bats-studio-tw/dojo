@@ -355,7 +355,6 @@ class AutoBettingController extends Controller
      */
     private function calculateBetAmounts(array $analysisData, array $config): array
     {
-        $bankroll = $config['bankroll'] ?? 1000;
         $betAmount = $config['bet_amount'] ?? 200;
         $strategy = $config['strategy'] ?? 'single_bet';
 
@@ -378,7 +377,7 @@ class AutoBettingController extends Controller
             // 指定排名下注策略：按配置的排名进行下注
             $enabledRanks = $config['rank_betting_enabled_ranks'] ?? [1, 2, 3];
             $differentAmounts = $config['rank_betting_different_amounts'] ?? false;
-            $amountPerRank = $config['rank_betting_amount_per_rank'] ?? 100;
+            $amountPerRank = $config['rank_betting_amount_per_rank'] ?? 200;
 
             // 按预测排名排序
             usort($analysisData, function($a, $b) {
@@ -398,10 +397,10 @@ class AutoBettingController extends Controller
                                 $rankBetAmount = $config['rank_betting_rank1_amount'] ?? 200;
                                 break;
                             case 2:
-                                $rankBetAmount = $config['rank_betting_rank2_amount'] ?? 150;
+                                $rankBetAmount = $config['rank_betting_rank2_amount'] ?? 200;
                                 break;
                             case 3:
-                                $rankBetAmount = $config['rank_betting_rank3_amount'] ?? 100;
+                                $rankBetAmount = $config['rank_betting_rank3_amount'] ?? 200;
                                 break;
                             default:
                                 $rankBetAmount = $amountPerRank;

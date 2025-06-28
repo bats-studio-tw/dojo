@@ -652,32 +652,18 @@
                 <div class="text-xs text-gray-400">用于执行下注操作的授权令牌</div>
               </div>
 
-              <!-- 资金池 -->
-              <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">资金池 (USD)</label>
-                <n-input-number
-                  v-model:value="config.bankroll"
-                  :min="100"
-                  :max="50000"
-                  :step="100"
-                  :disabled="autoBettingStatus.is_running"
-                  class="w-full"
-                />
-                <div class="text-xs text-gray-400">总可用资金，用于计算下注金额比例</div>
-              </div>
-
               <!-- 单次下注金额 -->
               <div class="space-y-2">
                 <label class="text-sm text-gray-300 font-medium">单次下注金额 (USD)</label>
                 <n-input-number
                   v-model:value="config.bet_amount"
-                  :min="10"
+                  :min="200"
                   :max="2000"
-                  :step="10"
+                  :step="50"
                   :disabled="autoBettingStatus.is_running"
                   class="w-full"
                 />
-                <div class="text-xs text-gray-400">每次下注的固定金额</div>
+                <div class="text-xs text-gray-400">每次下注的固定金额，最低200美元</div>
               </div>
 
               <!-- 每日止损百分比 -->
@@ -705,7 +691,7 @@
                   :disabled="autoBettingStatus.is_running"
                   class="w-full"
                 />
-                <div class="text-xs text-gray-400">单次下注不超过资金池的此比例</div>
+                <div class="text-xs text-gray-400">单次下注不超过钱包余额的此比例</div>
               </div>
             </div>
 
@@ -1269,7 +1255,6 @@
   // 自动下注配置 - 使用reactive进行深度响应
   const config = reactive({
     jwt_token: '',
-    bankroll: 1000,
     bet_amount: 200,
     daily_stop_loss_percentage: 15,
 
@@ -1308,11 +1293,11 @@
 
     // 指定排名下注相关配置
     rank_betting_enabled_ranks: [1, 2, 3], // 默认下注前三名
-    rank_betting_amount_per_rank: 100, // 每个排名的下注金额
+    rank_betting_amount_per_rank: 200, // 每个排名的下注金额
     rank_betting_different_amounts: false, // 是否为不同排名设置不同金额
     rank_betting_rank1_amount: 200, // 第1名下注金额
-    rank_betting_rank2_amount: 150, // 第2名下注金额
-    rank_betting_rank3_amount: 100, // 第3名下注金额
+    rank_betting_rank2_amount: 200, // 第2名下注金额
+    rank_betting_rank3_amount: 200, // 第3名下注金额
     rank_betting_max_ranks: 5 // 最多支持前几名（1-5名）
   });
 
@@ -1416,18 +1401,18 @@
 
   const getRankBettingAmount = (rank: number): number => {
     if (!config.rank_betting_different_amounts) {
-      return config.rank_betting_amount_per_rank;
+      return config.rank_betting_amount_per_rank || 200;
     }
 
     switch (rank) {
       case 1:
-        return config.rank_betting_rank1_amount;
+        return config.rank_betting_rank1_amount || 200;
       case 2:
-        return config.rank_betting_rank2_amount;
+        return config.rank_betting_rank2_amount || 200;
       case 3:
-        return config.rank_betting_rank3_amount;
+        return config.rank_betting_rank3_amount || 200;
       default:
-        return config.rank_betting_amount_per_rank;
+        return config.rank_betting_amount_per_rank || 200;
     }
   };
 
@@ -1528,23 +1513,26 @@
 
     // 传统策略的金额计算
     let betAmount = config.bet_amount;
+    const walletBalance = userInfo.value?.ojoValue || 0;
 
     // Kelly准则计算
-    if (config.enable_kelly_criterion) {
+    if (config.enable_kelly_criterion && walletBalance > 0) {
       const winProbability = prediction.confidence / 100;
       const odds = 1.95; // 假设赔率
       const kellyFraction = (winProbability * odds - 1) / (odds - 1);
       betAmount = Math.min(
-        config.bankroll * kellyFraction * config.kelly_fraction,
-        config.bankroll * (config.max_bet_percentage / 100)
+        walletBalance * kellyFraction * config.kelly_fraction,
+        walletBalance * (config.max_bet_percentage / 100)
       );
     }
 
     // 确保不超过最大下注比例
-    betAmount = Math.min(betAmount, config.bankroll * (config.max_bet_percentage / 100));
+    if (walletBalance > 0) {
+      betAmount = Math.min(betAmount, walletBalance * (config.max_bet_percentage / 100));
+    }
 
     // 最小下注金额
-    betAmount = Math.max(betAmount, 10);
+    betAmount = Math.max(betAmount, 200);
 
     return Math.round(betAmount);
   };
@@ -1621,8 +1609,11 @@
       matches.length > 0 ? matches.reduce((sum, m) => sum + (m.confidence || 70), 0) / matches.length / 100 : 0;
 
     let riskLevel = 'low';
-    if (totalMatchedValue > config.bankroll * 0.2) riskLevel = 'high';
-    else if (totalMatchedValue > config.bankroll * 0.1) riskLevel = 'medium';
+    const walletBalance = userInfo.value?.ojoValue || 0;
+    if (walletBalance > 0) {
+      if (totalMatchedValue > walletBalance * 0.2) riskLevel = 'high';
+      else if (totalMatchedValue > walletBalance * 0.1) riskLevel = 'medium';
+    }
 
     // 检查实际余额是否足够
     const actualBalance = userInfo.value?.ojoValue || 0;
@@ -1744,7 +1735,6 @@
         console.error('加载本地配置失败:', error);
         Object.assign(config, {
           jwt_token: '',
-          bankroll: 1000,
           bet_amount: 200,
           daily_stop_loss_percentage: 15,
           confidence_threshold: 88,

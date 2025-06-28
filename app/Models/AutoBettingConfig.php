@@ -24,7 +24,6 @@ class AutoBettingConfig extends Model
     public static function getDefaultConfig(): array
     {
         return [
-            'bankroll' => 1000,
             'bet_amount' => 200,
             'daily_stop_loss_percentage' => 15,
             'confidence_threshold' => 88,
@@ -59,11 +58,11 @@ class AutoBettingConfig extends Model
 
             // 指定排名下注相关配置
             'rank_betting_enabled_ranks' => [1, 2, 3],
-            'rank_betting_amount_per_rank' => 100,
+            'rank_betting_amount_per_rank' => 200,
             'rank_betting_different_amounts' => false,
             'rank_betting_rank1_amount' => 200,
-            'rank_betting_rank2_amount' => 150,
-            'rank_betting_rank3_amount' => 100,
+            'rank_betting_rank2_amount' => 200,
+            'rank_betting_rank3_amount' => 200,
             'rank_betting_max_ranks' => 5
         ];
     }

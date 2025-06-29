@@ -127,7 +127,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   let gameUpdatesChannel: any = null;
   let predictionsChannel: any = null;
   let reconnectTimer: number | null = null;
-  let maxReconnectAttempts = 5;
+  const maxReconnectAttempts = 5;
 
   // ==================== 计算属性 ====================
 
@@ -138,6 +138,31 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     () =>
       websocketStatus.value.status === 'disconnected' && websocketStatus.value.reconnectAttempts < maxReconnectAttempts
   );
+
+  // ==================== 数据获取方法 ====================
+
+  /**
+   * 获取预测历史数据
+   */
+  const fetchPredictionHistory = async () => {
+    historyLoading.value = true;
+    historyError.value = null;
+
+    try {
+      const response = await api.get('/game/prediction-history');
+      if (response.data.success) {
+        predictionHistory.value = response.data.data || [];
+        console.log('📈 更新预测历史数据:', predictionHistory.value.length, '局');
+      } else {
+        historyError.value = response.data.message || '获取预测历史数据失败';
+      }
+    } catch (error) {
+      console.error('获取预测历史数据失败:', error);
+      historyError.value = '网络错误，获取预测历史数据失败';
+    } finally {
+      historyLoading.value = false;
+    }
+  };
 
   // ==================== WebSocket管理 ====================
 
@@ -262,44 +287,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   };
 
   /**
-   * 安排重连
-   */
-  const scheduleReconnect = () => {
-    if (websocketStatus.value.reconnectAttempts >= maxReconnectAttempts) {
-      console.warn('已达到最大重连次数，停止重连尝试');
-      websocketStatus.value = {
-        ...websocketStatus.value,
-        status: 'error',
-        message: '连接失败，已停止重连'
-      };
-      return;
-    }
-
-    const delay = Math.min(1000 * Math.pow(2, websocketStatus.value.reconnectAttempts), 30000); // 指数退避，最大30秒
-
-    console.log(`🔄 ${delay}ms后尝试重连 (第${websocketStatus.value.reconnectAttempts + 1}次)`);
-
-    websocketStatus.value.reconnectAttempts++;
-
-    reconnectTimer = setTimeout(() => {
-      initializeWebSocket();
-    }, delay);
-  };
-
-  /**
-   * 手动重连
-   */
-  const reconnectWebSocket = () => {
-    disconnectWebSocket();
-    websocketStatus.value.reconnectAttempts = 0; // 重置重连计数
-    setTimeout(() => {
-      initializeWebSocket();
-    }, 1000);
-  };
-
-  // ==================== 数据获取方法 ====================
-
-  /**
    * 获取当前分析数据 - 保留作为初始化和备用
    */
   const fetchCurrentAnalysis = async () => {
@@ -324,26 +311,14 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   };
 
   /**
-   * 获取预测历史数据
+   * 手动重连
    */
-  const fetchPredictionHistory = async () => {
-    historyLoading.value = true;
-    historyError.value = null;
-
-    try {
-      const response = await api.get('/game/prediction-history');
-      if (response.data.success) {
-        predictionHistory.value = response.data.data || [];
-        console.log('📈 更新预测历史数据:', predictionHistory.value.length, '局');
-      } else {
-        historyError.value = response.data.message || '获取预测历史数据失败';
-      }
-    } catch (error) {
-      console.error('获取预测历史数据失败:', error);
-      historyError.value = '网络错误，获取预测历史数据失败';
-    } finally {
-      historyLoading.value = false;
-    }
+  const reconnectWebSocket = () => {
+    disconnectWebSocket();
+    websocketStatus.value.reconnectAttempts = 0; // 重置重连计数
+    setTimeout(() => {
+      initializeWebSocket();
+    }, 1000);
   };
 
   /**

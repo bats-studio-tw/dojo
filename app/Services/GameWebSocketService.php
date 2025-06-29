@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\GameRound; // 雖然這裡不用，但你的舊版有，我先保留
+use App\Events\GameDataUpdated;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Ratchet\Client\Connector;
@@ -225,13 +226,42 @@ class GameWebSocketService
                     // 异步触发预测分析计算
                     $this->triggerPredictionCalculation($gameData);
 
+                    // 广播新轮次开始的游戏数据到前端
+                    try {
+                        broadcast(new GameDataUpdated($gameData, 'bet'));
+                        $this->logInfo("📡 新轮次开始数据已广播到WebSocket客户端", [
+                            'rdId' => $rdId,
+                            'status' => $status
+                        ]);
+                    } catch (\Exception $broadcastError) {
+                        $this->logError("广播新轮次开始数据失败", [
+                            'rdId' => $rdId,
+                            'error' => $broadcastError->getMessage()
+                        ]);
+                    }
+
                     // 保持数组大小，只保留最近50个轮次记录
                     if (count($this->processedRounds) > 50) {
                         $this->processedRounds = array_slice($this->processedRounds, -50);
                     }
                 } else {
-                    // 其他狀態的輪次訊息
+                    // 其他狀態的輪次訊息 - 也需要广播到前端
                     $this->consoleOutput("🎲 游戏轮次状态: {$status} | ID: {$rdId}");
+
+                                        // 广播其他状态的游戏数据到前端 (如倒计时、等待等状态)
+                    try {
+                        broadcast(new GameDataUpdated($gameData, $status));
+                        $this->logInfo("📡 游戏状态数据已广播到WebSocket客户端", [
+                            'rdId' => $rdId,
+                            'status' => $status
+                        ]);
+                    } catch (\Exception $broadcastError) {
+                        $this->logError("广播游戏状态数据失败", [
+                            'rdId' => $rdId,
+                            'status' => $status,
+                            'error' => $broadcastError->getMessage()
+                        ]);
+                    }
                 }
             } else {
                 // 非round类型的消息 - 只记录但不显示，减少输出

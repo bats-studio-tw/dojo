@@ -422,8 +422,23 @@
     manualSaveConfig: [];
   }>();
 
-  // 获取排名下注相关方法
-  const { toggleRankBetting, getRankBettingAmount, getTotalRankBettingAmount } = useAutoBettingConfig();
+  // 排名下注相关方法 - 直接操作props中的config
+  const toggleRankBetting = (rank: number, checked: boolean) => {
+    if (checked) {
+      if (!props.config.rank_betting_enabled_ranks.includes(rank)) {
+        props.config.rank_betting_enabled_ranks.push(rank);
+        props.config.rank_betting_enabled_ranks.sort((a, b) => a - b);
+      }
+    } else {
+      const index = props.config.rank_betting_enabled_ranks.indexOf(rank);
+      if (index > -1) {
+        props.config.rank_betting_enabled_ranks.splice(index, 1);
+      }
+    }
+  };
+
+  // 获取其他排名下注相关方法
+  const { getRankBettingAmount, getTotalRankBettingAmount } = useAutoBettingConfig();
 
   // Methods
   const applyStrategyTemplate = (key: string) => emit('applyStrategyTemplate', key);

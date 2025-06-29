@@ -251,7 +251,7 @@
               <div class="space-y-2">
                 <label class="text-xs text-gray-300 font-medium">下注金额</label>
                 <n-input-number
-                  v-model:value="config.bet_amount"
+                  v-model:value="props.config.bet_amount"
                   :min="200"
                   :max="2000"
                   :step="50"
@@ -262,7 +262,7 @@
               <div class="space-y-2">
                 <label class="text-xs text-gray-300 font-medium">风险比例(%)</label>
                 <n-input-number
-                  v-model:value="config.max_bet_percentage"
+                  v-model:value="props.config.max_bet_percentage"
                   :min="5"
                   :max="50"
                   :step="1"
@@ -276,18 +276,18 @@
               <div class="space-y-2">
                 <label class="text-xs text-gray-300 font-medium">置信度(%)</label>
                 <n-input-number
-                  v-model:value="config.confidence_threshold"
+                  v-model:value="props.config.confidence_threshold"
                   :min="70"
                   :max="99"
                   :step="1"
-                  :disabled="isRunning || config.strategy === 'rank_betting'"
+                  :disabled="isRunning || props.config.strategy === 'rank_betting'"
                   size="small"
                 />
               </div>
               <div class="space-y-2">
                 <label class="text-xs text-gray-300 font-medium">下注策略</label>
                 <n-select
-                  v-model:value="config.strategy"
+                  v-model:value="props.config.strategy"
                   :options="[
                     { label: '单项', value: 'single_bet' },
                     { label: '多项', value: 'multi_bet' },
@@ -301,7 +301,7 @@
             </div>
 
             <!-- 指定排名下注配置 -->
-            <div v-if="config.strategy === 'rank_betting'" class="border-t border-gray-600 pt-4">
+            <div v-if="props.config.strategy === 'rank_betting'" class="border-t border-gray-600 pt-4">
               <label class="mb-2 block text-xs text-gray-300 font-medium">选择排名</label>
               <div class="grid grid-cols-5 gap-2">
                 <div
@@ -309,11 +309,11 @@
                   :key="rank"
                   class="cursor-pointer rounded border-2 p-2 text-center text-xs transition-all duration-200"
                   :class="
-                    config.rank_betting_enabled_ranks.includes(rank)
+                    props.config.rank_betting_enabled_ranks.includes(rank)
                       ? 'border-blue-400 bg-blue-500/20 text-blue-400'
                       : 'border-gray-500/30 bg-gray-500/10 text-gray-400 hover:border-gray-400/60'
                   "
-                  @click="toggleRankBetting(rank, !config.rank_betting_enabled_ranks.includes(rank))"
+                  @click="toggleRankBetting(rank, !props.config.rank_betting_enabled_ranks.includes(rank))"
                 >
                   <div class="font-bold">TOP{{ rank }}</div>
                 </div>
@@ -563,8 +563,23 @@
     runApiDiagnostics: [];
   }>();
 
-  // 获取排名下注相关方法
-  const { toggleRankBetting, getRankBettingAmount, getTotalRankBettingAmount } = useAutoBettingConfig();
+  // 排名下注相关方法 - 直接操作props中的config
+  const toggleRankBetting = (rank: number, checked: boolean) => {
+    if (checked) {
+      if (!props.config.rank_betting_enabled_ranks.includes(rank)) {
+        props.config.rank_betting_enabled_ranks.push(rank);
+        props.config.rank_betting_enabled_ranks.sort((a: number, b: number) => a - b);
+      }
+    } else {
+      const index = props.config.rank_betting_enabled_ranks.indexOf(rank);
+      if (index > -1) {
+        props.config.rank_betting_enabled_ranks.splice(index, 1);
+      }
+    }
+  };
+
+  // 获取其他排名下注相关方法
+  const { getRankBettingAmount, getTotalRankBettingAmount } = useAutoBettingConfig();
 
   // Methods
   const startAutoBetting = () => emit('startAutoBetting');

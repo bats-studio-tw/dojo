@@ -90,7 +90,7 @@
               <div
                 v-for="match in strategyValidation.matches"
                 :key="match.symbol"
-                class="flex items-center justify-between rounded-lg bg-gray-800/50 p-3 border border-gray-600/30"
+                class="flex items-center justify-between border border-gray-600/30 rounded-lg bg-gray-800/50 p-3"
               >
                 <div class="flex items-center space-x-3">
                   <span class="text-white font-medium">{{ match.symbol }}</span>
@@ -251,7 +251,7 @@
                 <div
                   v-for="rank in [1, 2, 3, 4, 5]"
                   :key="rank"
-                  class="cursor-pointer rounded-lg border-2 p-3 text-center transition-all duration-200"
+                  class="cursor-pointer border-2 rounded-lg p-3 text-center transition-all duration-200"
                   :class="
                     config.rank_betting_enabled_ranks.includes(rank)
                       ? 'border-blue-400 bg-blue-500/20 text-blue-400'
@@ -347,7 +347,7 @@
                 <span class="text-blue-400">ℹ️</span>
                 <span class="text-sm text-blue-400 font-medium">指定排名下注说明</span>
               </div>
-              <div class="space-y-1 text-xs text-gray-300">
+              <div class="text-xs text-gray-300 space-y-1">
                 <div>• 每轮游戏会自动下注您选择的排名，无需满足其他条件</div>
                 <div>• 下注基于AI预测的排名结果，不考虑置信度等其他指标</div>
                 <div>• 建议选择TOP 1-3排名以获得更好的胜率</div>

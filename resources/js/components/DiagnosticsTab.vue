@@ -150,8 +150,8 @@
           </div>
         </div>
 
-        <div v-else class="text-center py-8 text-gray-400">
-          <div class="text-2xl mb-2">🔬</div>
+        <div v-else class="py-8 text-center text-gray-400">
+          <div class="mb-2 text-2xl">🔬</div>
           <div class="text-sm">点击上方按钮开始API诊断</div>
         </div>
       </div>

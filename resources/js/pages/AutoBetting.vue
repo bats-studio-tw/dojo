@@ -369,6 +369,10 @@
     recentRoundsCount.value = value;
   };
 
+  // 定时器引用，用于清理
+  let analysisRefreshTimer: number | null = null;
+  let predictionRefreshTimer: number | null = null;
+
   // 监听器引用，用于清理
   const configWatcher = watch(
     config,
@@ -407,6 +411,17 @@
 
     // 无论是否有验证状态，都初始化基础预测数据展示
     predictionStore.refreshAllPredictionData();
+
+    // 设置自动刷新定时器 - 添加名次预测自动刷新功能
+    // 当前分析数据每2秒刷新一次（名次预测）
+    analysisRefreshTimer = setInterval(() => {
+      fetchAnalysisData();
+    }, 2000);
+
+    // 预测历史数据每15秒刷新一次
+    predictionRefreshTimer = setInterval(() => {
+      predictionStore.refreshAllPredictionData();
+    }, 15000);
   });
 
   // 组件卸载时清理资源
@@ -414,6 +429,16 @@
     // 停止监听器
     if (configWatcher) configWatcher();
     if (analysisWatcher) analysisWatcher();
+
+    // 清理定时器
+    if (analysisRefreshTimer) {
+      clearInterval(analysisRefreshTimer);
+      analysisRefreshTimer = null;
+    }
+    if (predictionRefreshTimer) {
+      clearInterval(predictionRefreshTimer);
+      predictionRefreshTimer = null;
+    }
 
     // 停止游戏轮次监控
     isMonitoringRounds.value = false;

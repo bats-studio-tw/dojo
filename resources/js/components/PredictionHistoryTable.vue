@@ -55,7 +55,7 @@
   // 使用composables
   const { getTokenPredictionAnalysis } = usePredictionStats(
     // 这里传入空的ref，因为我们直接使用传入的数据
-    // eslint-disable-next-line vue/no-ref-as-operand
+
     { value: [] } as any
   );
   const { getPredictionRankIcon, getPredictionRowClass } = usePredictionDisplay();

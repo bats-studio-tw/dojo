@@ -3,7 +3,7 @@
     v-if="visible"
     class="fixed inset-0 z-50 flex items-center justify-center from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br p-4"
   >
-    <div class="mx-auto w-full max-w-md">
+    <div class="mx-auto max-w-md w-full">
       <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" size="large">
         <template #header>
           <div class="text-center">
@@ -35,13 +35,13 @@
           </div>
 
           <!-- 用户信息显示 -->
-          <div v-if="userInfo" class="rounded-lg border border-green-500/30 bg-green-500/10 p-4">
+          <div v-if="userInfo" class="border border-green-500/30 rounded-lg bg-green-500/10 p-4">
             <div class="mb-2 flex items-center space-x-2">
               <span class="text-lg">👤</span>
               <span class="text-sm text-green-400 font-medium">用户信息</span>
             </div>
 
-            <div class="space-y-2 text-sm text-gray-300">
+            <div class="text-sm text-gray-300 space-y-2">
               <div class="flex justify-between">
                 <span>用户ID:</span>
                 <span class="text-green-400 font-mono">{{ userInfo.uid }}</span>
@@ -62,7 +62,7 @@
           </div>
 
           <!-- 用户资金信息 -->
-          <div v-if="userStats || todayStats" class="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
+          <div v-if="userStats || todayStats" class="border border-blue-500/30 rounded-lg bg-blue-500/10 p-4">
             <div class="mb-2 flex items-center space-x-2">
               <span class="text-lg">📊</span>
               <span class="text-sm text-blue-400 font-medium">下注统计</span>

@@ -404,48 +404,6 @@
             </div>
           </div>
         </NCard>
-
-        <!-- 近期活动日志 -->
-        <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="📊 近期活动日志">
-          <div class="space-y-3">
-            <!-- 最近下注结果 -->
-            <div v-if="debugInfo.lastBetResults && debugInfo.lastBetResults.length > 0">
-              <div class="mb-3 flex items-center justify-between">
-                <span class="text-sm text-white font-medium">🎯 最近下注记录</span>
-                <n-button @click="clearBetResults" type="tertiary" size="tiny">清空记录</n-button>
-              </div>
-
-              <div class="max-h-40 overflow-y-auto rounded bg-black/30 p-3 space-y-2">
-                <div
-                  v-for="(bet, index) in debugInfo.lastBetResults.slice(-3).reverse()"
-                  :key="index"
-                  class="border border-gray-600/50 rounded-lg bg-gray-700/30 p-2"
-                  :class="{
-                    'border-green-500/50 bg-green-500/10': bet.success,
-                    'border-red-500/50 bg-red-500/10': !bet.success
-                  }"
-                >
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2">
-                      <span :class="bet.success ? 'text-green-400' : 'text-red-400'">
-                        {{ bet.success ? '✅' : '❌' }}
-                      </span>
-                      <span class="text-sm text-white font-medium">{{ bet.symbol }}</span>
-                      <span class="text-xs text-gray-400">${{ bet.amount }}</span>
-                    </div>
-                    <span class="text-xs text-gray-500">{{ bet.time }}</span>
-                  </div>
-                  <div v-if="!bet.success && bet.error" class="mt-1 text-xs text-red-400">错误: {{ bet.error }}</div>
-                </div>
-              </div>
-            </div>
-
-            <div v-else class="py-4 text-center text-gray-400">
-              <div class="mb-1 text-xl">📝</div>
-              <div class="text-sm">暂无下注记录</div>
-            </div>
-          </div>
-        </NCard>
       </div>
     </div>
   </div>

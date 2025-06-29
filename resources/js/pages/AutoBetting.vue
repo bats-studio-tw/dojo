@@ -63,6 +63,7 @@
               :config-saving="configSaving"
               :config-sync-status="configSyncStatus"
               :strategy-templates="strategyTemplates"
+              :strategy-templates-with-custom="getStrategyTemplatesWithCustom()"
               :strategy-validation="strategyValidation"
               :is-running="autoBettingStatus.is_running"
               :has-u-i-d="!!currentUID"
@@ -146,6 +147,8 @@
     customStrategyMode,
     configSaving,
     configSyncStatus,
+    getStrategyTemplatesWithCustom,
+    detectCurrentStrategy,
     applyStrategyTemplate,
     switchToCustomMode,
     resetToTemplateMode,
@@ -379,6 +382,17 @@
     () => {
       configComposable.autoSaveConfig(currentUID.value);
       validateCurrentStrategy();
+
+      // 自动检测策略
+      const detectedStrategy = detectCurrentStrategy();
+      if (selectedTemplate.value !== detectedStrategy) {
+        selectedTemplate.value = detectedStrategy;
+        if (detectedStrategy === 'custom') {
+          customStrategyMode.value = true;
+        } else {
+          customStrategyMode.value = false;
+        }
+      }
     },
     { deep: true, flush: 'post' }
   );

@@ -166,6 +166,25 @@ export const useAutoBettingConfig = () => {
   const configSaving = ref(false);
   const configSyncStatus = ref<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
+  // 计算属性：添加自定义策略到模板列表（动态更新）
+  const getStrategyTemplatesWithCustom = () => ({
+    ...strategyTemplates,
+    custom: {
+      name: '自定义策略',
+      description: '完全自定义的策略配置，可手动调整所有参数',
+      confidence_threshold: config.confidence_threshold,
+      score_gap_threshold: config.score_gap_threshold,
+      min_total_games: config.min_total_games,
+      historical_accuracy_threshold: config.historical_accuracy_threshold,
+      min_sample_count: config.min_sample_count,
+      max_bet_percentage: config.max_bet_percentage,
+      strategy: config.strategy,
+      enable_trend_analysis: config.enable_trend_analysis,
+      enable_volume_filter: config.enable_volume_filter,
+      stop_loss_consecutive: config.stop_loss_consecutive
+    }
+  });
+
   // 防抖器
   let saveConfigTimeout: number | null = null;
 
@@ -271,8 +290,37 @@ export const useAutoBettingConfig = () => {
     }
   };
 
+  // 检测当前配置是否匹配某个预设策略
+  const detectCurrentStrategy = (): string => {
+    for (const [key, template] of Object.entries(strategyTemplates)) {
+      const matches =
+        config.confidence_threshold === template.confidence_threshold &&
+        config.score_gap_threshold === template.score_gap_threshold &&
+        config.min_total_games === template.min_total_games &&
+        config.historical_accuracy_threshold === template.historical_accuracy_threshold &&
+        config.min_sample_count === template.min_sample_count &&
+        config.max_bet_percentage === template.max_bet_percentage &&
+        config.strategy === template.strategy &&
+        config.enable_trend_analysis === template.enable_trend_analysis &&
+        config.enable_volume_filter === template.enable_volume_filter &&
+        config.stop_loss_consecutive === template.stop_loss_consecutive;
+
+      if (matches) {
+        return key;
+      }
+    }
+    return 'custom';
+  };
+
   // 应用策略模板
   const applyStrategyTemplate = (templateKey: string) => {
+    if (templateKey === 'custom') {
+      selectedTemplate.value = 'custom';
+      customStrategyMode.value = true;
+      window.$message?.info('已选择自定义策略，可手动调整所有参数');
+      return;
+    }
+
     const template = strategyTemplates[templateKey as keyof typeof strategyTemplates];
     if (!template) return;
 
@@ -362,6 +410,7 @@ export const useAutoBettingConfig = () => {
     configSaving,
     configSyncStatus,
     strategyTemplates,
+    getStrategyTemplatesWithCustom,
 
     // 方法
     loadConfigFromCloud,
@@ -373,6 +422,7 @@ export const useAutoBettingConfig = () => {
     applyStrategyTemplate,
     switchToCustomMode,
     resetToTemplateMode,
+    detectCurrentStrategy,
     toggleRankBetting,
     getRankBettingAmount,
     getTotalRankBettingAmount,

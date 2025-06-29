@@ -180,70 +180,52 @@
           size="large"
         >
           <div class="space-y-4">
-            <!-- 策略模式状态指示器 -->
-            <div class="mb-4 flex items-center justify-between">
-              <div class="flex items-center space-x-2">
-                <n-tag :type="customStrategyMode ? 'warning' : 'success'" size="small">
-                  {{ customStrategyMode ? '🎨 自定义模式' : '📋 模板模式' }}
-                </n-tag>
-              </div>
-              <n-button
-                @click="customStrategyMode ? resetToTemplateMode() : switchToCustomMode()"
-                :type="customStrategyMode ? 'default' : 'primary'"
-                size="small"
+            <!-- 策略网格布局 -->
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div
+                v-for="(template, key) in strategyTemplatesWithCustom"
+                :key="key"
+                class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-3 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
+                :class="{
+                  'border-blue-400 bg-blue-500/20': selectedTemplate === String(key),
+                  'border-orange-400 bg-orange-500/20': String(key) === 'custom' && selectedTemplate === String(key)
+                }"
+                @click="applyStrategyTemplate(String(key))"
               >
-                {{ customStrategyMode ? '返回模板' : '自定义设置' }}
-              </n-button>
-            </div>
-
-            <!-- 策略模板选择 -->
-            <div v-if="!customStrategyMode">
-              <div class="grid grid-cols-1 gap-3">
-                <div
-                  v-for="(template, key) in strategyTemplates"
-                  :key="key"
-                  class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-3 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
-                  :class="{
-                    'border-blue-400 bg-blue-500/20': selectedTemplate === String(key)
-                  }"
-                  @click="applyStrategyTemplate(String(key))"
-                >
-                  <div class="mb-2 flex items-center justify-between">
-                    <span class="text-sm text-white font-medium">{{ template.name }}</span>
-                    <n-tag :type="selectedTemplate === String(key) ? 'primary' : 'default'" size="small">
-                      {{ template.confidence_threshold }}%
-                    </n-tag>
-                  </div>
-                  <div class="text-xs text-gray-400">{{ template.description }}</div>
-                  <div class="mt-2 flex flex-wrap gap-1">
-                    <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
-                      风险: {{ template.max_bet_percentage }}%
-                    </span>
-                    <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
-                      {{
-                        template.strategy === 'single_bet'
-                          ? '单项'
-                          : template.strategy === 'multi_bet'
-                            ? '多项'
-                            : template.strategy === 'hedge_bet'
-                              ? '对冲'
-                              : '指定排名'
-                      }}
-                    </span>
-                  </div>
+                <div class="mb-2 flex items-center justify-between">
+                  <span class="text-sm text-white font-medium flex items-center space-x-1">
+                    <span v-if="String(key) === 'custom'">🎨</span>
+                    <span v-else>📋</span>
+                    <span>{{ template.name }}</span>
+                  </span>
+                  <n-tag
+                    :type="
+                      selectedTemplate === String(key) ? (String(key) === 'custom' ? 'warning' : 'primary') : 'default'
+                    "
+                    size="small"
+                  >
+                    {{ String(key) === 'custom' ? '自定义' : template.confidence_threshold + '%' }}
+                  </n-tag>
                 </div>
-              </div>
-            </div>
-
-            <!-- 自定义模式提示 -->
-            <div v-else class="space-y-3">
-              <div class="border border-orange-500/30 rounded-lg bg-orange-500/10 p-4">
-                <div class="mb-2 flex items-center space-x-2">
-                  <span class="text-orange-400">🎨</span>
-                  <span class="text-sm text-orange-400 font-medium">自定义策略模式</span>
+                <div class="text-xs text-gray-400">{{ template.description }}</div>
+                <div v-if="String(key) !== 'custom'" class="mt-2 flex flex-wrap gap-1">
+                  <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
+                    风险: {{ template.max_bet_percentage }}%
+                  </span>
+                  <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
+                    {{
+                      template.strategy === 'single_bet'
+                        ? '单项'
+                        : template.strategy === 'multi_bet'
+                          ? '多项'
+                          : template.strategy === 'hedge_bet'
+                            ? '对冲'
+                            : '指定排名'
+                    }}
+                  </span>
                 </div>
-                <div class="text-xs text-gray-300">
-                  您现在处于自定义模式，可以手动调整所有参数。预设模板功能已禁用，所有参数变更将实时应用。
+                <div v-else class="mt-2">
+                  <span class="rounded bg-orange-600 px-1.5 py-0.5 text-xs text-orange-200">完全可定制</span>
                 </div>
               </div>
             </div>
@@ -435,6 +417,7 @@
     configSaving: boolean;
     configSyncStatus: { type: 'success' | 'error' | 'info'; message: string } | null;
     strategyTemplates: any;
+    strategyTemplatesWithCustom: any;
     strategyValidation: any;
 
     isRunning: boolean;

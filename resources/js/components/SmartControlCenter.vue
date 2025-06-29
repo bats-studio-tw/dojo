@@ -473,54 +473,8 @@
       </div>
     </div>
 
-    <!-- 底部：回测和高级功能 -->
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-      <!-- 策略回测 -->
-      <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="📈 策略回测" size="large">
-        <div class="space-y-4">
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-300">基于历史数据验证策略效果</span>
-            <n-button @click="runBacktest" :loading="backtestLoading" type="info" size="small">
-              <template #icon>
-                <span>⚡</span>
-              </template>
-              运行回测
-            </n-button>
-          </div>
-
-          <!-- 回测结果 -->
-          <div v-if="backtestResults" class="space-y-3">
-            <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <div class="border border-blue-500/30 rounded bg-blue-500/10 p-2 text-center">
-                <div class="text-xs text-blue-400">测试轮次</div>
-                <div class="text-lg text-white font-bold">{{ backtestResults.total_rounds }}</div>
-              </div>
-              <div class="border border-green-500/30 rounded bg-green-500/10 p-2 text-center">
-                <div class="text-xs text-green-400">胜率</div>
-                <div class="text-lg text-white font-bold">{{ (backtestResults.win_rate * 100).toFixed(1) }}%</div>
-              </div>
-              <div class="border border-purple-500/30 rounded bg-purple-500/10 p-2 text-center">
-                <div class="text-xs text-purple-400">总收益</div>
-                <div
-                  class="text-lg font-bold"
-                  :class="backtestResults.total_profit >= 0 ? 'text-green-400' : 'text-red-400'"
-                >
-                  ${{ backtestResults.total_profit.toFixed(2) }}
-                </div>
-              </div>
-              <div class="border border-orange-500/30 rounded bg-orange-500/10 p-2 text-center">
-                <div class="text-xs text-orange-400">策略评级</div>
-                <div class="text-sm text-white font-bold">{{ backtestResults.best_strategy }}</div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="text-center text-gray-400 py-4">
-            <div class="text-2xl mb-2">📊</div>
-            <div class="text-sm">点击运行回测分析策略效果</div>
-          </div>
-        </div>
-      </NCard>
-
+    <!-- 底部：高级功能 -->
+    <div class="grid grid-cols-1 gap-6">
       <!-- 系统诊断信息 -->
       <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="🔬 系统诊断" size="large">
         <div class="space-y-4">
@@ -585,8 +539,7 @@
     configSyncStatus: { type: 'success' | 'error' | 'info'; message: string } | null;
     strategyTemplates: any;
     strategyValidation: any;
-    backtestResults: any;
-    backtestLoading: boolean;
+
     isRunning: boolean;
     hasUID: boolean;
   }
@@ -605,7 +558,7 @@
     switchToCustomMode: [];
     resetToTemplateMode: [];
     executeStrategyBetting: [];
-    runBacktest: [];
+
     manualSaveConfig: [];
     runApiDiagnostics: [];
   }>();
@@ -624,7 +577,7 @@
   const switchToCustomMode = () => emit('switchToCustomMode');
   const resetToTemplateMode = () => emit('resetToTemplateMode');
   const executeStrategyBetting = () => emit('executeStrategyBetting');
-  const runBacktest = () => emit('runBacktest');
+
   const manualSaveConfig = () => emit('manualSaveConfig');
   const runApiDiagnostics = () => emit('runApiDiagnostics');
 </script>

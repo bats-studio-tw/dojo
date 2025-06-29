@@ -64,8 +64,6 @@
               :config-sync-status="configSyncStatus"
               :strategy-templates="strategyTemplates"
               :strategy-validation="strategyValidation"
-              :backtest-results="backtestResults"
-              :backtest-loading="backtestLoading"
               :is-running="autoBettingStatus.is_running"
               :has-u-i-d="!!currentUID"
               @start-auto-betting="startAutoBetting"
@@ -78,7 +76,6 @@
               @switch-to-custom-mode="switchToCustomMode"
               @reset-to-template-mode="resetToTemplateMode"
               @execute-strategy-betting="executeStrategyBetting"
-              @run-backtest="runBacktest"
               @manual-save-config="manualSaveConfig"
               @run-api-diagnostics="runApiDiagnostics"
             />
@@ -134,7 +131,7 @@
   import { useAutoBettingControl } from '@/composables/useAutoBettingControl';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import { usePredictionStats } from '@/composables/usePredictionStats';
-  import type { StrategyValidation, BacktestResults } from '@/types/autoBetting';
+  import type { StrategyValidation } from '@/types/autoBetting';
   import { handleError, createConfirmDialog, handleAsyncOperation } from '@/utils/errorHandler';
 
   // 初始化composables
@@ -193,8 +190,6 @@
 
   // 策略验证状态
   const strategyValidation = ref<StrategyValidation | null>(null);
-  const backtestResults = ref<BacktestResults | null>(null);
-  const backtestLoading = ref(false);
 
   // 当前策略名称计算属性
   const currentStrategyName = computed(() => {
@@ -378,74 +373,6 @@
   // 手动执行一次下注
   const executeManualBetting = async () => {
     await executeAutoBetting(config);
-  };
-
-  // 策略回测
-  const runBacktest = async () => {
-    if (!predictionStore.predictionHistory?.length) {
-      window.$message?.warning('没有足够的历史数据进行回测');
-      return;
-    }
-
-    backtestLoading.value = true;
-    try {
-      window.$message?.info('正在运行策略回测...');
-
-      // 简化的回测逻辑
-      const history = predictionStore.predictionHistory.slice(0, 50);
-      let totalProfit = 0;
-      let winCount = 0;
-      let totalBets = 0;
-
-      for (const round of history) {
-        if (!round.predictions?.length) continue;
-
-        round.predictions.forEach((rawPrediction: any) => {
-          const prediction = mapPredictionData(rawPrediction);
-          const isMatch = evaluatePredictionMatch(prediction);
-          if (isMatch) {
-            totalBets++;
-            const actualAccuracy = prediction.historical_accuracy || 0.7;
-            const isWin = Math.random() < actualAccuracy;
-
-            if (isWin) {
-              const betAmount = calculateBetAmount(prediction);
-              const profit = betAmount * 0.95;
-              totalProfit += profit;
-              winCount++;
-            } else {
-              const betAmount = calculateBetAmount(prediction);
-              totalProfit -= betAmount;
-            }
-          }
-        });
-      }
-
-      const winRate = totalBets > 0 ? winCount / totalBets : 0;
-      const avgProfitPerRound = history.length > 0 ? totalProfit / history.length : 0;
-
-      let bestStrategy = '当前策略';
-      if (winRate > 0.7) bestStrategy = '优秀策略';
-      else if (winRate > 0.6) bestStrategy = '良好策略';
-      else if (winRate < 0.5) bestStrategy = '需要优化';
-
-      backtestResults.value = {
-        total_rounds: history.length,
-        win_rate: winRate,
-        total_profit: totalProfit,
-        avg_profit_per_round: avgProfitPerRound,
-        max_drawdown: Math.abs(totalProfit) * 0.3,
-        sharp_ratio: winRate * 2 - 1,
-        best_strategy: bestStrategy
-      };
-
-      window.$message?.success('策略回测完成');
-    } catch (error) {
-      console.error('回测失败:', error);
-      window.$message?.error('策略回测失败');
-    } finally {
-      backtestLoading.value = false;
-    }
   };
 
   // 清空下注结果

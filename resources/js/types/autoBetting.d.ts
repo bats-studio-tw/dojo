@@ -20,16 +20,6 @@ export interface StrategyMatch {
   sample_count: number;
 }
 
-export interface BacktestResults {
-  total_rounds: number;
-  win_rate: number;
-  total_profit: number;
-  avg_profit_per_round: number;
-  max_drawdown: number;
-  sharp_ratio: number;
-  best_strategy: string;
-}
-
 export interface PredictionAnalysis {
   predictions: any[];
   meta: {

@@ -161,6 +161,13 @@
         </n-button>
       </div>
     </NCard>
+    <!-- 当前预测展示 -->
+    <PredictionDisplay
+      :analysis-data="currentAnalysis?.predictions || []"
+      :analysis-meta="currentAnalysis?.meta"
+      :loading="analysisLoading"
+      @refresh="fetchAnalysisData"
+    />
 
     <!-- 主要工作区域：左侧策略配置，右侧预测和控制 -->
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -242,7 +249,10 @@
             </div>
           </div>
         </NCard>
+      </div>
 
+      <!-- 右侧：预测展示和验证结果 -->
+      <div class="space-y-6">
         <!-- 快速配置面板 -->
         <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="⚙️ 快速配置">
           <div class="space-y-4">
@@ -307,7 +317,7 @@
                 <div
                   v-for="rank in [1, 2, 3, 4, 5]"
                   :key="rank"
-                  class="cursor-pointer rounded border-2 p-2 text-center text-xs transition-all duration-200"
+                  class="cursor-pointer border-2 rounded p-2 text-center text-xs transition-all duration-200"
                   :class="
                     props.config.rank_betting_enabled_ranks.includes(rank)
                       ? 'border-blue-400 bg-blue-500/20 text-blue-400'
@@ -331,20 +341,6 @@
             </div>
           </div>
         </NCard>
-      </div>
-
-      <!-- 右侧：预测展示和验证结果 -->
-      <div class="space-y-6">
-        <!-- 当前预测展示 -->
-        <div>
-          <PredictionDisplay
-            :analysis-data="currentAnalysis?.predictions || []"
-            :analysis-meta="currentAnalysis?.meta"
-            :loading="analysisLoading"
-            @refresh="fetchAnalysisData"
-          />
-        </div>
-
         <!-- 实时策略验证 -->
         <NCard
           v-if="strategyValidation"
@@ -367,7 +363,7 @@
                 <div
                   v-for="match in strategyValidation.matches"
                   :key="match.symbol"
-                  class="flex items-center justify-between rounded-lg bg-gray-800/50 p-3 border border-gray-600/30"
+                  class="flex items-center justify-between border border-gray-600/30 rounded-lg bg-gray-800/50 p-3"
                 >
                   <div class="flex items-center space-x-3">
                     <span class="text-white font-medium">{{ match.symbol }}</span>
@@ -434,8 +430,8 @@
                       <span :class="bet.success ? 'text-green-400' : 'text-red-400'">
                         {{ bet.success ? '✅' : '❌' }}
                       </span>
-                      <span class="text-white text-sm font-medium">{{ bet.symbol }}</span>
-                      <span class="text-gray-400 text-xs">${{ bet.amount }}</span>
+                      <span class="text-sm text-white font-medium">{{ bet.symbol }}</span>
+                      <span class="text-xs text-gray-400">${{ bet.amount }}</span>
                     </div>
                     <span class="text-xs text-gray-500">{{ bet.time }}</span>
                   </div>
@@ -444,60 +440,23 @@
               </div>
             </div>
 
-            <div v-else class="text-center py-4 text-gray-400">
-              <div class="text-xl mb-1">📝</div>
+            <div v-else class="py-4 text-center text-gray-400">
+              <div class="mb-1 text-xl">📝</div>
               <div class="text-sm">暂无下注记录</div>
             </div>
           </div>
         </NCard>
       </div>
     </div>
-
-    <!-- 底部：高级功能 -->
-    <div class="grid grid-cols-1 gap-6">
-      <!-- 系统诊断信息 -->
-      <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="🔬 系统诊断" size="large">
-        <div class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div class="text-center">
-              <div class="text-xs text-gray-400 mb-1">轮次检查</div>
-              <div class="text-sm text-blue-400 font-bold">{{ debugInfo.roundCheckCount }}次</div>
-            </div>
-            <div class="text-center">
-              <div class="text-xs text-gray-400 mb-1">自动触发</div>
-              <div class="text-sm text-green-400 font-bold">{{ debugInfo.autoTriggerCount }}次</div>
-            </div>
-            <div class="text-center">
-              <div class="text-xs text-gray-400 mb-1">策略验证</div>
-              <div class="text-sm text-purple-400 font-bold">{{ debugInfo.strategyValidationCount }}次</div>
-            </div>
-            <div class="text-center">
-              <div class="text-xs text-gray-400 mb-1">最后检查</div>
-              <div class="text-xs text-gray-500">{{ debugInfo.lastRoundCheckTime || '未检查' }}</div>
-            </div>
-          </div>
-          <div class="text-center">
-            <n-button @click="runApiDiagnostics" :loading="diagnosticsLoading" type="warning" size="small">
-              <template #icon>
-                <span>🔍</span>
-              </template>
-              运行系统诊断
-            </n-button>
-          </div>
-        </div>
-      </NCard>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue';
   import { NEmpty } from 'naive-ui';
   import PredictionDisplay from './PredictionDisplay.vue';
   import type { UserInfo } from '@/types';
   import type { AutoBettingStatus, DebugInfo } from '@/composables/useAutoBettingControl';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
-  import { useAutoBettingConfig } from '@/composables/useAutoBettingConfig';
 
   // Props
   interface Props {
@@ -508,7 +467,7 @@
     toggleLoading: boolean;
     executeLoading: boolean;
     analysisLoading: boolean;
-    diagnosticsLoading: boolean;
+
     strategyName: string;
     confidenceThreshold: number;
     riskLevel: number;
@@ -540,7 +499,6 @@
     executeStrategyBetting: [];
 
     manualSaveConfig: [];
-    runApiDiagnostics: [];
   }>();
 
   // 排名下注相关方法 - 直接操作props中的config
@@ -558,9 +516,6 @@
     }
   };
 
-  // 获取其他排名下注相关方法
-  const { getRankBettingAmount, getTotalRankBettingAmount } = useAutoBettingConfig();
-
   // Methods
   const startAutoBetting = () => emit('startAutoBetting');
   const stopAutoBetting = () => emit('stopAutoBetting');
@@ -574,5 +529,4 @@
   const executeStrategyBetting = () => emit('executeStrategyBetting');
 
   const manualSaveConfig = () => emit('manualSaveConfig');
-  const runApiDiagnostics = () => emit('runApiDiagnostics');
 </script>

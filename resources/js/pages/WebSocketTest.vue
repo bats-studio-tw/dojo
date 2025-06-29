@@ -1,8 +1,8 @@
 <template>
   <DefaultLayout>
     <Head title="WebSocket 测试" />
-    <div class="container mx-auto p-6">
-      <h1 class="text-2xl font-bold mb-6">WebSocket 测试页面</h1>
+    <div class="mx-auto p-6 container">
+      <h1 class="mb-6 text-2xl font-bold">WebSocket 测试页面</h1>
       <RealTimeDataDisplay />
     </div>
   </DefaultLayout>

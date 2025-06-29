@@ -227,9 +227,19 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
             }
 
             console.log('🧠 解析后的预测数据:', data);
+            console.log('🧠 数据结构分析:', {
+              hasSuccess: !!data.success,
+              hasData: !!data.data,
+              hasMetaData: !!data.meta,
+              dataIsArray: Array.isArray(data.data),
+              dataLength: data.data?.length,
+              dataKeys: data.data ? Object.keys(data.data) : null
+            });
 
             // 检查是否是与current-analysis API相同的数据结构
             if (data.success && data.data && data.meta) {
+              console.log('🧠 匹配完整数据结构，开始处理...');
+
               // 新的完整数据结构（与current-analysis API一致）
               currentAnalysis.value = [...data.data]; // 使用展开运算符确保响应式更新
               analysisMeta.value = { ...data.meta };
@@ -237,7 +247,9 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
               console.log(`✅ 已更新预测分析数据（完整结构）: ${data.data.length} 个代币`);
               console.log('📊 更新的轮次信息:', data.meta.round_id, '状态:', data.meta.status);
               console.log('📊 更新后的currentAnalysis数量:', currentAnalysis.value.length);
+              console.log('📊 更新后的第一个代币:', currentAnalysis.value[0]?.symbol || '无');
             } else if (data.data && Array.isArray(data.data)) {
+              console.log('🧠 匹配兼容数据结构，开始处理...');
               // 旧的简单数据结构（向后兼容）
               currentAnalysis.value = [...data.data];
 
@@ -253,8 +265,11 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
               console.log(`✅ 已更新预测分析数据（兼容模式）: ${data.data.length} 个代币`);
               console.log('📊 更新后的currentAnalysis数量:', currentAnalysis.value.length);
+              console.log('📊 更新后的第一个代币:', currentAnalysis.value[0]?.symbol || '无');
             } else {
               console.warn('⚠️ 收到无效的预测数据格式:', data);
+              console.warn('⚠️ 预期格式: {success: true, data: Array, meta: Object} 或 {data: Array}');
+              console.warn('⚠️ 实际数据结构:', Object.keys(data));
               console.warn('⚠️ 原始数据:', receivedData);
             }
 

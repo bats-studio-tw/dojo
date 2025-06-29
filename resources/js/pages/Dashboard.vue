@@ -66,6 +66,11 @@
                 <n-button size="tiny" @click="testStoreUpdate" type="warning">🧪 测试Store更新</n-button>
                 <n-button size="tiny" @click="manualRefresh" type="info" class="ml-1">🔄 手动刷新</n-button>
                 <n-button size="tiny" @click="testWebSocket" type="error" class="ml-1">🔍 测试WebSocket</n-button>
+                <n-button size="tiny" @click="simulatePredictionEvent" type="success" class="ml-1">
+                  🎯 模拟预测事件
+                </n-button>
+                <n-button size="tiny" @click="checkWebSocketBinding" type="primary" class="ml-1">🔧 检查绑定</n-button>
+                <n-button size="tiny" @click="testDirectEvent" type="tertiary" class="ml-1">🔬 直接事件</n-button>
               </div>
             </div>
           </div>
@@ -875,6 +880,215 @@
     // 尝试重新初始化WebSocket
     console.log('🔍 尝试重新连接WebSocket...');
     gamePredictionStore.reconnectWebSocket();
+  };
+
+  // 模拟预测事件来测试事件处理
+  const simulatePredictionEvent = () => {
+    console.log('🎯 模拟预测事件开始');
+
+    const testPredictionData = {
+      success: true,
+      data: [
+        {
+          symbol: 'SIM1',
+          name: 'Simulated Token 1',
+          predicted_rank: 1,
+          prediction_score: 95.5,
+          absolute_score: 90,
+          relative_score: 85,
+          risk_adjusted_score: 88,
+          change_5m: 2.5,
+          change_1h: 1.8,
+          change_4h: -0.5,
+          change_24h: 3.2,
+          volume_24h: '1000000',
+          market_cap: 50000000,
+          logo: null,
+          win_rate: 75,
+          top3_rate: 85,
+          avg_rank: 1.5,
+          total_games: 20,
+          wins: 15,
+          top3: 17
+        },
+        {
+          symbol: 'SIM2',
+          name: 'Simulated Token 2',
+          predicted_rank: 2,
+          prediction_score: 82.3,
+          absolute_score: 80,
+          relative_score: 78,
+          risk_adjusted_score: 81,
+          change_5m: 1.2,
+          change_1h: 0.8,
+          change_4h: 1.5,
+          change_24h: 2.1,
+          volume_24h: '800000',
+          market_cap: 30000000,
+          logo: null,
+          win_rate: 65,
+          top3_rate: 75,
+          avg_rank: 2.2,
+          total_games: 20,
+          wins: 13,
+          top3: 15
+        }
+      ],
+      meta: {
+        round_id: `sim_test_${Date.now()}`,
+        status: 'bet',
+        updated_at: new Date().toISOString(),
+        source: 'simulation'
+      }
+    };
+
+    console.log('🎯 模拟数据:', testPredictionData);
+
+    // 直接调用store的数据更新逻辑
+    try {
+      gamePredictionStore.currentAnalysis.length = 0;
+      gamePredictionStore.currentAnalysis.push(...testPredictionData.data);
+      gamePredictionStore.analysisMeta = testPredictionData.meta;
+
+      console.log('✅ 模拟事件处理完成，当前数据长度:', gamePredictionStore.currentAnalysis.length);
+
+      // 3秒后还原
+      setTimeout(() => {
+        gamePredictionStore.fetchCurrentAnalysis();
+        console.log('🔄 已还原模拟数据');
+      }, 3000);
+    } catch (error) {
+      console.error('❌ 模拟事件处理失败:', error);
+    }
+  };
+
+  // 检查WebSocket绑定状态
+  const checkWebSocketBinding = () => {
+    console.log('🔧 检查WebSocket绑定状态');
+
+    if (!window.Echo) {
+      console.log('❌ Echo未初始化');
+      return;
+    }
+
+    const pusher = window.Echo.connector?.pusher;
+    if (!pusher) {
+      console.log('❌ Pusher连接不存在');
+      return;
+    }
+
+    console.log('🔧 Pusher连接状态:', pusher.connection.state);
+    console.log('🔧 已订阅的频道:', Object.keys(pusher.channels.channels));
+
+    // 检查predictions频道
+    const predictionsChannel = pusher.channels.channels['predictions'];
+    if (predictionsChannel) {
+      console.log('✅ predictions频道存在');
+      console.log('🔧 频道状态:', predictionsChannel.state);
+      console.log('🔧 频道绑定的事件callbacks:', predictionsChannel.callbacks);
+
+      // 检查是否有prediction.updated事件绑定
+      if (predictionsChannel.callbacks['prediction.updated']) {
+        console.log('✅ prediction.updated事件已绑定');
+        console.log('🔧 绑定的回调函数数量:', predictionsChannel.callbacks['prediction.updated'].length);
+      } else {
+        console.log('❌ prediction.updated事件未绑定');
+      }
+
+      // 手动触发一个测试事件
+      console.log('🔧 手动触发测试事件...');
+      predictionsChannel.trigger('client-test', { message: 'test from client' });
+    } else {
+      console.log('❌ predictions频道不存在');
+    }
+
+    // 检查game-updates频道
+    const gameUpdatesChannel = pusher.channels.channels['game-updates'];
+    if (gameUpdatesChannel) {
+      console.log('✅ game-updates频道存在');
+      console.log('🔧 game-updates频道状态:', gameUpdatesChannel.state);
+    } else {
+      console.log('❌ game-updates频道不存在');
+    }
+  };
+
+  // 直接测试事件监听器
+  const testDirectEvent = () => {
+    console.log('🔬 直接测试事件监听器');
+
+    if (!window.Echo?.connector?.pusher) {
+      console.log('❌ Pusher连接不存在');
+      return;
+    }
+
+    const predictionsChannel = window.Echo.connector.pusher.channels.channels['predictions'];
+    if (!predictionsChannel) {
+      console.log('❌ predictions频道不存在');
+      return;
+    }
+
+    // 创建测试数据
+    const testEventData = {
+      success: true,
+      data: [
+        {
+          symbol: 'TEST',
+          name: 'Test Token',
+          predicted_rank: 1,
+          prediction_score: 88.8,
+          absolute_score: 85,
+          relative_score: 80,
+          risk_adjusted_score: 83,
+          change_5m: 1.5,
+          change_1h: 2.3,
+          change_4h: -0.8,
+          change_24h: 4.2,
+          volume_24h: '500000',
+          market_cap: 25000000,
+          logo: null,
+          win_rate: 70,
+          top3_rate: 80,
+          avg_rank: 1.8,
+          total_games: 10,
+          wins: 7,
+          top3: 8
+        }
+      ],
+      meta: {
+        round_id: `direct_test_${Date.now()}`,
+        status: 'test',
+        updated_at: new Date().toISOString(),
+        source: 'direct_test'
+      }
+    };
+
+    console.log('🔬 准备发送测试数据:', testEventData);
+
+    // 手动触发prediction.updated事件
+    try {
+      predictionsChannel.emit('prediction.updated', testEventData);
+      console.log('✅ 已手动触发prediction.updated事件');
+    } catch (error) {
+      console.error('❌ 手动触发事件失败:', error);
+    }
+
+    // 也试试直接调用所有绑定的回调函数
+    if (predictionsChannel.callbacks['prediction.updated']) {
+      console.log('🔬 直接调用绑定的回调函数...');
+      predictionsChannel.callbacks['prediction.updated'].forEach((callback: any, index: number) => {
+        try {
+          console.log(`🔬 调用回调函数 ${index + 1}...`);
+          callback(testEventData);
+          console.log(`✅ 回调函数 ${index + 1} 执行成功`);
+        } catch (error) {
+          console.error(`❌ 回调函数 ${index + 1} 执行失败:`, error);
+        }
+      });
+    } else {
+      console.log('❌ 没有找到prediction.updated的回调函数');
+    }
+
+    console.log('🔬 直接事件测试完成');
   };
 
   // 初始化数据

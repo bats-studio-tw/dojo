@@ -96,10 +96,12 @@
               :total-rounds="predictionStats.calculatePortfolioStats.value.totalRounds"
               :all-stats="predictionStats.calculateRankBasedStats.value"
               :recent-stats="predictionStats.calculateRecentRankBasedStats.value"
+              :recent-rounds-count="recentRoundsCount"
               :max-rounds="predictionStore.totalHistoryRounds"
               :history-loading="predictionStore.historyLoading"
               :prediction-comparison-data="predictionStats.getPredictionComparisonData.value"
               @refresh-prediction-history="predictionStore.fetchPredictionHistory"
+              @update-recent-rounds-count="updateRecentRoundsCount"
             />
           </NTabPane>
 
@@ -455,6 +457,11 @@
   // 清空下注结果
   const clearBetResults = () => {
     debugInfo.lastBetResults = [];
+  };
+
+  // 更新最近轮次数量
+  const updateRecentRoundsCount = (value: number) => {
+    recentRoundsCount.value = value;
   };
 
   // 监听器引用，用于清理

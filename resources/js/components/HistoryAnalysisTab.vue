@@ -7,7 +7,8 @@
         :total-rounds="totalRounds"
         :all-stats="allStats"
         :recent-stats="recentStats"
-        v-model:recent-rounds-count="recentRoundsCount"
+        :recent-rounds-count="recentRoundsCount"
+        @update:recent-rounds-count="$emit('updateRecentRoundsCount', $event)"
         :max-rounds="maxRounds"
         :loading="historyLoading"
         @refresh="$emit('refreshPredictionHistory')"
@@ -124,67 +125,12 @@
         </div>
       </div>
     </NCard>
-
-    <!-- 性能分析图表 -->
-    <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="📈 性能分析图表" size="large">
-      <div class="space-y-6">
-        <!-- 图表控制 -->
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-4">
-            <n-select
-              v-model:value="chartTimeRange"
-              :options="[
-                { label: '最近7天', value: '7d' },
-                { label: '最近30天', value: '30d' },
-                { label: '最近90天', value: '90d' },
-                { label: '全部时间', value: 'all' }
-              ]"
-              style="width: 120px"
-              size="small"
-            />
-            <n-select
-              v-model:value="chartType"
-              :options="[
-                { label: '盈亏趋势', value: 'profit' },
-                { label: '胜率变化', value: 'winrate' },
-                { label: '下注金额', value: 'amount' }
-              ]"
-              style="width: 120px"
-              size="small"
-            />
-          </div>
-          <n-button @click="updateChart" :loading="chartLoading" type="info" size="small">更新图表</n-button>
-        </div>
-
-        <!-- 图表容器 -->
-        <div class="h-64 w-full rounded-lg bg-black/20 p-4">
-          <div v-if="chartLoading" class="flex h-full items-center justify-center text-gray-400">
-            <n-spin size="large" />
-            <span class="ml-2">正在加载图表数据...</span>
-          </div>
-          <div v-else-if="!chartData.length" class="flex h-full items-center justify-center text-gray-400">
-            <div class="text-center">
-              <div class="text-2xl mb-2">📊</div>
-              <div class="text-sm">暂无图表数据</div>
-            </div>
-          </div>
-          <div v-else class="h-full">
-            <!-- 这里可以集成图表库，如 ECharts 或 Chart.js -->
-            <div class="text-center text-gray-400 pt-20">
-              <div class="text-lg mb-2">📊 图表功能</div>
-              <div class="text-sm">{{ chartTypeText }} - {{ chartTimeRangeText }}</div>
-              <div class="text-xs text-gray-500 mt-2">数据点: {{ chartData.length }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </NCard>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue';
-  import { NEmpty, NDataTable, NSpin } from 'naive-ui';
+  import { ref, computed } from 'vue';
+  import { NDataTable } from 'naive-ui';
   import PredictionStats from './PredictionStats.vue';
   import PredictionHistoryTable from './PredictionHistoryTable.vue';
 
@@ -194,6 +140,7 @@
     totalRounds: number;
     allStats: any;
     recentStats: any;
+    recentRoundsCount: number;
     maxRounds: number;
     historyLoading: boolean;
     predictionComparisonData: any[];
@@ -204,16 +151,13 @@
   // Emits
   const emit = defineEmits<{
     refreshPredictionHistory: [];
+    updateRecentRoundsCount: [value: number];
   }>();
 
   // 响应式数据
-  const recentRoundsCount = ref(50);
   const recordFilter = ref('all');
   const searchKeyword = ref('');
   const recordsLoading = ref(false);
-  const chartLoading = ref(false);
-  const chartTimeRange = ref('30d');
-  const chartType = ref('profit');
 
   // 模拟下注记录数据
   const bettingRecords = ref([
@@ -358,29 +302,6 @@
     pageSizes: [10, 20, 50]
   };
 
-  // 图表数据
-  const chartData = ref<{ date: string; value: number }[]>([]);
-
-  // 图表类型和时间范围的文本
-  const chartTypeText = computed(() => {
-    const types = {
-      profit: '盈亏趋势',
-      winrate: '胜率变化',
-      amount: '下注金额'
-    };
-    return types[chartType.value as keyof typeof types] || '未知类型';
-  });
-
-  const chartTimeRangeText = computed(() => {
-    const ranges = {
-      '7d': '最近7天',
-      '30d': '最近30天',
-      '90d': '最近90天',
-      all: '全部时间'
-    };
-    return ranges[chartTimeRange.value as keyof typeof ranges] || '未知范围';
-  });
-
   // 方法
   const refreshBettingRecords = async () => {
     recordsLoading.value = true;
@@ -408,33 +329,6 @@
     URL.revokeObjectURL(url);
     window.$message?.success('数据导出成功');
   };
-
-  const updateChart = async () => {
-    chartLoading.value = true;
-    try {
-      // 模拟图表数据更新
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // 根据选择的图表类型和时间范围生成模拟数据
-      const dataCount = chartTimeRange.value === '7d' ? 7 : chartTimeRange.value === '30d' ? 30 : 90;
-      chartData.value = Array.from({ length: dataCount }, (_, i) => ({
-        date: new Date(Date.now() - (dataCount - i) * 24 * 60 * 60 * 1000).toDateString(),
-        value: Math.random() * 100
-      }));
-    } catch (error) {
-      console.error('更新图表失败:', error);
-    } finally {
-      chartLoading.value = false;
-    }
-  };
-
-  // 监听图表设置变化
-  watch([chartType, chartTimeRange], () => {
-    updateChart();
-  });
-
-  // 初始化
-  updateChart();
 </script>
 
 <style scoped>

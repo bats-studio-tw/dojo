@@ -1,0 +1,348 @@
+<template>
+  <div class="space-y-6">
+    <!-- 策略模板选择区域 -->
+    <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="🎯 智能策略选择" size="large">
+      <div class="space-y-4">
+        <!-- 策略模式状态指示器 -->
+        <div class="mb-4 flex items-center justify-between">
+          <h3 class="text-lg text-white font-semibold">📋 策略选择</h3>
+          <div class="flex items-center space-x-2">
+            <n-tag :type="customStrategyMode ? 'warning' : 'success'" size="small">
+              {{ customStrategyMode ? '🎨 自定义模式' : '📋 模板模式' }}
+            </n-tag>
+            <n-button
+              @click="customStrategyMode ? resetToTemplateMode() : switchToCustomMode()"
+              :type="customStrategyMode ? 'default' : 'primary'"
+              size="small"
+            >
+              {{ customStrategyMode ? '返回模板' : '自定义设置' }}
+            </n-button>
+          </div>
+        </div>
+
+        <!-- 策略模板选择 -->
+        <div v-if="!customStrategyMode" class="space-y-3">
+          <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 md:grid-cols-2">
+            <div
+              v-for="(template, key) in strategyTemplates"
+              :key="key"
+              class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-3 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
+              :class="{
+                'border-blue-400 bg-blue-500/20': selectedTemplate === key
+              }"
+              @click="applyStrategyTemplate(key)"
+            >
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm text-white font-medium">{{ template.name }}</span>
+                <n-tag :type="selectedTemplate === key ? 'primary' : 'default'" size="small">
+                  {{ template.confidence_threshold }}%
+                </n-tag>
+              </div>
+              <div class="text-xs text-gray-400">{{ template.description }}</div>
+              <div class="mt-2 flex flex-wrap gap-1">
+                <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
+                  风险: {{ template.max_bet_percentage }}%
+                </span>
+                <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
+                  {{
+                    template.strategy === 'single_bet'
+                      ? '单项'
+                      : template.strategy === 'multi_bet'
+                        ? '多项'
+                        : template.strategy === 'hedge_bet'
+                          ? '对冲'
+                          : '指定排名'
+                  }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 自定义模式提示 -->
+        <div v-else class="space-y-3">
+          <div class="border border-orange-500/30 rounded-lg bg-orange-500/10 p-4">
+            <div class="mb-2 flex items-center space-x-2">
+              <span class="text-orange-400">🎨</span>
+              <span class="text-sm text-orange-400 font-medium">自定义策略模式</span>
+            </div>
+            <div class="text-xs text-gray-300">
+              您现在处于自定义模式，可以在下方配置面板中手动调整所有参数。 预设模板功能已禁用，所有参数变更将实时应用。
+            </div>
+          </div>
+        </div>
+
+        <!-- 实时策略验证 -->
+        <div v-if="strategyValidation" class="border-t border-gray-600 pt-4 space-y-3">
+          <h3 class="text-lg text-white font-semibold">📊 策略验证结果</h3>
+          <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div class="border border-green-500/30 rounded-lg bg-green-500/10 p-3 text-center">
+              <div class="text-sm text-green-400">符合条件</div>
+              <div class="text-xl text-white font-bold">{{ strategyValidation.total_matched }}</div>
+              <div class="text-xs text-gray-400">个游戏</div>
+            </div>
+            <div class="border border-blue-500/30 rounded-lg bg-blue-500/10 p-3 text-center">
+              <div class="text-sm text-blue-400">成功概率</div>
+              <div class="text-xl text-white font-bold">
+                {{ (strategyValidation.success_probability * 100).toFixed(1) }}%
+              </div>
+              <div class="text-xs text-gray-400">预测平均</div>
+            </div>
+            <div class="border border-purple-500/30 rounded-lg bg-purple-500/10 p-3 text-center">
+              <div class="text-sm text-purple-400">预期收益</div>
+              <div
+                class="text-xl font-bold"
+                :class="strategyValidation.estimated_profit >= 0 ? 'text-green-400' : 'text-red-400'"
+              >
+                ${{ strategyValidation.estimated_profit.toFixed(2) }}
+              </div>
+              <div class="text-xs text-gray-400">本轮预估</div>
+            </div>
+            <div class="border border-orange-500/30 rounded-lg bg-orange-500/10 p-3 text-center">
+              <div class="text-sm text-orange-400">风险等级</div>
+              <div class="text-xl text-white font-bold">
+                <n-tag
+                  :type="
+                    strategyValidation.risk_level === 'low'
+                      ? 'success'
+                      : strategyValidation.risk_level === 'medium'
+                        ? 'warning'
+                        : 'error'
+                  "
+                  size="small"
+                >
+                  {{
+                    strategyValidation.risk_level === 'low'
+                      ? '低'
+                      : strategyValidation.risk_level === 'medium'
+                        ? '中'
+                        : '高'
+                  }}
+                </n-tag>
+              </div>
+              <div class="text-xs text-gray-400">风险评估</div>
+            </div>
+          </div>
+
+          <!-- 一键执行按钮 -->
+          <div class="text-center">
+            <n-button
+              v-if="strategyValidation.matches.length > 0"
+              @click="executeStrategyBetting"
+              :loading="executeLoading"
+              :disabled="!strategyValidation.balance_sufficient"
+              :type="strategyValidation.balance_sufficient ? 'success' : 'error'"
+              size="large"
+              class="shadow-green-500/25 shadow-lg hover:shadow-green-500/40"
+            >
+              <template #icon>
+                <span>{{ strategyValidation.balance_sufficient ? '🚀' : '⚠️' }}</span>
+              </template>
+              {{
+                strategyValidation.balance_sufficient
+                  ? `一键执行策略下注 (${strategyValidation.matches.length}个)`
+                  : '余额不足，无法执行'
+              }}
+            </n-button>
+            <div v-else class="text-center text-gray-400">
+              <NEmpty description="当前没有符合策略条件的游戏" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 策略回测功能 -->
+        <div class="border-t border-gray-600 pt-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg text-white font-semibold">📈 策略回测</h3>
+            <n-button @click="runBacktest" :loading="backtestLoading" type="info" size="small">
+              <template #icon>
+                <span>⚡</span>
+              </template>
+              运行回测
+            </n-button>
+          </div>
+
+          <!-- 回测结果 -->
+          <div v-if="backtestResults" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div class="border border-blue-500/30 rounded bg-blue-500/10 p-2 text-center">
+                <div class="text-xs text-blue-400">测试轮次</div>
+                <div class="text-lg text-white font-bold">{{ backtestResults.total_rounds }}</div>
+              </div>
+              <div class="border border-green-500/30 rounded bg-green-500/10 p-2 text-center">
+                <div class="text-xs text-green-400">胜率</div>
+                <div class="text-lg text-white font-bold">{{ (backtestResults.win_rate * 100).toFixed(1) }}%</div>
+              </div>
+              <div class="border border-purple-500/30 rounded bg-purple-500/10 p-2 text-center">
+                <div class="text-xs text-purple-400">总收益</div>
+                <div
+                  class="text-lg font-bold"
+                  :class="backtestResults.total_profit >= 0 ? 'text-green-400' : 'text-red-400'"
+                >
+                  ${{ backtestResults.total_profit.toFixed(2) }}
+                </div>
+              </div>
+              <div class="border border-orange-500/30 rounded bg-orange-500/10 p-2 text-center">
+                <div class="text-xs text-orange-400">策略评级</div>
+                <div class="text-sm text-white font-bold">{{ backtestResults.best_strategy }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </NCard>
+
+    <!-- 详细配置面板 -->
+    <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="⚙️ 详细配置面板" size="large">
+      <!-- 配置分组 -->
+      <n-collapse default-expanded-names="['money', 'strategy']">
+        <!-- 资金管理配置 -->
+        <n-collapse-item title="💰 资金管理配置" name="money">
+          <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <!-- 基础配置 -->
+            <div class="space-y-4">
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">单次下注金额</label>
+                <n-input-number
+                  v-model:value="config.bet_amount"
+                  :min="200"
+                  :max="2000"
+                  :step="50"
+                  :disabled="isRunning"
+                  class="w-full"
+                />
+              </div>
+
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">最大下注比例 (%)</label>
+                <n-input-number
+                  v-model:value="config.max_bet_percentage"
+                  :min="5"
+                  :max="50"
+                  :step="1"
+                  :disabled="isRunning"
+                  class="w-full"
+                />
+              </div>
+            </div>
+
+            <!-- 风险控制 -->
+            <div class="space-y-4">
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">每日止损百分比</label>
+                <n-input-number
+                  v-model:value="config.daily_stop_loss_percentage"
+                  :min="5"
+                  :max="50"
+                  :step="5"
+                  :disabled="isRunning"
+                  class="w-full"
+                />
+              </div>
+            </div>
+          </div>
+        </n-collapse-item>
+
+        <!-- 策略配置 -->
+        <n-collapse-item title="🎯 策略参数配置" name="strategy">
+          <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div class="space-y-4">
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">置信度阈值 (%)</label>
+                <n-input-number
+                  v-model:value="config.confidence_threshold"
+                  :min="70"
+                  :max="99"
+                  :step="1"
+                  :disabled="isRunning"
+                  class="w-full"
+                />
+              </div>
+
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">分数差距阈值</label>
+                <n-input-number
+                  v-model:value="config.score_gap_threshold"
+                  :min="3.0"
+                  :max="20.0"
+                  :step="0.5"
+                  :disabled="isRunning"
+                  :precision="1"
+                  class="w-full"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-4">
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">下注策略</label>
+                <n-select
+                  v-model:value="config.strategy"
+                  :options="[
+                    { label: '单项下注', value: 'single_bet' },
+                    { label: '多项下注', value: 'multi_bet' },
+                    { label: '对冲下注', value: 'hedge_bet' },
+                    { label: '指定排名下注', value: 'rank_betting' }
+                  ]"
+                  :disabled="isRunning"
+                  class="w-full"
+                />
+              </div>
+            </div>
+          </div>
+        </n-collapse-item>
+      </n-collapse>
+
+      <!-- 保存配置按钮 -->
+      <div class="mt-6 text-center">
+        <n-button @click="manualSaveConfig" :disabled="isRunning" :loading="configSaving" type="primary" size="large">
+          <template #icon>
+            <span>💾</span>
+          </template>
+          {{ hasUID ? '保存配置到云端' : '保存配置到本地' }}
+        </n-button>
+      </div>
+    </NCard>
+  </div>
+</template>
+
+<script setup lang="ts">
+  import { NEmpty } from 'naive-ui';
+  import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
+
+  // Props
+  interface Props {
+    config: AutoBettingConfig;
+    selectedTemplate: string;
+    customStrategyMode: boolean;
+    configSaving: boolean;
+    configSyncStatus: { type: 'success' | 'error' | 'info'; message: string } | null;
+    strategyTemplates: any;
+    strategyValidation: any;
+    backtestResults: any;
+    backtestLoading: boolean;
+    executeLoading: boolean;
+    isRunning: boolean;
+    hasUID: boolean;
+  }
+
+  const props = defineProps<Props>();
+
+  // Emits
+  const emit = defineEmits<{
+    applyStrategyTemplate: [key: string];
+    switchToCustomMode: [];
+    resetToTemplateMode: [];
+    executeStrategyBetting: [];
+    runBacktest: [];
+    manualSaveConfig: [];
+  }>();
+
+  // Methods
+  const applyStrategyTemplate = (key: string) => emit('applyStrategyTemplate', key);
+  const switchToCustomMode = () => emit('switchToCustomMode');
+  const resetToTemplateMode = () => emit('resetToTemplateMode');
+  const executeStrategyBetting = () => emit('executeStrategyBetting');
+  const runBacktest = () => emit('runBacktest');
+  const manualSaveConfig = () => emit('manualSaveConfig');
+</script>

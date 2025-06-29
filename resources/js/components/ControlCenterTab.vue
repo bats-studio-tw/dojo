@@ -165,7 +165,7 @@
     <!-- 当前预测展示 -->
     <div class="mb-6">
       <PredictionDisplay
-        :analysis-data="currentAnalysis"
+        :analysis-data="currentAnalysis?.predictions || []"
         :analysis-meta="currentAnalysis?.meta"
         :loading="analysisLoading"
         @refresh="fetchAnalysisData"

@@ -106,15 +106,38 @@ class AutoBettingController extends Controller
             $userStats = AutoBettingRecord::getUserStats($uid);
             $todayStats = AutoBettingRecord::getTodayStats($uid);
 
+            // 添加调试日志
+            \Log::info('AutoBetting Status Debug', [
+                'uid' => $uid,
+                'cached_total_bets' => $status['total_bets'] ?? 'null',
+                'database_total_bets' => $userStats['total_bets'],
+                'database_successful_bets' => $userStats['successful_bets'],
+                'database_total_profit_loss' => $userStats['total_profit_loss'],
+                'today_profit_loss' => $todayStats['today_profit_loss'],
+                'records_count_from_db' => AutoBettingRecord::where('uid', $uid)->count()
+            ]);
+
+            // 强制使用数据库的真实数据
             $status['total_bets'] = $userStats['total_bets'];
             $status['total_profit_loss'] = $userStats['total_profit_loss'];
             $status['today_profit_loss'] = $todayStats['today_profit_loss'];
 
             return response()->json([
                 'success' => true,
-                'data' => $status
+                'data' => $status,
+                'debug' => [
+                    'uid' => $uid,
+                    'database_stats' => $userStats,
+                    'today_stats' => $todayStats
+                ]
             ]);
         } catch (\Exception $e) {
+            \Log::error('获取自动下注状态失败', [
+                'uid' => $uid ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => '获取状态失败: ' . $e->getMessage()
@@ -145,9 +168,17 @@ class AutoBettingController extends Controller
             $action = $request->action;
 
             if ($action === 'start') {
-                // 启动自动下注
+                // 启动自动下注时，从数据库获取最新的统计数据
                 $userStats = AutoBettingRecord::getUserStats($uid);
                 $todayStats = AutoBettingRecord::getTodayStats($uid);
+
+                \Log::info('启动自动下注 - 统计数据', [
+                    'uid' => $uid,
+                    'database_total_bets' => $userStats['total_bets'],
+                    'database_successful_bets' => $userStats['successful_bets'],
+                    'database_total_profit_loss' => $userStats['total_profit_loss'],
+                    'today_profit_loss' => $todayStats['today_profit_loss']
+                ]);
 
                 Cache::put("auto_betting_status_{$uid}", [
                     'is_running' => true,
@@ -163,10 +194,20 @@ class AutoBettingController extends Controller
 
                 $message = '自动下注已启动';
             } else {
-                // 停止自动下注
+                // 停止自动下注时，保持当前统计数据不变
                 $status = Cache::get("auto_betting_status_{$uid}", []);
                 $status['is_running'] = false;
                 $status['stopped_at'] = now()->toISOString();
+
+                // 确保停止时也有最新的统计数据
+                if (!isset($status['total_bets'])) {
+                    $userStats = AutoBettingRecord::getUserStats($uid);
+                    $todayStats = AutoBettingRecord::getTodayStats($uid);
+                    $status['total_bets'] = $userStats['total_bets'];
+                    $status['total_profit_loss'] = $userStats['total_profit_loss'];
+                    $status['today_profit_loss'] = $todayStats['today_profit_loss'];
+                }
+
                 Cache::put("auto_betting_status_{$uid}", $status, now()->addDays(1));
 
                 $message = '自动下注已停止';
@@ -177,6 +218,13 @@ class AutoBettingController extends Controller
                 'message' => $message
             ]);
         } catch (\Exception $e) {
+            \Log::error('切换自动下注状态失败', [
+                'uid' => $uid ?? 'unknown',
+                'action' => $action ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => '操作失败: ' . $e->getMessage()
@@ -577,26 +625,49 @@ class AutoBettingController extends Controller
                 'status' => $request->success ? 'success' : 'failed'
             ]);
 
-            // 更新缓存中的统计
+            // 每次记录下注结果后都更新缓存中的统计（无论成功失败）
             $status = Cache::get("auto_betting_status_{$uid}", []);
-            if ($request->success) {
-                $userStats = AutoBettingRecord::getUserStats($uid);
-                $todayStats = AutoBettingRecord::getTodayStats($uid);
 
-                $status['total_bets'] = $userStats['total_bets'];
-                $status['total_profit_loss'] = $userStats['total_profit_loss'];
-                $status['today_profit_loss'] = $todayStats['today_profit_loss'];
-                $status['last_bet_at'] = now()->toISOString();
-            }
+            // 从数据库重新获取最新的统计数据
+            $userStats = AutoBettingRecord::getUserStats($uid);
+            $todayStats = AutoBettingRecord::getTodayStats($uid);
+
+            // 更新所有统计数据
+            $status['total_bets'] = $userStats['total_bets'];
+            $status['total_profit_loss'] = $userStats['total_profit_loss'];
+            $status['today_profit_loss'] = $todayStats['today_profit_loss'];
+            $status['last_bet_at'] = now()->toISOString();
+
+            // 添加调试日志
+            \Log::info('记录下注结果并更新缓存', [
+                'uid' => $uid,
+                'token_symbol' => $request->token_symbol,
+                'success' => $request->success,
+                'updated_total_bets' => $status['total_bets'],
+                'database_total_bets' => $userStats['total_bets'],
+                'database_record_count' => AutoBettingRecord::where('uid', $uid)->count()
+            ]);
+
             Cache::put("auto_betting_status_{$uid}", $status, now()->addDays(1));
 
             return response()->json([
                 'success' => true,
                 'message' => '下注记录已保存',
-                'data' => $record
+                'data' => $record,
+                'updated_stats' => [
+                    'total_bets' => $status['total_bets'],
+                    'total_profit_loss' => $status['total_profit_loss'],
+                    'today_profit_loss' => $status['today_profit_loss']
+                ]
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('记录下注结果失败', [
+                'uid' => $uid ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => '记录下注结果失败: ' . $e->getMessage()

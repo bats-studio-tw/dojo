@@ -129,10 +129,11 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed } from 'vue';
+  import { ref, computed, onMounted } from 'vue';
   import { NDataTable } from 'naive-ui';
   import PredictionStats from './PredictionStats.vue';
   import PredictionHistoryTable from './PredictionHistoryTable.vue';
+  import { autoBettingApi } from '@/utils/api';
 
   // Props
   interface Props {
@@ -160,43 +161,51 @@
   const recordFilter = ref('all');
   const searchKeyword = ref('');
   const recordsLoading = ref(false);
+  const bettingRecords = ref<any[]>([]);
 
-  // 模拟下注记录数据
-  const bettingRecords = ref([
-    {
-      id: 1,
-      date: '2024-01-15 14:30:25',
-      roundId: 'R20240115001',
-      tokenSymbol: 'BTC',
-      amount: 200,
-      success: true,
-      profitLoss: 190,
-      confidence: 92.5,
-      strategy: '单项下注'
-    },
-    {
-      id: 2,
-      date: '2024-01-15 14:45:12',
-      roundId: 'R20240115002',
-      tokenSymbol: 'ETH',
-      amount: 200,
-      success: false,
-      profitLoss: -200,
-      confidence: 88.2,
-      strategy: '单项下注'
-    },
-    {
-      id: 3,
-      date: '2024-01-15 15:00:08',
-      roundId: 'R20240115003',
-      tokenSymbol: 'SOL',
-      amount: 300,
-      success: true,
-      profitLoss: 285,
-      confidence: 95.1,
-      strategy: '多项下注'
+  // 获取当前用户UID
+  const getCurrentUID = () => {
+    return localStorage.getItem('currentUID') || '';
+  };
+
+  // 获取下注记录
+  const fetchBettingRecords = async () => {
+    recordsLoading.value = true;
+    try {
+      const uid = getCurrentUID();
+      if (!uid) {
+        console.warn('未找到用户UID，无法获取下注记录');
+        return;
+      }
+
+      const response = await autoBettingApi.getStatus(uid);
+      if (response.data.success) {
+        // 获取历史记录
+        const historyResponse = await fetch(`/api/auto-betting/history?uid=${uid}`);
+        if (historyResponse.ok) {
+          const historyData = await historyResponse.json();
+          if (historyData.success) {
+            bettingRecords.value = historyData.data.map((record: any) => ({
+              id: record.id,
+              date: record.created_at,
+              roundId: record.round_id,
+              tokenSymbol: record.token_symbol,
+              amount: parseFloat(record.bet_amount),
+              success: record.success,
+              profitLoss: parseFloat(record.profit_loss || 0),
+              confidence: 0, // 需要从prediction_data中提取
+              strategy: record.prediction_data?.strategy || '未知策略'
+            }));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('获取下注记录失败:', error);
+      window.$message?.error('获取下注记录失败');
+    } finally {
+      recordsLoading.value = false;
     }
-  ]);
+  };
 
   // 下注统计
   const bettingStats = computed(() => {
@@ -219,7 +228,7 @@
   const filteredBettingRecords = computed(() => {
     let filtered = bettingRecords.value;
 
-    // 按状态筛选
+    // 按筛选条件过滤
     if (recordFilter.value === 'success') {
       filtered = filtered.filter((r) => r.success);
     } else if (recordFilter.value === 'failed') {
@@ -233,12 +242,10 @@
       filtered = filtered.filter((r) => new Date(r.date) >= weekAgo);
     }
 
-    // 按关键词搜索
+    // 按搜索关键词过滤
     if (searchKeyword.value) {
       const keyword = searchKeyword.value.toLowerCase();
-      filtered = filtered.filter(
-        (r) => r.tokenSymbol.toLowerCase().includes(keyword) || r.roundId.toLowerCase().includes(keyword)
-      );
+      filtered = filtered.filter((r) => r.tokenSymbol.toLowerCase().includes(keyword));
     }
 
     return filtered;
@@ -306,31 +313,43 @@
 
   // 方法
   const refreshBettingRecords = async () => {
-    recordsLoading.value = true;
-    try {
-      // 模拟API调用
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      // 这里应该调用真实的API来获取下注记录
-      console.log('刷新下注记录');
-    } catch (error) {
-      console.error('刷新下注记录失败:', error);
-    } finally {
-      recordsLoading.value = false;
-    }
+    await fetchBettingRecords();
   };
 
   const exportBettingRecords = () => {
-    // 实现数据导出功能
-    const dataStr = JSON.stringify(filteredBettingRecords.value, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
+    // 导出功能实现
+    const data = filteredBettingRecords.value;
+    const csv = [
+      ['时间', '轮次ID', '代币', '下注金额', '状态', '盈亏', '置信度', '策略'],
+      ...data.map((record) => [
+        new Date(record.date).toLocaleString(),
+        record.roundId,
+        record.tokenSymbol,
+        record.amount,
+        record.success ? '成功' : '失败',
+        record.profitLoss,
+        record.confidence,
+        record.strategy
+      ])
+    ]
+      .map((row) => row.join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `betting-records-${new Date().toISOString().split('T')[0]}.json`;
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `betting_records_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
-    window.$message?.success('数据导出成功');
+    document.body.removeChild(link);
   };
+
+  // 组件挂载时获取数据
+  onMounted(() => {
+    fetchBettingRecords();
+  });
 </script>
 
 <style scoped>

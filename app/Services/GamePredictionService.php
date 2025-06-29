@@ -109,11 +109,33 @@ class GamePredictionService
             ]);
 
             // 广播预测数据更新事件到WebSocket客户端
+            // 构造与current-analysis API相同的数据结构
             try {
-                broadcast(new PredictionUpdated($analysisData, $roundId, 'prediction'));
-                Log::info('📡 预测数据已广播到WebSocket客户端', [
+                // 获取当前游戏轮次信息用于构造meta数据
+                $roundInfo = Cache::get('game:current_round');
+
+                $broadcastData = [
+                    'success' => true,
+                    'data' => $analysisData,
+                    'meta' => [
+                        'round_id' => $roundId,
+                        'status' => $roundInfo['status'] ?? 'bet',
+                        'current_tokens' => array_column($analysisData, 'symbol'),
+                        'analysis_rounds_count' => self::ANALYSIS_ROUNDS_LIMIT,
+                        'prediction_algorithm' => $algorithmInfo['name'] . '_' . $algorithmInfo['version'],
+                        'algorithm_description' => $algorithmInfo['description'],
+                        'timestamp' => $roundInfo['timestamp'] ?? now()->toISOString(),
+                        'generated_at' => now()->toISOString(),
+                        'source' => 'websocket_prediction'
+                    ]
+                ];
+
+                // 使用PredictionUpdated事件广播完整的数据结构
+                broadcast(new PredictionUpdated($broadcastData, $roundId, 'current_analysis'));
+                Log::info('📡 预测数据已广播到WebSocket客户端（与API结构一致）', [
                     'round_id' => $roundId,
-                    'tokens_count' => count($analysisData)
+                    'tokens_count' => count($analysisData),
+                    'data_structure' => 'current_analysis_compatible'
                 ]);
             } catch (\Exception $broadcastError) {
                 Log::error('广播预测数据失败', [

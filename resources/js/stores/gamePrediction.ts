@@ -214,8 +214,16 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
       predictionsChannel = window.Echo.channel('predictions').listen('prediction.updated', (data: any) => {
         console.log('🧠 收到预测数据更新:', data);
 
-        // 直接更新当前分析数据
-        if (data.data && Array.isArray(data.data)) {
+        // 检查是否是与current-analysis API相同的数据结构
+        if (data.success && data.data && data.meta) {
+          // 新的完整数据结构（与current-analysis API一致）
+          currentAnalysis.value = data.data;
+          analysisMeta.value = data.meta;
+
+          console.log(`✅ 已更新预测分析数据（完整结构）: ${data.data.length} 个代币`);
+          console.log('📊 更新的轮次信息:', data.meta.round_id, '状态:', data.meta.status);
+        } else if (data.data && Array.isArray(data.data)) {
+          // 旧的简单数据结构（向后兼容）
           currentAnalysis.value = data.data;
 
           // 更新分析元数据
@@ -228,7 +236,9 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
             };
           }
 
-          console.log(`✅ 已更新预测分析数据: ${data.data.length} 个代币`);
+          console.log(`✅ 已更新预测分析数据（兼容模式）: ${data.data.length} 个代币`);
+        } else {
+          console.warn('⚠️ 收到无效的预测数据格式:', data);
         }
       });
 

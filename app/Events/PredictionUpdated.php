@@ -41,6 +41,13 @@ class PredictionUpdated implements ShouldBroadcast
      */
     public function broadcastWith(): array
     {
+        // 检查是否是新的完整数据结构（包含success, data, meta）
+        if ($this->type === 'current_analysis' && isset($this->predictionData['success'])) {
+            // 对于current_analysis类型，直接传递完整的数据结构
+            return $this->predictionData;
+        }
+
+        // 对于其他类型，保持原有结构
         return [
             'type' => $this->type,
             'round_id' => $this->roundId,

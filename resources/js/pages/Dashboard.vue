@@ -8,6 +8,18 @@
         <div class="mb-6 flex items-center justify-between">
           <h1 class="text-2xl text-white font-bold">📊 数据分析面板</h1>
           <div class="flex space-x-3">
+            <!-- WebSocket状态指示器 -->
+            <div class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2" :class="getWebSocketStatusClass()">
+              <span>{{ getWebSocketStatusIcon() }}</span>
+              <span>{{ gamePredictionStore.websocketStatus.message }}</span>
+              <button
+                v-if="!gamePredictionStore.isConnected"
+                @click="gamePredictionStore.reconnectWebSocket()"
+                class="text-xs underline"
+              >
+                重连
+              </button>
+            </div>
             <a
               href="#"
               class="flex items-center rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors duration-200 disabled:cursor-not-allowed space-x-2 hover:bg-purple-700 disabled:opacity-50"
@@ -17,6 +29,42 @@
             </a>
           </div>
         </div>
+
+        <!-- 调试信息面板 -->
+        <NCard
+          class="mb-4 border border-blue-500/30 bg-blue-500/5 shadow-lg backdrop-blur-lg"
+          title="🐛 调试信息"
+          size="small"
+        >
+          <div class="grid grid-cols-1 gap-3 text-xs lg:grid-cols-4 sm:grid-cols-2">
+            <div class="space-y-1">
+              <div class="text-blue-300 font-medium">数据状态</div>
+              <div class="text-gray-300">分析数据: {{ analysisData.length }} 个</div>
+              <div class="text-gray-300">历史数据: {{ predictionHistoryData.length }} 局</div>
+              <div class="text-gray-300">游戏数据: {{ latestGameData ? '有' : '无' }}</div>
+            </div>
+            <div class="space-y-1">
+              <div class="text-blue-300 font-medium">WebSocket状态</div>
+              <div class="text-gray-300">状态: {{ gamePredictionStore.websocketStatus.status }}</div>
+              <div class="text-gray-300">重连次数: {{ gamePredictionStore.websocketStatus.reconnectAttempts }}</div>
+              <div class="text-gray-300">
+                最后连接: {{ formatTime(gamePredictionStore.websocketStatus.lastConnectedAt) }}
+              </div>
+            </div>
+            <div class="space-y-1">
+              <div class="text-blue-300 font-medium">轮次信息</div>
+              <div class="text-gray-300">轮次ID: {{ analysisMeta?.round_id || '无' }}</div>
+              <div class="text-gray-300">状态: {{ analysisMeta?.status || '无' }}</div>
+              <div class="text-gray-300">更新时间: {{ formatTime(analysisMeta?.updated_at) }}</div>
+            </div>
+            <div class="space-y-1">
+              <div class="text-blue-300 font-medium">加载状态</div>
+              <div class="text-gray-300">分析加载: {{ analysisLoading ? '是' : '否' }}</div>
+              <div class="text-gray-300">历史加载: {{ predictionHistoryLoading ? '是' : '否' }}</div>
+              <div class="text-gray-300">游戏加载: {{ historyLoading ? '是' : '否' }}</div>
+            </div>
+          </div>
+        </NCard>
 
         <!-- v8 H2H 对战关系分析 -->
         <NCard
@@ -424,7 +472,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, computed, h } from 'vue';
+  import { ref, onMounted, computed, h, watch } from 'vue';
   import { NEmpty, type DataTableColumn } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import api from '@/utils/api';
@@ -476,6 +524,7 @@
   const analysisMeta = computed(() => gamePredictionStore.analysisMeta);
   const predictionHistoryData = computed(() => gamePredictionStore.predictionHistory);
   const analysisLoading = computed(() => gamePredictionStore.analysisLoading);
+  const latestGameData = computed(() => gamePredictionStore.latestGameData);
 
   // 历史游戏数据仍然通过API获取（这部分数据更新频率较低）
   const historyData = ref<HistoryRound[]>([]);
@@ -655,6 +704,54 @@
     fetchPredictionHistoryData();
   };
 
+  // WebSocket状态相关函数
+  const getWebSocketStatusClass = () => {
+    const status = gamePredictionStore.websocketStatus.status;
+    switch (status) {
+      case 'connected':
+        return 'bg-green-500/20 border border-green-500/30 text-green-400';
+      case 'connecting':
+        return 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-400';
+      case 'disconnected':
+        return 'bg-gray-500/20 border border-gray-500/30 text-gray-400';
+      case 'error':
+        return 'bg-red-500/20 border border-red-500/30 text-red-400';
+      default:
+        return 'bg-gray-500/20 border border-gray-500/30 text-gray-400';
+    }
+  };
+
+  const getWebSocketStatusIcon = () => {
+    const status = gamePredictionStore.websocketStatus.status;
+    switch (status) {
+      case 'connected':
+        return '🟢';
+      case 'connecting':
+        return '🟡';
+      case 'disconnected':
+        return '⚪';
+      case 'error':
+        return '🔴';
+      default:
+        return '⚪';
+    }
+  };
+
+  // 格式化时间函数
+  const formatTime = (timeString: string | null | undefined) => {
+    if (!timeString) return '无';
+    try {
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch {
+      return '无效';
+    }
+  };
+
   // 初始化数据
   onMounted(() => {
     // 不再需要手动获取分析数据和预测历史，因为store已经在应用启动时通过WebSocket连接自动管理
@@ -667,6 +764,45 @@
     }, 10000);
 
     console.log('📊 Dashboard页面已加载，使用WebSocket实时数据 + 历史数据轮询模式');
+
+    // 添加调试信息
+    console.log('🐛 Dashboard初始化时的状态:');
+    console.log('🐛 - 当前分析数据数量:', analysisData.value.length);
+    console.log('🐛 - 分析数据内容:', analysisData.value);
+    console.log('🐛 - WebSocket状态:', gamePredictionStore.websocketStatus);
+    console.log('🐛 - 是否已连接:', gamePredictionStore.isConnected);
+    console.log('🐛 - Store currentAnalysis长度:', gamePredictionStore.currentAnalysis.length);
+    console.log('🐛 - Store currentAnalysis内容:', gamePredictionStore.currentAnalysis);
+
+    // 监听store状态变化
+    watch(
+      () => gamePredictionStore.currentAnalysis.length,
+      (newLength: number, oldLength: number) => {
+        console.log('🔥 Store currentAnalysis数量变化:', oldLength, '->', newLength);
+        console.log('🔥 新的分析数据:', gamePredictionStore.currentAnalysis);
+      }
+    );
+
+    watch(
+      () => gamePredictionStore.websocketStatus.status,
+      (newStatus: string, oldStatus: string) => {
+        console.log('🔥 WebSocket状态变化:', oldStatus, '->', newStatus);
+      }
+    );
+
+    // 定期输出调试信息
+    setInterval(() => {
+      console.log(
+        '🐛 定期检查 - 分析数据数量:',
+        analysisData.value.length,
+        '/ Store数量:',
+        gamePredictionStore.currentAnalysis.length,
+        'WebSocket状态:',
+        gamePredictionStore.websocketStatus.status,
+        '最后连接时间:',
+        gamePredictionStore.websocketStatus.lastConnectedAt
+      );
+    }, 5000);
   });
 
   // 获取前三名预测对比数据 (带key属性用于DataTable)

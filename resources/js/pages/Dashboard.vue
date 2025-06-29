@@ -65,6 +65,7 @@
               <div class="mt-2">
                 <n-button size="tiny" @click="testStoreUpdate" type="warning">🧪 测试Store更新</n-button>
                 <n-button size="tiny" @click="manualRefresh" type="info" class="ml-1">🔄 手动刷新</n-button>
+                <n-button size="tiny" @click="testWebSocket" type="error" class="ml-1">🔍 测试WebSocket</n-button>
               </div>
             </div>
           </div>
@@ -841,6 +842,39 @@
     gamePredictionStore.fetchCurrentAnalysis();
     gamePredictionStore.fetchPredictionHistory();
     fetchHistoryData();
+  };
+
+  const testWebSocket = () => {
+    console.log('🔍 WebSocket连接测试开始');
+    console.log('🔍 Echo实例:', window.Echo);
+    console.log('🔍 WebSocket状态:', gamePredictionStore.websocketStatus);
+
+    if (window.Echo?.connector?.pusher) {
+      const pusher = window.Echo.connector.pusher;
+      console.log('🔍 Pusher连接状态:', pusher.connection.state);
+      console.log('🔍 已订阅的频道:', Object.keys(pusher.channels.channels));
+
+      // 检查predictions频道
+      const predictionsChannel = pusher.channels.channels['predictions'];
+      if (predictionsChannel) {
+        console.log('🔍 predictions频道存在:', predictionsChannel);
+        console.log('🔍 频道绑定的事件:', predictionsChannel.callbacks);
+
+        // 手动触发一个测试监听器
+        console.log('🔍 添加临时测试监听器...');
+        predictionsChannel.bind('prediction.updated', (data: any) => {
+          console.log('🔍 临时监听器收到数据:', data);
+        });
+      } else {
+        console.log('❌ predictions频道不存在');
+      }
+    } else {
+      console.log('❌ Echo或Pusher未初始化');
+    }
+
+    // 尝试重新初始化WebSocket
+    console.log('🔍 尝试重新连接WebSocket...');
+    gamePredictionStore.reconnectWebSocket();
   };
 
   // 初始化数据

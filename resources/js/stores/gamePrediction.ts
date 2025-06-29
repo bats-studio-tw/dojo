@@ -289,6 +289,30 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
       };
 
       console.log('✅ WebSocket连接成功建立');
+
+      // 额外的调试信息
+      console.log('🔍 WebSocket调试信息:');
+      console.log('  - Echo实例:', window.Echo);
+      console.log('  - gameUpdatesChannel:', gameUpdatesChannel);
+      console.log('  - predictionsChannel:', predictionsChannel);
+      console.log('  - Pusher连接状态:', window.Echo?.connector?.pusher?.connection?.state);
+
+      // 监听Pusher原始事件用于调试
+      if (window.Echo?.connector?.pusher) {
+        console.log('🔍 添加Pusher原始事件监听器用于调试...');
+        window.Echo.connector.pusher.bind('pusher:subscription_succeeded', (data: any) => {
+          console.log('🔍 Pusher频道订阅成功:', data);
+        });
+
+        // 监听所有predictions频道的原始事件
+        const pusherChannel = window.Echo.connector.pusher.channels.channels['predictions'];
+        if (pusherChannel) {
+          console.log('🔍 找到predictions频道，添加原始事件监听...');
+          pusherChannel.bind('prediction.updated', (data: any) => {
+            console.log('🔍 Pusher原始事件 prediction.updated:', data);
+          });
+        }
+      }
     } catch (error) {
       console.error('❌ WebSocket连接失败:', error);
       websocketStatus.value = {

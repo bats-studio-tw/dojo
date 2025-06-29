@@ -252,7 +252,28 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
       };
 
       // 尝试重连
-      scheduleReconnect();
+      if (websocketStatus.value.reconnectAttempts < maxReconnectAttempts) {
+        websocketStatus.value.reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, websocketStatus.value.reconnectAttempts), 30000); // 指数退避，最大30秒
+
+        websocketStatus.value = {
+          ...websocketStatus.value,
+          status: 'disconnected',
+          message: `${delay / 1000}秒后尝试第${websocketStatus.value.reconnectAttempts}次重连...`
+        };
+
+        console.log(`🔄 计划在${delay / 1000}秒后进行第${websocketStatus.value.reconnectAttempts}次重连`);
+
+        reconnectTimer = window.setTimeout(() => {
+          initializeWebSocket();
+        }, delay);
+      } else {
+        websocketStatus.value = {
+          ...websocketStatus.value,
+          status: 'error',
+          message: `重连失败，已达到最大重连次数(${maxReconnectAttempts})`
+        };
+      }
     }
   };
 

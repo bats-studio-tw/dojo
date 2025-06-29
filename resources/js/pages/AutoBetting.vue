@@ -48,7 +48,7 @@
             <SmartControlCenter
               :user-info="userInfo"
               :auto-betting-status="autoBettingStatus"
-              :current-analysis="currentAnalysis"
+              :current-analysis="{ predictions: predictionStore.currentAnalysis, meta: predictionStore.analysisMeta }"
               :debug-info="debugInfo"
               :toggle-loading="toggleLoading"
               :execute-loading="executeLoading"
@@ -162,7 +162,6 @@
     currentUID,
     userInfo,
     autoBettingStatus,
-    currentAnalysis,
     lastKnownRoundId,
     isMonitoringRounds,
     debugInfo,
@@ -252,12 +251,14 @@
     debugInfo.strategyValidationCount++;
     debugInfo.lastValidationTime = new Date().toLocaleTimeString();
 
-    if (!currentAnalysis.value?.predictions) {
+    // 使用store的当前分析数据
+    const currentAnalysisData = predictionStore.currentAnalysis;
+    if (!currentAnalysisData || currentAnalysisData.length === 0) {
       strategyValidation.value = null;
       return;
     }
 
-    const predictions = currentAnalysis.value.predictions;
+    const predictions = currentAnalysisData;
     const matches: any[] = [];
     let totalMatchedValue = 0;
 
@@ -308,7 +309,8 @@
           async () => {
             let successCount = 0;
             let failCount = 0;
-            const roundId = currentAnalysis.value?.meta?.round_id;
+            // 使用store的分析元数据获取轮次ID
+            const roundId = predictionStore.analysisMeta?.round_id;
 
             if (!roundId) {
               throw new Error('无法获取当前轮次ID');
@@ -374,9 +376,7 @@
   };
 
   // 定时器引用，用于清理
-  let analysisRefreshTimer: number | null = null;
-  let predictionRefreshTimer: number | null = null;
-  // 添加自动下注定时器
+  // 注意：analysisRefreshTimer 和 predictionRefreshTimer 已移除，因为现在使用WebSocket实时更新
   let autoBettingTimer: number | null = null;
 
   // 监听器引用，用于清理
@@ -401,7 +401,7 @@
   );
 
   const analysisWatcher = watch(
-    currentAnalysis,
+    () => predictionStore.currentAnalysis,
     () => {
       validateCurrentStrategy();
     },
@@ -421,12 +421,13 @@
     }
 
     // 检查是否有分析数据
-    if (!currentAnalysis.value?.predictions) {
+    const currentAnalysisData = predictionStore.currentAnalysis;
+    if (!currentAnalysisData || currentAnalysisData.length === 0) {
       return;
     }
 
     // 检查当前轮次是否已经下过注
-    const currentRoundId = currentAnalysis.value?.meta?.round_id;
+    const currentRoundId = predictionStore.analysisMeta?.round_id;
     if (!currentRoundId) {
       return;
     }
@@ -568,29 +569,18 @@
     // 尝试恢复认证状态
     const restored = await restoreAuthState();
 
-    // 如果恢复成功，初始化预测数据和监控
+    // 如果恢复成功，启动游戏轮次监控
     if (restored) {
-      predictionStore.refreshAllPredictionData();
-
       // 启动游戏轮次监控
       if (!isMonitoringRounds.value) {
         isMonitoringRounds.value = true;
       }
     }
 
-    // 无论是否有验证状态，都初始化基础预测数据展示
-    predictionStore.refreshAllPredictionData();
+    // 不再需要手动刷新预测数据，因为store已经通过WebSocket自动管理
+    // 只保留自动下注定时器和自动下注状态监控
 
-    // 设置自动刷新定时器 - 添加名次预测自动刷新功能
-    // 当前分析数据每2秒刷新一次（名次预测）
-    analysisRefreshTimer = setInterval(() => {
-      fetchAnalysisData();
-    }, 2000);
-
-    // 预测历史数据每15秒刷新一次
-    predictionRefreshTimer = setInterval(() => {
-      predictionStore.refreshAllPredictionData();
-    }, 15000);
+    console.log('🤖 自动下注页面已加载，使用WebSocket实时数据模式');
   });
 
   // 组件卸载时清理资源
@@ -598,18 +588,9 @@
     // 停止监听器
     if (configWatcher) configWatcher();
     if (analysisWatcher) analysisWatcher();
-    if (autoBettingStatusWatcher) autoBettingStatusWatcher(); // 新增
+    if (autoBettingStatusWatcher) autoBettingStatusWatcher();
 
-    // 清理定时器
-    if (analysisRefreshTimer) {
-      clearInterval(analysisRefreshTimer);
-      analysisRefreshTimer = null;
-    }
-    if (predictionRefreshTimer) {
-      clearInterval(predictionRefreshTimer);
-      predictionRefreshTimer = null;
-    }
-    // 清理自动下注定时器 - 新增
+    // 清理自动下注定时器
     if (autoBettingTimer) {
       clearInterval(autoBettingTimer);
       autoBettingTimer = null;
@@ -620,6 +601,8 @@
 
     // 清理调试信息
     debugInfo.lastBetResults = [];
+
+    console.log('🧹 自动下注页面已卸载，已清理所有定时器和监听器');
   });
 </script>
 

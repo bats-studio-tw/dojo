@@ -439,43 +439,10 @@
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import RealTimeDataDisplay from '@/components/RealTimeDataDisplay.vue';
 
-  // 定义接口类型 - 更新为 v8 H2H 对战关系分析数据
-  interface TokenAnalysis {
-    symbol: string;
-    name: string;
-    change_5m: number | null;
-    change_1h: number | null;
-    change_4h: number | null;
-    change_24h: number | null;
-    volume_24h: string;
-    market_cap: number | null;
-    logo: string | null;
+  // 导入游戏预测store - 统一的数据管理
+  import { useGamePredictionStore } from '@/stores/gamePrediction';
 
-    // v8 新增：H2H 对战关系分析核心数据
-    absolute_score?: number; // 绝对分数（基于历史保本表现）
-    relative_score?: number; // 相对分数（基于H2H对战优势）
-    h2h_score?: number; // H2H对战评分
-    risk_adjusted_score?: number; // 风险调整后分数
-    predicted_final_value?: number; // 预测最终分数
-    rank_confidence?: number; // 排名置信度
-
-    // 保留的传统数据字段
-    prediction_score: number;
-    market_momentum_score?: number;
-    final_prediction_score?: number;
-    win_rate: number;
-    top3_rate: number;
-    avg_rank: number;
-    total_games: number;
-    wins: number;
-    top3: number;
-    predicted_rank: number;
-
-    // v8 补充数据
-    value_stddev?: number; // 历史分数标准差（稳定性指标）
-    recent_avg_value?: number; // 近期平均分数
-    avg_value?: number; // 历史平均分数
-  }
+  // 注意：TokenAnalysis类型现在从store导入，不需要重复定义
 
   interface RoundToken {
     symbol: string;
@@ -495,47 +462,9 @@
     key: number;
   }
 
-  // 预测相关接口
-  interface PredictionData {
-    symbol: string;
-    predicted_rank: number;
-    prediction_score: number;
-    predicted_at: string;
-  }
+  // 注意：预测相关接口现在从store导入，不需要重复定义
 
-  interface ResultData {
-    symbol: string;
-    actual_rank: number;
-    value: string;
-  }
-
-  interface AccuracyDetail {
-    symbol: string;
-    predicted_rank: number;
-    actual_rank: number;
-    rank_difference: number;
-    is_exact_match: boolean;
-    is_close_match: boolean;
-  }
-
-  interface Accuracy {
-    total_predictions: number;
-    exact_matches: number;
-    close_matches: number;
-    exact_accuracy: number;
-    close_accuracy: number;
-    avg_rank_difference: number;
-    details: AccuracyDetail[];
-  }
-
-  interface PredictionHistoryRound {
-    id: number;
-    round_id: string;
-    settled_at: string | null;
-    predictions: PredictionData[];
-    results: ResultData[];
-    accuracy: Accuracy;
-  }
+  // 注意：PredictionHistoryRound类型现在从store导入
 
   interface DetailedPredictionItem {
     round_id: string;
@@ -548,13 +477,17 @@
     settled_at: string;
   }
 
-  // 响应式数据
-  const analysisData = ref<TokenAnalysis[]>([]);
-  const historyData = ref<HistoryRound[]>([]);
-  const predictionHistoryData = ref<PredictionHistoryRound[]>([]);
-  const analysisMeta = ref<any>(null);
+  // 使用游戏预测store - 统一的数据管理，支持WebSocket实时更新
+  const gamePredictionStore = useGamePredictionStore();
 
-  const analysisLoading = ref(false);
+  // 从store中获取数据 - 直接使用store的响应式数据
+  const analysisData = computed(() => gamePredictionStore.currentAnalysis);
+  const analysisMeta = computed(() => gamePredictionStore.analysisMeta);
+  const predictionHistoryData = computed(() => gamePredictionStore.predictionHistory);
+  const analysisLoading = computed(() => gamePredictionStore.analysisLoading);
+
+  // 历史游戏数据仍然通过API获取（这部分数据更新频率较低）
+  const historyData = ref<HistoryRound[]>([]);
   const historyLoading = ref(false);
   const predictionHistoryLoading = ref(false);
 
@@ -692,23 +625,10 @@
     }
   };
 
-  // API调用函数
+  // API调用函数 - 现在使用store的方法
   const fetchAnalysisData = async () => {
-    analysisLoading.value = true;
-    try {
-      const response = await api.get('/game/current-analysis');
-      if (response.data.success) {
-        analysisData.value = response.data.data;
-        analysisMeta.value = response.data.meta || null;
-      } else {
-        window.$message?.error(response.data.message || '获取 H2H 对战分析数据失败');
-      }
-    } catch (error) {
-      console.error('获取 H2H 对战分析数据失败:', error);
-      window.$message?.error('获取 H2H 对战分析数据失败');
-    } finally {
-      analysisLoading.value = false;
-    }
+    // 使用store的方法获取预测分析数据
+    await gamePredictionStore.fetchCurrentAnalysis();
   };
 
   const fetchHistoryData = async () => {
@@ -729,42 +649,33 @@
   };
 
   const fetchPredictionHistoryData = async () => {
-    predictionHistoryLoading.value = true;
-    try {
-      const response = await api.get('/game/prediction-history');
-      if (response.data.success) {
-        predictionHistoryData.value = response.data.data;
-      } else {
-        window.$message?.error(response.data.message || '获取预测历史数据失败');
-      }
-    } catch (error) {
-      console.error('获取预测历史数据失败:', error);
-      window.$message?.error('获取预测历史数据失败');
-    } finally {
-      predictionHistoryLoading.value = false;
-    }
+    // 使用store的方法获取预测历史数据
+    await gamePredictionStore.fetchPredictionHistory();
   };
 
   // 刷新函数
-  const refreshAnalysis = () => fetchAnalysisData();
+  const refreshAnalysis = () => {
+    // 手动触发预测分析数据刷新（通常WebSocket会自动更新，这里提供手动刷新选项）
+    fetchAnalysisData();
+  };
   const refreshHistoryData = () => fetchHistoryData();
-  const refreshPredictionHistoryData = () => fetchPredictionHistoryData();
+  const refreshPredictionHistoryData = () => {
+    // 手动触发预测历史数据刷新
+    fetchPredictionHistoryData();
+  };
 
   // 初始化数据
   onMounted(() => {
-    fetchAnalysisData();
+    // 不再需要手动获取分析数据和预测历史，因为store已经在应用启动时通过WebSocket连接自动管理
+    // 只需要获取历史游戏数据（更新频率较低）
     fetchHistoryData();
-    fetchPredictionHistoryData();
 
-    // 设置定时刷新 - 分析数据5秒刷新，历史数据30秒刷新，预测历史数据60秒刷新
-    setInterval(() => {
-      fetchAnalysisData();
-    }, 1000);
-
+    // 设置历史数据的定时刷新（10秒间隔）- 历史数据更新频率较低，继续使用轮询
     setInterval(() => {
       fetchHistoryData();
-      fetchPredictionHistoryData();
     }, 10000);
+
+    console.log('📊 Dashboard页面已加载，使用WebSocket实时数据 + 历史数据轮询模式');
   });
 
   // 获取前三名预测对比数据 (带key属性用于DataTable)

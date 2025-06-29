@@ -123,7 +123,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, watch, computed } from 'vue';
+  import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
   import { NTabs, NTabPane } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
@@ -138,6 +138,8 @@
   import { useAutoBettingControl } from '@/composables/useAutoBettingControl';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import { usePredictionStats } from '@/composables/usePredictionStats';
+  import type { StrategyValidation, BacktestResults } from '@/types/autoBetting';
+  import { handleError, createConfirmDialog, handleAsyncOperation } from '@/utils/errorHandler';
 
   // 初始化composables
   const configComposable = useAutoBettingConfig();
@@ -194,8 +196,8 @@
   );
 
   // 策略验证状态
-  const strategyValidation = ref<any>(null);
-  const backtestResults = ref<any>(null);
+  const strategyValidation = ref<StrategyValidation | null>(null);
+  const backtestResults = ref<BacktestResults | null>(null);
   const backtestLoading = ref(false);
 
   // 当前策略名称计算属性
@@ -284,7 +286,7 @@
     const successProbability =
       matches.length > 0 ? matches.reduce((sum, m) => sum + (m.confidence || 70), 0) / matches.length / 100 : 0;
 
-    let riskLevel = 'low';
+    let riskLevel: 'low' | 'medium' | 'high' = 'low';
     const walletBalance = userInfo.value?.ojoValue || 0;
     if (walletBalance > 0) {
       if (totalMatchedValue > walletBalance * 0.2) riskLevel = 'high';
@@ -318,47 +320,63 @@
       return;
     }
 
-    executeLoading.value = true;
-    try {
-      window.$message?.info('开始执行策略下注...');
+    // 添加确认对话框
+    createConfirmDialog(
+      '确认执行策略下注',
+      `将下注 ${strategyValidation.value.matches.length} 个游戏，总金额 $${strategyValidation.value.required_balance.toFixed(2)}。是否继续？`,
+      async () => {
+        const result = await handleAsyncOperation(
+          async () => {
+            let successCount = 0;
+            let failCount = 0;
+            const roundId = currentAnalysis.value?.meta?.round_id;
 
-      let successCount = 0;
-      let failCount = 0;
-      const roundId = currentAnalysis.value?.meta?.round_id;
+            if (!roundId) {
+              throw new Error('无法获取当前轮次ID');
+            }
 
-      if (!roundId) {
-        window.$message?.error('无法获取当前轮次ID');
-        return;
-      }
+            for (const match of strategyValidation.value!.matches) {
+              try {
+                const betSuccess = await executeSingleBet(roundId, match.symbol, match.bet_amount, config.jwt_token);
+                if (betSuccess) {
+                  successCount++;
+                } else {
+                  failCount++;
+                }
+              } catch (error) {
+                handleError(error, {
+                  showToast: false,
+                  fallbackMessage: `下注失败：${match.symbol}`
+                });
+                failCount++;
+              }
+            }
 
-      for (const match of strategyValidation.value.matches) {
-        try {
-          const betSuccess = await executeSingleBet(roundId, match.symbol, match.bet_amount, config.jwt_token);
-          if (betSuccess) {
-            successCount++;
-          } else {
-            failCount++;
+            await loadStatus();
+            validateCurrentStrategy();
+
+            return { successCount, failCount };
+          },
+          {
+            loadingMessage: '正在执行策略下注...',
+            successMessage: `策略下注完成：成功 ${0} 个`
           }
-        } catch (error) {
-          console.error(`策略下注失败 ${match.symbol}:`, error);
-          failCount++;
+        );
+
+        if (result) {
+          if (result.successCount > 0) {
+            window.$message?.success(`策略下注完成：成功 ${result.successCount} 个，失败 ${result.failCount} 个`);
+          } else {
+            window.$message?.error('策略下注全部失败');
+          }
         }
+      },
+      {
+        confirmText: '确认下注',
+        cancelText: '取消',
+        type: 'warning'
       }
-
-      if (successCount > 0) {
-        window.$message?.success(`策略下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
-      } else {
-        window.$message?.error('策略下注全部失败');
-      }
-
-      await loadStatus();
-      validateCurrentStrategy();
-    } catch (error) {
-      console.error('执行策略下注失败:', error);
-      window.$message?.error('执行策略下注失败');
-    } finally {
-      executeLoading.value = false;
-    }
+    );
   };
 
   // 手动执行一次下注
@@ -439,8 +457,8 @@
     debugInfo.lastBetResults = [];
   };
 
-  // 监听配置变化，自动保存并验证策略
-  watch(
+  // 监听器引用，用于清理
+  const configWatcher = watch(
     config,
     () => {
       configComposable.autoSaveConfig(currentUID.value);
@@ -449,8 +467,7 @@
     { deep: true, flush: 'post' }
   );
 
-  // 监听当前分析数据变化，自动验证策略
-  watch(
+  const analysisWatcher = watch(
     currentAnalysis,
     () => {
       validateCurrentStrategy();
@@ -478,6 +495,19 @@
 
     // 无论是否有验证状态，都初始化基础预测数据展示
     predictionStore.refreshAllPredictionData();
+  });
+
+  // 组件卸载时清理资源
+  onUnmounted(() => {
+    // 停止监听器
+    if (configWatcher) configWatcher();
+    if (analysisWatcher) analysisWatcher();
+
+    // 停止游戏轮次监控
+    isMonitoringRounds.value = false;
+
+    // 清理调试信息
+    debugInfo.lastBetResults = [];
   });
 </script>
 

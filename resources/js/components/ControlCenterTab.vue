@@ -137,7 +137,6 @@
         <n-button
           @click="executeManualBetting"
           :loading="executeLoading"
-          :disabled="!autoBettingStatus.is_running"
           type="warning"
           size="large"
           class="shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40"

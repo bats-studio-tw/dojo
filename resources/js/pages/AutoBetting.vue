@@ -237,6 +237,7 @@
   };
 
   // 计算下注金额
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const calculateBetAmount = (prediction: any): number => {
     let betAmount = config.bet_amount;
     const walletBalance = userInfo.value?.ojoValue || 0;

@@ -28,13 +28,13 @@
               :key="key"
               class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-3 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
               :class="{
-                'border-blue-400 bg-blue-500/20': selectedTemplate === key
+                'border-blue-400 bg-blue-500/20': selectedTemplate === String(key)
               }"
-              @click="applyStrategyTemplate(key)"
+              @click="applyStrategyTemplate(String(key))"
             >
               <div class="mb-2 flex items-center justify-between">
                 <span class="text-sm text-white font-medium">{{ template.name }}</span>
-                <n-tag :type="selectedTemplate === key ? 'primary' : 'default'" size="small">
+                <n-tag :type="selectedTemplate === String(key) ? 'primary' : 'default'" size="small">
                   {{ template.confidence_threshold }}%
                 </n-tag>
               </div>

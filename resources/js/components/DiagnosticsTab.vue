@@ -10,7 +10,7 @@
               <template #checked>显示调试面板</template>
               <template #unchecked>隐藏调试面板</template>
             </n-switch>
-            <n-button @click="runApiDiagnostics" :loading="diagnosticsLoading" type="info" size="small">
+            <n-button @click="() => emit('runApiDiagnostics')" :loading="diagnosticsLoading" type="info" size="small">
               <template #icon>
                 <span>🔬</span>
               </template>
@@ -64,7 +64,7 @@
           <div v-if="debugInfo.lastBetResults.length > 0" class="space-y-3">
             <div class="mb-2 flex items-center justify-between">
               <span class="text-sm text-yellow-400 font-medium">🎯 最近下注结果 (最近10条)</span>
-              <n-button @click="clearBetResults" type="tertiary" size="tiny">清空记录</n-button>
+              <n-button @click="() => emit('clearBetResults')" type="tertiary" size="tiny">清空记录</n-button>
             </div>
             <div class="max-h-32 overflow-y-auto rounded bg-black/30 p-2 text-xs text-gray-300 font-mono">
               <div
@@ -452,7 +452,7 @@
         timestamp: new Date().toLocaleString(),
         level: 'info',
         message: '系统日志已刷新',
-        context: { action: 'refresh' }
+        context: { module: 'SystemLogs', action: 'refresh' }
       });
 
       // 自动滚动到底部

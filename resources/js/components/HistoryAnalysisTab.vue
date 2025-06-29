@@ -359,7 +359,7 @@
   };
 
   // 图表数据
-  const chartData = ref([]);
+  const chartData = ref<{ date: string; value: number }[]>([]);
 
   // 图表类型和时间范围的文本
   const chartTypeText = computed(() => {

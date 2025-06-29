@@ -254,9 +254,12 @@
                   :min="70"
                   :max="99"
                   :step="1"
-                  :disabled="isRunning"
+                  :disabled="isRunning || config.strategy === 'rank_betting'"
                   class="w-full"
                 />
+                <div v-if="config.strategy === 'rank_betting'" class="text-xs text-gray-500">
+                  指定排名下注策略不使用置信度阈值
+                </div>
               </div>
 
               <div class="space-y-2">
@@ -266,10 +269,13 @@
                   :min="3.0"
                   :max="20.0"
                   :step="0.5"
-                  :disabled="isRunning"
+                  :disabled="isRunning || config.strategy === 'rank_betting'"
                   :precision="1"
                   class="w-full"
                 />
+                <div v-if="config.strategy === 'rank_betting'" class="text-xs text-gray-500">
+                  指定排名下注策略不使用分数差距阈值
+                </div>
               </div>
             </div>
 
@@ -287,6 +293,122 @@
                   :disabled="isRunning"
                   class="w-full"
                 />
+              </div>
+            </div>
+          </div>
+
+          <!-- 指定排名下注配置 -->
+          <div v-if="config.strategy === 'rank_betting'" class="mt-6 border-t border-gray-600 pt-6">
+            <h4 class="mb-4 text-lg text-white font-semibold">🏆 排名下注配置</h4>
+
+            <!-- 排名选择 -->
+            <div class="mb-6 space-y-3">
+              <label class="text-sm text-gray-300 font-medium">选择要下注的排名</label>
+              <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
+                <div
+                  v-for="rank in [1, 2, 3, 4, 5]"
+                  :key="rank"
+                  class="cursor-pointer rounded-lg border-2 p-3 text-center transition-all duration-200"
+                  :class="
+                    config.rank_betting_enabled_ranks.includes(rank)
+                      ? 'border-blue-400 bg-blue-500/20 text-blue-400'
+                      : 'border-gray-500/30 bg-gray-500/10 text-gray-400 hover:border-gray-400/60'
+                  "
+                  @click="toggleRankBetting(rank, !config.rank_betting_enabled_ranks.includes(rank))"
+                >
+                  <div class="text-2xl font-bold">TOP {{ rank }}</div>
+                  <div class="mt-1 text-xs">
+                    {{ config.rank_betting_enabled_ranks.includes(rank) ? '已启用' : '点击启用' }}
+                  </div>
+                </div>
+              </div>
+              <div class="text-xs text-gray-500">
+                已选择 {{ config.rank_betting_enabled_ranks.length }} 个排名， 预计每轮下注金额: ${{
+                  getTotalRankBettingAmount()
+                }}
+              </div>
+            </div>
+
+            <!-- 金额配置 -->
+            <div class="space-y-4">
+              <div class="flex items-center space-x-4">
+                <n-switch v-model:value="config.rank_betting_different_amounts" :disabled="isRunning" />
+                <label class="text-sm text-gray-300 font-medium">
+                  {{ config.rank_betting_different_amounts ? '为不同排名设置不同金额' : '所有排名使用相同金额' }}
+                </label>
+              </div>
+
+              <!-- 统一金额设置 -->
+              <div v-if="!config.rank_betting_different_amounts" class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">每个排名的下注金额</label>
+                <n-input-number
+                  v-model:value="config.rank_betting_amount_per_rank"
+                  :min="200"
+                  :max="2000"
+                  :step="50"
+                  :disabled="isRunning"
+                  class="w-full"
+                />
+              </div>
+
+              <!-- 分别金额设置 -->
+              <div v-else class="space-y-4">
+                <div v-for="rank in config.rank_betting_enabled_ranks" :key="rank" class="flex items-center space-x-4">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-blue-400 font-bold">TOP {{ rank }}</span>
+                    <span class="text-xs text-gray-500">下注金额:</span>
+                  </div>
+                  <n-input-number
+                    v-if="rank === 1"
+                    v-model:value="config.rank_betting_rank1_amount"
+                    :min="200"
+                    :max="2000"
+                    :step="50"
+                    :disabled="isRunning"
+                    class="flex-1"
+                  />
+                  <n-input-number
+                    v-else-if="rank === 2"
+                    v-model:value="config.rank_betting_rank2_amount"
+                    :min="200"
+                    :max="2000"
+                    :step="50"
+                    :disabled="isRunning"
+                    class="flex-1"
+                  />
+                  <n-input-number
+                    v-else-if="rank === 3"
+                    v-model:value="config.rank_betting_rank3_amount"
+                    :min="200"
+                    :max="2000"
+                    :step="50"
+                    :disabled="isRunning"
+                    class="flex-1"
+                  />
+                  <n-input-number
+                    v-else
+                    v-model:value="config.rank_betting_amount_per_rank"
+                    :min="200"
+                    :max="2000"
+                    :step="50"
+                    :disabled="isRunning"
+                    class="flex-1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 排名下注说明 -->
+            <div class="mt-4 border border-blue-500/30 rounded-lg bg-blue-500/10 p-4">
+              <div class="mb-2 flex items-center space-x-2">
+                <span class="text-blue-400">ℹ️</span>
+                <span class="text-sm text-blue-400 font-medium">指定排名下注说明</span>
+              </div>
+              <div class="space-y-1 text-xs text-gray-300">
+                <div>• 每轮游戏会自动下注您选择的排名，无需满足其他条件</div>
+                <div>• 下注基于AI预测的排名结果，不考虑置信度等其他指标</div>
+                <div>• 建议选择TOP 1-3排名以获得更好的胜率</div>
+                <div>• 请合理设置下注金额，控制风险</div>
               </div>
             </div>
           </div>
@@ -309,6 +431,7 @@
 <script setup lang="ts">
   import { NEmpty } from 'naive-ui';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
+  import { useAutoBettingConfig } from '@/composables/useAutoBettingConfig';
 
   // Props
   interface Props {
@@ -337,6 +460,9 @@
     runBacktest: [];
     manualSaveConfig: [];
   }>();
+
+  // 获取排名下注相关方法
+  const { toggleRankBetting, getRankBettingAmount, getTotalRankBettingAmount } = useAutoBettingConfig();
 
   // Methods
   const applyStrategyTemplate = (key: string) => emit('applyStrategyTemplate', key);

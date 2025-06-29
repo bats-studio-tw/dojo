@@ -22,7 +22,7 @@
       </div>
     </template>
 
-    <div v-if="analysisData.length > 0" class="space-y-4">
+    <div v-if="analysisData && analysisData.length > 0" class="space-y-4">
       <!-- 横向名次預測展示 -->
       <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5">
         <div

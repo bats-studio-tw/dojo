@@ -48,7 +48,7 @@
             </div>
           </template>
 
-          <div v-if="analysisData.length > 0" class="space-y-4">
+          <div v-if="analysisData && analysisData.length > 0" class="space-y-4">
             <!-- 横向名次預測展示 -->
             <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5">
               <div
@@ -170,7 +170,7 @@
           </template>
 
           <NSpin :show="predictionHistoryLoading">
-            <div v-if="predictionHistoryData.length > 0" class="space-y-4">
+            <div v-if="predictionHistoryData && predictionHistoryData.length > 0" class="space-y-4">
               <!-- 局数选择器 -->
               <div
                 class="mb-3 border border-white/20 rounded-lg from-gray-500/10 to-slate-600/5 bg-gradient-to-br px-3 py-2"
@@ -189,13 +189,13 @@
                     <n-slider
                       v-model:value="recentRoundsCount"
                       :min="1"
-                      :max="Math.min(300, predictionHistoryData.length)"
+                      :max="Math.min(300, predictionHistoryData?.length || 0)"
                       :step="1"
                       :tooltip="true"
                     />
                   </div>
                   <div class="whitespace-nowrap text-xs text-gray-400">
-                    1-{{ Math.min(300, predictionHistoryData.length) }}局
+                    1-{{ Math.min(300, predictionHistoryData?.length || 0) }}局
                   </div>
                 </div>
               </div>
@@ -406,7 +406,7 @@
 
           <NSpin :show="historyLoading">
             <NDataTable
-              v-if="historyData.length > 0"
+              v-if="historyData && historyData.length > 0"
               :columns="historyColumns"
               :data="historyTableData"
               :pagination="{ pageSize: 5 }"

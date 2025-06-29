@@ -61,7 +61,7 @@
           </div>
 
           <!-- 最近下注结果 -->
-          <div v-if="debugInfo.lastBetResults.length > 0" class="space-y-3">
+          <div v-if="debugInfo.lastBetResults && debugInfo.lastBetResults.length > 0" class="space-y-3">
             <div class="mb-2 flex items-center justify-between">
               <span class="text-sm text-yellow-400 font-medium">🎯 最近下注结果 (最近10条)</span>
               <n-button @click="() => emit('clearBetResults')" type="tertiary" size="tiny">清空记录</n-button>
@@ -114,7 +114,7 @@
         </div>
 
         <!-- 诊断结果 -->
-        <div v-if="diagnosticResults.length > 0" class="space-y-3">
+        <div v-if="diagnosticResults && diagnosticResults.length > 0" class="space-y-3">
           <h3 class="text-sm text-white font-medium">诊断结果</h3>
           <div class="space-y-2">
             <div

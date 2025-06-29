@@ -176,7 +176,7 @@
     <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="📊 近期活动日志" size="large">
       <div class="space-y-3">
         <!-- 最近下注结果 -->
-        <div v-if="debugInfo.lastBetResults.length > 0">
+        <div v-if="debugInfo.lastBetResults && debugInfo.lastBetResults.length > 0">
           <div class="mb-3 flex items-center justify-between">
             <span class="text-sm text-white font-medium">🎯 最近下注记录</span>
             <n-button @click="clearBetResults" type="tertiary" size="tiny">清空记录</n-button>

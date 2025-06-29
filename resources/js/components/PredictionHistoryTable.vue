@@ -61,7 +61,7 @@
   const { getPredictionRankIcon, getPredictionRowClass } = usePredictionDisplay();
 
   // 计算属性
-  const hasData = computed(() => props.predictionData.length > 0);
+  const hasData = computed(() => props.predictionData && props.predictionData.length > 0);
 
   const tableData = computed((): PredictionComparisonRow[] => {
     return props.predictionData.map((item) => ({

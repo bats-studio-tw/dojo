@@ -127,7 +127,7 @@
           <!-- 一键执行按钮 -->
           <div class="text-center">
             <n-button
-              v-if="strategyValidation.matches.length > 0"
+              v-if="strategyValidation.matches && strategyValidation.matches.length > 0"
               @click="executeStrategyBetting"
               :loading="executeLoading"
               :disabled="!strategyValidation.balance_sufficient"

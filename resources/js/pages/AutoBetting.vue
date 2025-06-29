@@ -111,30 +111,6 @@
                 </div>
               </div>
             </div>
-
-            <!-- 详细日志 -->
-            <div class="mt-4 border-t border-yellow-500/30 pt-3">
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-xs text-yellow-400 font-medium">📋 系统日志 (最近20条)</span>
-                <n-button @click="debugInfo.logs = []" type="tertiary" size="tiny">清空日志</n-button>
-              </div>
-              <div class="max-h-40 overflow-y-auto rounded bg-black/30 p-2 text-xs text-gray-300 font-mono">
-                <div
-                  v-for="(log, index) in debugInfo.logs.slice(-20).reverse()"
-                  :key="index"
-                  class="py-1"
-                  :class="{
-                    'text-red-400': log.level === 'error',
-                    'text-yellow-400': log.level === 'warn',
-                    'text-green-400': log.level === 'success',
-                    'text-blue-400': log.level === 'info'
-                  }"
-                >
-                  [{{ log.time }}] {{ log.message }}
-                </div>
-                <div v-if="debugInfo.logs.length === 0" class="py-2 text-center text-gray-500">暂无日志记录</div>
-              </div>
-            </div>
           </div>
 
           <!-- 调试控制按钮 -->
@@ -1382,11 +1358,6 @@
   // 调试信息状态
   const debugInfo = reactive({
     showDebugPanel: false,
-    logs: [] as Array<{
-      time: string;
-      level: 'info' | 'warn' | 'error' | 'success';
-      message: string;
-    }>,
     roundCheckCount: 0,
     lastRoundCheckTime: '',
     autoTriggerCount: 0,
@@ -1447,9 +1418,8 @@
   // 调试日志功能
   const addDebugLog = (level: 'info' | 'warn' | 'error' | 'success', message: string) => {
     const time = new Date().toLocaleTimeString();
-    debugInfo.logs.push({ time, level, message });
 
-    // 同时输出到控制台
+    // 输出到控制台
     const consoleMessage = `[AutoBetting ${time}] ${message}`;
     switch (level) {
       case 'error':
@@ -1463,11 +1433,6 @@
       default:
         console.log(consoleMessage);
         break;
-    }
-
-    // 限制日志数量，避免内存过大
-    if (debugInfo.logs.length > 100) {
-      debugInfo.logs = debugInfo.logs.slice(-80);
     }
   };
 

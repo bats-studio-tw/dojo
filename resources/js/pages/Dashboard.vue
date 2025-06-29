@@ -18,14 +18,6 @@
           </div>
         </div>
 
-        <!-- WebSocket 实时数据面板 -->
-        <NCard
-          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="📡 实时数据监控"
-          size="large"
-        >
-          <RealTimeDataDisplay />
-        </NCard>
         <!-- v8 H2H 对战关系分析 -->
         <NCard
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
@@ -437,7 +429,6 @@
   import { Head } from '@inertiajs/vue3';
   import api from '@/utils/api';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
-  import RealTimeDataDisplay from '@/components/RealTimeDataDisplay.vue';
 
   // 导入游戏预测store - 统一的数据管理
   import { useGamePredictionStore } from '@/stores/gamePrediction';

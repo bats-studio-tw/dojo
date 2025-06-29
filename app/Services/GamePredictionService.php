@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\PredictionUpdated;
 use App\Models\GameRound;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
@@ -106,6 +107,20 @@ class GamePredictionService
                 'algorithm' => $cacheData['algorithm'],
                 'tokens_count' => count($analysisData)
             ]);
+
+            // 广播预测数据更新事件到WebSocket客户端
+            try {
+                broadcast(new PredictionUpdated($analysisData, $roundId, 'prediction'));
+                Log::info('📡 预测数据已广播到WebSocket客户端', [
+                    'round_id' => $roundId,
+                    'tokens_count' => count($analysisData)
+                ]);
+            } catch (\Exception $broadcastError) {
+                Log::error('广播预测数据失败', [
+                    'round_id' => $roundId,
+                    'error' => $broadcastError->getMessage()
+                ]);
+            }
 
             return true;
         } catch (\Exception $e) {

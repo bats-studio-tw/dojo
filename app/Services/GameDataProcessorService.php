@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\GameDataUpdated;
 use App\Models\GameRound;
 use App\Models\RoundResult;
 use App\Models\RoundPredict;
@@ -88,6 +89,17 @@ class GameDataProcessorService
             });
 
             Log::channel('websocket')->info('✅ 結算資料成功儲存到資料庫', ['rdId' => $roundId]);
+
+            // 广播游戏数据更新事件到WebSocket客户端
+            try {
+                broadcast(new GameDataUpdated($gameData, 'settlement'));
+                Log::channel('websocket')->info('📡 结算数据已广播到WebSocket客户端', ['rdId' => $roundId]);
+            } catch (\Exception $broadcastError) {
+                Log::channel('websocket')->error('广播结算数据失败', [
+                    'rdId' => $roundId,
+                    'error' => $broadcastError->getMessage()
+                ]);
+            }
 
         } catch (Exception $e) {
             Log::channel('websocket')->error("❌ 處理結算資料時發生錯誤", [

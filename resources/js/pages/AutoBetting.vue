@@ -43,9 +43,9 @@
 
         <!-- 标签页导航 -->
         <NTabs v-model:value="activeTab" type="card" size="large" class="auto-betting-tabs">
-          <!-- 主控台标签页 -->
-          <NTabPane name="control" tab="🎛️ 主控台">
-            <ControlCenterTab
+          <!-- 智能控制中心标签页 -->
+          <NTabPane name="control" tab="🎛️ 智能控制中心">
+            <SmartControlCenter
               :user-info="userInfo"
               :auto-betting-status="autoBettingStatus"
               :current-analysis="currentAnalysis"
@@ -53,21 +53,10 @@
               :toggle-loading="toggleLoading"
               :execute-loading="executeLoading"
               :analysis-loading="analysisLoading"
+              :diagnostics-loading="diagnosticsLoading"
               :strategy-name="currentStrategyName"
               :confidence-threshold="config.confidence_threshold"
               :risk-level="config.max_bet_percentage"
-              @start-auto-betting="startAutoBetting"
-              @stop-auto-betting="stopAutoBetting"
-              @execute-manual-betting="executeManualBetting"
-              @fetch-analysis-data="fetchAnalysisData"
-              @reconnect-token="reconnectToken"
-              @clear-bet-results="clearBetResults"
-            />
-          </NTabPane>
-
-          <!-- 策略与配置标签页 -->
-          <NTabPane name="strategy" tab="🎯 策略与配置">
-            <StrategyConfigTab
               :config="config"
               :selected-template="selectedTemplate"
               :custom-strategy-mode="customStrategyMode"
@@ -77,15 +66,21 @@
               :strategy-validation="strategyValidation"
               :backtest-results="backtestResults"
               :backtest-loading="backtestLoading"
-              :execute-loading="executeLoading"
               :is-running="autoBettingStatus.is_running"
               :has-u-i-d="!!currentUID"
+              @start-auto-betting="startAutoBetting"
+              @stop-auto-betting="stopAutoBetting"
+              @execute-manual-betting="executeManualBetting"
+              @fetch-analysis-data="fetchAnalysisData"
+              @reconnect-token="reconnectToken"
+              @clear-bet-results="clearBetResults"
               @apply-strategy-template="applyStrategyTemplate"
               @switch-to-custom-mode="switchToCustomMode"
               @reset-to-template-mode="resetToTemplateMode"
               @execute-strategy-betting="executeStrategyBetting"
               @run-backtest="runBacktest"
               @manual-save-config="manualSaveConfig"
+              @run-api-diagnostics="runApiDiagnostics"
             />
           </NTabPane>
 
@@ -130,8 +125,7 @@
   import { Head } from '@inertiajs/vue3';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import WalletSetup from '@/components/WalletSetup.vue';
-  import ControlCenterTab from '@/components/ControlCenterTab.vue';
-  import StrategyConfigTab from '@/components/StrategyConfigTab.vue';
+  import SmartControlCenter from '@/components/SmartControlCenter.vue';
   import HistoryAnalysisTab from '@/components/HistoryAnalysisTab.vue';
   import DiagnosticsTab from '@/components/DiagnosticsTab.vue';
 

@@ -22,148 +22,922 @@
           <div class="flex-1 text-center">
             <h1 class="text-3xl text-white font-bold">🤖 自动下注控制中心</h1>
             <p class="text-gray-300">基于数据驱动的智能下注系统</p>
+            <!-- 配置同步状态提示 -->
+            <div v-if="currentUID" class="mt-2">
+              <span
+                class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs text-green-800 font-medium"
+              >
+                ☁️ 配置已云端同步 (UID: {{ currentUID.slice(0, 8) }}...)
+              </span>
+            </div>
+            <div v-else class="mt-2">
+              <span
+                class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs text-yellow-800 font-medium"
+              >
+                💾 配置本地存储 - 完成Token验证后可云端同步
+              </span>
+            </div>
           </div>
           <div class="w-32"></div>
+          <!-- 占位符保持标题居中 -->
         </div>
 
-        <!-- 使用标签页组织主要功能 -->
-        <n-tabs default-value="status" type="card" size="large" class="mb-6">
-          <!-- 系统状态监控 -->
-          <n-tab-pane name="status" tab="📈 系统状态">
-            <div class="space-y-6">
-              <!-- 系统状态 -->
-              <SystemStatus
-                :user-info="userInfo"
-                :auto-betting-status="autoBettingStatus"
-                :current-analysis="currentAnalysis"
-                :current-u-i-d="currentUID"
-                :toggle-loading="toggleLoading"
-                :execute-loading="executeLoading"
-                :analysis-loading="analysisLoading"
-                @reconnect-token="reconnectToken"
-                @start-auto-betting="startAutoBetting"
-                @stop-auto-betting="stopAutoBetting"
-                @execute-auto-betting="executeAutoBetting"
-                @refresh-analysis="refreshAnalysis"
-              />
-
-              <!-- 调试面板 -->
-              <DebugPanel
-                :debug-info="debugInfo"
-                :is-monitoring-rounds="isMonitoringRounds"
-                :last-known-round-id="lastKnownRoundId"
-                :auto-betting-status="autoBettingStatus"
-                :strategy-validation="strategyValidation"
-                :diagnostics-loading="diagnosticsLoading"
-                @run-diagnostics="runApiDiagnostics"
-              />
+        <!-- 系统状态监控 -->
+        <NCard
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="📈 系统状态监控"
+          size="large"
+        >
+          <!-- 调试信息面板 -->
+          <div v-if="debugInfo.showDebugPanel" class="mb-6 border border-yellow-500/30 rounded-lg bg-yellow-500/10 p-4">
+            <div class="mb-3 flex items-center justify-between">
+              <h3 class="text-lg text-yellow-400 font-semibold">🐛 调试信息面板</h3>
+              <n-button @click="debugInfo.showDebugPanel = false" type="tertiary" size="tiny">隐藏调试</n-button>
             </div>
-          </n-tab-pane>
 
-          <!-- 策略配置 -->
-          <n-tab-pane name="strategy" tab="🎯 策略配置">
-            <StrategyConfig
-              :strategy-templates="strategyTemplates"
-              :selected-template="selectedTemplate"
-              :custom-strategy-mode="customStrategyMode"
-              :strategy-validation="strategyValidation"
-              :backtest-results="backtestResults"
-              :backtest-loading="backtestLoading"
-              :execute-loading="executeLoading"
-              :has-history-data="!!predictionStore.predictionHistory?.length"
-              @apply-template="applyStrategyTemplate"
-              @switch-to-custom="switchToCustomMode"
-              @reset-to-template="resetToTemplateMode"
-              @execute-strategy="executeStrategyBetting"
-              @run-backtest="runBacktest"
-            />
-          </n-tab-pane>
-
-          <!-- 参数配置 -->
-          <n-tab-pane name="config" tab="⚙️ 参数配置">
-            <div class="space-y-6">
-              <!-- 配置模式说明 -->
-              <div
-                v-if="customStrategyMode || selectedTemplate"
-                class="border rounded-lg p-3"
-                :class="
-                  customStrategyMode ? 'border-orange-500/30 bg-orange-500/5' : 'border-blue-500/30 bg-blue-500/5'
-                "
-              >
-                <div class="flex items-center space-x-2">
-                  <span :class="customStrategyMode ? 'text-orange-400' : 'text-blue-400'">
-                    {{ customStrategyMode ? '🎨' : '📋' }}
-                  </span>
-                  <span class="text-sm font-medium" :class="customStrategyMode ? 'text-orange-400' : 'text-blue-400'">
-                    {{ customStrategyMode ? '自定义策略模式已激活' : `当前模板: ${getTemplateName(selectedTemplate)}` }}
-                  </span>
-                </div>
-                <div class="mt-1 text-xs text-gray-400">
-                  {{
-                    customStrategyMode
-                      ? '所有参数都可以自由调整，变更会实时应用到策略验证中。'
-                      : '您可以在此基础上微调参数，或切换到自定义模式进行完全控制。'
-                  }}
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 md:grid-cols-2">
+              <!-- 轮次监控状态 -->
+              <div class="border border-blue-500/30 rounded bg-blue-500/10 p-3">
+                <div class="mb-2 text-xs text-blue-400 font-medium">🎮 轮次监控</div>
+                <div class="text-xs text-gray-300 space-y-1">
+                  <div>监控状态: {{ isMonitoringRounds ? '✅ 运行中' : '❌ 未启动' }}</div>
+                  <div>当前轮次: {{ lastKnownRoundId || '未知' }}</div>
+                  <div>最后检查: {{ debugInfo.lastRoundCheckTime || '未检查' }}</div>
+                  <div>检查次数: {{ debugInfo.roundCheckCount }}</div>
                 </div>
               </div>
 
-              <ConfigPanel
-                :config="config"
-                :auto-betting-running="autoBettingStatus.is_running"
-                :config-saving="configSaving"
-                @save-config="manualSaveConfig"
-              />
+              <!-- 自动下注状态 -->
+              <div class="border border-green-500/30 rounded bg-green-500/10 p-3">
+                <div class="mb-2 text-xs text-green-400 font-medium">🤖 自动下注</div>
+                <div class="text-xs text-gray-300 space-y-1">
+                  <div>系统状态: {{ autoBettingStatus.is_running ? '✅ 已启动' : '❌ 未启动' }}</div>
+                  <div>触发次数: {{ debugInfo.autoTriggerCount }}</div>
+                  <div>最后触发: {{ debugInfo.lastAutoTriggerTime || '未触发' }}</div>
+                  <div>最后执行: {{ debugInfo.lastExecutionTime || '未执行' }}</div>
+                </div>
+              </div>
 
-              <!-- 指定排名下注配置 -->
-              <div v-if="config.strategy === 'rank_betting'" class="border-t border-gray-600 pt-6">
-                <h4 class="mb-4 text-lg text-white font-semibold">🎯 指定排名下注设置</h4>
+              <!-- 策略验证状态 -->
+              <div class="border border-purple-500/30 rounded bg-purple-500/10 p-3">
+                <div class="mb-2 text-xs text-purple-400 font-medium">🎯 策略验证</div>
+                <div class="text-xs text-gray-300 space-y-1">
+                  <div>符合条件: {{ strategyValidation?.total_matched || 0 }}个</div>
+                  <div>余额充足: {{ strategyValidation?.balance_sufficient ? '✅' : '❌' }}</div>
+                  <div>验证次数: {{ debugInfo.strategyValidationCount }}</div>
+                  <div>最后验证: {{ debugInfo.lastValidationTime || '未验证' }}</div>
+                </div>
+              </div>
+            </div>
 
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  <!-- 排名选择 -->
-                  <div class="space-y-3">
-                    <label class="text-sm text-gray-300 font-medium">选择要下注的排名</label>
-                    <div class="flex flex-wrap gap-2">
-                      <n-checkbox
-                        v-for="rank in [1, 2, 3, 4, 5]"
-                        :key="rank"
-                        :checked="config.rank_betting_enabled_ranks.includes(rank)"
-                        @update:checked="(checked: boolean) => toggleRankBetting(rank, checked)"
-                        :disabled="autoBettingStatus.is_running"
-                      >
-                        <span class="text-sm text-gray-300">第{{ rank }}名</span>
-                      </n-checkbox>
+            <!-- 最近下注结果 -->
+            <div v-if="debugInfo.lastBetResults.length > 0" class="mt-4 border-t border-yellow-500/30 pt-3">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-xs text-yellow-400 font-medium">🎯 最近下注结果 (最近10条)</span>
+                <n-button @click="debugInfo.lastBetResults = []" type="tertiary" size="tiny">清空记录</n-button>
+              </div>
+              <div class="max-h-32 overflow-y-auto rounded bg-black/30 p-2 text-xs text-gray-300 font-mono">
+                <div
+                  v-for="(bet, index) in debugInfo.lastBetResults.slice(-10).reverse()"
+                  :key="index"
+                  class="py-1"
+                  :class="{
+                    'text-green-400': bet.success,
+                    'text-red-400': !bet.success
+                  }"
+                >
+                  [{{ bet.time }}] {{ bet.symbol }} ${{ bet.amount }} - {{ bet.success ? '✅ 成功' : '❌ 失败' }}
+                  <span v-if="!bet.success && bet.error" class="text-gray-500">({{ bet.error }})</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 调试控制按钮 -->
+          <div v-if="!debugInfo.showDebugPanel" class="mb-4 text-center space-y-3">
+            <n-button @click="debugInfo.showDebugPanel = true" type="warning" size="small">
+              <template #icon>
+                <span>🐛</span>
+              </template>
+              显示调试信息
+            </n-button>
+
+            <div>
+              <n-button @click="runApiDiagnostics" :loading="diagnosticsLoading" type="info" size="small">
+                <template #icon>
+                  <span>🔬</span>
+                </template>
+                运行API连接诊断
+              </n-button>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <!-- 用户信息卡片 -->
+            <div class="border border-blue-500/30 rounded-lg bg-blue-500/10 p-4">
+              <div class="mb-2 flex items-center space-x-2">
+                <span class="text-lg">👤</span>
+                <span class="text-sm text-blue-400 font-medium">用户信息</span>
+              </div>
+
+              <div v-if="userInfo" class="text-sm text-gray-300 space-y-2">
+                <div class="flex justify-between">
+                  <span>用户ID:</span>
+                  <span class="text-xs text-blue-400 font-mono">{{ userInfo.uid }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>可用余额:</span>
+                  <span class="text-green-400 font-semibold">${{ userInfo.ojoValue.toFixed(2) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>排名:</span>
+                  <span class="text-blue-400">{{ userInfo.rankPercent }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span>状态:</span>
+                  <n-button
+                    @click="reconnectToken"
+                    :disabled="autoBettingStatus.is_running"
+                    type="tertiary"
+                    size="tiny"
+                  >
+                    重新验证
+                  </n-button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 自动下注状态 -->
+            <div class="border border-green-500/30 rounded-lg bg-green-500/10 p-4">
+              <div class="mb-2 flex items-center space-x-2">
+                <span class="text-lg">⚙️</span>
+                <span class="text-sm text-green-400 font-medium">自动下注状态</span>
+              </div>
+
+              <div class="text-sm text-gray-300 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span>运行状态:</span>
+                  <n-tag :type="autoBettingStatus.is_running ? 'success' : 'default'" size="small">
+                    {{ autoBettingStatus.is_running ? '运行中' : '已停止' }}
+                  </n-tag>
+                </div>
+                <div class="flex justify-between">
+                  <span>总下注次数:</span>
+                  <span class="text-green-400 font-semibold">{{ autoBettingStatus.total_bets }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>总盈亏:</span>
+                  <span
+                    class="font-semibold"
+                    :class="autoBettingStatus.total_profit_loss >= 0 ? 'text-green-400' : 'text-red-400'"
+                  >
+                    ${{ autoBettingStatus.total_profit_loss.toFixed(2) }}
+                  </span>
+                </div>
+                <div class="flex justify-between">
+                  <span>今日盈亏:</span>
+                  <span
+                    class="font-semibold"
+                    :class="autoBettingStatus.today_profit_loss >= 0 ? 'text-green-400' : 'text-red-400'"
+                  >
+                    ${{ autoBettingStatus.today_profit_loss.toFixed(2) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 当前分析数据 -->
+            <div class="border border-purple-500/30 rounded-lg bg-purple-500/10 p-4">
+              <div class="mb-2 flex items-center space-x-2">
+                <span class="text-lg">🎯</span>
+                <span class="text-sm text-purple-400 font-medium">当前分析数据</span>
+              </div>
+
+              <div v-if="currentAnalysis" class="text-sm text-gray-300 space-y-2">
+                <div class="flex justify-between">
+                  <span>当前轮次:</span>
+                  <span class="text-purple-400 font-mono">{{ currentAnalysis.meta?.round_id || '未知' }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>游戏数量:</span>
+                  <span class="text-purple-400">{{ currentAnalysis.predictions?.length || 0 }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>数据状态:</span>
+                  <n-tag :type="getStatusTagType(currentAnalysis.meta?.status)" size="small">
+                    {{ currentAnalysis.meta?.status || '未知' }}
+                  </n-tag>
+                </div>
+                <div class="flex justify-between">
+                  <span>更新时间:</span>
+                  <span class="text-xs text-purple-400">
+                    {{
+                      currentAnalysis.meta?.timestamp
+                        ? new Date(currentAnalysis.meta.timestamp).toLocaleTimeString()
+                        : '无效时间'
+                    }}
+                  </span>
+                </div>
+                <!-- 显示第一个预测的映射数据作为样本 -->
+                <div
+                  v-if="currentAnalysis.predictions && currentAnalysis.predictions.length > 0"
+                  class="mt-2 border-t border-gray-600 pt-1 text-xs text-gray-400"
+                >
+                  <div>样本数据 ({{ currentAnalysis.predictions[0].symbol }}):</div>
+                  <div>置信度: {{ mapPredictionData(currentAnalysis.predictions[0]).confidence }}%</div>
+                  <div>评分: {{ mapPredictionData(currentAnalysis.predictions[0]).score.toFixed(1) }}</div>
+                </div>
+              </div>
+              <div v-else class="text-center text-gray-400">
+                <NEmpty description="暂无分析数据" />
+              </div>
+            </div>
+          </div>
+
+          <!-- 控制按钮 -->
+          <div class="mt-6 flex justify-center space-x-4">
+            <n-button
+              v-if="!autoBettingStatus.is_running"
+              @click="startAutoBetting"
+              :loading="toggleLoading"
+              type="success"
+              size="large"
+              class="shadow-green-500/25 shadow-lg hover:shadow-green-500/40"
+            >
+              <template #icon>
+                <span>▶️</span>
+              </template>
+              启动自动下注
+            </n-button>
+
+            <n-button
+              v-else
+              @click="stopAutoBetting"
+              :loading="toggleLoading"
+              type="error"
+              size="large"
+              class="shadow-lg shadow-red-500/25 hover:shadow-red-500/40"
+            >
+              <template #icon>
+                <span>⏹️</span>
+              </template>
+              停止自动下注
+            </n-button>
+
+            <n-button
+              @click="executeAutoBetting"
+              :loading="executeLoading"
+              :disabled="!autoBettingStatus.is_running"
+              type="warning"
+              size="large"
+              class="shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40"
+            >
+              <template #icon>
+                <span>🎯</span>
+              </template>
+              手动执行一次
+            </n-button>
+
+            <n-button
+              @click="refreshAnalysis"
+              :loading="analysisLoading"
+              type="info"
+              size="large"
+              class="shadow-blue-500/25 shadow-lg hover:shadow-blue-500/40"
+            >
+              <template #icon>
+                <span>🔄</span>
+              </template>
+              刷新数据
+            </n-button>
+          </div>
+        </NCard>
+
+        <!-- 策略模板选择 -->
+        <NCard
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="🎯 智能策略选择"
+          size="large"
+        >
+          <div class="space-y-4">
+            <!-- 策略模式状态指示器 -->
+            <div class="mb-4 flex items-center justify-between">
+              <h3 class="text-lg text-white font-semibold">📋 策略选择</h3>
+              <div class="flex items-center space-x-2">
+                <n-tag :type="customStrategyMode ? 'warning' : 'success'" size="small">
+                  {{ customStrategyMode ? '🎨 自定义模式' : '📋 模板模式' }}
+                </n-tag>
+                <n-button
+                  @click="customStrategyMode ? resetToTemplateMode() : switchToCustomMode()"
+                  :type="customStrategyMode ? 'default' : 'primary'"
+                  size="small"
+                >
+                  {{ customStrategyMode ? '返回模板' : '自定义设置' }}
+                </n-button>
+              </div>
+            </div>
+
+            <!-- 策略模板选择 -->
+            <div v-if="!customStrategyMode" class="space-y-3">
+              <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 md:grid-cols-2">
+                <div
+                  v-for="(template, key) in strategyTemplates"
+                  :key="key"
+                  class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-3 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
+                  :class="{
+                    'border-blue-400 bg-blue-500/20': selectedTemplate === key
+                  }"
+                  @click="applyStrategyTemplate(key)"
+                >
+                  <div class="mb-2 flex items-center justify-between">
+                    <span class="text-sm text-white font-medium">{{ template.name }}</span>
+                    <n-tag :type="selectedTemplate === key ? 'primary' : 'default'" size="small">
+                      {{ template.confidence_threshold }}%
+                    </n-tag>
+                  </div>
+                  <div class="text-xs text-gray-400">{{ template.description }}</div>
+                  <div class="mt-2 flex flex-wrap gap-1">
+                    <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
+                      风险: {{ template.max_bet_percentage }}%
+                    </span>
+                    <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
+                      {{
+                        template.strategy === 'single_bet'
+                          ? '单项'
+                          : template.strategy === 'multi_bet'
+                            ? '多项'
+                            : '对冲'
+                      }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 自定义模式提示 -->
+            <div v-else class="space-y-3">
+              <div class="border border-orange-500/30 rounded-lg bg-orange-500/10 p-4">
+                <div class="mb-2 flex items-center space-x-2">
+                  <span class="text-orange-400">🎨</span>
+                  <span class="text-sm text-orange-400 font-medium">自定义策略模式</span>
+                </div>
+                <div class="text-xs text-gray-300">
+                  您现在处于自定义模式，可以在下方"自动下注配置"面板中手动调整所有参数。
+                  预设模板功能已禁用，所有参数变更将实时应用。
+                </div>
+                <div class="mt-3 flex items-center justify-between">
+                  <span class="text-xs text-gray-400">
+                    当前参数: 置信度{{ config.confidence_threshold }}% | 风险{{ config.max_bet_percentage }}% |
+                    {{
+                      config.strategy === 'single_bet'
+                        ? '单项下注'
+                        : config.strategy === 'multi_bet'
+                          ? '多项下注'
+                          : '对冲下注'
+                    }}
+                  </span>
+                  <n-button @click="resetToTemplateMode()" type="tertiary" size="tiny">重置为模板模式</n-button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 实时策略验证 -->
+            <div v-if="strategyValidation" class="border-t border-gray-600 pt-4 space-y-3">
+              <h3 class="text-lg text-white font-semibold">📊 策略验证结果</h3>
+              <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div class="border border-green-500/30 rounded-lg bg-green-500/10 p-3 text-center">
+                  <div class="text-sm text-green-400">符合条件</div>
+                  <div class="text-xl text-white font-bold">{{ strategyValidation.total_matched }}</div>
+                  <div class="text-xs text-gray-400">个游戏</div>
+                </div>
+                <div class="border border-blue-500/30 rounded-lg bg-blue-500/10 p-3 text-center">
+                  <div class="text-sm text-blue-400">成功概率</div>
+                  <div class="text-xl text-white font-bold">
+                    {{ (strategyValidation.success_probability * 100).toFixed(1) }}%
+                  </div>
+                  <div class="text-xs text-gray-400">预测平均</div>
+                </div>
+                <div class="border border-purple-500/30 rounded-lg bg-purple-500/10 p-3 text-center">
+                  <div class="text-sm text-purple-400">预期收益</div>
+                  <div
+                    class="text-xl font-bold"
+                    :class="strategyValidation.estimated_profit >= 0 ? 'text-green-400' : 'text-red-400'"
+                  >
+                    ${{ strategyValidation.estimated_profit.toFixed(2) }}
+                  </div>
+                  <div class="text-xs text-gray-400">本轮预估</div>
+                </div>
+                <div class="border border-orange-500/30 rounded-lg bg-orange-500/10 p-3 text-center">
+                  <div class="text-sm text-orange-400">风险等级</div>
+                  <div class="text-xl text-white font-bold">
+                    <n-tag
+                      :type="
+                        strategyValidation.risk_level === 'low'
+                          ? 'success'
+                          : strategyValidation.risk_level === 'medium'
+                            ? 'warning'
+                            : 'error'
+                      "
+                      size="small"
+                    >
+                      {{
+                        strategyValidation.risk_level === 'low'
+                          ? '低'
+                          : strategyValidation.risk_level === 'medium'
+                            ? '中'
+                            : '高'
+                      }}
+                    </n-tag>
+                  </div>
+                  <div class="text-xs text-gray-400">风险评估</div>
+                </div>
+              </div>
+
+              <!-- 符合条件的游戏列表 -->
+              <div v-if="strategyValidation.matches.length > 0" class="space-y-2">
+                <h4 class="text-sm text-gray-300 font-medium">
+                  🎮 符合条件的游戏 ({{ strategyValidation.matches.length }}个)
+                </h4>
+                <div class="grid grid-cols-1 gap-2 lg:grid-cols-3 sm:grid-cols-2">
+                  <div
+                    v-for="(match, index) in strategyValidation.matches"
+                    :key="index"
+                    class="border border-green-500/30 rounded bg-green-500/10 p-2"
+                  >
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm text-white font-medium">{{ match.symbol }}</span>
+                      <span class="text-xs text-green-400">${{ match.bet_amount }}</span>
                     </div>
-                    <div class="text-xs text-gray-400">
-                      已选择: {{ config.rank_betting_enabled_ranks.join('、') }}名
+                    <div class="flex justify-between text-xs text-gray-400">
+                      <span>置信度: {{ match.confidence.toFixed(1) }}%</span>
+                      <span>预期: ${{ match.expected_return.toFixed(2) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 一键执行按钮 -->
+              <div class="text-center">
+                <!-- 余额不足警告 -->
+                <div
+                  v-if="strategyValidation && !strategyValidation.balance_sufficient"
+                  class="mb-4 border border-red-500/30 rounded-lg bg-red-500/10 p-3"
+                >
+                  <div class="flex items-center space-x-2">
+                    <span class="text-red-400">⚠️</span>
+                    <span class="text-sm text-red-400 font-medium">余额不足警告</span>
+                  </div>
+                  <div class="mt-1 text-xs text-gray-300">
+                    需要 ${{ strategyValidation.required_balance.toFixed(2) }}， 当前余额 ${{
+                      strategyValidation.actual_balance.toFixed(2)
+                    }}， 缺少 ${{
+                      (strategyValidation.required_balance - strategyValidation.actual_balance).toFixed(2)
+                    }}
+                  </div>
+                </div>
+
+                <n-button
+                  v-if="strategyValidation.matches.length > 0"
+                  @click="executeStrategyBetting"
+                  :loading="executeLoading"
+                  :disabled="!currentUID || autoBettingStatus.is_running || !strategyValidation.balance_sufficient"
+                  :type="strategyValidation.balance_sufficient ? 'success' : 'error'"
+                  size="large"
+                  class="shadow-green-500/25 shadow-lg hover:shadow-green-500/40"
+                >
+                  <template #icon>
+                    <span>{{ strategyValidation.balance_sufficient ? '🚀' : '⚠️' }}</span>
+                  </template>
+                  {{
+                    strategyValidation.balance_sufficient
+                      ? `一键执行策略下注 (${strategyValidation.matches.length}个)`
+                      : '余额不足，无法执行'
+                  }}
+                </n-button>
+                <div v-else class="text-center text-gray-400">
+                  <NEmpty description="当前没有符合策略条件的游戏" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 策略回测功能 -->
+            <div class="border-t border-gray-600 pt-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="text-lg text-white font-semibold">📈 策略回测</h3>
+                <n-button
+                  @click="runBacktest"
+                  :loading="backtestLoading"
+                  :disabled="!predictionStore.predictionHistory?.length"
+                  type="info"
+                  size="small"
+                >
+                  <template #icon>
+                    <span>⚡</span>
+                  </template>
+                  运行回测
+                </n-button>
+              </div>
+
+              <!-- 回测结果 -->
+              <div v-if="backtestResults" class="space-y-3">
+                <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <div class="border border-blue-500/30 rounded bg-blue-500/10 p-2 text-center">
+                    <div class="text-xs text-blue-400">测试轮次</div>
+                    <div class="text-lg text-white font-bold">{{ backtestResults.total_rounds }}</div>
+                  </div>
+                  <div class="border border-green-500/30 rounded bg-green-500/10 p-2 text-center">
+                    <div class="text-xs text-green-400">胜率</div>
+                    <div class="text-lg text-white font-bold">{{ (backtestResults.win_rate * 100).toFixed(1) }}%</div>
+                  </div>
+                  <div class="border border-purple-500/30 rounded bg-purple-500/10 p-2 text-center">
+                    <div class="text-xs text-purple-400">总收益</div>
+                    <div
+                      class="text-lg font-bold"
+                      :class="backtestResults.total_profit >= 0 ? 'text-green-400' : 'text-red-400'"
+                    >
+                      ${{ backtestResults.total_profit.toFixed(2) }}
+                    </div>
+                  </div>
+                  <div class="border border-orange-500/30 rounded bg-orange-500/10 p-2 text-center">
+                    <div class="text-xs text-orange-400">策略评级</div>
+                    <div class="text-sm text-white font-bold">{{ backtestResults.best_strategy }}</div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-2 md:grid-cols-3">
+                  <div class="border border-gray-500/30 rounded bg-gray-500/10 p-2 text-center">
+                    <div class="text-xs text-gray-400">平均每轮收益</div>
+                    <div
+                      class="text-sm font-semibold"
+                      :class="backtestResults.avg_profit_per_round >= 0 ? 'text-green-400' : 'text-red-400'"
+                    >
+                      ${{ backtestResults.avg_profit_per_round.toFixed(2) }}
+                    </div>
+                  </div>
+                  <div class="border border-gray-500/30 rounded bg-gray-500/10 p-2 text-center">
+                    <div class="text-xs text-gray-400">最大回撤</div>
+                    <div class="text-sm text-red-400 font-semibold">${{ backtestResults.max_drawdown.toFixed(2) }}</div>
+                  </div>
+                  <div class="border border-gray-500/30 rounded bg-gray-500/10 p-2 text-center">
+                    <div class="text-xs text-gray-400">夏普比率</div>
+                    <div class="text-sm text-blue-400 font-semibold">
+                      {{ backtestResults.sharp_ratio.toFixed(3) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else class="text-center text-gray-400">
+                <div class="text-sm">点击"运行回测"查看当前策略在历史数据上的表现</div>
+              </div>
+            </div>
+          </div>
+        </NCard>
+
+        <!-- 配置面板 -->
+        <NCard
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          :title="
+            customStrategyMode
+              ? '🎨 自定义策略配置'
+              : `⚙️ 自动下注配置 ${selectedTemplate ? `(${strategyTemplates[selectedTemplate as keyof typeof strategyTemplates]?.name})` : ''}`
+          "
+          size="large"
+        >
+          <!-- 模式说明 -->
+          <div v-if="customStrategyMode" class="mb-4 border border-orange-500/30 rounded-lg bg-orange-500/5 p-3">
+            <div class="flex items-center space-x-2">
+              <span class="text-orange-400">🎨</span>
+              <span class="text-sm text-orange-400 font-medium">自定义策略模式已激活</span>
+            </div>
+            <div class="mt-1 text-xs text-gray-400">
+              所有参数都可以自由调整，变更会实时应用到策略验证中。如需使用预设模板，请点击上方"返回模板"按钮。
+            </div>
+          </div>
+
+          <div v-else-if="selectedTemplate" class="mb-4 border border-blue-500/30 rounded-lg bg-blue-500/5 p-3">
+            <div class="flex items-center space-x-2">
+              <span class="text-blue-400">📋</span>
+              <span class="text-sm text-blue-400 font-medium">
+                当前模板: {{ strategyTemplates[selectedTemplate as keyof typeof strategyTemplates]?.name }}
+              </span>
+            </div>
+            <div class="mt-1 text-xs text-gray-400">
+              {{ strategyTemplates[selectedTemplate as keyof typeof strategyTemplates]?.description }}
+              <br />
+              您可以在此基础上微调参数，或切换到自定义模式进行完全控制。
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <!-- 基础配置 -->
+            <div class="space-y-6">
+              <h3 class="flex items-center text-lg text-white font-semibold space-x-2">
+                <span class="rounded-lg bg-blue-500/20 p-2">💰</span>
+                <span>资金管理配置</span>
+              </h3>
+
+              <!-- 配置卡片容器 -->
+              <div class="space-y-4">
+                <!-- 单次下注金额 -->
+                <div class="border border-green-500/30 rounded-lg bg-green-500/5 p-4">
+                  <div class="mb-3 flex items-center space-x-2">
+                    <span class="text-green-400">💵</span>
+                    <label class="text-sm text-green-400 font-medium">单次下注金额</label>
+                  </div>
+                  <n-input-number
+                    v-model:value="config.bet_amount"
+                    :min="200"
+                    :max="2000"
+                    :step="50"
+                    :disabled="autoBettingStatus.is_running"
+                    size="large"
+                    class="w-full"
+                  >
+                    <template #prefix>
+                      <span class="text-gray-400">$</span>
+                    </template>
+                  </n-input-number>
+                  <div class="mt-2 text-xs text-gray-400">
+                    💡 每次下注的固定金额，建议根据钱包余额合理设置 (最低$200)
+                  </div>
+                </div>
+
+                <!-- 风险控制设置 -->
+                <div class="border border-orange-500/30 rounded-lg bg-orange-500/5 p-4">
+                  <div class="mb-3 flex items-center space-x-2">
+                    <span class="text-orange-400">⚠️</span>
+                    <label class="text-sm text-orange-400 font-medium">风险控制</label>
+                  </div>
+
+                  <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <!-- 每日止损 -->
+                    <div>
+                      <label class="mb-2 block text-xs text-gray-300">每日止损百分比</label>
+                      <n-input-number
+                        v-model:value="config.daily_stop_loss_percentage"
+                        :min="5"
+                        :max="50"
+                        :step="5"
+                        :disabled="autoBettingStatus.is_running"
+                        size="large"
+                        class="w-full"
+                      >
+                        <template #suffix>
+                          <span class="text-gray-400">%</span>
+                        </template>
+                      </n-input-number>
+                    </div>
+
+                    <!-- 最大下注比例 -->
+                    <div>
+                      <label class="mb-2 block text-xs text-gray-300">最大下注比例</label>
+                      <n-input-number
+                        v-model:value="config.max_bet_percentage"
+                        :min="5"
+                        :max="50"
+                        :step="1"
+                        :disabled="autoBettingStatus.is_running"
+                        size="large"
+                        class="w-full"
+                      >
+                        <template #suffix>
+                          <span class="text-gray-400">%</span>
+                        </template>
+                      </n-input-number>
                     </div>
                   </div>
 
-                  <!-- 金额设置 -->
-                  <div class="space-y-3">
+                  <div class="mt-3 text-xs text-gray-400 space-y-1">
+                    <div>🛡️ 每日止损：亏损达到此比例时暂停当日下注</div>
+                    <div>🎯 最大比例：单次下注不超过钱包余额的此比例</div>
+                  </div>
+                </div>
+
+                <!-- 当前资金状态 -->
+                <div v-if="userInfo" class="border border-blue-500/30 rounded-lg bg-blue-500/5 p-4">
+                  <div class="mb-3 flex items-center space-x-2">
+                    <span class="text-blue-400">📊</span>
+                    <label class="text-sm text-blue-400 font-medium">当前资金状态</label>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div class="text-center">
+                      <div class="mb-1 text-xs text-gray-400">当前余额</div>
+                      <div class="text-lg text-white font-bold">${{ userInfo.ojoValue.toFixed(2) }}</div>
+                    </div>
+                    <div class="text-center">
+                      <div class="mb-1 text-xs text-gray-400">最大单次下注</div>
+                      <div class="text-lg text-green-400 font-bold">
+                        ${{
+                          Math.min(config.bet_amount, userInfo.ojoValue * (config.max_bet_percentage / 100)).toFixed(2)
+                        }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-3 text-xs text-gray-400">💡 实际下注金额将在设定金额和最大比例限制之间取较小值</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 策略配置 -->
+            <div class="space-y-4">
+              <h3 class="mb-4 text-lg text-white font-semibold">🎯 策略配置</h3>
+
+              <!-- 置信度阈值 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">置信度阈值 (%)</label>
+                <n-input-number
+                  v-model:value="config.confidence_threshold"
+                  :min="70"
+                  :max="99"
+                  :step="1"
+                  :disabled="autoBettingStatus.is_running"
+                  class="w-full"
+                />
+                <div class="text-xs text-gray-400">只有当预测置信度高于此值时才下注</div>
+              </div>
+
+              <!-- 分数差距阈值 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">分数差距阈值</label>
+                <n-input-number
+                  v-model:value="config.score_gap_threshold"
+                  :min="3.0"
+                  :max="20.0"
+                  :step="0.5"
+                  :disabled="autoBettingStatus.is_running"
+                  :precision="1"
+                  class="w-full"
+                />
+                <div class="text-xs text-gray-400">预测分数与次高分数的最小差距要求</div>
+              </div>
+
+              <!-- 最小游戏数量 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">最小游戏数量</label>
+                <n-input-number
+                  v-model:value="config.min_total_games"
+                  :min="10"
+                  :max="100"
+                  :step="5"
+                  :disabled="autoBettingStatus.is_running"
+                  class="w-full"
+                />
+                <div class="text-xs text-gray-400">当前轮次至少需要的游戏数量才触发下注</div>
+              </div>
+
+              <!-- 历史准确率阈值 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">历史准确率阈值</label>
+                <n-input-number
+                  v-model:value="config.historical_accuracy_threshold"
+                  :min="0.5"
+                  :max="1.0"
+                  :step="0.05"
+                  :precision="2"
+                  :disabled="autoBettingStatus.is_running"
+                  class="w-full"
+                />
+                <div class="text-xs text-gray-400">预测历史准确率必须高于此值</div>
+              </div>
+
+              <!-- 最小样本数量 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">最小样本数量</label>
+                <n-input-number
+                  v-model:value="config.min_sample_count"
+                  :min="10"
+                  :max="200"
+                  :step="10"
+                  :disabled="autoBettingStatus.is_running"
+                  class="w-full"
+                />
+                <div class="text-xs text-gray-400">历史样本数量必须达到此数值</div>
+              </div>
+
+              <!-- 连续止损次数 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">连续止损次数</label>
+                <n-input-number
+                  v-model:value="config.stop_loss_consecutive"
+                  :min="2"
+                  :max="10"
+                  :step="1"
+                  :disabled="autoBettingStatus.is_running"
+                  class="w-full"
+                />
+                <div class="text-xs text-gray-400">连续失败此次数后暂停下注</div>
+              </div>
+
+              <!-- 下注策略 -->
+              <div class="space-y-2">
+                <label class="text-sm text-gray-300 font-medium">下注策略</label>
+                <n-select
+                  v-model:value="config.strategy"
+                  :options="[
+                    { label: '单项下注 - 只下注最高置信度选项', value: 'single_bet' },
+                    { label: '多项下注 - 下注所有符合条件的选项', value: 'multi_bet' },
+                    { label: '对冲下注 - 下注前两个最高置信度选项', value: 'hedge_bet' },
+                    { label: '指定排名下注 - 每局自动下注预测前几名', value: 'rank_betting' }
+                  ]"
+                  :disabled="autoBettingStatus.is_running"
+                />
+                <div class="text-xs text-gray-400">选择自动下注的执行策略</div>
+              </div>
+            </div>
+
+            <!-- 高级功能 -->
+            <div class="space-y-4">
+              <h3 class="mb-4 text-lg text-white font-semibold">⚡ 高级功能</h3>
+
+              <!-- 指定排名下注配置 -->
+              <div v-if="config.strategy === 'rank_betting'" class="space-y-3">
+                <h4 class="text-sm text-gray-300 font-medium">🎯 指定排名下注设置</h4>
+
+                <!-- 启用的排名选择 -->
+                <div class="space-y-2">
+                  <label class="text-sm text-gray-300 font-medium">选择要下注的排名</label>
+                  <div class="flex flex-wrap gap-2">
                     <n-checkbox
-                      v-model:checked="config.rank_betting_different_amounts"
+                      v-for="rank in Array.from({ length: config.rank_betting_max_ranks }, (_, i) => i + 1)"
+                      :key="rank"
+                      :checked="config.rank_betting_enabled_ranks.includes(rank)"
+                      @update:checked="(checked: boolean) => toggleRankBetting(rank, checked)"
                       :disabled="autoBettingStatus.is_running"
                     >
-                      <span class="text-sm text-gray-300">为不同排名设置不同金额</span>
+                      <span class="text-sm text-gray-300">第{{ rank }}名</span>
                     </n-checkbox>
+                  </div>
+                  <div class="text-xs text-gray-400">已选择: {{ config.rank_betting_enabled_ranks.join('、') }}名</div>
+                </div>
 
-                    <!-- 统一金额 -->
-                    <div v-if="!config.rank_betting_different_amounts" class="space-y-2">
-                      <label class="text-sm text-gray-300 font-medium">每个排名下注金额</label>
-                      <n-input-number
-                        v-model:value="config.rank_betting_amount_per_rank"
-                        :min="200"
-                        :max="1000"
-                        :step="100"
-                        :disabled="autoBettingStatus.is_running"
-                        class="w-full"
-                      />
-                    </div>
+                <!-- 下注金额设置模式 -->
+                <div class="space-y-2">
+                  <n-checkbox
+                    v-model:checked="config.rank_betting_different_amounts"
+                    :disabled="autoBettingStatus.is_running"
+                  >
+                    <span class="text-sm text-gray-300">为不同排名设置不同金额</span>
+                  </n-checkbox>
+                </div>
+
+                <!-- 统一金额设置 -->
+                <div v-if="!config.rank_betting_different_amounts" class="space-y-2">
+                  <label class="text-sm text-gray-300 font-medium">每个排名下注金额</label>
+                  <n-input-number
+                    v-model:value="config.rank_betting_amount_per_rank"
+                    :min="200"
+                    :max="1000"
+                    :step="100"
+                    :disabled="autoBettingStatus.is_running"
+                    class="w-full"
+                  />
+                  <div class="text-xs text-gray-400">每个选中的排名都使用相同金额下注</div>
+                </div>
+
+                <!-- 分别设置金额 -->
+                <div v-else class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div v-if="config.rank_betting_enabled_ranks.includes(1)" class="space-y-2">
+                    <label class="text-xs text-gray-400">第1名金额</label>
+                    <n-input-number
+                      v-model:value="config.rank_betting_rank1_amount"
+                      :min="10"
+                      :max="1000"
+                      :step="10"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                  </div>
+                  <div v-if="config.rank_betting_enabled_ranks.includes(2)" class="space-y-2">
+                    <label class="text-xs text-gray-400">第2名金额</label>
+                    <n-input-number
+                      v-model:value="config.rank_betting_rank2_amount"
+                      :min="10"
+                      :max="1000"
+                      :step="10"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                  </div>
+                  <div v-if="config.rank_betting_enabled_ranks.includes(3)" class="space-y-2">
+                    <label class="text-xs text-gray-400">第3名金额</label>
+                    <n-input-number
+                      v-model:value="config.rank_betting_rank3_amount"
+                      :min="10"
+                      :max="1000"
+                      :step="10"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
                   </div>
                 </div>
 
                 <!-- 排名下注预览 -->
-                <div class="mt-4 border border-blue-500/30 rounded-lg bg-blue-500/5 p-3">
+                <div class="border border-blue-500/30 rounded-lg bg-blue-500/5 p-3">
                   <div class="mb-2 text-sm text-blue-400 font-medium">📋 下注预览</div>
                   <div class="text-xs text-gray-300 space-y-1">
                     <div v-for="rank in config.rank_betting_enabled_ranks" :key="rank">
@@ -176,51 +950,231 @@
                 </div>
               </div>
 
-              <!-- 配置同步状态 -->
-              <div v-if="configSyncStatus" class="text-center text-xs text-gray-400">
-                <div v-if="configSyncStatus.type === 'success'" class="text-green-400">
-                  ✅ {{ configSyncStatus.message }}
+              <!-- 资金管理策略 -->
+              <div class="space-y-3">
+                <h4 class="text-sm text-gray-300 font-medium">💰 资金管理</h4>
+
+                <!-- Kelly准则 -->
+                <div class="space-y-2">
+                  <n-checkbox v-model:checked="config.enable_kelly_criterion" :disabled="autoBettingStatus.is_running">
+                    <span class="text-sm text-gray-300">启用Kelly准则</span>
+                  </n-checkbox>
+                  <div v-if="config.enable_kelly_criterion" class="ml-6 space-y-2">
+                    <label class="text-xs text-gray-400">Kelly分数</label>
+                    <n-input-number
+                      v-model:value="config.kelly_fraction"
+                      :min="0.1"
+                      :max="1.0"
+                      :step="0.05"
+                      :precision="2"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                  </div>
                 </div>
-                <div v-else-if="configSyncStatus.type === 'error'" class="text-red-400">
-                  ❌ {{ configSyncStatus.message }}
+
+                <!-- 马丁格尔策略 -->
+                <div class="space-y-2">
+                  <n-checkbox v-model:checked="config.enable_martingale" :disabled="autoBettingStatus.is_running">
+                    <span class="text-sm text-gray-300">启用马丁格尔</span>
+                  </n-checkbox>
+                  <div v-if="config.enable_martingale" class="ml-6 space-y-2">
+                    <label class="text-xs text-gray-400">倍数</label>
+                    <n-input-number
+                      v-model:value="config.martingale_multiplier"
+                      :min="1.5"
+                      :max="5.0"
+                      :step="0.1"
+                      :precision="1"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                    <label class="text-xs text-gray-400">最大步数</label>
+                    <n-input-number
+                      v-model:value="config.max_martingale_steps"
+                      :min="2"
+                      :max="6"
+                      :step="1"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                  </div>
                 </div>
-                <div v-else class="text-blue-400">ℹ️ {{ configSyncStatus.message }}</div>
+              </div>
+
+              <!-- 市场过滤器 -->
+              <div class="space-y-3">
+                <h4 class="text-sm text-gray-300 font-medium">📊 市场过滤</h4>
+
+                <!-- 趋势分析 -->
+                <n-checkbox v-model:checked="config.enable_trend_analysis" :disabled="autoBettingStatus.is_running">
+                  <span class="text-sm text-gray-300">启用趋势分析</span>
+                </n-checkbox>
+
+                <!-- 成交量过滤 -->
+                <n-checkbox v-model:checked="config.enable_volume_filter" :disabled="autoBettingStatus.is_running">
+                  <span class="text-sm text-gray-300">启用成交量过滤</span>
+                </n-checkbox>
+
+                <!-- 波动率过滤 -->
+                <div class="space-y-2">
+                  <n-checkbox
+                    v-model:checked="config.enable_volatility_filter"
+                    :disabled="autoBettingStatus.is_running"
+                  >
+                    <span class="text-sm text-gray-300">启用波动率过滤</span>
+                  </n-checkbox>
+                  <div v-if="config.enable_volatility_filter" class="ml-6 space-y-2">
+                    <label class="text-xs text-gray-400">最大波动率</label>
+                    <n-input-number
+                      v-model:value="config.max_volatility_threshold"
+                      :min="0.1"
+                      :max="2.0"
+                      :step="0.1"
+                      :precision="1"
+                      :disabled="autoBettingStatus.is_running"
+                      size="small"
+                      class="w-full"
+                    />
+                  </div>
+                </div>
+
+                <!-- 时间过滤 -->
+                <div class="space-y-2">
+                  <n-checkbox v-model:checked="config.enable_time_filter" :disabled="autoBettingStatus.is_running">
+                    <span class="text-sm text-gray-300">启用时间过滤</span>
+                  </n-checkbox>
+                  <div v-if="config.enable_time_filter" class="grid grid-cols-2 ml-6 gap-2">
+                    <div>
+                      <label class="text-xs text-gray-400">开始时间</label>
+                      <n-input-number
+                        v-model:value="config.allowed_hours_start"
+                        :min="0"
+                        :max="23"
+                        :step="1"
+                        :disabled="autoBettingStatus.is_running"
+                        size="small"
+                      />
+                    </div>
+                    <div>
+                      <label class="text-xs text-gray-400">结束时间</label>
+                      <n-input-number
+                        v-model:value="config.allowed_hours_end"
+                        :min="0"
+                        :max="23"
+                        :step="1"
+                        :disabled="autoBettingStatus.is_running"
+                        size="small"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </n-tab-pane>
+          </div>
 
-          <!-- 数据分析 -->
-          <n-tab-pane name="analysis" tab="📊 数据分析">
-            <div class="space-y-6">
-              <!-- 当前预测展示 -->
-              <PredictionDisplay
-                :analysis-data="predictionStore.currentAnalysis"
-                :analysis-meta="predictionStore.analysisMeta"
-                :loading="predictionStore.analysisLoading"
-                @refresh="predictionStore.fetchCurrentAnalysis"
-              />
+          <!-- 保存配置按钮和状态提示 -->
+          <div class="mt-6 text-center space-y-3">
+            <n-button
+              @click="manualSaveConfig"
+              :disabled="autoBettingStatus.is_running"
+              :loading="configSaving"
+              type="primary"
+              size="large"
+            >
+              <template #icon>
+                <span>💾</span>
+              </template>
+              {{ currentUID ? '保存配置到云端' : '保存配置到本地' }}
+            </n-button>
 
-              <!-- 预测统计分析 -->
-              <PredictionStats
-                :exact-rate="predictionStats.calculateRoundBasedStats.value.exactRate"
-                :total-rounds="predictionStats.calculatePortfolioStats.value.totalRounds"
-                :all-stats="predictionStats.calculateRankBasedStats.value"
-                :recent-stats="predictionStats.calculateRecentRankBasedStats.value"
-                v-model:recent-rounds-count="recentRoundsCount"
-                :max-rounds="predictionStore.totalHistoryRounds"
-                :loading="predictionStore.historyLoading"
-                @refresh="predictionStore.fetchPredictionHistory"
-              />
-
-              <!-- 预测历史对比表格 -->
-              <PredictionHistoryTable
-                :prediction-data="predictionStats.getPredictionComparisonData.value"
-                :loading="predictionStore.historyLoading"
-                @refresh="predictionStore.fetchPredictionHistory"
-              />
+            <!-- 配置同步状态 -->
+            <div v-if="configSyncStatus" class="text-xs text-gray-400">
+              <div v-if="configSyncStatus.type === 'success'" class="text-green-400">
+                ✅ {{ configSyncStatus.message }}
+              </div>
+              <div v-else-if="configSyncStatus.type === 'error'" class="text-red-400">
+                ❌ {{ configSyncStatus.message }}
+              </div>
+              <div v-else class="text-blue-400">ℹ️ {{ configSyncStatus.message }}</div>
             </div>
-          </n-tab-pane>
-        </n-tabs>
+          </div>
+        </NCard>
+
+        <!-- 当前预测展示 -->
+        <div class="mb-6">
+          <PredictionDisplay
+            :analysis-data="predictionStore.currentAnalysis"
+            :analysis-meta="predictionStore.analysisMeta"
+            :loading="predictionStore.analysisLoading"
+            @refresh="predictionStore.fetchCurrentAnalysis"
+          />
+        </div>
+
+        <!-- 预测统计分析 -->
+        <div class="mb-6">
+          <PredictionStats
+            :exact-rate="predictionStats.calculateRoundBasedStats.value.exactRate"
+            :total-rounds="predictionStats.calculatePortfolioStats.value.totalRounds"
+            :all-stats="predictionStats.calculateRankBasedStats.value"
+            :recent-stats="predictionStats.calculateRecentRankBasedStats.value"
+            v-model:recent-rounds-count="recentRoundsCount"
+            :max-rounds="predictionStore.totalHistoryRounds"
+            :loading="predictionStore.historyLoading"
+            @refresh="predictionStore.fetchPredictionHistory"
+          />
+        </div>
+
+        <!-- 预测历史对比表格 -->
+        <div class="mb-6">
+          <PredictionHistoryTable
+            :prediction-data="predictionStats.getPredictionComparisonData.value"
+            :loading="predictionStore.historyLoading"
+            @refresh="predictionStore.fetchPredictionHistory"
+          />
+        </div>
+
+        <!-- 当前分析详情 (保留原有的简化版本作为自动下注参考) -->
+        <NCard
+          v-if="currentAnalysis?.predictions && currentAnalysis.predictions.length > 0"
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="🎮 自动下注匹配分析"
+          size="large"
+        >
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 sm:grid-cols-2">
+            <div
+              v-for="(rawPrediction, index) in currentAnalysis.predictions"
+              :key="index"
+              class="border border-gray-500/30 rounded-lg bg-gray-500/10 p-4"
+            >
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm text-gray-300 font-medium">{{ rawPrediction.symbol }}</span>
+                <n-tag
+                  :type="
+                    mapPredictionData(rawPrediction).confidence > config.confidence_threshold ? 'success' : 'default'
+                  "
+                  size="small"
+                >
+                  {{ mapPredictionData(rawPrediction).confidence.toFixed(1) }}%
+                </n-tag>
+              </div>
+
+              <div class="text-xs text-gray-400 space-y-1">
+                <div>预测排名: {{ rawPrediction.predicted_rank }}</div>
+                <div>评分: {{ mapPredictionData(rawPrediction).score.toFixed(2) }}</div>
+                <div>历史胜率: {{ (mapPredictionData(rawPrediction).historical_accuracy * 100).toFixed(1) }}%</div>
+                <div>样本数量: {{ mapPredictionData(rawPrediction).sample_count }}</div>
+              </div>
+
+              <div v-if="mapPredictionData(rawPrediction).confidence > config.confidence_threshold" class="mt-2">
+                <n-tag type="success" size="small">符合下注条件</n-tag>
+              </div>
+            </div>
+          </div>
+        </NCard>
       </div>
     </div>
   </DefaultLayout>
@@ -228,7 +1182,7 @@
 
 <script setup lang="ts">
   import { ref, onMounted, watch, reactive, computed } from 'vue';
-
+  import { NEmpty } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import { getUserInfo, autoBettingApi, gameApi } from '@/utils/api';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
@@ -236,10 +1190,6 @@
   import PredictionDisplay from '@/components/PredictionDisplay.vue';
   import PredictionStats from '@/components/PredictionStats.vue';
   import PredictionHistoryTable from '@/components/PredictionHistoryTable.vue';
-  import SystemStatus from '@/components/SystemStatus.vue';
-  import DebugPanel from '@/components/DebugPanel.vue';
-  import StrategyConfig from '@/components/StrategyConfig.vue';
-  import ConfigPanel from '@/components/ConfigPanel.vue';
   import type { UserInfo } from '@/types';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import { usePredictionStats } from '@/composables/usePredictionStats';
@@ -473,11 +1423,6 @@
 
   // 防抖器用于自动保存
   let saveConfigTimeout: number | null = null;
-
-  // 辅助方法
-  const getTemplateName = (templateKey: string): string => {
-    return strategyTemplates[templateKey as keyof typeof strategyTemplates]?.name || templateKey;
-  };
 
   // 指定排名下注相关方法
   const toggleRankBetting = (rank: number, checked: boolean) => {
@@ -1363,6 +2308,20 @@
     }
   };
 
+  // 获取状态标签类型
+  const getStatusTagType = (status: string) => {
+    switch (status) {
+      case 'bet':
+        return 'success';
+      case 'settling':
+        return 'warning';
+      case 'settled':
+        return 'info';
+      default:
+        return 'default';
+    }
+  };
+
   // API调用函数
   const loadStatus = async () => {
     if (!currentUID.value) return;
@@ -1946,6 +2905,7 @@
 </script>
 
 <style scoped>
+  /* 可以添加一些自定义样式 */
   .font-mono {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   }

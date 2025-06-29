@@ -101,7 +101,7 @@
               :history-loading="predictionStore.historyLoading"
               :prediction-comparison-data="predictionStats.getPredictionComparisonData.value"
               @refresh-prediction-history="predictionStore.fetchPredictionHistory"
-              @update-recent-rounds-count="updateRecentRoundsCount"
+              @update:recent-rounds-count="updateRecentRoundsCount"
             />
           </NTabPane>
 

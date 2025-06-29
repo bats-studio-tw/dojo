@@ -8,7 +8,7 @@
         :all-stats="allStats"
         :recent-stats="recentStats"
         :recent-rounds-count="recentRoundsCount"
-        @update:recent-rounds-count="$emit('updateRecentRoundsCount', $event)"
+        @update:recent-rounds-count="$emit('update:recent-rounds-count', $event)"
         :max-rounds="maxRounds"
         :loading="historyLoading"
         @refresh="$emit('refreshPredictionHistory')"
@@ -118,10 +118,10 @@
         </div>
 
         <!-- 空状态 -->
-        <div v-if="!recordsLoading && filteredBettingRecords.length === 0" class="text-center py-8 text-gray-400">
-          <div class="text-2xl mb-2">📝</div>
+        <div v-if="!recordsLoading && filteredBettingRecords.length === 0" class="py-8 text-center text-gray-400">
+          <div class="mb-2 text-2xl">📝</div>
           <div class="text-sm">暂无下注记录</div>
-          <div class="text-xs text-gray-500 mt-1">开始自动下注后，记录将在此显示</div>
+          <div class="mt-1 text-xs text-gray-500">开始自动下注后，记录将在此显示</div>
         </div>
       </div>
     </NCard>
@@ -146,12 +146,14 @@
     predictionComparisonData: any[];
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const props = defineProps<Props>();
 
   // Emits
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const emit = defineEmits<{
     refreshPredictionHistory: [];
-    updateRecentRoundsCount: [value: number];
+    'update:recent-rounds-count': [value: number];
   }>();
 
   // 响应式数据

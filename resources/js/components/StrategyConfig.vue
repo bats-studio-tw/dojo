@@ -23,12 +23,12 @@
         v-for="(template, key) in strategyTemplates"
         :key="key"
         class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-3 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
-        :class="{ 'border-blue-400 bg-blue-500/20': selectedTemplate === String(key) }"
-        @click="applyStrategyTemplate(String(key))"
+        :class="{ 'border-blue-400 bg-blue-500/20': selectedTemplate === key }"
+        @click="applyStrategyTemplate(key)"
       >
         <div class="mb-2 flex items-center justify-between">
           <span class="text-sm text-white font-medium">{{ template.name }}</span>
-          <n-tag :type="selectedTemplate === String(key) ? 'primary' : 'default'" size="small">
+          <n-tag :type="selectedTemplate === key ? 'primary' : 'default'" size="small">
             {{ template.confidence_threshold }}%
           </n-tag>
         </div>
@@ -59,7 +59,7 @@
     <div v-if="strategyValidation" class="border-t border-gray-600 pt-4">
       <h4 class="mb-3 text-lg text-white font-semibold">📊 策略验证结果</h4>
 
-      <div class="grid grid-cols-2 mb-4 gap-4 md:grid-cols-4">
+      <div class="grid grid-cols-2 gap-4 md:grid-cols-4 mb-4">
         <StatusCard
           title="符合条件"
           :value="strategyValidation.total_matched"
@@ -155,7 +155,7 @@
 
     <!-- 策略回测 -->
     <div class="border-t border-gray-600 pt-4">
-      <div class="mb-3 flex items-center justify-between">
+      <div class="flex items-center justify-between mb-3">
         <h4 class="text-lg text-white font-semibold">📈 策略回测</h4>
         <n-button
           @click="$emit('runBacktest')"
@@ -218,7 +218,7 @@
   const emit = defineEmits<Emits>();
 
   const getStrategyTypeName = (strategy: string) => {
-    const map: { [key: string]: string } = {
+    const map = {
       single_bet: '单项',
       multi_bet: '多项',
       hedge_bet: '对冲',
@@ -228,7 +228,7 @@
   };
 
   const getRiskLevelText = (level: string) => {
-    const map: { [key: string]: string } = {
+    const map = {
       low: '低',
       medium: '中',
       high: '高'
@@ -236,13 +236,13 @@
     return map[level] || level;
   };
 
-  const getRiskLevelColor = (level: string): 'green' | 'yellow' | 'red' | 'blue' | 'purple' | 'orange' | undefined => {
-    const map: { [key: string]: 'green' | 'yellow' | 'red' | 'blue' | 'purple' | 'orange' } = {
+  const getRiskLevelColor = (level: string) => {
+    const map = {
       low: 'green',
       medium: 'yellow',
       high: 'red'
     };
-    return map[level];
+    return map[level] || 'gray';
   };
 
   const applyStrategyTemplate = (key: string) => emit('applyTemplate', key);

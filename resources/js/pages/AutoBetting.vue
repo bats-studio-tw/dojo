@@ -630,66 +630,113 @@
 
           <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <!-- 基础配置 -->
-            <div class="space-y-4">
-              <h3 class="mb-4 text-lg text-white font-semibold">📊 基础配置</h3>
+            <div class="space-y-6">
+              <h3 class="flex items-center text-lg text-white font-semibold space-x-2">
+                <span class="rounded-lg bg-blue-500/20 p-2">💰</span>
+                <span>资金管理配置</span>
+              </h3>
 
-              <!-- JWT Token -->
-              <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">JWT Token</label>
-                <n-input
-                  v-model:value="config.jwt_token"
-                  placeholder="JWT Token会自动填入"
-                  type="password"
-                  show-password-on="click"
-                  :disabled="autoBettingStatus.is_running"
-                >
-                  <template #prefix>
-                    <span class="text-gray-400">🔑</span>
-                  </template>
-                </n-input>
-                <div class="text-xs text-gray-400">用于执行下注操作的授权令牌</div>
-              </div>
+              <!-- 配置卡片容器 -->
+              <div class="space-y-4">
+                <!-- 单次下注金额 -->
+                <div class="border border-green-500/30 rounded-lg bg-green-500/5 p-4">
+                  <div class="mb-3 flex items-center space-x-2">
+                    <span class="text-green-400">💵</span>
+                    <label class="text-sm text-green-400 font-medium">单次下注金额</label>
+                  </div>
+                  <n-input-number
+                    v-model:value="config.bet_amount"
+                    :min="200"
+                    :max="2000"
+                    :step="50"
+                    :disabled="autoBettingStatus.is_running"
+                    size="large"
+                    class="w-full"
+                  >
+                    <template #prefix>
+                      <span class="text-gray-400">$</span>
+                    </template>
+                  </n-input-number>
+                  <div class="mt-2 text-xs text-gray-400">
+                    💡 每次下注的固定金额，建议根据钱包余额合理设置 (最低$200)
+                  </div>
+                </div>
 
-              <!-- 单次下注金额 -->
-              <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">单次下注金额</label>
-                <n-input-number
-                  v-model:value="config.bet_amount"
-                  :min="200"
-                  :max="2000"
-                  :step="50"
-                  :disabled="autoBettingStatus.is_running"
-                  class="w-full"
-                />
-                <div class="text-xs text-gray-400">每次下注的固定金额，最低200</div>
-              </div>
+                <!-- 风险控制设置 -->
+                <div class="border border-orange-500/30 rounded-lg bg-orange-500/5 p-4">
+                  <div class="mb-3 flex items-center space-x-2">
+                    <span class="text-orange-400">⚠️</span>
+                    <label class="text-sm text-orange-400 font-medium">风险控制</label>
+                  </div>
 
-              <!-- 每日止损百分比 -->
-              <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">每日止损百分比 (%)</label>
-                <n-input-number
-                  v-model:value="config.daily_stop_loss_percentage"
-                  :min="5"
-                  :max="50"
-                  :step="5"
-                  :disabled="autoBettingStatus.is_running"
-                  class="w-full"
-                />
-                <div class="text-xs text-gray-400">达到此损失比例时停止当日下注</div>
-              </div>
+                  <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <!-- 每日止损 -->
+                    <div>
+                      <label class="mb-2 block text-xs text-gray-300">每日止损百分比</label>
+                      <n-input-number
+                        v-model:value="config.daily_stop_loss_percentage"
+                        :min="5"
+                        :max="50"
+                        :step="5"
+                        :disabled="autoBettingStatus.is_running"
+                        size="large"
+                        class="w-full"
+                      >
+                        <template #suffix>
+                          <span class="text-gray-400">%</span>
+                        </template>
+                      </n-input-number>
+                    </div>
 
-              <!-- 最大下注比例 -->
-              <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">最大下注比例 (%)</label>
-                <n-input-number
-                  v-model:value="config.max_bet_percentage"
-                  :min="5"
-                  :max="50"
-                  :step="1"
-                  :disabled="autoBettingStatus.is_running"
-                  class="w-full"
-                />
-                <div class="text-xs text-gray-400">单次下注不超过钱包余额的此比例</div>
+                    <!-- 最大下注比例 -->
+                    <div>
+                      <label class="mb-2 block text-xs text-gray-300">最大下注比例</label>
+                      <n-input-number
+                        v-model:value="config.max_bet_percentage"
+                        :min="5"
+                        :max="50"
+                        :step="1"
+                        :disabled="autoBettingStatus.is_running"
+                        size="large"
+                        class="w-full"
+                      >
+                        <template #suffix>
+                          <span class="text-gray-400">%</span>
+                        </template>
+                      </n-input-number>
+                    </div>
+                  </div>
+
+                  <div class="mt-3 text-xs text-gray-400 space-y-1">
+                    <div>🛡️ 每日止损：亏损达到此比例时暂停当日下注</div>
+                    <div>🎯 最大比例：单次下注不超过钱包余额的此比例</div>
+                  </div>
+                </div>
+
+                <!-- 当前资金状态 -->
+                <div v-if="userInfo" class="border border-blue-500/30 rounded-lg bg-blue-500/5 p-4">
+                  <div class="mb-3 flex items-center space-x-2">
+                    <span class="text-blue-400">📊</span>
+                    <label class="text-sm text-blue-400 font-medium">当前资金状态</label>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div class="text-center">
+                      <div class="mb-1 text-xs text-gray-400">当前余额</div>
+                      <div class="text-lg text-white font-bold">${{ userInfo.ojoValue.toFixed(2) }}</div>
+                    </div>
+                    <div class="text-center">
+                      <div class="mb-1 text-xs text-gray-400">最大单次下注</div>
+                      <div class="text-lg text-green-400 font-bold">
+                        ${{
+                          Math.min(config.bet_amount, userInfo.ojoValue * (config.max_bet_percentage / 100)).toFixed(2)
+                        }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-3 text-xs text-gray-400">💡 实际下注金额将在设定金额和最大比例限制之间取较小值</div>
+                </div>
               </div>
             </div>
 

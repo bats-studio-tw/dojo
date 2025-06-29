@@ -19,6 +19,9 @@
       >
         重新连接
       </button>
+      <button @click="testBroadcast" class="ml-2 px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">
+        测试广播
+      </button>
     </div>
 
     <!-- 实时游戏数据 -->
@@ -236,24 +239,47 @@
     addMessage('connection', '🔄 正在连接WebSocket...');
 
     try {
-      // 监听游戏数据更新
-      gameUpdatesChannel = window.Echo.channel('game-updates').listen('game.data.updated', (data: any) => {
-        console.log('🎮 收到游戏数据更新:', data);
-        latestGameData.value = data.data;
-        gameDataTimestamp.value = data.timestamp;
-        addMessage('game', `🎮 游戏数据更新: ${data.type} (轮次: ${data.data?.rdId || 'N/A'})`);
-      });
+      // 监听游戏数据更新频道
+      gameUpdatesChannel = window.Echo.channel('game-updates')
+        .listen('game.data.updated', (data: any) => {
+          console.log('🎮 收到游戏数据更新:', data);
+          latestGameData.value = data.data;
+          gameDataTimestamp.value = data.timestamp;
+          addMessage('game', `🎮 游戏数据更新: ${data.type} (轮次: ${data.data?.rdId || 'N/A'})`);
+        })
+        .subscribed(() => {
+          console.log('✅ 已订阅 game-updates 频道');
+          addMessage('connection', '📡 已订阅游戏数据频道');
+        })
+        .error((error: any) => {
+          console.error('❌ game-updates 频道订阅错误:', error);
+          addMessage('error', '❌ 游戏数据频道订阅失败');
+        });
 
-      // 监听预测数据更新
-      predictionsChannel = window.Echo.channel('predictions').listen('prediction.updated', (data: any) => {
-        console.log('🧠 收到预测数据更新:', data);
-        latestPrediction.value = data;
-        predictionTimestamp.value = data.timestamp;
-        addMessage('prediction', `🧠 预测数据更新: ${data.data?.length || 0} 个代币 (轮次: ${data.round_id})`);
-      });
+      // 监听预测数据更新频道
+      predictionsChannel = window.Echo.channel('predictions')
+        .listen('prediction.updated', (data: any) => {
+          console.log('🧠 收到预测数据更新:', data);
+          latestPrediction.value = data;
+          predictionTimestamp.value = data.timestamp;
+          addMessage('prediction', `🧠 预测数据更新: ${data.data?.length || 0} 个代币 (轮次: ${data.round_id})`);
+        })
+        .subscribed(() => {
+          console.log('✅ 已订阅 predictions 频道');
+          addMessage('connection', '📡 已订阅预测数据频道');
+        })
+        .error((error: any) => {
+          console.error('❌ predictions 频道订阅错误:', error);
+          addMessage('error', '❌ 预测数据频道订阅失败');
+        });
 
       connectionStatus.value = 'connected';
       addMessage('connection', '✅ WebSocket连接成功');
+
+      // 额外的调试信息
+      console.log('Echo实例:', window.Echo);
+      console.log('游戏数据频道:', gameUpdatesChannel);
+      console.log('预测数据频道:', predictionsChannel);
     } catch (error) {
       console.error('WebSocket连接失败:', error);
       connectionStatus.value = 'disconnected';
@@ -281,6 +307,24 @@
     setTimeout(() => {
       connectWebSocket();
     }, 1000);
+  };
+
+  // 测试广播功能
+  const testBroadcast = async () => {
+    try {
+      addMessage('connection', '🧪 触发测试广播...');
+      const response = await window.axios.get('/websocket/test-broadcast');
+
+      if (response.data.success) {
+        addMessage('connection', '✅ 测试广播已发送');
+        console.log('测试广播响应:', response.data);
+      } else {
+        addMessage('error', '❌ 测试广播失败: ' + response.data.message);
+      }
+    } catch (error) {
+      console.error('测试广播错误:', error);
+      addMessage('error', '❌ 测试广播请求失败: ' + (error as any).message);
+    }
   };
 
   // 获取初始数据

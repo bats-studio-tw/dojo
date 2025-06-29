@@ -27,6 +27,7 @@ Route::prefix('websocket')->name('websocket.')->group(function () {
     Route::post('/notification', [WebSocketController::class, 'sendUserNotification'])->name('notification');
     Route::get('/latest-data', [WebSocketController::class, 'getLatestData'])->name('latest-data');
     Route::get('/status', [WebSocketController::class, 'connectionStatus'])->name('status');
+    Route::get('/test-broadcast', [WebSocketController::class, 'testBroadcast'])->name('test-broadcast');
 });
 
 // 添加测试WebSocket广播的路由

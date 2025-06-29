@@ -353,52 +353,32 @@
           size="large"
         >
           <div class="space-y-4">
-            <div class="grid grid-cols-2 gap-4">
-              <div class="border border-green-500/30 rounded-lg bg-green-500/10 p-3 text-center">
-                <div class="text-sm text-green-400">符合条件</div>
-                <div class="text-xl text-white font-bold">{{ strategyValidation.total_matched }}</div>
-                <div class="text-xs text-gray-400">个游戏</div>
-              </div>
-              <div class="border border-blue-500/30 rounded-lg bg-blue-500/10 p-3 text-center">
-                <div class="text-sm text-blue-400">成功概率</div>
-                <div class="text-xl text-white font-bold">
-                  {{ (strategyValidation.success_probability * 100).toFixed(1) }}%
-                </div>
-                <div class="text-xs text-gray-400">预测平均</div>
-              </div>
-              <div class="border border-purple-500/30 rounded-lg bg-purple-500/10 p-3 text-center">
-                <div class="text-sm text-purple-400">预期收益</div>
+            <!-- 符合条件的游戏数量 -->
+            <div class="border border-green-500/30 rounded-lg bg-green-500/10 p-4 text-center">
+              <div class="text-sm text-green-400">符合条件的游戏</div>
+              <div class="text-3xl text-white font-bold">{{ strategyValidation.total_matched }}</div>
+              <div class="text-xs text-gray-400">个游戏符合当前策略</div>
+            </div>
+
+            <!-- 符合条件的游戏列表 -->
+            <div v-if="strategyValidation.matches && strategyValidation.matches.length > 0" class="space-y-2">
+              <div class="text-sm text-gray-300 font-medium">符合条件的游戏详情：</div>
+              <div class="max-h-48 overflow-y-auto space-y-2">
                 <div
-                  class="text-xl font-bold"
-                  :class="strategyValidation.estimated_profit >= 0 ? 'text-green-400' : 'text-red-400'"
+                  v-for="match in strategyValidation.matches"
+                  :key="match.symbol"
+                  class="flex items-center justify-between rounded-lg bg-gray-800/50 p-3 border border-gray-600/30"
                 >
-                  ${{ strategyValidation.estimated_profit.toFixed(2) }}
+                  <div class="flex items-center space-x-3">
+                    <span class="text-white font-medium">{{ match.symbol }}</span>
+                    <span class="text-xs text-gray-400">TOP{{ match.predicted_rank }}</span>
+                    <span class="text-xs text-blue-400">{{ match.confidence }}%</span>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-sm text-green-400">${{ match.bet_amount }}</div>
+                    <div class="text-xs text-gray-500">{{ match.sample_count }}局</div>
+                  </div>
                 </div>
-                <div class="text-xs text-gray-400">本轮预估</div>
-              </div>
-              <div class="border border-orange-500/30 rounded-lg bg-orange-500/10 p-3 text-center">
-                <div class="text-sm text-orange-400">风险等级</div>
-                <div class="text-xl text-white font-bold">
-                  <n-tag
-                    :type="
-                      strategyValidation.risk_level === 'low'
-                        ? 'success'
-                        : strategyValidation.risk_level === 'medium'
-                          ? 'warning'
-                          : 'error'
-                    "
-                    size="small"
-                  >
-                    {{
-                      strategyValidation.risk_level === 'low'
-                        ? '低'
-                        : strategyValidation.risk_level === 'medium'
-                          ? '中'
-                          : '高'
-                    }}
-                  </n-tag>
-                </div>
-                <div class="text-xs text-gray-400">风险评估</div>
               </div>
             </div>
 

@@ -256,7 +256,6 @@
     const predictions = currentAnalysis.value.predictions;
     const matches: any[] = [];
     let totalMatchedValue = 0;
-    let estimatedProfit = 0;
 
     predictions.forEach((rawPrediction: any) => {
       const prediction = mapPredictionData(rawPrediction);
@@ -266,23 +265,11 @@
         const betAmount = calculateBetAmount(prediction);
         matches.push({
           ...prediction,
-          bet_amount: betAmount,
-          expected_return: betAmount * 1.95
+          bet_amount: betAmount
         });
         totalMatchedValue += betAmount;
-        estimatedProfit += betAmount * 0.95 - betAmount;
       }
     });
-
-    const successProbability =
-      matches.length > 0 ? matches.reduce((sum, m) => sum + (m.confidence || 70), 0) / matches.length / 100 : 0;
-
-    let riskLevel: 'low' | 'medium' | 'high' = 'low';
-    const walletBalance = userInfo.value?.ojoValue || 0;
-    if (walletBalance > 0) {
-      if (totalMatchedValue > walletBalance * 0.2) riskLevel = 'high';
-      else if (totalMatchedValue > walletBalance * 0.1) riskLevel = 'medium';
-    }
 
     const actualBalance = userInfo.value?.ojoValue || 0;
     const balanceInsufficient = totalMatchedValue > actualBalance;
@@ -290,9 +277,6 @@
     strategyValidation.value = {
       matches,
       total_matched: matches.length,
-      estimated_profit: estimatedProfit,
-      risk_level: riskLevel,
-      success_probability: successProbability,
       balance_sufficient: !balanceInsufficient,
       required_balance: totalMatchedValue,
       actual_balance: actualBalance

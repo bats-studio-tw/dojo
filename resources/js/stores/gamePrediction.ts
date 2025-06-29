@@ -211,55 +211,73 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
       });
 
       // 监听预测数据更新 - 实时更新current-analysis
-      predictionsChannel = window.Echo.channel('predictions').listen('prediction.updated', (receivedData: any) => {
-        console.log('🧠 收到预测数据更新（原始）:', receivedData);
+      console.log('🔗 设置predictions频道监听器...');
+      predictionsChannel = window.Echo.channel('predictions')
+        .listen('prediction.updated', (receivedData: any) => {
+          console.log('🧠 收到预测数据更新（原始）:', receivedData);
 
-        try {
-          // 解析数据 - WebSocket可能发送字符串格式的data
-          let data = receivedData;
-          if (typeof receivedData === 'string') {
-            data = JSON.parse(receivedData);
-          } else if (receivedData.data && typeof receivedData.data === 'string') {
-            // 如果data字段是字符串，需要解析
-            data = JSON.parse(receivedData.data);
-          }
-
-          console.log('🧠 解析后的预测数据:', data);
-
-          // 检查是否是与current-analysis API相同的数据结构
-          if (data.success && data.data && data.meta) {
-            // 新的完整数据结构（与current-analysis API一致）
-            currentAnalysis.value = [...data.data]; // 使用展开运算符确保响应式更新
-            analysisMeta.value = { ...data.meta };
-
-            console.log(`✅ 已更新预测分析数据（完整结构）: ${data.data.length} 个代币`);
-            console.log('📊 更新的轮次信息:', data.meta.round_id, '状态:', data.meta.status);
-            console.log('📊 更新后的currentAnalysis数量:', currentAnalysis.value.length);
-          } else if (data.data && Array.isArray(data.data)) {
-            // 旧的简单数据结构（向后兼容）
-            currentAnalysis.value = [...data.data];
-
-            // 更新分析元数据
-            if (data.round_id || data.meta?.round_id) {
-              analysisMeta.value = {
-                round_id: data.round_id || data.meta?.round_id,
-                status: data.meta?.status || analysisMeta.value?.status || 'unknown',
-                updated_at: data.timestamp || data.meta?.timestamp || new Date().toISOString(),
-                source: 'websocket'
-              };
+          try {
+            // 解析数据 - WebSocket可能发送字符串格式的data
+            let data = receivedData;
+            if (typeof receivedData === 'string') {
+              data = JSON.parse(receivedData);
+            } else if (receivedData.data && typeof receivedData.data === 'string') {
+              // 如果data字段是字符串，需要解析
+              data = JSON.parse(receivedData.data);
             }
 
-            console.log(`✅ 已更新预测分析数据（兼容模式）: ${data.data.length} 个代币`);
-            console.log('📊 更新后的currentAnalysis数量:', currentAnalysis.value.length);
-          } else {
-            console.warn('⚠️ 收到无效的预测数据格式:', data);
-            console.warn('⚠️ 原始数据:', receivedData);
+            console.log('🧠 解析后的预测数据:', data);
+
+            // 检查是否是与current-analysis API相同的数据结构
+            if (data.success && data.data && data.meta) {
+              // 新的完整数据结构（与current-analysis API一致）
+              currentAnalysis.value = [...data.data]; // 使用展开运算符确保响应式更新
+              analysisMeta.value = { ...data.meta };
+
+              console.log(`✅ 已更新预测分析数据（完整结构）: ${data.data.length} 个代币`);
+              console.log('📊 更新的轮次信息:', data.meta.round_id, '状态:', data.meta.status);
+              console.log('📊 更新后的currentAnalysis数量:', currentAnalysis.value.length);
+            } else if (data.data && Array.isArray(data.data)) {
+              // 旧的简单数据结构（向后兼容）
+              currentAnalysis.value = [...data.data];
+
+              // 更新分析元数据
+              if (data.round_id || data.meta?.round_id) {
+                analysisMeta.value = {
+                  round_id: data.round_id || data.meta?.round_id,
+                  status: data.meta?.status || analysisMeta.value?.status || 'unknown',
+                  updated_at: data.timestamp || data.meta?.timestamp || new Date().toISOString(),
+                  source: 'websocket'
+                };
+              }
+
+              console.log(`✅ 已更新预测分析数据（兼容模式）: ${data.data.length} 个代币`);
+              console.log('📊 更新后的currentAnalysis数量:', currentAnalysis.value.length);
+            } else {
+              console.warn('⚠️ 收到无效的预测数据格式:', data);
+              console.warn('⚠️ 原始数据:', receivedData);
+            }
+
+            // 🔥 强制触发Vue的响应式更新
+            console.log('🔥 强制检查响应式更新 - currentAnalysis长度:', currentAnalysis.value.length);
+            console.log('🔥 强制检查响应式更新 - 第一个代币:', currentAnalysis.value[0]?.symbol || '无');
+
+            // 触发Vue的deep reactive更新
+            currentAnalysis.value = [...currentAnalysis.value];
+            if (analysisMeta.value) {
+              analysisMeta.value = { ...analysisMeta.value };
+            }
+          } catch (error) {
+            console.error('❌ 解析预测数据失败:', error);
+            console.error('❌ 原始数据:', receivedData);
           }
-        } catch (error) {
-          console.error('❌ 解析预测数据失败:', error);
-          console.error('❌ 原始数据:', receivedData);
-        }
-      });
+        })
+        .subscribed(() => {
+          console.log('✅ 已成功订阅predictions频道');
+        })
+        .error((error: any) => {
+          console.error('❌ predictions频道订阅错误:', error);
+        });
 
       // 连接成功
       websocketStatus.value = {

@@ -62,6 +62,10 @@
               <div class="text-gray-300">分析加载: {{ analysisLoading ? '是' : '否' }}</div>
               <div class="text-gray-300">历史加载: {{ predictionHistoryLoading ? '是' : '否' }}</div>
               <div class="text-gray-300">游戏加载: {{ historyLoading ? '是' : '否' }}</div>
+              <div class="mt-2">
+                <n-button size="tiny" @click="testStoreUpdate" type="warning">🧪 测试Store更新</n-button>
+                <n-button size="tiny" @click="manualRefresh" type="info" class="ml-1">🔄 手动刷新</n-button>
+              </div>
             </div>
           </div>
         </NCard>
@@ -750,6 +754,93 @@
     } catch {
       return '无效';
     }
+  };
+
+  // 测试函数
+  const testStoreUpdate = () => {
+    console.log('🧪 测试Store更新开始');
+    console.log('🧪 更新前 - currentAnalysis长度:', gamePredictionStore.currentAnalysis.length);
+
+    // 模拟新数据 - 使用完整的TokenAnalysis类型
+    const testData = [
+      {
+        symbol: 'TEST1',
+        name: 'Test Token 1',
+        predicted_rank: 1,
+        prediction_score: 95,
+        change_5m: null,
+        change_1h: null,
+        change_4h: null,
+        change_24h: null,
+        volume_24h: '0',
+        market_cap: null,
+        logo: null,
+        win_rate: 50,
+        top3_rate: 75,
+        avg_rank: 2,
+        total_games: 10,
+        wins: 5,
+        top3: 8
+      },
+      {
+        symbol: 'TEST2',
+        name: 'Test Token 2',
+        predicted_rank: 2,
+        prediction_score: 85,
+        change_5m: null,
+        change_1h: null,
+        change_4h: null,
+        change_24h: null,
+        volume_24h: '0',
+        market_cap: null,
+        logo: null,
+        win_rate: 40,
+        top3_rate: 65,
+        avg_rank: 2.5,
+        total_games: 10,
+        wins: 4,
+        top3: 7
+      },
+      {
+        symbol: 'TEST3',
+        name: 'Test Token 3',
+        predicted_rank: 3,
+        prediction_score: 75,
+        change_5m: null,
+        change_1h: null,
+        change_4h: null,
+        change_24h: null,
+        volume_24h: '0',
+        market_cap: null,
+        logo: null,
+        win_rate: 30,
+        top3_rate: 55,
+        avg_rank: 3,
+        total_games: 10,
+        wins: 3,
+        top3: 6
+      }
+    ];
+
+    // 直接更新store数据
+    gamePredictionStore.currentAnalysis.length = 0;
+    gamePredictionStore.currentAnalysis.push(...testData);
+
+    console.log('🧪 更新后 - currentAnalysis长度:', gamePredictionStore.currentAnalysis.length);
+    console.log('🧪 更新后 - analysisData长度:', analysisData.value.length);
+
+    // 2秒后还原
+    setTimeout(() => {
+      gamePredictionStore.fetchCurrentAnalysis();
+      console.log('🧪 已还原数据');
+    }, 2000);
+  };
+
+  const manualRefresh = () => {
+    console.log('🔄 手动刷新所有数据');
+    gamePredictionStore.fetchCurrentAnalysis();
+    gamePredictionStore.fetchPredictionHistory();
+    fetchHistoryData();
   };
 
   // 初始化数据

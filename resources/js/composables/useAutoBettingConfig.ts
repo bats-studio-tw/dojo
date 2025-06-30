@@ -70,45 +70,50 @@ export interface AutoBettingConfig {
   max_change_24h_threshold: number;
 }
 
+/**
+ * 策略模板 - 四大交易原型
+ * 重新设计为四个具有鲜明特色和根本差异的策略原型
+ */
 export const strategyTemplates = {
-  ultra_safe: {
-    name: '🛡️ 超安全策略',
-    description: '极低风险，追求稳定收益，适合新手和保守投资者',
-    confidence_threshold: 95,
-    score_gap_threshold: 10.0,
-    min_total_games: 50,
-    historical_accuracy_threshold: 0.8,
-    min_sample_count: 80,
-    max_bet_percentage: 5,
-    strategy: 'single_bet' as const,
+  // 策略一：磐石型 (The Rock) - 极致保守，追求确定性
+  rock: {
+    name: '🗿 磐石型 (The Rock)',
+    description: '极致的风险规避，只相信确定性。追求低频率、高质量的交易，只在AI非常有把握时出手。',
+    confidence_threshold: 95, // 极高置信度要求
+    score_gap_threshold: 15.0, // 极高分数差距要求
+    min_total_games: 80, // 需要大量历史数据
+    historical_accuracy_threshold: 0.85, // 极高历史准确率
+    min_sample_count: 100, // 需要充足样本
+    max_bet_percentage: 5, // 极低风险比例
+    strategy: 'single_bet' as const, // 只做单项下注
     enable_trend_analysis: true,
     enable_volume_filter: true,
-    stop_loss_consecutive: 2,
-    // 🆕 历史表现过滤器
+    stop_loss_consecutive: 1, // 一次失败就暂停
+    // 🗿 磐石型：最严苛的历史表现过滤器
     enable_win_rate_filter: true,
-    min_win_rate_threshold: 0.8,
+    min_win_rate_threshold: 0.85, // 胜率必须≥85%
     enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 0.8,
+    min_top3_rate_threshold: 0.9, // 保本率必须≥90%
     enable_avg_rank_filter: true,
-    max_avg_rank_threshold: 2.0,
+    max_avg_rank_threshold: 1.5, // 平均排名必须≤1.5
     enable_stability_filter: true,
-    max_stability_threshold: 0.3,
-    // 🆕 评分过滤器
+    max_stability_threshold: 0.2, // 极低波动性
+    // 🗿 磐石型：最严苛的评分过滤器
     enable_absolute_score_filter: true,
-    min_absolute_score_threshold: 0.8,
-    enable_relative_score_filter: false,
-    min_relative_score_threshold: 0.5,
+    min_absolute_score_threshold: 0.9, // 绝对分数≥90%
+    enable_relative_score_filter: true,
+    min_relative_score_threshold: 0.85, // 相对分数≥85%
     enable_h2h_score_filter: true,
-    min_h2h_score_threshold: 0.75,
+    min_h2h_score_threshold: 0.85, // H2H分数≥85%
     enable_risk_adjusted_filter: true,
-    min_risk_adjusted_threshold: 0.8,
-    // 🆕 市场动态过滤器 (保守，避免剧烈波动)
+    min_risk_adjusted_threshold: 0.9, // 风险调整分数≥90%
+    // 🗿 磐石型：极度保守的市场动态过滤器
     enable_change_5m_filter: true,
-    min_change_5m_threshold: -0.02,
-    max_change_5m_threshold: 0.05,
+    min_change_5m_threshold: -0.01,
+    max_change_5m_threshold: 0.03, // 只接受温和上涨
     enable_change_1h_filter: true,
-    min_change_1h_threshold: -0.05,
-    max_change_1h_threshold: 0.1,
+    min_change_1h_threshold: -0.02,
+    max_change_1h_threshold: 0.05,
     enable_change_4h_filter: false,
     min_change_4h_threshold: 0.0,
     max_change_4h_threshold: 0.0,
@@ -117,89 +122,44 @@ export const strategyTemplates = {
     max_change_24h_threshold: 0.0
   },
 
-  value_investor: {
-    name: '💎 价值投资策略',
-    description: '关注长期价值，基于深度数据分析，适合中长期投资',
-    confidence_threshold: 90,
-    score_gap_threshold: 8.0,
-    min_total_games: 40,
-    historical_accuracy_threshold: 0.75,
-    min_sample_count: 60,
-    max_bet_percentage: 12,
-    strategy: 'single_bet' as const,
+  // 策略二：狙击手型 (The Sniper) - 专注于尋找斷層優勢
+  sniper: {
+    name: '🎯 狙击手型 (The Sniper)',
+    description: '专注于寻找领先者与追赶者有巨大分数差距的机会。核心是「相对优势」而非「绝对强度」。',
+    confidence_threshold: 85, // 置信度要求可以稍放宽
+    score_gap_threshold: 25.0, // **核心指标：极高的分数差距**
+    min_total_games: 30, // 历史数据要求适中
+    historical_accuracy_threshold: 0.7, // 历史准确率要求适中
+    min_sample_count: 40, // 样本要求适中
+    max_bet_percentage: 15, // 中等风险比例
+    strategy: 'single_bet' as const, // 专注单项精准狙击
     enable_trend_analysis: true,
     enable_volume_filter: true,
-    stop_loss_consecutive: 3,
-    // 🆕 历史表现过滤器 (重视历史稳定性)
+    stop_loss_consecutive: 3, // 允许少量试错
+    // 🎯 狙击手型：关注相对优势的历史表现过滤器
     enable_win_rate_filter: true,
-    min_win_rate_threshold: 0.7,
+    min_win_rate_threshold: 0.7, // 胜率要求适中
     enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 0.65,
+    min_top3_rate_threshold: 0.65, // 保本率要求适中
     enable_avg_rank_filter: true,
-    max_avg_rank_threshold: 2.5,
-    enable_stability_filter: true,
-    max_stability_threshold: 0.5,
-    // 🆕 评分过滤器 (全面评估)
-    enable_absolute_score_filter: true,
-    min_absolute_score_threshold: 0.75,
-    enable_relative_score_filter: true,
-    min_relative_score_threshold: 0.7,
+    max_avg_rank_threshold: 2.0, // 平均排名要求较高
+    enable_stability_filter: false, // 不强调稳定性
+    max_stability_threshold: 1.0,
+    // 🎯 狙击手型：重视相对强势的评分过滤器
+    enable_absolute_score_filter: false, // 不强调绝对分数
+    min_absolute_score_threshold: 0.7,
+    enable_relative_score_filter: true, // **核心：重视相对分数**
+    min_relative_score_threshold: 0.8, // 相对分数要求很高
     enable_h2h_score_filter: true,
-    min_h2h_score_threshold: 0.7,
+    min_h2h_score_threshold: 0.75, // H2H分数要求较高
     enable_risk_adjusted_filter: true,
     min_risk_adjusted_threshold: 0.75,
-    // 🆕 市场动态过滤器 (关注中长期趋势)
-    enable_change_5m_filter: false,
-    min_change_5m_threshold: 0.0,
-    max_change_5m_threshold: 0.0,
-    enable_change_1h_filter: false,
-    min_change_1h_threshold: 0.0,
-    max_change_1h_threshold: 0.0,
-    enable_change_4h_filter: true,
-    min_change_4h_threshold: 0.01,
-    max_change_4h_threshold: 0.15,
-    enable_change_24h_filter: true,
-    min_change_24h_threshold: 0.02,
-    max_change_24h_threshold: 0.3
-  },
-
-  momentum_trader: {
-    name: '🚀 动量交易策略',
-    description: '追逐市场热点，捕捉短期动量，适合经验丰富的交易者',
-    confidence_threshold: 85,
-    score_gap_threshold: 6.0,
-    min_total_games: 25,
-    historical_accuracy_threshold: 0.65,
-    min_sample_count: 30,
-    max_bet_percentage: 20,
-    strategy: 'multi_bet' as const,
-    enable_trend_analysis: true,
-    enable_volume_filter: false,
-    stop_loss_consecutive: 5,
-    // 🆕 历史表现过滤器 (相对宽松)
-    enable_win_rate_filter: true,
-    min_win_rate_threshold: 0.6,
-    enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 0.5,
-    enable_avg_rank_filter: false,
-    max_avg_rank_threshold: 3.0,
-    enable_stability_filter: false,
-    max_stability_threshold: 1.0,
-    // 🆕 评分过滤器 (重视相对强势)
-    enable_absolute_score_filter: false,
-    min_absolute_score_threshold: 0.6,
-    enable_relative_score_filter: true,
-    min_relative_score_threshold: 0.7,
-    enable_h2h_score_filter: true,
-    min_h2h_score_threshold: 0.65,
-    enable_risk_adjusted_filter: true,
-    min_risk_adjusted_threshold: 0.65,
-    // 🆕 市场动态过滤器 (追逐短期动量)
+    // 🎯 狙击手型：适度的市场动态过滤器
     enable_change_5m_filter: true,
-    min_change_5m_threshold: 0.005,
-    max_change_5m_threshold: 0.08,
+    min_change_5m_threshold: 0.0,
+    max_change_5m_threshold: 0.08, // 允许一定的市场波动
     enable_change_1h_filter: true,
-    min_change_1h_threshold: 0.01,
+    min_change_1h_threshold: 0.0,
     max_change_1h_threshold: 0.12,
     enable_change_4h_filter: false,
     min_change_4h_threshold: 0.0,
@@ -209,75 +169,30 @@ export const strategyTemplates = {
     max_change_24h_threshold: 0.0
   },
 
-  scalping_pro: {
-    name: '⚡ 专业剥头皮',
-    description: '超高频交易，快进快出，需要密切监控市场',
-    confidence_threshold: 80,
-    score_gap_threshold: 4.0,
-    min_total_games: 15,
-    historical_accuracy_threshold: 0.6,
-    min_sample_count: 20,
-    max_bet_percentage: 25,
-    strategy: 'multi_bet' as const,
-    enable_trend_analysis: false,
-    enable_volume_filter: false,
-    stop_loss_consecutive: 8,
-    // 🆕 历史表现过滤器 (最宽松)
-    enable_win_rate_filter: false,
-    min_win_rate_threshold: 0.5,
-    enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 0.4,
-    enable_avg_rank_filter: false,
-    max_avg_rank_threshold: 4.0,
-    enable_stability_filter: false,
-    max_stability_threshold: 2.0,
-    // 🆕 评分过滤器 (重视即时表现)
-    enable_absolute_score_filter: true,
-    min_absolute_score_threshold: 0.6,
-    enable_relative_score_filter: true,
-    min_relative_score_threshold: 0.6,
-    enable_h2h_score_filter: false,
-    min_h2h_score_threshold: 0.5,
-    enable_risk_adjusted_filter: true,
-    min_risk_adjusted_threshold: 0.6,
-    // 🆕 市场动态过滤器 (超短期波动)
-    enable_change_5m_filter: true,
-    min_change_5m_threshold: 0.002,
-    max_change_5m_threshold: 0.06,
-    enable_change_1h_filter: false,
-    min_change_1h_threshold: 0.0,
-    max_change_1h_threshold: 0.0,
-    enable_change_4h_filter: false,
-    min_change_4h_threshold: 0.0,
-    max_change_4h_threshold: 0.0,
-    enable_change_24h_filter: false,
-    min_change_24h_threshold: 0.0,
-    max_change_24h_threshold: 0.0
-  },
-
-  ai_optimized: {
-    name: '🤖 AI优化策略',
-    description: '充分利用AI评分系统，平衡各项指标，适合信任算法的用户',
-    confidence_threshold: 88,
-    score_gap_threshold: 6.5,
-    min_total_games: 30,
-    historical_accuracy_threshold: 0.7,
-    min_sample_count: 40,
-    max_bet_percentage: 18,
-    strategy: 'multi_bet' as const,
-    enable_trend_analysis: true,
-    enable_volume_filter: true,
-    stop_loss_consecutive: 4,
-    // 🆕 历史表现过滤器 (平衡设置)
+  // 策略三：动量骑士型 (The Momentum Rider) - 让利润奔跑
+  momentum_rider: {
+    name: '🏇 动量骑士型 (The Momentum Rider)',
+    description: '利用连胜来动态放大投注，在判断正确的趋势中快速扩大战果。积极的趋势跟随策略。',
+    confidence_threshold: 88, // 均衡的入场条件
+    score_gap_threshold: 8.0, // 均衡的分数差距要求
+    min_total_games: 25, // 入场门槛不高
+    historical_accuracy_threshold: 0.65, // 历史准确率要求适中
+    min_sample_count: 30, // 样本要求适中
+    max_bet_percentage: 30, // **核心：更高的投注比例上限**
+    strategy: 'multi_bet' as const, // 允许多项下注
+    enable_trend_analysis: true, // **核心：启用趋势分析**
+    enable_volume_filter: false, // 不限制交易量
+    stop_loss_consecutive: 2, // **核心：严格的止损控制**
+    // 🏇 动量骑士型：动态的历史表现过滤器
     enable_win_rate_filter: true,
-    min_win_rate_threshold: 0.65,
+    min_win_rate_threshold: 0.6, // 胜率要求不高
     enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 0.6,
-    enable_avg_rank_filter: true,
-    max_avg_rank_threshold: 2.8,
-    enable_stability_filter: true,
-    max_stability_threshold: 0.7,
-    // 🆕 评分过滤器 (全面启用)
+    min_top3_rate_threshold: 0.55, // 保本率要求不高
+    enable_avg_rank_filter: false, // 不限制平均排名
+    max_avg_rank_threshold: 3.0,
+    enable_stability_filter: false, // **核心：不要求稳定性**
+    max_stability_threshold: 2.0,
+    // 🏇 动量骑士型：平衡的评分过滤器
     enable_absolute_score_filter: true,
     min_absolute_score_threshold: 0.7,
     enable_relative_score_filter: true,
@@ -285,60 +200,61 @@ export const strategyTemplates = {
     enable_h2h_score_filter: true,
     min_h2h_score_threshold: 0.65,
     enable_risk_adjusted_filter: true,
-    min_risk_adjusted_threshold: 0.7,
-    // 🆕 市场动态过滤器 (多时间段考虑)
+    min_risk_adjusted_threshold: 0.65,
+    // 🏇 动量骑士型：**核心：追逐短期动量的市场过滤器**
     enable_change_5m_filter: true,
-    min_change_5m_threshold: -0.01,
-    max_change_5m_threshold: 0.07,
+    min_change_5m_threshold: 0.01, // **核心：要求正向动量**
+    max_change_5m_threshold: 0.15, // 允许较大涨幅
     enable_change_1h_filter: true,
-    min_change_1h_threshold: -0.03,
-    max_change_1h_threshold: 0.1,
+    min_change_1h_threshold: 0.02, // **核心：要求正向动量**
+    max_change_1h_threshold: 0.2, // 允许较大涨幅
     enable_change_4h_filter: true,
-    min_change_4h_threshold: -0.05,
-    max_change_4h_threshold: 0.15,
+    min_change_4h_threshold: 0.01,
+    max_change_4h_threshold: 0.25,
     enable_change_24h_filter: false,
     min_change_24h_threshold: 0.0,
     max_change_24h_threshold: 0.0
   },
 
-  rank_betting_smart: {
-    name: '🎯 智能排名策略',
-    description: '基于排名下注，但加入智能过滤，提高胜率',
-    confidence_threshold: 0,
-    score_gap_threshold: 0.0,
-    min_total_games: 1,
-    historical_accuracy_threshold: 0.0,
-    min_sample_count: 1,
-    max_bet_percentage: 25,
-    strategy: 'rank_betting' as const,
-    enable_trend_analysis: false,
-    enable_volume_filter: false,
-    stop_loss_consecutive: 8,
-    // 🆕 历史表现过滤器 (适度筛选)
+  // 策略四：全能平衡型 (The All-Rounder) - 穩健的基準選擇
+  all_rounder: {
+    name: '⚖️ 全能平衡型 (The All-Rounder)',
+    description: '综合各项指标的平衡策略，在风险和机会之间取得良好平衡。是稳健用户的理想起点。',
+    confidence_threshold: 90, // 各项指标均为中上水平
+    score_gap_threshold: 10.0, // 中上水平的分数差距
+    min_total_games: 40, // 适中的历史数据要求
+    historical_accuracy_threshold: 0.75, // 中上水平的历史准确率
+    min_sample_count: 50, // 适中的样本要求
+    max_bet_percentage: 18, // 适中的风险比例
+    strategy: 'single_bet' as const, // 专注于单项优质下注
+    enable_trend_analysis: true,
+    enable_volume_filter: true,
+    stop_loss_consecutive: 3, // 适中的止损设置
+    // ⚖️ 全能平衡型：平衡的历史表现过滤器
     enable_win_rate_filter: true,
-    min_win_rate_threshold: 0.6,
+    min_win_rate_threshold: 0.7, // 平衡的胜率要求
     enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 0.55,
+    min_top3_rate_threshold: 0.65, // 平衡的保本率要求
     enable_avg_rank_filter: true,
-    max_avg_rank_threshold: 3.0,
-    enable_stability_filter: false,
-    max_stability_threshold: 1.0,
-    // 🆕 评分过滤器 (基础筛选)
+    max_avg_rank_threshold: 2.5, // 平衡的排名要求
+    enable_stability_filter: true,
+    max_stability_threshold: 0.6, // 适度的稳定性要求
+    // ⚖️ 全能平衡型：全面的评分过滤器
     enable_absolute_score_filter: true,
-    min_absolute_score_threshold: 0.65,
-    enable_relative_score_filter: false,
-    min_relative_score_threshold: 0.5,
+    min_absolute_score_threshold: 0.75, // 平衡的绝对分数要求
+    enable_relative_score_filter: true,
+    min_relative_score_threshold: 0.7, // 平衡的相对分数要求
     enable_h2h_score_filter: true,
-    min_h2h_score_threshold: 0.6,
-    enable_risk_adjusted_filter: false,
-    min_risk_adjusted_threshold: 0.6,
-    // 🆕 市场动态过滤器 (避免极端情况)
+    min_h2h_score_threshold: 0.7, // 平衡的H2H分数要求
+    enable_risk_adjusted_filter: true,
+    min_risk_adjusted_threshold: 0.75, // 平衡的风险调整分数要求
+    // ⚖️ 全能平衡型：适度的市场动态过滤器
     enable_change_5m_filter: true,
-    min_change_5m_threshold: -0.03,
-    max_change_5m_threshold: 0.08,
-    enable_change_1h_filter: false,
-    min_change_1h_threshold: 0.0,
-    max_change_1h_threshold: 0.0,
+    min_change_5m_threshold: -0.02, // 允许小幅下跌
+    max_change_5m_threshold: 0.08, // 允许适度上涨
+    enable_change_1h_filter: true,
+    min_change_1h_threshold: -0.05, // 允许适度下跌
+    max_change_1h_threshold: 0.12, // 允许适度上涨
     enable_change_4h_filter: false,
     min_change_4h_threshold: 0.0,
     max_change_4h_threshold: 0.0,
@@ -429,8 +345,9 @@ export const useAutoBettingConfig = () => {
   const getStrategyTemplatesWithCustom = () => ({
     ...strategyTemplates,
     custom: {
-      name: '自定义策略',
+      name: '🎨 自定义策略',
       description: '完全自定义的策略配置，可手动调整所有参数',
+      // 基础参数
       confidence_threshold: config.confidence_threshold,
       score_gap_threshold: config.score_gap_threshold,
       min_total_games: config.min_total_games,
@@ -440,7 +357,41 @@ export const useAutoBettingConfig = () => {
       strategy: config.strategy,
       enable_trend_analysis: config.enable_trend_analysis,
       enable_volume_filter: config.enable_volume_filter,
-      stop_loss_consecutive: config.stop_loss_consecutive
+      stop_loss_consecutive: config.stop_loss_consecutive,
+
+      // 🔧 新增：历史表现过滤器参数
+      enable_win_rate_filter: config.enable_win_rate_filter,
+      min_win_rate_threshold: config.min_win_rate_threshold,
+      enable_top3_rate_filter: config.enable_top3_rate_filter,
+      min_top3_rate_threshold: config.min_top3_rate_threshold,
+      enable_avg_rank_filter: config.enable_avg_rank_filter,
+      max_avg_rank_threshold: config.max_avg_rank_threshold,
+      enable_stability_filter: config.enable_stability_filter,
+      max_stability_threshold: config.max_stability_threshold,
+
+      // 🔧 新增：评分过滤器参数
+      enable_absolute_score_filter: config.enable_absolute_score_filter,
+      min_absolute_score_threshold: config.min_absolute_score_threshold,
+      enable_relative_score_filter: config.enable_relative_score_filter,
+      min_relative_score_threshold: config.min_relative_score_threshold,
+      enable_h2h_score_filter: config.enable_h2h_score_filter,
+      min_h2h_score_threshold: config.min_h2h_score_threshold,
+      enable_risk_adjusted_filter: config.enable_risk_adjusted_filter,
+      min_risk_adjusted_threshold: config.min_risk_adjusted_threshold,
+
+      // 🔧 新增：市场动态过滤器参数
+      enable_change_5m_filter: config.enable_change_5m_filter,
+      min_change_5m_threshold: config.min_change_5m_threshold,
+      max_change_5m_threshold: config.max_change_5m_threshold,
+      enable_change_1h_filter: config.enable_change_1h_filter,
+      min_change_1h_threshold: config.min_change_1h_threshold,
+      max_change_1h_threshold: config.max_change_1h_threshold,
+      enable_change_4h_filter: config.enable_change_4h_filter,
+      min_change_4h_threshold: config.min_change_4h_threshold,
+      max_change_4h_threshold: config.max_change_4h_threshold,
+      enable_change_24h_filter: config.enable_change_24h_filter,
+      min_change_24h_threshold: config.min_change_24h_threshold,
+      max_change_24h_threshold: config.max_change_24h_threshold
     }
   });
 
@@ -553,6 +504,7 @@ export const useAutoBettingConfig = () => {
   const detectCurrentStrategy = (): string => {
     for (const [key, template] of Object.entries(strategyTemplates)) {
       const matches =
+        // 基础参数匹配
         config.confidence_threshold === template.confidence_threshold &&
         config.score_gap_threshold === template.score_gap_threshold &&
         config.min_total_games === template.min_total_games &&
@@ -562,7 +514,38 @@ export const useAutoBettingConfig = () => {
         config.strategy === template.strategy &&
         config.enable_trend_analysis === template.enable_trend_analysis &&
         config.enable_volume_filter === template.enable_volume_filter &&
-        config.stop_loss_consecutive === template.stop_loss_consecutive;
+        config.stop_loss_consecutive === template.stop_loss_consecutive &&
+        // 🔧 新增：历史表现过滤器参数匹配
+        config.enable_win_rate_filter === template.enable_win_rate_filter &&
+        config.min_win_rate_threshold === template.min_win_rate_threshold &&
+        config.enable_top3_rate_filter === template.enable_top3_rate_filter &&
+        config.min_top3_rate_threshold === template.min_top3_rate_threshold &&
+        config.enable_avg_rank_filter === template.enable_avg_rank_filter &&
+        config.max_avg_rank_threshold === template.max_avg_rank_threshold &&
+        config.enable_stability_filter === template.enable_stability_filter &&
+        config.max_stability_threshold === template.max_stability_threshold &&
+        // 🔧 新增：评分过滤器参数匹配
+        config.enable_absolute_score_filter === template.enable_absolute_score_filter &&
+        config.min_absolute_score_threshold === template.min_absolute_score_threshold &&
+        config.enable_relative_score_filter === template.enable_relative_score_filter &&
+        config.min_relative_score_threshold === template.min_relative_score_threshold &&
+        config.enable_h2h_score_filter === template.enable_h2h_score_filter &&
+        config.min_h2h_score_threshold === template.min_h2h_score_threshold &&
+        config.enable_risk_adjusted_filter === template.enable_risk_adjusted_filter &&
+        config.min_risk_adjusted_threshold === template.min_risk_adjusted_threshold &&
+        // 🔧 新增：市场动态过滤器参数匹配
+        config.enable_change_5m_filter === template.enable_change_5m_filter &&
+        config.min_change_5m_threshold === template.min_change_5m_threshold &&
+        config.max_change_5m_threshold === template.max_change_5m_threshold &&
+        config.enable_change_1h_filter === template.enable_change_1h_filter &&
+        config.min_change_1h_threshold === template.min_change_1h_threshold &&
+        config.max_change_1h_threshold === template.max_change_1h_threshold &&
+        config.enable_change_4h_filter === template.enable_change_4h_filter &&
+        config.min_change_4h_threshold === template.min_change_4h_threshold &&
+        config.max_change_4h_threshold === template.max_change_4h_threshold &&
+        config.enable_change_24h_filter === template.enable_change_24h_filter &&
+        config.min_change_24h_threshold === template.min_change_24h_threshold &&
+        config.max_change_24h_threshold === template.max_change_24h_threshold;
 
       if (matches) {
         return key;
@@ -583,7 +566,9 @@ export const useAutoBettingConfig = () => {
     const template = strategyTemplates[templateKey as keyof typeof strategyTemplates];
     if (!template) return;
 
+    // 🔧 修复：同步所有策略模板参数，包括新增的过滤器参数
     Object.assign(config, {
+      // 基础参数
       confidence_threshold: template.confidence_threshold,
       score_gap_threshold: template.score_gap_threshold,
       min_total_games: template.min_total_games,
@@ -593,12 +578,46 @@ export const useAutoBettingConfig = () => {
       strategy: template.strategy,
       enable_trend_analysis: template.enable_trend_analysis,
       enable_volume_filter: template.enable_volume_filter,
-      stop_loss_consecutive: template.stop_loss_consecutive
+      stop_loss_consecutive: template.stop_loss_consecutive,
+
+      // 🆕 历史表现过滤器参数
+      enable_win_rate_filter: template.enable_win_rate_filter,
+      min_win_rate_threshold: template.min_win_rate_threshold,
+      enable_top3_rate_filter: template.enable_top3_rate_filter,
+      min_top3_rate_threshold: template.min_top3_rate_threshold,
+      enable_avg_rank_filter: template.enable_avg_rank_filter,
+      max_avg_rank_threshold: template.max_avg_rank_threshold,
+      enable_stability_filter: template.enable_stability_filter,
+      max_stability_threshold: template.max_stability_threshold,
+
+      // 🆕 评分过滤器参数
+      enable_absolute_score_filter: template.enable_absolute_score_filter,
+      min_absolute_score_threshold: template.min_absolute_score_threshold,
+      enable_relative_score_filter: template.enable_relative_score_filter,
+      min_relative_score_threshold: template.min_relative_score_threshold,
+      enable_h2h_score_filter: template.enable_h2h_score_filter,
+      min_h2h_score_threshold: template.min_h2h_score_threshold,
+      enable_risk_adjusted_filter: template.enable_risk_adjusted_filter,
+      min_risk_adjusted_threshold: template.min_risk_adjusted_threshold,
+
+      // 🆕 市场动态过滤器参数
+      enable_change_5m_filter: template.enable_change_5m_filter,
+      min_change_5m_threshold: template.min_change_5m_threshold,
+      max_change_5m_threshold: template.max_change_5m_threshold,
+      enable_change_1h_filter: template.enable_change_1h_filter,
+      min_change_1h_threshold: template.min_change_1h_threshold,
+      max_change_1h_threshold: template.max_change_1h_threshold,
+      enable_change_4h_filter: template.enable_change_4h_filter,
+      min_change_4h_threshold: template.min_change_4h_threshold,
+      max_change_4h_threshold: template.max_change_4h_threshold,
+      enable_change_24h_filter: template.enable_change_24h_filter,
+      min_change_24h_threshold: template.min_change_24h_threshold,
+      max_change_24h_threshold: template.max_change_24h_threshold
     });
 
     selectedTemplate.value = templateKey;
     customStrategyMode.value = false;
-    window.$message?.success(`已应用${template.name}`);
+    window.$message?.success(`已应用${template.name}，所有参数已同步到配置中`);
   };
 
   // 切换到自定义策略模式

@@ -8,6 +8,11 @@
         <div class="mb-6 text-center">
           <h1 class="text-3xl text-white font-bold">🔍 WebSocket 调试面板</h1>
           <p class="mt-2 text-gray-400">专注于检查 WebSocket 事件接收</p>
+          <div class="mt-3 rounded bg-green-900/20 p-3 text-sm text-green-300">
+            ✅
+            <strong>修复完成</strong>
+            ：已解决重复订阅问题，现在每个事件只会收到一次
+          </div>
         </div>
 
         <!-- WebSocket状态面板 -->
@@ -178,8 +183,9 @@
     console.log('🏗️ [DEBUG] Dashboard 页面开始初始化...');
     console.log('🔍 [DEBUG] Echo 是否存在:', !!window.Echo);
 
-    // 初始化store
-    await gamePredictionStore.initialize();
+    // 不再在页面级别初始化store，由 app.ts 全局初始化负责
+    // 这样避免了重复初始化和WebSocket事件的重复订阅
+    console.log('🔍 [DEBUG] 等待全局store初始化完成...');
 
     console.log('✅ [DEBUG] Dashboard 页面初始化完成');
     console.log('📖 [DEBUG] 请查看上方的使用说明，了解如何检查 WebSocket 事件');

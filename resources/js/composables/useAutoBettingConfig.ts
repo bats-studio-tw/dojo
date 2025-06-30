@@ -261,6 +261,53 @@ export const strategyTemplates = {
     enable_change_24h_filter: false,
     min_change_24h_threshold: 0.0,
     max_change_24h_threshold: 0.0
+  },
+
+  // 🎯 智能排名策略 - 保留原有的排名下注功能
+  rank_betting_smart: {
+    name: '🎯 智能排名策略',
+    description: '基于排名下注，但加入智能过滤，提高胜率。选择TOP1、TOP2等排名进行下注。',
+    confidence_threshold: 0, // 排名下注不使用置信度
+    score_gap_threshold: 0.0, // 排名下注不使用分数差距
+    min_total_games: 1, // 最低要求
+    historical_accuracy_threshold: 0.0, // 排名下注不使用历史准确率
+    min_sample_count: 1, // 最低要求
+    max_bet_percentage: 25, // 适中的风险比例
+    strategy: 'rank_betting' as const, // **核心：排名下注策略**
+    enable_trend_analysis: false,
+    enable_volume_filter: false,
+    stop_loss_consecutive: 8, // 允许较多连续失败
+    // 🎯 智能排名策略：适度的历史表现过滤器
+    enable_win_rate_filter: true,
+    min_win_rate_threshold: 0.6, // 胜率要求适中
+    enable_top3_rate_filter: true,
+    min_top3_rate_threshold: 0.55, // 保本率要求适中
+    enable_avg_rank_filter: true,
+    max_avg_rank_threshold: 3.0, // 平均排名要求宽松
+    enable_stability_filter: false, // 不要求稳定性
+    max_stability_threshold: 1.0,
+    // 🎯 智能排名策略：基础的评分过滤器
+    enable_absolute_score_filter: true,
+    min_absolute_score_threshold: 0.65, // 基础的绝对分数要求
+    enable_relative_score_filter: false, // 不使用相对分数
+    min_relative_score_threshold: 0.5,
+    enable_h2h_score_filter: true,
+    min_h2h_score_threshold: 0.6, // 基础的H2H分数要求
+    enable_risk_adjusted_filter: false, // 不使用风险调整分数
+    min_risk_adjusted_threshold: 0.6,
+    // 🎯 智能排名策略：避免极端市场情况的过滤器
+    enable_change_5m_filter: true,
+    min_change_5m_threshold: -0.03, // 允许适度下跌
+    max_change_5m_threshold: 0.08, // 允许适度上涨
+    enable_change_1h_filter: false,
+    min_change_1h_threshold: 0.0,
+    max_change_1h_threshold: 0.0,
+    enable_change_4h_filter: false,
+    min_change_4h_threshold: 0.0,
+    max_change_4h_threshold: 0.0,
+    enable_change_24h_filter: false,
+    min_change_24h_threshold: 0.0,
+    max_change_24h_threshold: 0.0
   }
 };
 

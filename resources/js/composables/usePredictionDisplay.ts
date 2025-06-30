@@ -1,4 +1,4 @@
-import { computed } from 'vue';
+import { getGameStatusTagType } from '@/utils/statusUtils';
 
 export function usePredictionDisplay() {
   // 格式化价格变化百分比
@@ -61,19 +61,8 @@ export function usePredictionDisplay() {
     return '📊';
   };
 
-  // 获取状态标签类型
-  const getStatusTagType = (status: string) => {
-    switch (status) {
-      case 'bet':
-        return 'success';
-      case 'settling':
-        return 'warning';
-      case 'settled':
-        return 'info';
-      default:
-        return 'default';
-    }
-  };
+  // 状态标签类型（使用统一的状态工具）
+  const getStatusTagType = getGameStatusTagType;
 
   // 获取预测行的样式类
   const getPredictionRowClass = (isExactMatch: boolean, isBetterThanExpected: boolean) => {

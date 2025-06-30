@@ -53,9 +53,18 @@
             </div>
             <div class="space-y-1">
               <div class="text-blue-300 font-medium">轮次信息</div>
-              <div class="text-gray-300">轮次ID: {{ analysisMeta?.round_id || '无' }}</div>
-              <div class="text-gray-300">状态: {{ analysisMeta?.status || '无' }}</div>
+              <div class="text-gray-300">轮次ID: {{ currentRoundId || '无' }}</div>
+              <div class="text-gray-300">状态: {{ currentGameStatus || '无' }}</div>
               <div class="text-gray-300">更新时间: {{ formatTime(analysisMeta?.updated_at) }}</div>
+              <div class="flex items-center gap-2 text-gray-300">
+                <div v-if="canBet" class="h-2 w-2 rounded-full bg-green-500"></div>
+                <div v-else-if="isSettling" class="h-2 w-2 rounded-full bg-yellow-500"></div>
+                <div v-else-if="isSettled" class="h-2 w-2 rounded-full bg-blue-500"></div>
+                <div v-else class="h-2 w-2 rounded-full bg-gray-500"></div>
+                <span class="text-xs">
+                  {{ canBet ? '可下注' : isSettling ? '结算中' : isSettled ? '已结算' : '等待中' }}
+                </span>
+              </div>
             </div>
             <div class="space-y-1">
               <div class="text-blue-300 font-medium">加载状态</div>
@@ -536,6 +545,13 @@
   const analysisLoading = computed(() => gamePredictionStore.analysisLoading);
   const latestGameData = computed(() => gamePredictionStore.latestGameData);
 
+  // 🆕 新增计算属性 - 使用store的增强功能
+  const currentRoundId = computed(() => gamePredictionStore.currentRoundId);
+  const currentGameStatus = computed(() => gamePredictionStore.currentGameStatus);
+  const canBet = computed(() => gamePredictionStore.canBet);
+  const isSettled = computed(() => gamePredictionStore.isSettled);
+  const isSettling = computed(() => gamePredictionStore.isSettling);
+
   // 历史游戏数据仍然通过API获取（这部分数据更新频率较低）
   const historyData = ref<HistoryRound[]>([]);
   const historyLoading = ref(false);
@@ -677,7 +693,7 @@
 
   // API调用函数 - 现在使用store的方法
   const fetchAnalysisData = async () => {
-    // 使用store的方法获取预测分析数据
+    // 使用store的方法获取预测分析数据（主要用于初始化，平时通过WebSocket更新）
     await gamePredictionStore.fetchCurrentAnalysis();
   };
 
@@ -705,7 +721,8 @@
 
   // 刷新函数
   const refreshAnalysis = () => {
-    // 手动触发预测分析数据刷新（通常WebSocket会自动更新，这里提供手动刷新选项）
+    // 手动触发预测分析数据刷新（备用方法，平时依赖WebSocket实时更新）
+    console.log('📡 手动刷新预测分析数据（备用方法）');
     fetchAnalysisData();
   };
   const refreshHistoryData = () => fetchHistoryData();
@@ -1092,9 +1109,16 @@
   };
 
   // 初始化数据
-  onMounted(() => {
-    // 不再需要手动获取分析数据和预测历史，因为store已经在应用启动时通过WebSocket连接自动管理
-    // 只需要获取历史游戏数据（更新频率较低）
+  onMounted(async () => {
+    console.log('📊 Dashboard页面正在初始化...');
+
+    // 确保store已经初始化（如果还没有初始化的话）
+    if (!gamePredictionStore.isConnected) {
+      console.log('🔄 Store未连接，开始初始化...');
+      await gamePredictionStore.initialize();
+    }
+
+    // 获取历史游戏数据（更新频率较低，继续使用API）
     fetchHistoryData();
 
     // 设置历史数据的定时刷新（10秒间隔）- 历史数据更新频率较低，继续使用轮询

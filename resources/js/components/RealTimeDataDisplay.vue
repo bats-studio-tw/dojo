@@ -5,48 +5,48 @@
       <div
         :class="[
           'w-3 h-3 rounded-full',
-          connectionStatus === 'connected'
+          predictionStore.websocketStatus.status === 'connected'
             ? 'bg-green-500'
-            : connectionStatus === 'connecting'
+            : predictionStore.websocketStatus.status === 'connecting'
               ? 'bg-yellow-500'
               : 'bg-red-500'
         ]"
       ></div>
       <span class="text-sm font-medium">WebSocket {{ connectionStatusText }}</span>
       <button
-        @click="reconnectWebSocket"
-        class="ml-2 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+        @click="predictionStore.reconnectWebSocket()"
+        class="ml-2 rounded bg-blue-500 px-2 py-1 text-xs text-white hover:bg-blue-600"
       >
         重新连接
       </button>
-      <button @click="testBroadcast" class="ml-2 px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">
+      <button @click="testBroadcast" class="ml-2 rounded bg-green-500 px-2 py-1 text-xs text-white hover:bg-green-600">
         测试广播
       </button>
     </div>
 
     <!-- 实时游戏数据 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <!-- 游戏数据面板 -->
-      <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+      <div class="rounded-lg bg-white p-6 shadow">
+        <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
+          <div class="h-2 w-2 rounded-full bg-blue-500"></div>
           游戏数据
         </h3>
 
-        <div v-if="latestGameData" class="space-y-3">
+        <div v-if="predictionStore.latestGameData" class="space-y-3">
           <div class="flex justify-between">
             <span class="text-gray-600">轮次ID:</span>
-            <span class="font-mono">{{ latestGameData.rdId || 'N/A' }}</span>
+            <span class="font-mono">{{ predictionStore.currentRoundId || 'N/A' }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">状态:</span>
-            <span :class="getStatusColor(latestGameData.status)">
-              {{ latestGameData.status || 'unknown' }}
+            <span :class="getStatusColor(predictionStore.currentGameStatus)">
+              {{ predictionStore.currentGameStatus }}
             </span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">代币数量:</span>
-            <span>{{ gameTokenCount }}</span>
+            <span>{{ predictionStore.currentGameTokens.length }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">更新时间:</span>
@@ -54,13 +54,13 @@
           </div>
 
           <!-- 代币列表 -->
-          <div v-if="gameTokens.length > 0" class="mt-4">
-            <h4 class="text-sm font-medium text-gray-700 mb-2">当前代币:</h4>
+          <div v-if="predictionStore.currentGameTokens.length > 0" class="mt-4">
+            <h4 class="mb-2 text-sm text-gray-700 font-medium">当前代币:</h4>
             <div class="flex flex-wrap gap-2">
               <span
-                v-for="token in gameTokens"
+                v-for="token in predictionStore.currentGameTokens"
                 :key="token"
-                class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                class="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800"
               >
                 {{ token }}
               </span>
@@ -68,24 +68,24 @@
           </div>
         </div>
 
-        <div v-else class="text-center text-gray-500 py-8">等待游戏数据...</div>
+        <div v-else class="py-8 text-center text-gray-500">等待游戏数据...</div>
       </div>
 
       <!-- 预测数据面板 -->
-      <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-          <div class="w-2 h-2 rounded-full bg-green-500"></div>
+      <div class="rounded-lg bg-white p-6 shadow">
+        <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
+          <div class="h-2 w-2 rounded-full bg-green-500"></div>
           预测分析
         </h3>
 
-        <div v-if="latestPrediction" class="space-y-3">
+        <div v-if="predictionStore.hasCurrentAnalysis" class="space-y-3">
           <div class="flex justify-between">
             <span class="text-gray-600">轮次ID:</span>
-            <span class="font-mono">{{ latestPrediction.round_id || 'N/A' }}</span>
+            <span class="font-mono">{{ predictionStore.currentRoundId || 'N/A' }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">预测数量:</span>
-            <span>{{ latestPrediction.data?.length || 0 }}</span>
+            <span>{{ predictionStore.currentAnalysis.length }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">更新时间:</span>
@@ -93,24 +93,26 @@
           </div>
 
           <!-- 预测排名 -->
-          <div v-if="latestPrediction.data && latestPrediction.data.length > 0" class="mt-4">
-            <h4 class="text-sm font-medium text-gray-700 mb-2">预测排名:</h4>
+          <div v-if="predictionStore.currentAnalysis.length > 0" class="mt-4">
+            <h4 class="mb-2 text-sm text-gray-700 font-medium">预测排名:</h4>
             <div class="space-y-2">
               <div
-                v-for="(prediction, index) in latestPrediction.data.slice(0, 5)"
+                v-for="(prediction, index) in predictionStore.currentAnalysis.slice(0, 5)"
                 :key="prediction.symbol"
-                class="flex items-center justify-between p-2 bg-gray-50 rounded"
+                class="flex items-center justify-between rounded bg-gray-50 p-2"
               >
                 <div class="flex items-center gap-2">
-                  <span class="w-6 h-6 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
+                  <span class="h-6 w-6 flex items-center justify-center rounded-full bg-blue-500 text-xs text-white">
                     {{ index + 1 }}
                   </span>
                   <span class="font-medium">{{ prediction.symbol }}</span>
                 </div>
                 <div class="text-right">
-                  <div class="text-sm font-medium">{{ prediction.risk_adjusted_score?.toFixed(1) || 'N/A' }}</div>
+                  <div class="text-sm font-medium">
+                    {{ prediction.risk_adjusted_score?.toFixed(1) || prediction.prediction_score?.toFixed(1) || 'N/A' }}
+                  </div>
                   <div class="text-xs text-gray-500">
-                    置信度: {{ prediction.rank_confidence?.toFixed(1) || 'N/A' }}%
+                    置信度: {{ prediction.rank_confidence?.toFixed(1) || prediction.win_rate?.toFixed(1) || 'N/A' }}%
                   </div>
                 </div>
               </div>
@@ -118,13 +120,13 @@
           </div>
         </div>
 
-        <div v-else class="text-center text-gray-500 py-8">等待预测数据...</div>
+        <div v-else class="py-8 text-center text-gray-500">等待预测数据...</div>
       </div>
     </div>
 
     <!-- 消息日志 -->
-    <div class="mt-6 bg-gray-50 rounded-lg p-4">
-      <h3 class="text-lg font-semibold mb-3">实时消息日志</h3>
+    <div class="mt-6 rounded-lg bg-gray-50 p-4">
+      <h3 class="mb-3 text-lg font-semibold">实时消息日志</h3>
       <div class="max-h-48 overflow-y-auto space-y-1">
         <div
           v-for="(message, index) in recentMessages"
@@ -136,29 +138,26 @@
           <span class="ml-2">{{ message.message }}</span>
         </div>
       </div>
-      <div v-if="recentMessages.length === 0" class="text-center text-gray-500 py-4">暂无消息</div>
+      <div v-if="recentMessages.length === 0" class="py-4 text-center text-gray-500">暂无消息</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, onUnmounted, computed } from 'vue';
+  import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+  import { useGamePredictionStore } from '@/stores/gamePrediction';
 
-  // 响应式数据
-  const connectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('connecting');
-  const latestGameData = ref<any>(null);
-  const latestPrediction = ref<any>(null);
+  // 使用预测数据store
+  const predictionStore = useGamePredictionStore();
+
+  // 响应式数据 - 只保留必要的本地状态
+  const recentMessages = ref<Array<{ type: string; message: string; timestamp: string }>>([]);
   const gameDataTimestamp = ref<string>('');
   const predictionTimestamp = ref<string>('');
-  const recentMessages = ref<Array<{ type: string; message: string; timestamp: string }>>([]);
-
-  // WebSocket 连接
-  let gameUpdatesChannel: any = null;
-  let predictionsChannel: any = null;
 
   // 计算属性
   const connectionStatusText = computed(() => {
-    switch (connectionStatus.value) {
+    switch (predictionStore.websocketStatus.status) {
       case 'connected':
         return '已连接';
       case 'connecting':
@@ -168,14 +167,6 @@
       default:
         return '未知状态';
     }
-  });
-
-  const gameTokenCount = computed(() => {
-    return latestGameData.value?.token ? Object.keys(latestGameData.value.token).length : 0;
-  });
-
-  const gameTokens = computed(() => {
-    return latestGameData.value?.token ? Object.keys(latestGameData.value.token) : [];
   });
 
   // 方法
@@ -195,10 +186,14 @@
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'bet':
+      case 'betting':
+      case 'open':
         return 'text-green-600 font-medium';
       case 'settling':
+      case 'processing':
         return 'text-yellow-600 font-medium';
       case 'settled':
+      case 'completed':
         return 'text-blue-600 font-medium';
       default:
         return 'text-gray-600';
@@ -229,86 +224,6 @@
     });
   };
 
-  const connectWebSocket = () => {
-    if (!window.Echo) {
-      addMessage('error', '❌ WebSocket Echo 未初始化');
-      return;
-    }
-
-    connectionStatus.value = 'connecting';
-    addMessage('connection', '🔄 正在连接WebSocket...');
-
-    try {
-      // 监听游戏数据更新频道
-      gameUpdatesChannel = window.Echo.channel('game-updates')
-        .listen('game.data.updated', (data: any) => {
-          console.log('🎮 收到游戏数据更新:', data);
-          latestGameData.value = data.data;
-          gameDataTimestamp.value = data.timestamp;
-          addMessage('game', `🎮 游戏数据更新: ${data.type} (轮次: ${data.data?.rdId || 'N/A'})`);
-        })
-        .subscribed(() => {
-          console.log('✅ 已订阅 game-updates 频道');
-          addMessage('connection', '📡 已订阅游戏数据频道');
-        })
-        .error((error: any) => {
-          console.error('❌ game-updates 频道订阅错误:', error);
-          addMessage('error', '❌ 游戏数据频道订阅失败');
-        });
-
-      // 监听预测数据更新频道
-      predictionsChannel = window.Echo.channel('predictions')
-        .listen('prediction.updated', (data: any) => {
-          console.log('🧠 收到预测数据更新:', data);
-          latestPrediction.value = data;
-          predictionTimestamp.value = data.timestamp;
-          addMessage('prediction', `🧠 预测数据更新: ${data.data?.length || 0} 个代币 (轮次: ${data.round_id})`);
-        })
-        .subscribed(() => {
-          console.log('✅ 已订阅 predictions 频道');
-          addMessage('connection', '📡 已订阅预测数据频道');
-        })
-        .error((error: any) => {
-          console.error('❌ predictions 频道订阅错误:', error);
-          addMessage('error', '❌ 预测数据频道订阅失败');
-        });
-
-      connectionStatus.value = 'connected';
-      addMessage('connection', '✅ WebSocket连接成功');
-
-      // 额外的调试信息
-      console.log('Echo实例:', window.Echo);
-      console.log('游戏数据频道:', gameUpdatesChannel);
-      console.log('预测数据频道:', predictionsChannel);
-    } catch (error) {
-      console.error('WebSocket连接失败:', error);
-      connectionStatus.value = 'disconnected';
-      addMessage('error', '❌ WebSocket连接失败: ' + (error as Error).message);
-    }
-  };
-
-  const disconnectWebSocket = () => {
-    if (gameUpdatesChannel) {
-      window.Echo.leaveChannel('game-updates');
-      gameUpdatesChannel = null;
-    }
-
-    if (predictionsChannel) {
-      window.Echo.leaveChannel('predictions');
-      predictionsChannel = null;
-    }
-
-    connectionStatus.value = 'disconnected';
-    addMessage('connection', '🔌 WebSocket连接已断开');
-  };
-
-  const reconnectWebSocket = () => {
-    disconnectWebSocket();
-    setTimeout(() => {
-      connectWebSocket();
-    }, 1000);
-  };
-
   // 测试广播功能
   const testBroadcast = async () => {
     try {
@@ -319,46 +234,75 @@
         addMessage('connection', '✅ 测试广播已发送');
         console.log('测试广播响应:', response.data);
       } else {
-        addMessage('error', '❌ 测试广播失败: ' + response.data.message);
+        addMessage('error', `❌ 测试广播失败: ${response.data.message}`);
       }
     } catch (error) {
       console.error('测试广播错误:', error);
-      addMessage('error', '❌ 测试广播请求失败: ' + (error as any).message);
+      addMessage('error', `❌ 测试广播请求失败: ${(error as any).message}`);
     }
   };
 
-  // 获取初始数据
-  const fetchInitialData = async () => {
-    try {
-      const response = await window.axios.get('/websocket/latest-data');
-      if (response.data.success) {
-        const data = response.data.data;
-        if (data.latest_game_data) {
-          latestGameData.value = data.latest_game_data.data;
-          gameDataTimestamp.value = data.latest_game_data.timestamp;
-        }
-        if (data.current_round) {
-          // 可以显示当前轮次信息
-        }
-        addMessage('connection', '📦 获取初始数据成功');
+  // 监听store数据变化，记录到消息日志
+  const gameDataWatcher = watch(
+    () => predictionStore.latestGameData,
+    (newData) => {
+      if (newData) {
+        gameDataTimestamp.value = new Date().toISOString();
+        addMessage('game', `🎮 游戏数据更新: ${newData.status} (轮次: ${predictionStore.currentRoundId || 'N/A'})`);
       }
-    } catch (error) {
-      console.error('获取初始数据失败:', error);
-      addMessage('error', '❌ 获取初始数据失败');
+    },
+    { deep: true }
+  );
+
+  const analysisWatcher = watch(
+    () => predictionStore.currentAnalysis,
+    (newAnalysis) => {
+      if (newAnalysis && newAnalysis.length > 0) {
+        predictionTimestamp.value = new Date().toISOString();
+        addMessage(
+          'prediction',
+          `🧠 预测数据更新: ${newAnalysis.length} 个代币 (轮次: ${predictionStore.currentRoundId || 'N/A'})`
+        );
+      }
+    },
+    { deep: true }
+  );
+
+  const websocketStatusWatcher = watch(
+    () => predictionStore.websocketStatus.status,
+    (newStatus, oldStatus) => {
+      if (oldStatus && newStatus !== oldStatus) {
+        const statusMessages = {
+          connected: '✅ WebSocket连接成功',
+          connecting: '🔄 正在连接WebSocket...',
+          disconnected: '🔌 WebSocket连接已断开',
+          error: '❌ WebSocket连接失败'
+        };
+
+        const message = statusMessages[newStatus as keyof typeof statusMessages] || `状态变更: ${newStatus}`;
+        addMessage('connection', message);
+      }
     }
-  };
+  );
 
   // 生命周期
   onMounted(() => {
-    // 等待Echo初始化
-    setTimeout(() => {
-      connectWebSocket();
-      fetchInitialData();
-    }, 1000);
+    addMessage('connection', '📡 实时数据显示组件已加载');
+
+    // 初始化时间戳
+    if (predictionStore.latestGameData) {
+      gameDataTimestamp.value = new Date().toISOString();
+    }
+    if (predictionStore.hasCurrentAnalysis) {
+      predictionTimestamp.value = new Date().toISOString();
+    }
   });
 
   onUnmounted(() => {
-    disconnectWebSocket();
+    // 清理监听器
+    gameDataWatcher();
+    analysisWatcher();
+    websocketStatusWatcher();
   });
 </script>
 

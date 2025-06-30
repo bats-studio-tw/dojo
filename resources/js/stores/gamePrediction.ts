@@ -139,6 +139,67 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
       websocketStatus.value.status === 'disconnected' && websocketStatus.value.reconnectAttempts < maxReconnectAttempts
   );
 
+  // 🆕 新增计算属性 - 提供更方便的数据访问
+  const currentRoundId = computed(() => {
+    // 优先从游戏数据获取轮次ID
+    if (latestGameData.value?.rdId) {
+      return latestGameData.value.rdId;
+    }
+    // 备用：从分析元数据获取
+    if (analysisMeta.value?.round_id) {
+      return analysisMeta.value.round_id;
+    }
+    return null;
+  });
+
+  const currentGameStatus = computed(() => {
+    return latestGameData.value?.status || 'unknown';
+  });
+
+  const currentGameTokens = computed(() => {
+    if (!latestGameData.value?.token) return [];
+    return Object.keys(latestGameData.value.token);
+  });
+
+  const currentGameTokensWithRanks = computed(() => {
+    if (!latestGameData.value?.token) return [];
+    return Object.entries(latestGameData.value.token).map(([symbol, data]: [string, any]) => ({
+      symbol,
+      rank: data.s || data.rank,
+      price: data.p || data.price,
+      ...data
+    }));
+  });
+
+  // 提供兼容的数据结构 - 为了向后兼容
+  const currentAnalysisFormatted = computed(() => {
+    return {
+      predictions: currentAnalysis.value,
+      meta: analysisMeta.value,
+      game_data: latestGameData.value,
+      round_id: currentRoundId.value,
+      status: currentGameStatus.value
+    };
+  });
+
+  // 检查是否可以下注
+  const canBet = computed(() => {
+    const status = currentGameStatus.value;
+    return status === 'bet' || status === 'betting' || status === 'open';
+  });
+
+  // 检查是否已结算
+  const isSettled = computed(() => {
+    const status = currentGameStatus.value;
+    return status === 'settled' || status === 'completed';
+  });
+
+  // 检查是否正在结算
+  const isSettling = computed(() => {
+    const status = currentGameStatus.value;
+    return status === 'settling' || status === 'processing';
+  });
+
   // ==================== 数据获取方法 ====================
 
   /**
@@ -522,6 +583,14 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     totalHistoryRounds,
     isConnected,
     shouldReconnect,
+    currentRoundId,
+    currentGameStatus,
+    currentGameTokens,
+    currentGameTokensWithRanks,
+    currentAnalysisFormatted,
+    canBet,
+    isSettled,
+    isSettling,
 
     // ==================== 方法导出 ====================
 

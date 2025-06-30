@@ -48,7 +48,7 @@
             <SmartControlCenter
               :user-info="userInfo"
               :auto-betting-status="autoBettingStatus"
-              :current-analysis="{ predictions: predictionStore.currentAnalysis, meta: predictionStore.analysisMeta }"
+              :current-analysis="predictionStore.currentAnalysisFormatted"
               :debug-info="debugInfo"
               :toggle-loading="toggleLoading"
               :execute-loading="executeLoading"
@@ -309,8 +309,8 @@
           async () => {
             let successCount = 0;
             let failCount = 0;
-            // 使用store的分析元数据获取轮次ID
-            const roundId = predictionStore.analysisMeta?.round_id;
+            // 使用store的增强功能获取轮次ID
+            const roundId = predictionStore.currentRoundId;
 
             if (!roundId) {
               throw new Error('无法获取当前轮次ID');
@@ -427,7 +427,7 @@
     }
 
     // 检查当前轮次是否已经下过注
-    const currentRoundId = predictionStore.analysisMeta?.round_id;
+    const currentRoundId = predictionStore.currentRoundId;
     if (!currentRoundId) {
       return;
     }

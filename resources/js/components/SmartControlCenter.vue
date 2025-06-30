@@ -56,109 +56,73 @@
           </div>
         </div>
 
-        <!-- Token详细分析 -->
-        <div class="space-y-2">
-          <h3 class="text-white font-medium">🔍 Token匹配分析详情</h3>
-          <div class="max-h-96 overflow-y-auto space-y-2">
+        <!-- 高级过滤器调试信息（仅在显示调试面板时展示） -->
+        <div v-if="showDebugPanel" class="space-y-2">
+          <h3 class="text-white font-medium">🔍 高级过滤器状态详情</h3>
+          <div class="text-xs text-gray-400 mb-2">此面板显示前5个Token的高级过滤器详细状态</div>
+          <div class="max-h-64 overflow-y-auto space-y-2">
             <div
-              v-for="(token, index) in currentAnalysis.slice(0, 10)"
+              v-for="(token, index) in currentAnalysis.slice(0, 5)"
               :key="`debug-${index}-${token.symbol}`"
-              class="border rounded-lg p-3"
-              :class="getTokenDebugClass(token)"
+              class="border border-gray-600/30 rounded-lg bg-gray-800/50 p-3"
             >
-              <div class="mb-2 flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                  <span class="text-lg">{{ getPredictionIcon(index) }}</span>
-                  <span class="text-white font-bold">{{ token.symbol }}</span>
-                  <span class="text-xs text-gray-400">#{{ token.predicted_rank || index + 1 }}</span>
-                </div>
-                <div class="text-xs" :class="isTokenMatching(token) ? 'text-green-400' : 'text-red-400'">
-                  {{ isTokenMatching(token) ? '✅ 匹配' : '❌ 不匹配' }}
-                </div>
-              </div>
-
+              <div class="mb-2 text-white font-medium">{{ token.symbol }}</div>
               <div class="text-xs space-y-1">
-                <div class="grid grid-cols-2 gap-2">
-                  <!-- 基础指标 -->
-                  <div class="space-y-1">
-                    <div class="flex justify-between">
-                      <span class="text-gray-400">置信度:</span>
-                      <span :class="getMetricClass(getTokenConfidence(token), confidenceThreshold, 'gte')">
-                        {{ getTokenConfidence(token).toFixed(1) }}% / {{ confidenceThreshold }}%
-                      </span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-gray-400">分数:</span>
-                      <span :class="getMetricClass(getTokenScore(token), config.score_gap_threshold, 'gte')">
-                        {{ getTokenScore(token).toFixed(1) }} / {{ config.score_gap_threshold }}
-                      </span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-gray-400">样本数:</span>
-                      <span :class="getMetricClass(getTokenSampleCount(token), config.min_sample_count, 'gte')">
-                        {{ getTokenSampleCount(token) }} / {{ config.min_sample_count }}
-                      </span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="text-gray-400">历史准确率:</span>
-                      <span
-                        :class="
-                          getMetricClass(getTokenHistoricalAccuracy(token), config.historical_accuracy_threshold, 'gte')
-                        "
-                      >
-                        {{ (getTokenHistoricalAccuracy(token) * 100).toFixed(1) }}% /
-                        {{ (config.historical_accuracy_threshold * 100).toFixed(1) }}%
-                      </span>
-                    </div>
-                  </div>
-
-                  <!-- 高级过滤器状态 -->
-                  <div class="space-y-1">
-                    <div v-if="config.enable_win_rate_filter" class="flex justify-between">
-                      <span class="text-gray-400">胜率过滤:</span>
-                      <span :class="getMetricClass(token.win_rate || 0, config.min_win_rate_threshold * 100, 'gte')">
-                        {{ (token.win_rate || 0).toFixed(1) }}% /
-                        {{ (config.min_win_rate_threshold * 100).toFixed(1) }}%
-                      </span>
-                    </div>
-                    <div v-if="config.enable_top3_rate_filter" class="flex justify-between">
-                      <span class="text-gray-400">保本率过滤:</span>
-                      <span :class="getMetricClass(token.top3_rate || 0, config.min_top3_rate_threshold * 100, 'gte')">
-                        {{ (token.top3_rate || 0).toFixed(1) }}% /
-                        {{ (config.min_top3_rate_threshold * 100).toFixed(1) }}%
-                      </span>
-                    </div>
-                    <div v-if="config.enable_absolute_score_filter" class="flex justify-between">
-                      <span class="text-gray-400">绝对分过滤:</span>
-                      <span
-                        :class="
-                          getMetricClass(token.absolute_score || 0, config.min_absolute_score_threshold * 100, 'gte')
-                        "
-                      >
-                        {{ (token.absolute_score || 0).toFixed(1) }} /
-                        {{ (config.min_absolute_score_threshold * 100).toFixed(1) }}
-                      </span>
-                    </div>
-                    <div v-if="config.enable_relative_score_filter" class="flex justify-between">
-                      <span class="text-gray-400">相对分过滤:</span>
-                      <span
-                        :class="
-                          getMetricClass(token.relative_score || 0, config.min_relative_score_threshold * 100, 'gte')
-                        "
-                      >
-                        {{ (token.relative_score || 0).toFixed(1) }} /
-                        {{ (config.min_relative_score_threshold * 100).toFixed(1) }}
-                      </span>
-                    </div>
-                  </div>
+                <div v-if="config.enable_win_rate_filter" class="flex justify-between">
+                  <span class="text-gray-400">胜率过滤:</span>
+                  <span :class="getMetricClass(token.win_rate || 0, config.min_win_rate_threshold * 100, 'gte')">
+                    {{ (token.win_rate || 0).toFixed(1) }}% / {{ (config.min_win_rate_threshold * 100).toFixed(1) }}%
+                  </span>
                 </div>
-
-                <!-- 失败原因 -->
-                <div v-if="!isTokenMatching(token)" class="mt-2 rounded bg-red-500/10 p-2">
-                  <div class="text-xs text-red-400">
-                    <strong>未匹配原因:</strong>
-                    <span class="ml-1">{{ getTokenFailureReasons(token).join(', ') }}</span>
-                  </div>
+                <div v-if="config.enable_top3_rate_filter" class="flex justify-between">
+                  <span class="text-gray-400">保本率过滤:</span>
+                  <span :class="getMetricClass(token.top3_rate || 0, config.min_top3_rate_threshold * 100, 'gte')">
+                    {{ (token.top3_rate || 0).toFixed(1) }}% / {{ (config.min_top3_rate_threshold * 100).toFixed(1) }}%
+                  </span>
+                </div>
+                <div v-if="config.enable_absolute_score_filter" class="flex justify-between">
+                  <span class="text-gray-400">绝对分过滤:</span>
+                  <span
+                    :class="getMetricClass(token.absolute_score || 0, config.min_absolute_score_threshold * 100, 'gte')"
+                  >
+                    {{ (token.absolute_score || 0).toFixed(1) }} /
+                    {{ (config.min_absolute_score_threshold * 100).toFixed(1) }}
+                  </span>
+                </div>
+                <div v-if="config.enable_relative_score_filter" class="flex justify-between">
+                  <span class="text-gray-400">相对分过滤:</span>
+                  <span
+                    :class="getMetricClass(token.relative_score || 0, config.min_relative_score_threshold * 100, 'gte')"
+                  >
+                    {{ (token.relative_score || 0).toFixed(1) }} /
+                    {{ (config.min_relative_score_threshold * 100).toFixed(1) }}
+                  </span>
+                </div>
+                <div v-if="config.enable_change_5m_filter" class="flex justify-between">
+                  <span class="text-gray-400">5分钟涨幅:</span>
+                  <span
+                    :class="
+                      getMetricClass(token.change_5m || 0, config.min_change_5m_threshold, 'gte') &&
+                      getMetricClass(token.change_5m || 0, config.max_change_5m_threshold, 'lte')
+                        ? 'text-green-400'
+                        : 'text-red-400'
+                    "
+                  >
+                    {{ ((token.change_5m || 0) * 100).toFixed(1) }}%
+                  </span>
+                </div>
+                <div v-if="config.enable_change_1h_filter" class="flex justify-between">
+                  <span class="text-gray-400">1小时涨幅:</span>
+                  <span
+                    :class="
+                      getMetricClass(token.change_1h || 0, config.min_change_1h_threshold, 'gte') &&
+                      getMetricClass(token.change_1h || 0, config.max_change_1h_threshold, 'lte')
+                        ? 'text-green-400'
+                        : 'text-red-400'
+                    "
+                  >
+                    {{ ((token.change_1h || 0) * 100).toFixed(1) }}%
+                  </span>
                 </div>
               </div>
             </div>
@@ -282,42 +246,111 @@
         </div>
       </div>
 
-      <!-- 匹配的Token展示 -->
-      <div v-if="strategyValidation?.matches.length" class="mt-6 space-y-3">
-        <h3 class="text-white font-medium">符合策略条件的Token:</h3>
-        <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 md:grid-cols-2 xl:grid-cols-5">
+      <!-- Token详细匹配分析 -->
+      <div v-if="currentAnalysis && currentAnalysis.length > 0" class="mt-6 space-y-4">
+        <!-- 匹配概览 -->
+        <div class="flex items-center justify-between">
+          <h3 class="text-white font-medium">Token匹配分析 (共{{ currentAnalysis.length }}个)</h3>
+          <div class="flex items-center space-x-2">
+            <span class="text-sm text-gray-400">符合条件:</span>
+            <span class="font-bold" :class="strategyValidation?.matches.length ? 'text-green-400' : 'text-red-400'">
+              {{ strategyValidation?.matches.length || 0 }}个
+            </span>
+          </div>
+        </div>
+
+        <!-- Token分析列表 -->
+        <div class="max-h-96 overflow-y-auto space-y-2">
           <div
-            v-for="(match, index) in strategyValidation.matches"
-            :key="`match-${index}-${match.symbol}`"
-            class="relative overflow-hidden border rounded-lg p-3 transition-all duration-300 hover:shadow-lg"
-            :class="getMatchCardClass(index)"
+            v-for="(token, index) in currentAnalysis.slice(0, 10)"
+            :key="`analysis-${index}-${token.symbol}`"
+            class="border rounded-lg p-3"
+            :class="getTokenDebugClass(token)"
           >
             <div class="mb-2 flex items-center justify-between">
               <div class="flex items-center space-x-2">
-                <div class="text-lg">{{ getPredictionIcon(match.predicted_rank - 1) }}</div>
-                <div class="text-sm text-white font-bold">{{ match.symbol }}</div>
+                <span class="text-lg">{{ getPredictionIcon(index) }}</span>
+                <span class="text-white font-bold">{{ token.symbol }}</span>
+                <span class="text-xs text-gray-400">#{{ token.predicted_rank || index + 1 }}</span>
               </div>
-              <div class="text-xs text-gray-400">#{{ match.predicted_rank }}</div>
+              <div class="flex items-center space-x-2">
+                <div class="text-xs" :class="isTokenMatching(token) ? 'text-green-400' : 'text-red-400'">
+                  {{ isTokenMatching(token) ? '✅ 匹配' : '❌ 不匹配' }}
+                </div>
+                <div v-if="isTokenMatching(token)" class="text-xs text-green-400 font-bold">
+                  ${{ config.bet_amount }}
+                </div>
+              </div>
             </div>
 
             <div class="text-xs space-y-1">
-              <div class="flex justify-between">
-                <span class="text-gray-400">下注金额:</span>
-                <span class="text-green-400 font-bold">${{ match.bet_amount }}</span>
+              <div class="grid grid-cols-2 gap-2">
+                <!-- 核心指标 -->
+                <div class="space-y-1">
+                  <div class="flex justify-between">
+                    <span class="text-gray-400">置信度:</span>
+                    <span :class="getMetricClass(getTokenConfidence(token), confidenceThreshold, 'gte')">
+                      {{ getTokenConfidence(token).toFixed(1) }}% / {{ confidenceThreshold }}%
+                    </span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-400">分数:</span>
+                    <span :class="getMetricClass(getTokenScore(token), config.score_gap_threshold, 'gte')">
+                      {{ getTokenScore(token).toFixed(1) }} / {{ config.score_gap_threshold }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="space-y-1">
+                  <div class="flex justify-between">
+                    <span class="text-gray-400">样本数:</span>
+                    <span :class="getMetricClass(getTokenSampleCount(token), config.min_sample_count, 'gte')">
+                      {{ getTokenSampleCount(token) }} / {{ config.min_sample_count }}
+                    </span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-400">历史准确率:</span>
+                    <span
+                      :class="
+                        getMetricClass(getTokenHistoricalAccuracy(token), config.historical_accuracy_threshold, 'gte')
+                      "
+                    >
+                      {{ (getTokenHistoricalAccuracy(token) * 100).toFixed(1) }}% /
+                      {{ (config.historical_accuracy_threshold * 100).toFixed(1) }}%
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">置信度:</span>
-                <span class="text-blue-400 font-bold">{{ (match.confidence || 0).toFixed(1) }}%</span>
+
+              <!-- 失败原因（只在不匹配时显示） -->
+              <div v-if="!isTokenMatching(token)" class="mt-2 rounded bg-red-500/10 p-2">
+                <div class="text-xs text-red-400">
+                  <strong>未匹配原因:</strong>
+                  <span class="ml-1">{{ getTokenFailureReasons(token).slice(0, 2).join(', ') }}</span>
+                  <span v-if="getTokenFailureReasons(token).length > 2" class="text-red-300">
+                    等{{ getTokenFailureReasons(token).length - 2 }}个
+                  </span>
+                </div>
               </div>
-              <div v-if="match.score" class="flex justify-between">
-                <span class="text-gray-400">预测分数:</span>
-                <span class="text-purple-400 font-bold">{{ (match.score || 0).toFixed(1) }}</span>
+
+              <!-- 成功匹配时的额外信息 -->
+              <div v-if="isTokenMatching(token)" class="mt-2 rounded bg-green-500/10 p-2">
+                <div class="text-xs text-green-400">
+                  <strong>✅ 符合所有条件，将下注 ${{ config.bet_amount }}</strong>
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        <!-- 显示更多提示 -->
+        <div v-if="currentAnalysis.length > 10" class="text-center">
+          <span class="text-xs text-gray-400">显示前10个Token，总共{{ currentAnalysis.length }}个</span>
+        </div>
       </div>
-      <NEmpty v-else-if="currentAnalysis.length > 0" description="当前无符合策略条件的Token" class="mt-6 py-8" />
+
+      <!-- 无数据时的提示 -->
+      <NEmpty v-else description="暂无预测数据" class="mt-6 py-8" />
 
       <!-- 核心控制按钮 -->
       <div class="mt-6 flex justify-center space-x-4">

@@ -140,10 +140,10 @@
             <!-- Token头部 - 横向紧凑布局 -->
             <div class="mb-3">
               <!-- 第一行：图标 + Token符号 + 排名 -->
-              <div class="flex items-center justify-between mb-2">
+              <div class="mb-2 flex items-center justify-between">
                 <div class="flex items-center space-x-2">
                   <span class="text-lg">{{ getPredictionIcon(index) }}</span>
-                  <span class="text-white font-bold text-sm">{{ token.symbol }}</span>
+                  <span class="text-sm text-white font-bold">{{ token.symbol }}</span>
                   <span class="text-xs text-gray-400">#{{ token.predicted_rank || index + 1 }}</span>
                 </div>
               </div>
@@ -317,7 +317,7 @@
               <div class="space-y-2">
                 <NTooltip trigger="hover" placement="top">
                   <template #trigger>
-                    <label class="cursor-help text-xs text-gray-300 font-medium inline-flex items-center space-x-1">
+                    <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
                       <span>下注金额</span>
                       <span class="text-blue-400">ℹ️</span>
                     </label>
@@ -340,7 +340,7 @@
               <div class="space-y-2">
                 <NTooltip trigger="hover" placement="top">
                   <template #trigger>
-                    <label class="cursor-help text-xs text-gray-300 font-medium inline-flex items-center space-x-1">
+                    <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
                       <span>置信度(%)</span>
                       <span class="text-blue-400">ℹ️</span>
                     </label>
@@ -360,7 +360,7 @@
               <div class="space-y-2">
                 <NTooltip trigger="hover" placement="top">
                   <template #trigger>
-                    <label class="cursor-help text-xs text-gray-300 font-medium inline-flex items-center space-x-1">
+                    <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
                       <span>分数门槛</span>
                       <span class="text-blue-400">ℹ️</span>
                     </label>
@@ -371,8 +371,8 @@
                 <n-input-number
                   v-model:value="props.config.score_gap_threshold"
                   :min="0"
-                  :max="50"
-                  :step="0.1"
+                  :max="100"
+                  :step="1"
                   :precision="1"
                   :disabled="isRunning || props.config.strategy === 'rank_betting'"
                   size="small"
@@ -384,7 +384,7 @@
               <div class="space-y-2">
                 <NTooltip trigger="hover" placement="top">
                   <template #trigger>
-                    <label class="cursor-help text-xs text-gray-300 font-medium inline-flex items-center space-x-1">
+                    <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
                       <span>最少样本数</span>
                       <span class="text-blue-400">ℹ️</span>
                     </label>
@@ -404,7 +404,7 @@
               <div class="space-y-2">
                 <NTooltip trigger="hover" placement="top">
                   <template #trigger>
-                    <label class="cursor-help text-xs text-gray-300 font-medium inline-flex items-center space-x-1">
+                    <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
                       <span>历史准确率(%)</span>
                       <span class="text-blue-400">ℹ️</span>
                     </label>
@@ -428,7 +428,7 @@
               <div class="space-y-2">
                 <NTooltip trigger="hover" placement="top">
                   <template #trigger>
-                    <label class="cursor-help text-xs text-gray-300 font-medium inline-flex items-center space-x-1">
+                    <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
                       <span>下注策略</span>
                       <span class="text-blue-400">ℹ️</span>
                     </label>
@@ -471,7 +471,7 @@
               <NTooltip trigger="hover" placement="top">
                 <template #trigger>
                   <label
-                    class="cursor-help mb-2 block text-xs text-gray-300 font-medium inline-flex items-center space-x-1"
+                    class="mb-2 block inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1"
                   >
                     <span>选择排名</span>
                     <span class="text-blue-400">ℹ️</span>
@@ -508,7 +508,7 @@
               <div class="mb-3 flex items-center justify-between">
                 <NTooltip trigger="hover" placement="top">
                   <template #trigger>
-                    <span class="cursor-help text-sm text-gray-300 font-medium inline-flex items-center space-x-1">
+                    <span class="inline-flex cursor-help items-center text-sm text-gray-300 font-medium space-x-1">
                       <span>高级过滤器</span>
                       <span class="text-blue-400">ℹ️</span>
                     </span>
@@ -538,9 +538,9 @@
                       <div class="grid grid-cols-2 flex-1 gap-2">
                         <NTooltip trigger="hover" placement="top">
                           <template #trigger>
-                            <label class="cursor-help text-xs text-gray-300 inline-flex items-center space-x-1">
+                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
                               <span>胜率 ≥</span>
-                              <span class="text-blue-400 text-xs">ℹ️</span>
+                              <span class="text-xs text-blue-400">ℹ️</span>
                             </label>
                           </template>
                           Token 在历史预测中获胜的比例。胜率越高表示该 Token 过往表现越稳定。建议设置在 0.65-0.75 之间。
@@ -568,9 +568,9 @@
                       <div class="grid grid-cols-2 flex-1 gap-2">
                         <NTooltip trigger="hover" placement="top">
                           <template #trigger>
-                            <label class="cursor-help text-xs text-gray-300 inline-flex items-center space-x-1">
+                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
                               <span>保本率 ≥</span>
-                              <span class="text-blue-400 text-xs">ℹ️</span>
+                              <span class="text-xs text-blue-400">ℹ️</span>
                             </label>
                           </template>
                           Token 排名进入前三的比例（通常前三有奖励，可以保本或盈利）。数值越高表示风险越低。建议设置在
@@ -595,9 +595,9 @@
                       <div class="grid grid-cols-2 flex-1 gap-2">
                         <NTooltip trigger="hover" placement="top">
                           <template #trigger>
-                            <label class="cursor-help text-xs text-gray-300 inline-flex items-center space-x-1">
+                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
                               <span>平均排名 ≤</span>
-                              <span class="text-blue-400 text-xs">ℹ️</span>
+                              <span class="text-xs text-blue-400">ℹ️</span>
                             </label>
                           </template>
                           Token 在历史预测中的平均排名。数值越小表示平均表现越好。建议设置在 2.5-3.0
@@ -626,9 +626,9 @@
                       <div class="grid grid-cols-2 flex-1 gap-2">
                         <NTooltip trigger="hover" placement="top">
                           <template #trigger>
-                            <label class="cursor-help text-xs text-gray-300 inline-flex items-center space-x-1">
+                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
                               <span>波动性 ≤</span>
-                              <span class="text-blue-400 text-xs">ℹ️</span>
+                              <span class="text-xs text-blue-400">ℹ️</span>
                             </label>
                           </template>
                           Token 价格波动的标准差，数值越小表示价格越稳定，风险越低。建议设置在 0.6-0.8
@@ -662,9 +662,9 @@
                       <div class="grid grid-cols-2 flex-1 gap-2">
                         <NTooltip trigger="hover" placement="top">
                           <template #trigger>
-                            <label class="cursor-help text-xs text-gray-300 inline-flex items-center space-x-1">
+                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
                               <span>绝对分数 ≥</span>
-                              <span class="text-blue-400 text-xs">ℹ️</span>
+                              <span class="text-xs text-blue-400">ℹ️</span>
                             </label>
                           </template>
                           AI 算法给出的绝对评分，反映 Token 的综合表现潜力。数值越高表示算法越看好该 Token。建议设置在
@@ -693,9 +693,9 @@
                       <div class="grid grid-cols-2 flex-1 gap-2">
                         <NTooltip trigger="hover" placement="top">
                           <template #trigger>
-                            <label class="cursor-help text-xs text-gray-300 inline-flex items-center space-x-1">
+                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
                               <span>相对分数 ≥</span>
-                              <span class="text-blue-400 text-xs">ℹ️</span>
+                              <span class="text-xs text-blue-400">ℹ️</span>
                             </label>
                           </template>
                           该 Token 相对于其他 Token 的评分优势。数值越高表示在当前轮次中相对表现越突出。建议设置在
@@ -724,9 +724,9 @@
                       <div class="grid grid-cols-2 flex-1 gap-2">
                         <NTooltip trigger="hover" placement="top">
                           <template #trigger>
-                            <label class="cursor-help text-xs text-gray-300 inline-flex items-center space-x-1">
+                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
                               <span>H2H分数 ≥</span>
-                              <span class="text-blue-400 text-xs">ℹ️</span>
+                              <span class="text-xs text-blue-400">ℹ️</span>
                             </label>
                           </template>
                           Head-to-Head 对战分数，反映该 Token 与其他 Token
@@ -760,9 +760,9 @@
                       <div class="grid grid-cols-3 flex-1 gap-1">
                         <NTooltip trigger="hover" placement="top">
                           <template #trigger>
-                            <label class="cursor-help text-xs text-gray-300 inline-flex items-center space-x-1">
+                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
                               <span>5分钟</span>
-                              <span class="text-blue-400 text-xs">ℹ️</span>
+                              <span class="text-xs text-blue-400">ℹ️</span>
                             </label>
                           </template>
                           Token 在过去5分钟的价格变动范围。可以筛选出短期内表现稳定或有特定趋势的
@@ -797,9 +797,9 @@
                       <div class="grid grid-cols-3 flex-1 gap-1">
                         <NTooltip trigger="hover" placement="top">
                           <template #trigger>
-                            <label class="cursor-help text-xs text-gray-300 inline-flex items-center space-x-1">
+                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
                               <span>1小时</span>
-                              <span class="text-blue-400 text-xs">ℹ️</span>
+                              <span class="text-xs text-blue-400">ℹ️</span>
                             </label>
                           </template>
                           Token 在过去1小时的价格变动范围。中期趋势指标，有助于识别有上涨潜力但不过于波动的
@@ -834,9 +834,9 @@
                       <div class="grid grid-cols-3 flex-1 gap-1">
                         <NTooltip trigger="hover" placement="top">
                           <template #trigger>
-                            <label class="cursor-help text-xs text-gray-300 inline-flex items-center space-x-1">
+                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
                               <span>4小时</span>
-                              <span class="text-blue-400 text-xs">ℹ️</span>
+                              <span class="text-xs text-blue-400">ℹ️</span>
                             </label>
                           </template>
                           Token 在过去4小时的价格变动范围。较长期的市场趋势指标，可以筛选出有持续上涨势头的
@@ -871,9 +871,9 @@
                       <div class="grid grid-cols-3 flex-1 gap-1">
                         <NTooltip trigger="hover" placement="top">
                           <template #trigger>
-                            <label class="cursor-help text-xs text-gray-300 inline-flex items-center space-x-1">
+                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
                               <span>24小时</span>
-                              <span class="text-blue-400 text-xs">ℹ️</span>
+                              <span class="text-xs text-blue-400">ℹ️</span>
                             </label>
                           </template>
                           Token 在过去24小时的价格变动范围。长期趋势指标，可以排除过度波动的

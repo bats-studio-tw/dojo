@@ -7,7 +7,13 @@
         <div class="flex items-center space-x-3">
           <div class="flex items-center space-x-2">
             <label class="text-sm text-gray-300">分析周期:</label>
-            <n-select v-model:value="selectedDays" :options="dayOptions" size="small" class="w-32" />
+            <n-select
+              v-model:value="selectedDays"
+              :options="dayOptions"
+              size="small"
+              class="w-32"
+              @update:value="refreshOnDaysChange"
+            />
           </div>
           <n-button @click="refreshAnalysis" :loading="loading" type="primary" size="small">
             <template #icon>
@@ -79,7 +85,7 @@
                 class="flex items-center justify-between"
               >
                 <span class="text-sm text-gray-400">
-                  {{ rank === 'other' ? '其他排名' : `第${rank}名` }}
+                  {{ String(rank) === 'other' ? '其他排名' : `第${rank}名` }}
                 </span>
                 <div class="flex items-center space-x-2">
                   <div class="h-2 w-20 rounded-full bg-gray-700">
@@ -401,8 +407,12 @@
     }
   };
 
-  // 监听天数变化
-  const selectedDaysWatcher = computed(() => selectedDays.value);
+  // 监听天数变化并重新获取数据
+  const refreshOnDaysChange = async () => {
+    if (props.uid) {
+      await refreshAnalysis();
+    }
+  };
 
   // 组件挂载时获取数据
   onMounted(async () => {

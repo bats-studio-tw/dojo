@@ -1,28 +1,39 @@
 <template>
   <div class="space-y-6">
-    <!-- 预测统计分析 -->
-    <div class="mb-6">
-      <PredictionStats
-        :exact-rate="exactRate"
-        :total-rounds="totalRounds"
-        :all-stats="allStats"
-        :recent-stats="recentStats"
-        :recent-rounds-count="recentRoundsCount"
-        @update:recent-rounds-count="$emit('update:recent-rounds-count', $event)"
-        :max-rounds="maxRounds"
-        :loading="historyLoading"
-        @refresh="$emit('refreshPredictionHistory')"
-      />
-    </div>
+    <!-- 分析类型标签页 -->
+    <n-tabs v-model:value="activeAnalysisTab" type="card" class="history-analysis-tabs">
+      <!-- 预测分析标签页 -->
+      <n-tab-pane name="prediction" tab="🔮 预测分析">
+        <!-- 预测统计分析 -->
+        <div class="mb-6">
+          <PredictionStats
+            :exact-rate="exactRate"
+            :total-rounds="totalRounds"
+            :all-stats="allStats"
+            :recent-stats="recentStats"
+            :recent-rounds-count="recentRoundsCount"
+            @update:recent-rounds-count="$emit('update:recent-rounds-count', $event)"
+            :max-rounds="maxRounds"
+            :loading="historyLoading"
+            @refresh="$emit('refreshPredictionHistory')"
+          />
+        </div>
 
-    <!-- 预测历史对比表格 -->
-    <div class="mb-6">
-      <PredictionHistoryTable
-        :prediction-data="predictionComparisonData"
-        :loading="historyLoading"
-        @refresh="$emit('refreshPredictionHistory')"
-      />
-    </div>
+        <!-- 预测历史对比表格 -->
+        <div class="mb-6">
+          <PredictionHistoryTable
+            :prediction-data="predictionComparisonData"
+            :loading="historyLoading"
+            @refresh="$emit('refreshPredictionHistory')"
+          />
+        </div>
+      </n-tab-pane>
+
+      <!-- 投注表现分析标签页 -->
+      <n-tab-pane name="betting" tab="💰 投注表现">
+        <BettingPerformanceAnalysis :uid="getCurrentUID()" />
+      </n-tab-pane>
+    </n-tabs>
 
     <!-- 自动下注记录 -->
     <NCard
@@ -130,9 +141,10 @@
 
 <script setup lang="ts">
   import { ref, computed, onMounted } from 'vue';
-  import { NDataTable } from 'naive-ui';
+  import { NDataTable, NTabs, NTabPane } from 'naive-ui';
   import PredictionStats from './PredictionStats.vue';
   import PredictionHistoryTable from './PredictionHistoryTable.vue';
+  import BettingPerformanceAnalysis from './BettingPerformanceAnalysis.vue';
   import { autoBettingApi } from '@/utils/api';
 
   // Props
@@ -158,6 +170,7 @@
   }>();
 
   // 响应式数据
+  const activeAnalysisTab = ref('prediction');
   const recordFilter = ref('all');
   const searchKeyword = ref('');
   const recordsLoading = ref(false);
@@ -342,5 +355,20 @@
 
   :deep(.betting-records-table .n-data-table-tr:hover .n-data-table-td) {
     background: rgba(255, 255, 255, 0.05);
+  }
+
+  :deep(.history-analysis-tabs .n-tabs-nav) {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+  }
+
+  :deep(.history-analysis-tabs .n-tabs-tab) {
+    border-radius: 6px;
+    margin: 2px;
+  }
+
+  :deep(.history-analysis-tabs .n-tabs-tab.n-tabs-tab--active) {
+    background: rgba(59, 130, 246, 0.2);
+    color: rgb(96, 165, 250);
   }
 </style>

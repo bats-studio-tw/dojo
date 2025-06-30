@@ -70,6 +70,34 @@
             <span class="text-yellow-400 font-bold">{{ (token.win_rate || 0).toFixed(1) }}%</span>
           </div>
 
+          <!-- 代币涨跌幅信息 -->
+          <div v-if="hasAnyPriceChange(token)" class="mt-2 border-t border-gray-600/30 pt-1">
+            <div v-if="token.change_5m !== null && token.change_5m !== undefined" class="flex justify-between">
+              <span class="text-gray-400">5分钟:</span>
+              <span class="font-bold" :class="formatTokenPriceChange(token.change_5m).color">
+                {{ formatTokenPriceChange(token.change_5m).text }}
+              </span>
+            </div>
+            <div v-if="token.change_1h !== null && token.change_1h !== undefined" class="flex justify-between">
+              <span class="text-gray-400">1小时:</span>
+              <span class="font-bold" :class="formatTokenPriceChange(token.change_1h).color">
+                {{ formatTokenPriceChange(token.change_1h).text }}
+              </span>
+            </div>
+            <div v-if="token.change_4h !== null && token.change_4h !== undefined" class="flex justify-between">
+              <span class="text-gray-400">4小时:</span>
+              <span class="font-bold" :class="formatTokenPriceChange(token.change_4h).color">
+                {{ formatTokenPriceChange(token.change_4h).text }}
+              </span>
+            </div>
+            <div v-if="token.change_24h !== null && token.change_24h !== undefined" class="flex justify-between">
+              <span class="text-gray-400">24小时:</span>
+              <span class="font-bold" :class="formatTokenPriceChange(token.change_24h).color">
+                {{ formatTokenPriceChange(token.change_24h).text }}
+              </span>
+            </div>
+          </div>
+
           <!-- 实时游戏数据对比（如果有） -->
           <div v-if="getTokenCurrentRank(token.symbol)" class="mt-2 border-t border-gray-600/30 pt-1">
             <div class="flex justify-between">
@@ -171,6 +199,27 @@
     const color = change > 0 ? 'text-green-400' : change < 0 ? 'text-red-400' : 'text-gray-400';
 
     return { text, color };
+  };
+
+  // 格式化Token涨跌幅数据
+  const formatTokenPriceChange = (change: number | null) => {
+    if (change === null || change === undefined) return { text: '-', color: 'text-gray-400' };
+
+    const prefix = change > 0 ? '+' : '';
+    const text = `${prefix}${change.toFixed(2)}%`;
+    const color = change > 0 ? 'text-green-400' : change < 0 ? 'text-red-400' : 'text-gray-400';
+
+    return { text, color };
+  };
+
+  // 检查Token是否有任何涨跌幅数据
+  const hasAnyPriceChange = (token: any) => {
+    return (
+      (token.change_5m !== null && token.change_5m !== undefined) ||
+      (token.change_1h !== null && token.change_1h !== undefined) ||
+      (token.change_4h !== null && token.change_4h !== undefined) ||
+      (token.change_24h !== null && token.change_24h !== undefined)
+    );
   };
 
   // ==================== 样式相关函数 ====================

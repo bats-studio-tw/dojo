@@ -678,7 +678,14 @@
       }
     }
 
-    console.log('🤖 自动下注页面已加载，使用WebSocket实时数据模式');
+    // 🔮 获取初始预测数据 - 确保与Dashboard行为一致
+    console.log('🔮 自动下注页面：获取初始预测数据...');
+    await refreshAnalysis();
+
+    // 获取预测历史数据，用于历史分析标签页
+    await predictionStore.fetchPredictionHistory();
+
+    console.log('🤖 自动下注页面已加载，包含初始数据获取和WebSocket实时数据模式');
   });
 
   // 组件卸载时清理资源

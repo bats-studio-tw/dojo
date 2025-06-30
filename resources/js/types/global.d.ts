@@ -23,3 +23,18 @@ declare module 'vue' {
 declare module '@inertiajs/core' {
   interface PageProps extends InertiaPageProps, AppPageProps {}
 }
+
+// 导出游戏相关类型供其他组件使用
+export type {
+  GameStatus,
+  GameUpdateType,
+  TokenPriceData,
+  TokenBetData,
+  GroupData,
+  GameTimeData,
+  GameData,
+  GameDataUpdateEvent,
+  TokenAnalysis,
+  PredictionUpdateEvent,
+  WebSocketStatus
+} from '@/stores/gamePrediction';

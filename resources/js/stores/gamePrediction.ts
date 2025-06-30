@@ -1,7 +1,85 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
-// ==================== 类型定义（为了兼容性保留） ====================
+// ==================== WebSocket游戏数据类型定义 ====================
+
+/**
+ * 游戏状态类型
+ */
+export type GameStatus = 'bet' | 'lock' | 'settling' | 'settled';
+
+/**
+ * 游戏数据更新事件类型
+ */
+export type GameUpdateType = 'bet' | 'lock' | 'settlement';
+
+/**
+ * Token价格和排名数据
+ */
+export interface TokenPriceData {
+  p: number; // 价格变化
+  s: number; // 当前排名 (rank)
+}
+
+/**
+ * Token投注数据
+ */
+export interface TokenBetData {
+  a: number; // 投注金额 (amount)
+  c: number; // 投注次数 (count)
+}
+
+/**
+ * 分组数据 (dummy/real)
+ */
+export interface GroupData {
+  PAmt: number; // 总投注金额
+  PStart: number; // 游戏开始时间戳
+  TAmt: number; // Token总金额
+  TCount: number; // 总投注次数
+  mts: boolean; // 是否维护状态
+  token: Record<string, TokenBetData>; // Token投注数据
+}
+
+/**
+ * 时间数据
+ */
+export interface GameTimeData {
+  bet: number; // 投注开始时间
+  lock: number; // 锁定时间
+  settle: number; // 结算时间
+}
+
+/**
+ * 完整的游戏数据结构
+ */
+export interface GameData {
+  gmId: string; // 游戏ID
+  groupDatas: {
+    dummy: GroupData; // 模拟数据
+    real: GroupData; // 真实数据
+  };
+  rdId: string; // 轮次ID
+  status: GameStatus; // 游戏状态
+  time: {
+    next: GameTimeData; // 下一轮时间
+    now: GameTimeData; // 当前轮时间
+  };
+  token: Record<string, TokenPriceData>; // Token价格和排名数据
+  ts: number; // 时间戳
+  type: string; // 数据类型 (通常是 "round")
+}
+
+/**
+ * WebSocket游戏数据更新事件
+ */
+export interface GameDataUpdateEvent {
+  type: GameUpdateType; // 事件类型
+  data: GameData; // 游戏数据
+  timestamp: string; // 事件时间戳
+}
+
+// ==================== 预测数据类型定义（为了兼容性保留） ====================
 export interface TokenAnalysis {
   symbol: string;
   name: string;
@@ -81,6 +159,15 @@ export interface AnalysisMeta {
   [key: string]: any;
 }
 
+/**
+ * 预测数据更新事件
+ */
+export interface PredictionUpdateEvent {
+  success: boolean;
+  data: TokenAnalysis[];
+  meta: AnalysisMeta;
+}
+
 // 最简单的WebSocket状态类型
 export interface WebSocketStatus {
   status: 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -96,11 +183,11 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     lastConnectedAt: null
   });
 
-  // ==================== 为了兼容性添加的空数据 ====================
+  // ==================== 数据状态管理 ====================
   const currentAnalysis = ref<TokenAnalysis[]>([]);
   const analysisMeta = ref<AnalysisMeta | null>(null);
   const predictionHistory = ref<PredictionHistoryRound[]>([]);
-  const latestGameData = ref<any>(null);
+  const latestGameData = ref<GameData | null>(null);
 
   // 加载状态（空实现）
   const analysisLoading = ref(false);
@@ -132,23 +219,52 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     return null;
   });
 
-  const currentGameStatus = computed(() => {
+  const currentGameStatus = computed((): GameStatus | 'unknown' => {
     return latestGameData.value?.status || 'unknown';
   });
 
-  const currentGameTokens = computed(() => {
+  const currentGameTokens = computed((): string[] => {
     if (!latestGameData.value?.token) return [];
     return Object.keys(latestGameData.value.token);
   });
 
   const currentGameTokensWithRanks = computed(() => {
     if (!latestGameData.value?.token) return [];
-    return Object.entries(latestGameData.value.token).map(([symbol, data]: [string, any]) => ({
+    return Object.entries(latestGameData.value.token).map(([symbol, tokenData]) => ({
       symbol,
-      rank: data.s || data.rank,
-      price: data.p || data.price,
-      ...data
+      rank: tokenData.s, // 当前排名
+      priceChange: tokenData.p, // 价格变化
+      ...tokenData
     }));
+  });
+
+  // 新增：获取Token排名映射
+  const tokenRankings = computed(() => {
+    if (!latestGameData.value?.token) return {};
+    const rankings: Record<string, number> = {};
+    Object.entries(latestGameData.value.token).forEach(([symbol, data]) => {
+      rankings[symbol] = data.s;
+    });
+    return rankings;
+  });
+
+  // 新增：获取游戏时间信息
+  const gameTimeInfo = computed(() => {
+    if (!latestGameData.value?.time) return null;
+    return {
+      current: latestGameData.value.time.now,
+      next: latestGameData.value.time.next,
+      currentPhase: latestGameData.value.status
+    };
+  });
+
+  // 新增：获取投注统计信息
+  const bettingStats = computed(() => {
+    if (!latestGameData.value?.groupDatas) return null;
+    return {
+      real: latestGameData.value.groupDatas.real,
+      dummy: latestGameData.value.groupDatas.dummy
+    };
   });
 
   const currentAnalysisFormatted = computed(() => {
@@ -224,18 +340,26 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         .subscribed(() => {
           console.log('✅ [DEBUG] 成功订阅 game-updates 频道');
         })
-        .listen('.game.data.updated', (data: any) => {
+        .listen('.game.data.updated', (event: GameDataUpdateEvent) => {
           console.log('📨 [DEBUG] ========== 收到 game.data.updated 事件 ==========');
-          console.log('📨 [DEBUG] 完整数据:', data);
-          console.log('📨 [DEBUG] 数据类型:', typeof data);
-          console.log('📨 [DEBUG] 数据键:', Object.keys(data));
+          console.log('📨 [DEBUG] 事件类型:', event.type);
+          console.log('📨 [DEBUG] 游戏状态:', event.data.status);
+          console.log('📨 [DEBUG] 轮次ID:', event.data.rdId);
+          console.log('📨 [DEBUG] Token数据:', event.data.token);
+          console.log('📨 [DEBUG] 完整数据:', event);
           console.log('📨 [DEBUG] 时间戳:', new Date().toLocaleString());
           console.log('📨 [DEBUG] ==========================================');
 
           // 更新游戏数据
-          if (data.data) {
-            latestGameData.value = { ...data.data };
-            console.log('📨 [DEBUG] 已更新latestGameData');
+          if (event.data) {
+            latestGameData.value = { ...event.data };
+            console.log('📨 [DEBUG] 已更新latestGameData - 状态:', event.data.status);
+            console.log(
+              '📨 [DEBUG] 当前Token排名:',
+              Object.entries(event.data.token)
+                .map(([symbol, data]) => `${symbol}: ${data.s}`)
+                .join(', ')
+            );
           }
         })
         .error((error: any) => {
@@ -250,33 +374,45 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         .subscribed(() => {
           console.log('✅ [DEBUG] 成功订阅 predictions 频道');
         })
-        .listen('.prediction.updated', (data: any) => {
+        .listen('.prediction.updated', (rawEvent: any) => {
           console.log('🔮 [DEBUG] ========== 收到 prediction.updated 事件 ==========');
-          console.log('🔮 [DEBUG] 完整数据:', data);
-          console.log('🔮 [DEBUG] 数据类型:', typeof data);
-          console.log('🔮 [DEBUG] 数据键:', Object.keys(data));
+          console.log('🔮 [DEBUG] 原始事件数据:', rawEvent);
+          console.log('🔮 [DEBUG] 数据类型:', typeof rawEvent.data);
           console.log('🔮 [DEBUG] 时间戳:', new Date().toLocaleString());
           console.log('🔮 [DEBUG] ==========================================');
 
-          // 更新预测数据
+          // 解析WebSocket数据
           try {
-            let parsedData = data;
-            if (typeof data === 'string') {
-              parsedData = JSON.parse(data);
-            } else if (data.data && typeof data.data === 'string') {
-              parsedData = JSON.parse(data.data);
+            let predictionData: PredictionUpdateEvent;
+
+            // WebSocket的data字段是JSON字符串，需要解析
+            if (typeof rawEvent.data === 'string') {
+              predictionData = JSON.parse(rawEvent.data);
+              console.log('🔮 [DEBUG] 解析后的数据:', predictionData);
+            } else {
+              predictionData = rawEvent.data;
             }
 
-            if (parsedData.success && parsedData.data && Array.isArray(parsedData.data)) {
-              currentAnalysis.value = [...parsedData.data];
-              analysisMeta.value = parsedData.meta || null;
-              console.log('🔮 [DEBUG] 已更新currentAnalysis和analysisMeta');
-            } else if (parsedData.data && Array.isArray(parsedData.data)) {
-              currentAnalysis.value = [...parsedData.data];
-              console.log('🔮 [DEBUG] 已更新currentAnalysis');
+            console.log('🔮 [DEBUG] 预测成功:', predictionData.success);
+            console.log('🔮 [DEBUG] 预测Token数量:', predictionData.data?.length || 0);
+            console.log('🔮 [DEBUG] 轮次ID:', predictionData.meta?.round_id);
+            console.log('🔮 [DEBUG] 算法:', predictionData.meta?.prediction_algorithm);
+
+            // 更新预测数据
+            if (predictionData.success && predictionData.data && Array.isArray(predictionData.data)) {
+              currentAnalysis.value = [...predictionData.data];
+              analysisMeta.value = predictionData.meta || null;
+              console.log('🔮 [DEBUG] 已更新预测分析数据');
+              console.log(
+                '🔮 [DEBUG] 预测排名:',
+                predictionData.data.map((token) => `${token.symbol}: #${token.predicted_rank}`).join(', ')
+              );
+            } else {
+              console.warn('⚠️ [DEBUG] 预测数据格式异常:', predictionData);
             }
           } catch (error) {
             console.error('❌ [DEBUG] 解析预测数据失败:', error);
+            console.error('❌ [DEBUG] 原始数据:', rawEvent);
           }
         })
         .error((error: any) => {
@@ -481,7 +617,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     websocketStatus,
     isConnected,
 
-    // ==================== 为了兼容性导出的属性 ====================
+    // ==================== 数据状态导出 ====================
     currentAnalysis,
     analysisMeta,
     predictionHistory,
@@ -490,12 +626,17 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     historyLoading,
     analysisError,
     historyError,
+
+    // ==================== 计算属性导出 ====================
     hasCurrentAnalysis,
     totalHistoryRounds,
     currentRoundId,
     currentGameStatus,
     currentGameTokens,
     currentGameTokensWithRanks,
+    tokenRankings,
+    gameTimeInfo,
+    bettingStats,
     currentAnalysisFormatted,
     canBet,
     isLocked,
@@ -511,7 +652,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     testConnection,
     testEventBinding,
 
-    // ==================== 为了兼容性导出的方法 ====================
+    // ==================== 兼容性方法导出 ====================
     fetchCurrentAnalysis,
     fetchPredictionHistory,
     fetchInitialData,

@@ -11,13 +11,13 @@
           <div class="mt-3 rounded bg-green-900/20 p-3 text-sm text-green-300">
             ✅
             <strong>修复完成</strong>
-            ：已解决重复订阅和事件名称不匹配问题
+            ：已解决重复订阅、事件名称不匹配和数据解析问题
             <br />
             现在正确监听
             <code>game.data.updated</code>
             和
             <code>prediction.updated</code>
-            事件
+            事件，并支持完整的类型系统
           </div>
         </div>
 
@@ -96,6 +96,189 @@
           </div>
         </NCard>
 
+        <!-- 实时游戏数据面板 -->
+        <NCard
+          v-if="latestGameData"
+          class="mb-6 border border-cyan-500/30 bg-cyan-500/5 shadow-lg backdrop-blur-lg"
+          title="🎮 实时游戏数据"
+        >
+          <div class="space-y-4">
+            <!-- 游戏状态信息 -->
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div class="rounded bg-gray-800/50 p-3">
+                <div class="text-sm text-gray-400">游戏状态</div>
+                <div
+                  class="text-lg font-bold"
+                  :class="{
+                    'text-green-400': currentGameStatus === 'bet',
+                    'text-yellow-400': currentGameStatus === 'lock',
+                    'text-orange-400': currentGameStatus === 'settling',
+                    'text-blue-400': currentGameStatus === 'settled'
+                  }"
+                >
+                  {{ getStatusText(currentGameStatus) }}
+                </div>
+              </div>
+              <div class="rounded bg-gray-800/50 p-3">
+                <div class="text-sm text-gray-400">轮次ID</div>
+                <div class="text-lg text-cyan-400 font-mono">{{ latestGameData.rdId }}</div>
+              </div>
+              <div class="rounded bg-gray-800/50 p-3">
+                <div class="text-sm text-gray-400">Token数量</div>
+                <div class="text-lg text-white font-bold">{{ currentGameTokens.length }}</div>
+              </div>
+            </div>
+
+            <!-- Token排名信息 -->
+            <div v-if="currentGameTokensWithRanks.length > 0">
+              <h4 class="mb-3 text-white font-medium">📊 当前Token排名</h4>
+              <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 md:grid-cols-2">
+                <div v-for="token in sortedTokensByRank" :key="token.symbol" class="rounded bg-gray-800/50 p-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-white font-medium">{{ token.symbol }}</span>
+                    <span
+                      class="text-lg font-bold"
+                      :class="{
+                        'text-yellow-400': token.rank === 1,
+                        'text-gray-300': token.rank === 2,
+                        'text-orange-400': token.rank === 3,
+                        'text-blue-400': token.rank > 3
+                      }"
+                    >
+                      #{{ token.rank }}
+                    </span>
+                  </div>
+                  <div
+                    class="text-sm"
+                    :class="{
+                      'text-green-400': token.priceChange > 0,
+                      'text-red-400': token.priceChange < 0,
+                      'text-gray-400': token.priceChange === 0
+                    }"
+                  >
+                    {{ token.priceChange > 0 ? '+' : '' }}{{ (token.priceChange * 100).toFixed(4) }}%
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 投注统计 -->
+            <div v-if="bettingStats">
+              <h4 class="mb-3 text-white font-medium">💰 投注统计</h4>
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div class="rounded bg-green-900/20 p-3">
+                  <div class="mb-2 text-green-300 font-medium">🎯 真实投注</div>
+                  <div class="text-sm text-gray-300 space-y-1">
+                    <div>
+                      总金额:
+                      <span class="text-green-400">${{ bettingStats.real.PAmt.toFixed(2) }}</span>
+                    </div>
+                    <div>
+                      投注次数:
+                      <span class="text-green-400">{{ bettingStats.real.TCount }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="rounded bg-blue-900/20 p-3">
+                  <div class="mb-2 text-blue-300 font-medium">🧪 模拟投注</div>
+                  <div class="text-sm text-gray-300 space-y-1">
+                    <div>
+                      总金额:
+                      <span class="text-blue-400">${{ bettingStats.dummy.PAmt.toFixed(2) }}</span>
+                    </div>
+                    <div>
+                      投注次数:
+                      <span class="text-blue-400">{{ bettingStats.dummy.TCount }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </NCard>
+
+        <!-- 预测数据面板 -->
+        <NCard
+          v-if="hasCurrentAnalysis"
+          class="mb-6 border border-purple-500/30 bg-purple-500/5 shadow-lg backdrop-blur-lg"
+          title="🔮 AI预测分析"
+        >
+          <div class="space-y-4">
+            <!-- 预测元信息 -->
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div class="rounded bg-gray-800/50 p-3">
+                <div class="text-sm text-gray-400">算法版本</div>
+                <div class="text-sm text-purple-400 font-mono">{{ analysisMeta?.prediction_algorithm }}</div>
+              </div>
+              <div class="rounded bg-gray-800/50 p-3">
+                <div class="text-sm text-gray-400">分析Token数</div>
+                <div class="text-lg text-white font-bold">{{ currentAnalysis.length }}</div>
+              </div>
+              <div class="rounded bg-gray-800/50 p-3">
+                <div class="text-sm text-gray-400">轮次ID</div>
+                <div class="text-sm text-cyan-400 font-mono">{{ analysisMeta?.round_id }}</div>
+              </div>
+            </div>
+
+            <!-- 预测排名 -->
+            <div>
+              <h4 class="mb-3 text-white font-medium">🏆 AI预测排名</h4>
+              <div class="space-y-2">
+                <div
+                  v-for="token in sortedPredictionsByRank"
+                  :key="token.symbol"
+                  class="flex items-center justify-between rounded bg-gray-800/50 p-3"
+                >
+                  <div class="flex items-center space-x-3">
+                    <span
+                      class="text-2xl font-bold"
+                      :class="{
+                        'text-yellow-400': token.predicted_rank === 1,
+                        'text-gray-300': token.predicted_rank === 2,
+                        'text-orange-400': token.predicted_rank === 3,
+                        'text-blue-400': token.predicted_rank > 3
+                      }"
+                    >
+                      #{{ token.predicted_rank }}
+                    </span>
+                    <div>
+                      <div class="text-white font-medium">{{ token.symbol }}</div>
+                      <div class="text-sm text-gray-400">
+                        预测分数: {{ token.prediction_score?.toFixed(1) }} | 置信度:
+                        {{ token.rank_confidence?.toFixed(1) }}%
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-sm text-gray-400">胜率</div>
+                    <div class="text-green-400 font-bold">{{ token.win_rate?.toFixed(1) }}%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 预测统计信息 -->
+            <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div class="rounded bg-blue-900/20 p-3 text-center">
+                <div class="text-sm text-blue-300">算法描述</div>
+                <div class="mt-1 text-xs text-blue-400">保本优先策略</div>
+              </div>
+              <div class="rounded bg-green-900/20 p-3 text-center">
+                <div class="text-sm text-green-300">分析轮次</div>
+                <div class="text-green-400 font-bold">{{ analysisMeta?.analysis_rounds_count || 120 }}</div>
+              </div>
+              <div class="rounded bg-purple-900/20 p-3 text-center">
+                <div class="text-sm text-purple-300">数据源</div>
+                <div class="text-xs text-purple-400">{{ analysisMeta?.source || 'websocket' }}</div>
+              </div>
+              <div class="rounded bg-yellow-900/20 p-3 text-center">
+                <div class="text-sm text-yellow-300">更新时间</div>
+                <div class="text-xs text-yellow-400">{{ formatTimestamp(analysisMeta?.timestamp) }}</div>
+              </div>
+            </div>
+          </div>
+        </NCard>
+
         <!-- 控制按钮 -->
         <NCard class="mb-6 border border-purple-500/30 bg-purple-500/5 shadow-lg backdrop-blur-lg" title="🎛️ 调试控制">
           <div class="flex flex-wrap gap-3">
@@ -161,6 +344,7 @@
 <script setup lang="ts">
   import { Head } from '@inertiajs/vue3';
   import { storeToRefs } from 'pinia';
+  import { onMounted, computed } from 'vue';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
 
   // 使用简化的游戏预测store
@@ -170,10 +354,57 @@
   const gamePredictionStore = useGamePredictionStore();
 
   // 从store中获取状态
-  const { websocketStatus, isConnected } = storeToRefs(gamePredictionStore);
+  const {
+    websocketStatus,
+    isConnected,
+    latestGameData,
+    currentGameStatus,
+    currentGameTokens,
+    currentGameTokensWithRanks,
+    bettingStats,
+    currentAnalysis,
+    analysisMeta,
+    hasCurrentAnalysis
+  } = storeToRefs(gamePredictionStore);
 
   // 从store中获取方法
   const { initializeWebSocket, disconnectWebSocket, reconnectWebSocket, testConnection } = gamePredictionStore;
+
+  // 状态文本转换
+  const getStatusText = (status: string) => {
+    const statusMap = {
+      bet: '🟢 投注中',
+      lock: '🟡 已锁定',
+      settling: '🟠 结算中',
+      settled: '🔵 已结算',
+      unknown: '❓ 未知'
+    };
+    return statusMap[status as keyof typeof statusMap] || '❓ 未知';
+  };
+
+  // Token按排名排序
+  const sortedTokensByRank = computed(() => {
+    return [...currentGameTokensWithRanks.value].sort((a, b) => a.rank - b.rank);
+  });
+
+  // 预测Token按排名排序
+  const sortedPredictionsByRank = computed(() => {
+    return [...currentAnalysis.value].sort((a, b) => a.predicted_rank - b.predicted_rank);
+  });
+
+  // 时间戳格式化
+  const formatTimestamp = (timestamp: string | undefined) => {
+    if (!timestamp) return '未知';
+    try {
+      return new Date(timestamp).toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch {
+      return '无效时间';
+    }
+  };
 
   // 清空控制台
   const clearConsole = () => {
@@ -183,7 +414,6 @@
   };
 
   // 页面初始化
-  import { onMounted } from 'vue';
 
   onMounted(async () => {
     console.log('🏗️ [DEBUG] Dashboard 页面开始初始化...');

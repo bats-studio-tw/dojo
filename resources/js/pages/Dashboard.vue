@@ -94,15 +94,20 @@
           <template #header-extra>
             <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-x-3 sm:space-y-0">
               <div
-                v-if="analysisMeta"
+                v-if="currentRoundId"
                 class="flex flex-wrap items-center gap-1 text-xs text-gray-300 sm:gap-2 sm:text-sm"
               >
                 <span class="font-medium">轮次:</span>
-                <span class="text-red">{{ analysisMeta.round_id }}</span>
+                <span class="text-red">{{ currentRoundId }}</span>
                 <span class="font-medium">状态:</span>
-                <NTag :type="getStatusTagType(analysisMeta.status)" size="small">
-                  {{ analysisMeta.status }}
+                <NTag :type="getStatusTagType(currentGameStatus)" size="small">
+                  {{ currentGameStatus }}
                 </NTag>
+                <span class="font-medium">|</span>
+                <span v-if="canBet" class="text-green-400">🟢 可下注</span>
+                <span v-else-if="isSettling" class="text-yellow-400">🟡 结算中</span>
+                <span v-else-if="isSettled" class="text-blue-400">🔵 已结算</span>
+                <span v-else class="text-gray-400">⚪ 锁定中</span>
               </div>
               <n-button
                 :loading="analysisLoading"
@@ -682,8 +687,11 @@
     switch (status) {
       case 'bet':
         return 'success';
-      case 'settling':
+      case 'lock':
         return 'warning';
+      case 'settling':
+      case 'processing':
+        return 'error';
       case 'settled':
         return 'info';
       default:

@@ -28,7 +28,7 @@
           <div class="stat-icon">👤</div>
           <div class="stat-content">
             <div class="stat-label text-blue-300">用户余额</div>
-            <div class="stat-value text-blue-400">${{ (userInfo?.ojoValue || 0).toFixed(2) }}</div>
+            <div class="stat-value text-blue-400">${{ (strategyValidation?.actual_balance || 0).toFixed(2) }}</div>
             <div class="stat-desc text-blue-200/70">可用于下注</div>
           </div>
         </div>
@@ -86,7 +86,7 @@
               class="stat-desc"
               :class="(strategyValidation?.balance_sufficient ?? true) ? 'text-green-200/70' : 'text-red-200/70'"
             >
-              实际余额: ${{ (strategyValidation?.actual_balance || userInfo?.ojoValue || 0).toFixed(0) }}
+              实际余额: ${{ (strategyValidation?.actual_balance || 0).toFixed(0) }}
             </div>
           </div>
         </div>
@@ -128,43 +128,6 @@
         </div>
       </div>
       <NEmpty v-else-if="currentAnalysis.length > 0" description="当前无符合策略条件的Token" class="mt-6 py-8" />
-
-      <!-- 核心控制按钮 -->
-      <!-- 用户状态信息 -->
-      <div v-if="userInfo" class="mt-6 border border-blue-500/30 rounded-lg bg-blue-500/10 p-4">
-        <div class="mb-3 flex items-center justify-between">
-          <div class="flex items-center space-x-2">
-            <span class="text-lg">👤</span>
-            <span class="text-sm text-blue-400 font-medium">用户信息</span>
-          </div>
-          <n-button @click="reconnectToken" :disabled="autoBettingStatus.is_running" type="tertiary" size="tiny">
-            重新验证
-          </n-button>
-        </div>
-        <div class="grid grid-cols-2 gap-4 text-sm text-gray-300 md:grid-cols-4">
-          <div class="space-y-1">
-            <div class="text-xs text-gray-400">用户ID</div>
-            <div class="text-xs text-blue-400 font-mono">{{ userInfo.uid.slice(0, 8) }}...</div>
-          </div>
-          <div class="space-y-1">
-            <div class="text-xs text-gray-400">排名</div>
-            <div class="text-blue-400 font-medium">{{ userInfo.rankPercent }}</div>
-          </div>
-          <div class="space-y-1">
-            <div class="text-xs text-gray-400">总下注</div>
-            <div class="text-green-400 font-medium">{{ autoBettingStatus.total_bets }}</div>
-          </div>
-          <div class="space-y-1">
-            <div class="text-xs text-gray-400">总盈亏</div>
-            <div
-              class="font-medium"
-              :class="autoBettingStatus.total_profit_loss >= 0 ? 'text-green-400' : 'text-red-400'"
-            >
-              ${{ autoBettingStatus.total_profit_loss.toFixed(0) }}
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- 核心控制按钮 -->
       <div class="mt-6 flex justify-center space-x-4">
@@ -211,94 +174,16 @@
       </div>
     </NCard>
 
-    <!-- 🔮 AI预测排名面板 (整合自页面) -->
-    <NCard
-      v-if="currentAnalysis.length > 0"
-      class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-      title="🔮 AI预测排名"
-      size="large"
-    >
-      <template #header-extra>
-        <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-x-3 sm:space-y-0">
-          <div v-if="analysisMeta" class="flex flex-wrap items-center gap-1 text-xs text-gray-300 sm:gap-2 sm:text-sm">
-            <span class="font-medium">轮次:</span>
-            <span class="text-cyan-400">{{ analysisMeta.round_id || currentRoundId }}</span>
-            <span class="font-medium">状态:</span>
-            <NTag :type="getStatusTagType(currentGameStatus)" size="small">
-              {{ getStatusText(currentGameStatus) }}
-            </NTag>
-          </div>
-        </div>
-      </template>
-
-      <!-- 横向预测排名展示 -->
-      <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div
-          v-for="(token, index) in sortedPredictionsByRank"
-          :key="`prediction-${index}-${token.symbol}`"
-          class="relative overflow-hidden border rounded-lg p-3 transition-all duration-300 hover:shadow-lg"
-          :class="getUnifiedCardClass(index)"
-        >
-          <!-- 预测排名头部 -->
-          <div class="mb-2 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-              <div class="text-lg">{{ getPredictionIcon(index) }}</div>
-              <div class="text-sm text-white font-bold">{{ token.symbol }}</div>
-            </div>
-            <div class="text-xs text-gray-400">#{{ token.predicted_rank }}</div>
-          </div>
-
-          <!-- 核心评分 -->
-          <div class="mb-3 text-center">
-            <div class="text-xs text-gray-400">预测分数</div>
-            <div class="text-lg font-bold" :class="getScoreTextClass(index)">
-              {{
-                (token.final_prediction_score || token.risk_adjusted_score || token.prediction_score || 0).toFixed(1)
-              }}
-            </div>
-            <div v-if="token.rank_confidence" class="text-xs text-gray-400">
-              置信度 {{ (token.rank_confidence || 0).toFixed(0) }}%
-            </div>
-          </div>
-
-          <!-- 详细数据参数 -->
-          <div class="text-xs space-y-1">
-            <div v-if="token.absolute_score" class="flex justify-between">
-              <span class="text-gray-400">绝对分数:</span>
-              <span class="text-purple-400 font-bold">{{ (token.absolute_score || 0).toFixed(1) }}</span>
-            </div>
-            <div v-if="token.relative_score || token.h2h_score" class="flex justify-between">
-              <span class="text-gray-400">相对分数:</span>
-              <span class="text-orange-400 font-bold">
-                {{ (token.relative_score || token.h2h_score || 0).toFixed(1) }}
-              </span>
-            </div>
-            <div v-if="token.top3_rate" class="flex justify-between">
-              <span class="text-gray-400">保本率:</span>
-              <span class="text-green-400 font-bold">{{ (token.top3_rate || 0).toFixed(1) }}%</span>
-            </div>
-            <div v-if="token.win_rate" class="flex justify-between">
-              <span class="text-gray-400">胜率:</span>
-              <span class="text-yellow-400 font-bold">{{ (token.win_rate || 0).toFixed(1) }}%</span>
-            </div>
-
-            <!-- 实时游戏数据对比（如果有） -->
-            <div v-if="getTokenCurrentRank(token.symbol)" class="mt-2 border-t border-gray-600/30 pt-1">
-              <div class="flex justify-between">
-                <span class="text-gray-400">当前排名:</span>
-                <span class="text-cyan-400 font-bold">#{{ getTokenCurrentRank(token.symbol) }}</span>
-              </div>
-              <div v-if="getTokenCurrentChange(token.symbol)" class="flex justify-between">
-                <span class="text-gray-400">价格变化:</span>
-                <span class="font-bold" :class="formatPriceChange(getTokenCurrentChange(token.symbol)).color">
-                  {{ formatPriceChange(getTokenCurrentChange(token.symbol)).text }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </NCard>
+    <!-- 🔮 AI预测排名面板 (使用组件) -->
+    <AIPredictionRanking
+      :current-analysis="currentAnalysis"
+      :analysis-meta="analysisMeta"
+      :current-round-id="currentRoundId"
+      :current-game-status="currentGameStatus"
+      :current-game-tokens-with-ranks="currentGameTokensWithRanks"
+      :analysis-loading="analysisLoading"
+      @refresh-analysis="refreshAnalysis"
+    />
 
     <!-- 主要工作区域：左侧策略配置，右侧快速配置 -->
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -460,15 +345,15 @@
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue';
+  import { computed, onMounted, watch } from 'vue';
   import { NEmpty, NTag } from 'naive-ui';
-  import type { UserInfo } from '@/types';
+  import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
   import type { AutoBettingStatus, DebugInfo } from '@/composables/useAutoBettingControl';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
+  import api from '@/utils/api';
 
   // Props
   interface Props {
-    userInfo: UserInfo | null;
     autoBettingStatus: AutoBettingStatus;
     currentAnalysis: any;
     analysisMeta: any;
@@ -503,10 +388,10 @@
     startAutoBetting: [];
     stopAutoBetting: [];
     executeManualBetting: [];
-    reconnectToken: [];
     applyStrategyTemplate: [key: string];
     executeStrategyBetting: [];
     manualSaveConfig: [];
+    refreshAnalysis: [];
   }>();
 
   // ==================== 工具函数 ====================
@@ -626,11 +511,67 @@
     }
   };
 
+  // ==================== 本地状态管理 ====================
+
+  // 本地加载状态（独立于props中的analysisLoading）
+  const localAnalysisLoading = computed(() => props.analysisLoading);
+
+  // ==================== 数据获取函数 ====================
+
+  // 获取初始预测数据
+  const fetchInitialPredictionData = async () => {
+    console.log('🔮 SmartControlCenter: 获取初始预测数据...');
+    try {
+      const response = await api.get('/game/current-analysis');
+      if (response.data.success) {
+        console.log(`✅ SmartControlCenter: 成功获取初始预测数据: ${response.data.data?.length || 0} 个Token`);
+        // 通知父组件更新数据，这里我们通过emit通知父组件刷新
+        emit('refreshAnalysis');
+      } else {
+        console.warn('⚠️ SmartControlCenter: 获取初始预测数据失败:', response.data.message);
+      }
+    } catch (error) {
+      console.error('❌ SmartControlCenter: 获取初始预测数据失败:', error);
+    }
+  };
+
+  // 刷新分析数据
+  const refreshAnalysis = () => {
+    console.log('🔄 SmartControlCenter: 手动刷新分析数据');
+    emit('refreshAnalysis');
+  };
+
+  // ==================== 生命周期钩子 ====================
+
+  onMounted(() => {
+    console.log('🎛️ SmartControlCenter: 组件已挂载');
+
+    // 检查是否有预测数据，如果没有则主动获取
+    if (!props.currentAnalysis || props.currentAnalysis.length === 0) {
+      console.log('🔮 SmartControlCenter: 未检测到预测数据，主动获取中...');
+      fetchInitialPredictionData();
+    } else {
+      console.log(`✅ SmartControlCenter: 已有预测数据: ${props.currentAnalysis.length} 个Token`);
+    }
+  });
+
+  // 监听预测数据变化，当数据清空时主动重新获取
+  watch(
+    () => props.currentAnalysis,
+    (newAnalysis, oldAnalysis) => {
+      // 如果从有数据变为无数据，或者一直没有数据，则主动获取
+      if ((!newAnalysis || newAnalysis.length === 0) && (!oldAnalysis || oldAnalysis.length === 0)) {
+        console.log('🔮 SmartControlCenter: 检测到预测数据缺失，尝试获取...');
+        fetchInitialPredictionData();
+      }
+    },
+    { immediate: false }
+  );
+
   // Methods
   const startAutoBetting = () => emit('startAutoBetting');
   const stopAutoBetting = () => emit('stopAutoBetting');
   const executeManualBetting = () => emit('executeManualBetting');
-  const reconnectToken = () => emit('reconnectToken');
   const applyStrategyTemplate = (key: string) => emit('applyStrategyTemplate', key);
   const executeStrategyBetting = () => emit('executeStrategyBetting');
   const manualSaveConfig = () => emit('manualSaveConfig');

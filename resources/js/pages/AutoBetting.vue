@@ -49,11 +49,29 @@
           </div>
 
           <div class="flex items-center space-x-3">
+            <!-- 用户信息 -->
+            <div v-if="userInfo" class="text-right">
+              <div class="text-xs text-gray-400">用户ID</div>
+              <div class="flex items-center space-x-2">
+                <div class="text-xs text-blue-400 font-mono">{{ userInfo.uid.slice(0, 8) }}...</div>
+                <n-button
+                  @click="reconnectToken"
+                  :disabled="autoBettingStatus.is_running"
+                  type="tertiary"
+                  size="tiny"
+                  class="text-xs"
+                >
+                  重新验证
+                </n-button>
+              </div>
+            </div>
+
             <!-- 当前策略显示 -->
             <div class="text-right">
               <div class="text-xs text-gray-400">当前策略</div>
               <div class="text-sm text-white font-medium">{{ currentStrategyName }}</div>
             </div>
+
             <!-- 自动下注状态 -->
             <div class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2" :class="getAutoBettingStatusClass()">
               <span>{{ getAutoBettingStatusIcon() }}</span>
@@ -69,7 +87,6 @@
           <!-- 智能控制中心标签页 -->
           <NTabPane name="control" tab="🎛️ 智能控制中心">
             <SmartControlCenter
-              :user-info="userInfo"
               :auto-betting-status="autoBettingStatus"
               :current-analysis="currentAnalysis"
               :analysis-meta="analysisMeta"
@@ -97,7 +114,6 @@
               @start-auto-betting="startAutoBetting"
               @stop-auto-betting="stopAutoBetting"
               @execute-manual-betting="executeManualBetting"
-              @reconnect-token="reconnectToken"
               @clear-bet-results="clearBetResults"
               @apply-strategy-template="applyStrategyTemplate"
               @switch-to-custom-mode="switchToCustomMode"
@@ -105,6 +121,7 @@
               @execute-strategy-betting="executeStrategyBetting"
               @manual-save-config="manualSaveConfig"
               @run-api-diagnostics="runApiDiagnostics"
+              @refresh-analysis="refreshAnalysis"
             />
           </NTabPane>
 
@@ -145,7 +162,7 @@
 
 <script setup lang="ts">
   import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
-  import { NTabs, NTabPane } from 'naive-ui';
+  import { NTabs, NTabPane, NButton } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import { storeToRefs } from 'pinia';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
@@ -161,7 +178,7 @@
   import { usePredictionStats } from '@/composables/usePredictionStats';
   import type { StrategyValidation } from '@/types/autoBetting';
   import { handleError, createConfirmDialog, handleAsyncOperation } from '@/utils/errorHandler';
-  import { autoBettingApi } from '@/utils/api';
+  import { autoBettingApi, gameApi } from '@/utils/api';
 
   // 初始化composables和stores
   const configComposable = useAutoBettingConfig();
@@ -462,6 +479,28 @@
   // 更新最近轮次数量
   const updateRecentRoundsCount = (value: number) => {
     recentRoundsCount.value = value;
+  };
+
+  // 刷新分析数据
+  const refreshAnalysis = async () => {
+    console.log('🔄 AutoBetting: 刷新分析数据');
+    try {
+      const response = await gameApi.getCurrentAnalysis();
+      if (response.data.success) {
+        currentAnalysis.value = response.data.data || [];
+        analysisMeta.value = response.data.meta || null;
+        console.log(`✅ 成功刷新预测数据: ${currentAnalysis.value.length} 个Token`);
+
+        // 刷新后重新验证策略
+        validateCurrentStrategy();
+      } else {
+        console.warn('⚠️ 刷新预测数据失败:', response.data.message);
+        window.$message?.warning('刷新预测数据失败');
+      }
+    } catch (error) {
+      console.error('❌ 刷新预测数据失败:', error);
+      window.$message?.error('刷新预测数据失败');
+    }
   };
 
   // ==================== 自动下注逻辑 ====================

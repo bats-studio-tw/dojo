@@ -1,6 +1,6 @@
 <template>
   <NCard
-    v-if="showCard && currentAnalysis && currentAnalysis.length > 0"
+    v-if="currentAnalysis && currentAnalysis.length > 0"
     class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
     :title="title"
     size="large"
@@ -87,7 +87,7 @@
       </div>
     </div>
   </NCard>
-  <NEmpty v-else-if="showCard" description="暂无AI预测数据" class="py-8" />
+  <NEmpty v-else description="暂无AI预测数据" class="py-8" />
 </template>
 
 <script setup lang="ts">
@@ -101,14 +101,13 @@
     currentRoundId: string | null;
     currentGameStatus: string;
     currentGameTokensWithRanks: any[];
-    analysisLoading: boolean;
+    analysisLoading?: boolean;
     title?: string;
-    showCard?: boolean;
   }
 
   const props = withDefaults(defineProps<Props>(), {
-    title: '🔮 AI预测排名',
-    showCard: true
+    analysisLoading: false,
+    title: '🔮 AI预测排名'
   });
 
   // Emits
@@ -203,10 +202,3 @@
     return '📊';
   };
 </script>
-
-<style scoped>
-  /* 可以添加一些自定义样式 */
-  .font-mono {
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  }
-</style>

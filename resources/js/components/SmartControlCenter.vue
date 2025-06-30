@@ -137,18 +137,24 @@
             class="border rounded-lg p-3 transition-all duration-200 hover:shadow-lg"
             :class="getTokenDebugClass(token)"
           >
-            <!-- Token头部 -->
-            <div class="mb-3 text-center">
-              <div class="text-2xl mb-1">{{ getPredictionIcon(index) }}</div>
-              <div class="text-white font-bold text-lg">{{ token.symbol }}</div>
-              <div class="text-xs text-gray-400">#{{ token.predicted_rank || index + 1 }}</div>
-              <div class="mt-2">
-                <div class="text-xs font-bold" :class="isTokenMatching(token) ? 'text-green-400' : 'text-red-400'">
+            <!-- Token头部 - 横向紧凑布局 -->
+            <div class="mb-3">
+              <!-- 第一行：图标 + Token符号 + 排名 -->
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="text-lg">{{ getPredictionIcon(index) }}</span>
+                  <span class="text-white font-bold text-sm">{{ token.symbol }}</span>
+                  <span class="text-xs text-gray-400">#{{ token.predicted_rank || index + 1 }}</span>
+                </div>
+              </div>
+              <!-- 第二行：匹配状态 + 下注金额 -->
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-medium" :class="isTokenMatching(token) ? 'text-green-400' : 'text-red-400'">
                   {{ isTokenMatching(token) ? '✅ 匹配' : '❌ 不匹配' }}
-                </div>
-                <div v-if="isTokenMatching(token)" class="text-xs text-green-400 font-bold mt-1">
+                </span>
+                <span v-if="isTokenMatching(token)" class="text-xs text-green-400 font-medium">
                   下注 ${{ config.bet_amount }}
-                </div>
+                </span>
               </div>
             </div>
 

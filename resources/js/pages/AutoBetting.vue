@@ -743,7 +743,7 @@
 
     autoBettingTimer = setInterval(async () => {
       await performAutoBetting();
-    }, 15000); // 15秒间隔
+    }, 5000); // 5秒间隔
 
     console.log('🤖 自动下注定时器已启动 - 每15秒检查一次');
   };

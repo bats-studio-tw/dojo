@@ -545,215 +545,147 @@
     await predictionStore.fetchPredictionHistory();
   };
 
-  // ==================== 自动下注逻辑 ====================
+  // ==================== 响应式自动下注逻辑 ====================
 
-  let autoBettingTimer: number | null = null;
+  // 记录已处理的轮次，避免重复下注
+  const processedRounds = ref<Set<string>>(new Set());
 
-  // 自动下注逻辑
-  const performAutoBetting = async () => {
-    const timestamp = new Date().toLocaleTimeString();
-    console.log(`🔍 [${timestamp}] 自动下注检查开始`);
-
-    // 详细记录每个检查点的状态
-    const checkResults = {
-      is_running: autoBettingStatus.value.is_running,
-      has_jwt_token: !!config.jwt_token,
-      jwt_token_preview: config.jwt_token ? `${config.jwt_token.slice(0, 20)}...` : 'null',
-      has_analysis_data: !!(currentAnalysis.value && currentAnalysis.value.length > 0),
-      current_round_id: currentRoundId.value,
-      current_uid: currentUID.value,
-      analysis_count: currentAnalysis.value?.length || 0,
-      strategy_type: config.strategy,
-      current_game_status: currentGameStatus.value,
-      can_bet: canBet(currentGameStatus.value || '')
-    };
-
-    console.log(`📊 [${timestamp}] 自动下注检查状态:`, checkResults);
-
+  // 检查所有自动下注条件
+  const checkAutoBettingConditions = (): { canProceed: boolean; reason?: string } => {
     if (!autoBettingStatus.value.is_running) {
-      console.log(`❌ [${timestamp}] 自动下注未运行，跳过`);
-      return;
+      return { canProceed: false, reason: '自动下注未运行' };
     }
 
-    // 🔧 新增：检查游戏状态是否允许下注
     if (!canBet(currentGameStatus.value || '')) {
-      console.log(`❌ [${timestamp}] 游戏状态不允许下注，当前状态: ${currentGameStatus.value}，跳过`);
-      return;
+      return { canProceed: false, reason: `游戏状态不允许下注 (${currentGameStatus.value})` };
     }
 
     if (!config.jwt_token) {
-      console.log(`❌ [${timestamp}] 缺少JWT Token，尝试从localStorage恢复...`);
-
-      // 🔧 尝试从localStorage恢复JWT Token
-      const savedTokenData = localStorage.getItem('tokenSetupData');
-      if (savedTokenData) {
-        try {
-          const tokenData = JSON.parse(savedTokenData);
-          if (tokenData.jwt_token) {
-            config.jwt_token = tokenData.jwt_token;
-            console.log(`✅ [${timestamp}] 成功从localStorage恢复JWT Token`);
-          } else {
-            console.log(`❌ [${timestamp}] localStorage中没有有效的JWT Token，跳过`);
-            return;
-          }
-        } catch (error) {
-          console.log(`❌ [${timestamp}] 恢复JWT Token失败，跳过:`, error);
-          return;
-        }
-      } else {
-        console.log(`❌ [${timestamp}] localStorage中没有Token数据，跳过`);
-        return;
-      }
+      return { canProceed: false, reason: '缺少JWT Token' };
     }
 
     if (!currentAnalysis.value || currentAnalysis.value.length === 0) {
-      console.log(
-        `❌ [${timestamp}] 无分析数据，跳过 (currentAnalysis: ${currentAnalysis.value}, length: ${currentAnalysis.value?.length})`
-      );
+      return { canProceed: false, reason: '无分析数据' };
+    }
+
+    if (!currentRoundId.value) {
+      return { canProceed: false, reason: '无当前轮次ID' };
+    }
+
+    if (!currentUID.value) {
+      return { canProceed: false, reason: '用户未认证' };
+    }
+
+    return { canProceed: true };
+  };
+
+  // 执行自动下注的核心逻辑
+  const executeAutoBettingLogic = async () => {
+    const timestamp = new Date().toLocaleTimeString();
+    const roundId = currentRoundId.value!;
+
+    // 检查是否已处理此轮次
+    if (processedRounds.value.has(roundId)) {
+      console.log(`🚫 [${timestamp}] 轮次 ${roundId} 已处理过，跳过`);
       return;
     }
 
-    const roundId = currentRoundId.value;
-    if (!roundId) {
-      console.log(`❌ [${timestamp}] 无当前轮次ID，跳过`);
-      return;
-    }
-
-    console.log(`✅ [${timestamp}] 所有基础检查通过，开始检查下注记录...`);
+    console.log(`🎯 [${timestamp}] 开始自动下注逻辑 - 轮次: ${roundId}`);
 
     try {
-      // 检查是否已经在该轮次下过注
+      // 检查API中是否已下注（双重保险）
       const roundBetCheck = await autoBettingApi.checkRoundBet(currentUID.value, roundId);
-      console.log(`🔎 [${timestamp}] 轮次下注检查结果:`, roundBetCheck.data);
-
       if (roundBetCheck.data.success && roundBetCheck.data.data.has_bet) {
-        console.log(`🚫 [${timestamp}] 轮次 ${roundId} 已下注，跳过`);
+        console.log(`🚫 [${timestamp}] 轮次 ${roundId} 已在API中记录下注，跳过`);
+        processedRounds.value.add(roundId);
         return;
       }
     } catch (error) {
       console.warn(`⚠️ [${timestamp}] 检查轮次下注记录失败:`, error);
     }
 
-    console.log(`🧪 [${timestamp}] 开始策略验证...`);
+    // 验证策略条件
     validateCurrentStrategy();
 
-    const validationResult = {
-      has_matches: !!strategyValidation.value?.matches.length,
-      matches_count: strategyValidation.value?.matches.length || 0,
-      balance_sufficient: strategyValidation.value?.balance_sufficient,
-      required_balance: strategyValidation.value?.required_balance || 0,
-      actual_balance: strategyValidation.value?.actual_balance || 0
-    };
-
-    console.log(`📋 [${timestamp}] 策略验证结果:`, validationResult);
-
     if (!strategyValidation.value?.matches.length) {
-      console.log(`❌ [${timestamp}] 当前无符合条件的下注目标 (策略: ${config.strategy})`);
-      // 显示当前分析数据的摘要信息
-      if (currentAnalysis.value && currentAnalysis.value.length > 0) {
-        console.log(
-          `📊 [${timestamp}] 当前分析数据摘要:`,
-          currentAnalysis.value.map((item: any) => ({
-            symbol: item.symbol,
-            predicted_rank: item.predicted_rank,
-            confidence: item.rank_confidence || item.confidence || 0,
-            score: item.predicted_final_value || item.score || 0
-          }))
-        );
-      }
+      console.log(`❌ [${timestamp}] 无符合条件的下注目标 (策略: ${config.strategy})`);
+      processedRounds.value.add(roundId);
       return;
     }
 
     if (!strategyValidation.value?.balance_sufficient) {
-      console.warn(
-        `💰 [${timestamp}] 余额不足，暂停自动下注 (需要: ${validationResult.required_balance}, 余额: ${validationResult.actual_balance})`
-      );
-      window.$message?.warning('余额不足，暂停自动下注');
+      console.warn(`💰 [${timestamp}] 余额不足，跳过此轮下注`);
+      window.$message?.warning('余额不足，跳过此轮自动下注');
+      processedRounds.value.add(roundId);
       return;
     }
 
-    console.log(`🎯 [${timestamp}] 策略验证通过，开始执行下注...`);
+    console.log(`🤖 [${timestamp}] 自动下注：检测到 ${strategyValidation.value.matches.length} 个符合条件的目标`);
+    window.$message?.info(`🤖 自动下注：检测到 ${strategyValidation.value.matches.length} 个符合条件的目标`);
 
-    try {
-      console.log(`🤖 [${timestamp}] 自动下注：检测到 ${strategyValidation.value.matches.length} 个符合条件的目标`);
-      window.$message?.info(`🤖 自动下注：检测到 ${strategyValidation.value.matches.length} 个符合条件的目标`);
+    let successCount = 0;
+    let failCount = 0;
 
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const match of strategyValidation.value.matches) {
-        console.log(`🎲 [${timestamp}] 开始下注: ${match.symbol}, 金额: ${match.bet_amount}`);
-        try {
-          const betSuccess = await executeSingleBet(roundId, match.symbol, match.bet_amount, config.jwt_token);
-          if (betSuccess) {
-            successCount++;
-            console.log(`✅ [${timestamp}] 下注成功: ${match.symbol}`);
-            debugInfo.lastBetResults.push({
-              time: new Date().toLocaleTimeString(),
-              symbol: match.symbol,
-              amount: match.bet_amount,
-              success: true
-            });
-          } else {
-            failCount++;
-            console.log(`❌ [${timestamp}] 下注失败: ${match.symbol}`);
-            debugInfo.lastBetResults.push({
-              time: new Date().toLocaleTimeString(),
-              symbol: match.symbol,
-              amount: match.bet_amount,
-              success: false
-            });
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        } catch (error) {
-          console.error(`💥 [${timestamp}] 下注异常 ${match.symbol}:`, error);
-          failCount++;
+    // 执行下注
+    for (const match of strategyValidation.value.matches) {
+      console.log(`🎲 [${timestamp}] 开始下注: ${match.symbol}, 金额: ${match.bet_amount}`);
+      try {
+        const betSuccess = await executeSingleBet(roundId, match.symbol, match.bet_amount, config.jwt_token);
+        if (betSuccess) {
+          successCount++;
+          console.log(`✅ [${timestamp}] 下注成功: ${match.symbol}`);
           debugInfo.lastBetResults.push({
             time: new Date().toLocaleTimeString(),
             symbol: match.symbol,
             amount: match.bet_amount,
-            success: false,
-            error: error instanceof Error ? error.message : String(error)
+            success: true
+          });
+        } else {
+          failCount++;
+          console.log(`❌ [${timestamp}] 下注失败: ${match.symbol}`);
+          debugInfo.lastBetResults.push({
+            time: new Date().toLocaleTimeString(),
+            symbol: match.symbol,
+            amount: match.bet_amount,
+            success: false
           });
         }
+
+        // 下注间隔
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`💥 [${timestamp}] 下注异常 ${match.symbol}:`, error);
+        failCount++;
+        debugInfo.lastBetResults.push({
+          time: new Date().toLocaleTimeString(),
+          symbol: match.symbol,
+          amount: match.bet_amount,
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
-
-      await loadStatus();
-      validateCurrentStrategy();
-
-      if (successCount > 0) {
-        console.log(`🎯 [${timestamp}] 自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
-        window.$message?.success(`🎯 自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
-      } else if (failCount > 0) {
-        console.error(`❌ [${timestamp}] 自动下注失败：失败 ${failCount} 个`);
-        window.$message?.error(`❌ 自动下注失败：失败 ${failCount} 个`);
-      }
-    } catch (error) {
-      console.error(`💥 [${timestamp}] 自动下注执行失败:`, error);
-      window.$message?.error('自动下注执行失败');
-    }
-  };
-
-  // 启动自动下注定时器
-  const startAutoBettingTimer = () => {
-    if (autoBettingTimer) {
-      clearInterval(autoBettingTimer);
     }
 
-    autoBettingTimer = setInterval(async () => {
-      await performAutoBetting();
-    }, 5000); // 5秒间隔
+    // 标记此轮次已处理
+    processedRounds.value.add(roundId);
 
-    console.log('🤖 自动下注定时器已启动 - 每15秒检查一次');
-  };
+    // 更新状态和验证
+    await loadStatus();
+    validateCurrentStrategy();
 
-  // 停止自动下注定时器
-  const stopAutoBettingTimer = () => {
-    if (autoBettingTimer) {
-      clearInterval(autoBettingTimer);
-      autoBettingTimer = null;
-      console.log('🛑 自动下注定时器已停止');
+    // 显示结果
+    if (successCount > 0) {
+      console.log(`🎯 [${timestamp}] 自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+      window.$message?.success(`🎯 自动下注完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+    } else if (failCount > 0) {
+      console.error(`❌ [${timestamp}] 自动下注失败：失败 ${failCount} 个`);
+      window.$message?.error(`❌ 自动下注失败：失败 ${failCount} 个`);
+    }
+
+    // 清理旧的处理记录（保留最近20个轮次）
+    if (processedRounds.value.size > 20) {
+      const sortedRounds = Array.from(processedRounds.value).sort();
+      processedRounds.value = new Set(sortedRounds.slice(-20));
     }
   };
 
@@ -787,19 +719,50 @@
     { deep: true }
   );
 
-  // 监听自动下注状态变化
-  const autoBettingStatusWatcher = watch(
-    () => autoBettingStatus.value.is_running,
-    (isRunning) => {
-      if (isRunning) {
-        startAutoBettingTimer();
-        window.$message?.success('🤖 自动下注监控已启动，系统将自动检查条件并执行下注');
-      } else {
-        stopAutoBettingTimer();
-        window.$message?.info('🛑 自动下注监控已停止');
+  // 🎯 核心：响应式自动下注监听器 - 替代定时器轮询
+  const autoBettingTriggerWatcher = watch(
+    [
+      () => autoBettingStatus.value.is_running,
+      currentGameStatus,
+      currentRoundId,
+      currentAnalysis,
+      () => config.jwt_token,
+      currentUID
+    ],
+    async ([isRunning, gameStatus, roundId, analysis, jwtToken, uid], [prevIsRunning]) => {
+      // 🔧 当自动下注开启/关闭时的状态提示
+      if (isRunning !== prevIsRunning) {
+        if (isRunning) {
+          window.$message?.success('🤖 自动下注监控已启动，系统将响应式地检查条件并执行下注');
+          console.log('🤖 响应式自动下注监控已启动');
+        } else {
+          window.$message?.info('🛑 自动下注监控已停止');
+          console.log('🛑 响应式自动下注监控已停止');
+          return;
+        }
+      }
+
+      // 检查基础条件
+      const conditions = checkAutoBettingConditions();
+      if (!conditions.canProceed) {
+        // 只有在游戏状态从非bet变为bet时才打印日志，避免过多输出
+        if (gameStatus === 'bet' && roundId && analysis && isRunning) {
+          console.log(`⏸️ 自动下注条件不满足: ${conditions.reason}`);
+        }
+        return;
+      }
+
+      // 🎯 关键触发条件：游戏状态为bet且有轮次数据
+      if (gameStatus === 'bet' && roundId && analysis && isRunning && jwtToken && uid) {
+        console.log(`🚀 触发自动下注检查 - 轮次: ${roundId}, 状态: ${gameStatus}`);
+        await executeAutoBettingLogic();
       }
     },
-    { immediate: true }
+    {
+      immediate: false, // 不立即执行，等数据准备好
+      deep: false, // 不需要深度监听
+      flush: 'post' // 在DOM更新后执行
+    }
   );
 
   // ==================== 生命周期钩子 ====================
@@ -844,17 +807,13 @@
   onUnmounted(() => {
     if (configWatcher) configWatcher();
     if (analysisWatcher) analysisWatcher();
-    if (autoBettingStatusWatcher) autoBettingStatusWatcher();
-
-    if (autoBettingTimer) {
-      clearInterval(autoBettingTimer);
-      autoBettingTimer = null;
-    }
+    if (autoBettingTriggerWatcher) autoBettingTriggerWatcher();
 
     isMonitoringRounds.value = false;
     debugInfo.lastBetResults = [];
+    processedRounds.value.clear();
 
-    console.log('🧹 自动下注页面已卸载，已清理所有定时器和监听器');
+    console.log('🧹 自动下注页面已卸载，已清理所有监听器');
   });
 </script>
 

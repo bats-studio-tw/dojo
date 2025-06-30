@@ -1,39 +1,20 @@
 <template>
   <div class="space-y-6">
-    <!-- 分析类型标签页 -->
-    <n-tabs v-model:value="activeAnalysisTab" type="card" class="history-analysis-tabs">
-      <!-- 预测分析标签页 -->
-      <n-tab-pane name="prediction" tab="🔮 预测分析">
-        <!-- 预测统计分析 -->
-        <div class="mb-6">
-          <PredictionStats
-            :exact-rate="exactRate"
-            :total-rounds="totalRounds"
-            :all-stats="allStats"
-            :recent-stats="recentStats"
-            :recent-rounds-count="recentRoundsCount"
-            @update:recent-rounds-count="$emit('update:recent-rounds-count', $event)"
-            :max-rounds="maxRounds"
-            :loading="historyLoading"
-            @refresh="$emit('refreshPredictionHistory')"
-          />
-        </div>
+    <BettingPerformanceAnalysis :uid="getCurrentUID()" />
 
-        <!-- 预测历史对比表格 -->
-        <div class="mb-6">
-          <PredictionHistoryTable
-            :prediction-data="predictionComparisonData"
-            :loading="historyLoading"
-            @refresh="$emit('refreshPredictionHistory')"
-          />
-        </div>
-      </n-tab-pane>
-
-      <!-- 投注表现分析标签页 -->
-      <n-tab-pane name="betting" tab="💰 投注表现">
-        <BettingPerformanceAnalysis :uid="getCurrentUID()" />
-      </n-tab-pane>
-    </n-tabs>
+    <!-- 预测统计分析 -->
+    <PredictionStats
+      class="mb-6"
+      :exact-rate="exactRate"
+      :total-rounds="totalRounds"
+      :all-stats="allStats"
+      :recent-stats="recentStats"
+      :recent-rounds-count="recentRoundsCount"
+      @update:recent-rounds-count="$emit('update:recent-rounds-count', $event)"
+      :max-rounds="maxRounds"
+      :loading="historyLoading"
+      @refresh="$emit('refreshPredictionHistory')"
+    />
 
     <!-- 自动下注记录 -->
     <NCard

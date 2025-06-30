@@ -383,32 +383,75 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
           // 解析WebSocket数据
           try {
-            let predictionData: PredictionUpdateEvent;
+            let actualData: any;
 
-            // WebSocket的data字段是JSON字符串，需要解析
+            // WebSocket的data字段可能是JSON字符串，需要解析
             if (typeof rawEvent.data === 'string') {
-              predictionData = JSON.parse(rawEvent.data);
-              console.log('🔮 [DEBUG] 解析后的数据:', predictionData);
+              actualData = JSON.parse(rawEvent.data);
+              console.log('🔮 [DEBUG] 解析后的数据:', actualData);
             } else {
-              predictionData = rawEvent.data;
+              actualData = rawEvent.data;
             }
 
-            console.log('🔮 [DEBUG] 预测成功:', predictionData.success);
-            console.log('🔮 [DEBUG] 预测Token数量:', predictionData.data?.length || 0);
-            console.log('🔮 [DEBUG] 轮次ID:', predictionData.meta?.round_id);
-            console.log('🔮 [DEBUG] 算法:', predictionData.meta?.prediction_algorithm);
+            // 检查数据格式并适配不同的数据结构
+            let predictionArray: TokenAnalysis[] = [];
+            let metaInfo: AnalysisMeta | null = null;
+
+            if (Array.isArray(actualData)) {
+              // 直接是数组格式的预测数据
+              console.log('🔮 [DEBUG] 检测到数组格式的预测数据，长度:', actualData.length);
+              predictionArray = actualData;
+
+              // 从当前游戏数据或其他地方获取meta信息
+              if (latestGameData.value?.rdId) {
+                metaInfo = {
+                  round_id: latestGameData.value.rdId,
+                  status: latestGameData.value.status || 'unknown',
+                  updated_at: new Date().toISOString(),
+                  prediction_algorithm: 'websocket_direct'
+                };
+              }
+            } else if (actualData && typeof actualData === 'object') {
+              // 检查是否是包装格式 {success, data, meta}
+              if (actualData.success !== undefined && actualData.data) {
+                console.log('🔮 [DEBUG] 检测到包装格式的预测数据');
+                console.log('🔮 [DEBUG] 预测成功:', actualData.success);
+                console.log('🔮 [DEBUG] 预测Token数量:', actualData.data?.length || 0);
+                console.log('🔮 [DEBUG] 轮次ID:', actualData.meta?.round_id);
+                console.log('🔮 [DEBUG] 算法:', actualData.meta?.prediction_algorithm);
+
+                if (actualData.success && Array.isArray(actualData.data)) {
+                  predictionArray = actualData.data;
+                  metaInfo = actualData.meta || null;
+                }
+              } else if (actualData.data && Array.isArray(actualData.data)) {
+                // 可能是 {data: []} 格式
+                console.log('🔮 [DEBUG] 检测到简单包装格式 {data: []}');
+                predictionArray = actualData.data;
+                metaInfo = actualData.meta || null;
+              } else {
+                console.warn('⚠️ [DEBUG] 未识别的预测数据格式:', actualData);
+              }
+            }
 
             // 更新预测数据
-            if (predictionData.success && predictionData.data && Array.isArray(predictionData.data)) {
-              currentAnalysis.value = [...predictionData.data];
-              analysisMeta.value = predictionData.meta || null;
-              console.log('🔮 [DEBUG] 已更新预测分析数据');
-              console.log(
-                '🔮 [DEBUG] 预测排名:',
-                predictionData.data.map((token) => `${token.symbol}: #${token.predicted_rank}`).join(', ')
-              );
+            if (predictionArray && Array.isArray(predictionArray) && predictionArray.length > 0) {
+              currentAnalysis.value = [...predictionArray];
+              analysisMeta.value = metaInfo;
+              console.log('🔮 [DEBUG] 已更新预测分析数据，Token数量:', predictionArray.length);
+
+              // 输出预测排名（如果有predicted_rank字段）
+              const predictionsWithRank = predictionArray.filter((token) => token.predicted_rank !== undefined);
+              if (predictionsWithRank.length > 0) {
+                console.log(
+                  '🔮 [DEBUG] 预测排名:',
+                  predictionsWithRank.map((token) => `${token.symbol}: #${token.predicted_rank}`).join(', ')
+                );
+              } else {
+                console.log('🔮 [DEBUG] 预测Token列表:', predictionArray.map((token) => token.symbol).join(', '));
+              }
             } else {
-              console.warn('⚠️ [DEBUG] 预测数据格式异常:', predictionData);
+              console.warn('⚠️ [DEBUG] 预测数据为空或格式不正确');
             }
           } catch (error) {
             console.error('❌ [DEBUG] 解析预测数据失败:', error);

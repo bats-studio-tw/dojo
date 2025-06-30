@@ -31,7 +31,7 @@
         </div>
       </template>
 
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-4 md:grid-cols-2 sm:grid-cols-2">
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-5 md:grid-cols-3 sm:grid-cols-2">
         <!-- 用户余额 -->
         <div
           class="prediction-stat-card border-blue-500/30 from-blue-500/10 to-indigo-600/5 bg-gradient-to-br hover:border-blue-400/50 hover:shadow-blue-500/20"
@@ -99,6 +99,18 @@
             >
               实际余额: ${{ (strategyValidation?.actual_balance || 0).toFixed(0) }}
             </div>
+          </div>
+        </div>
+
+        <!-- 总下注次数 -->
+        <div
+          class="prediction-stat-card border-amber-500/30 from-amber-500/10 to-yellow-600/5 bg-gradient-to-br hover:border-amber-400/50 hover:shadow-amber-500/20"
+        >
+          <div class="stat-icon">📊</div>
+          <div class="stat-content">
+            <div class="stat-label text-amber-300">总下注次数</div>
+            <div class="stat-value text-amber-400">{{ autoBettingStatus.total_bets || 0 }}</div>
+            <div class="stat-desc text-amber-200/70">历史累计</div>
           </div>
         </div>
       </div>

@@ -433,29 +433,60 @@
     }
 
     const predictions = currentAnalysis.value;
-    const matches: any[] = [];
+    const allMatches: any[] = [];
     let totalMatchedValue = 0;
 
+    // 首先找出所有符合条件的预测
     predictions.forEach((rawPrediction: any) => {
       const prediction = mapPredictionData(rawPrediction);
       const isMatch = evaluatePredictionMatch(prediction);
 
       if (isMatch) {
         const betAmount = calculateBetAmount(prediction);
-        matches.push({
+        allMatches.push({
           ...prediction,
           bet_amount: betAmount
         });
-        totalMatchedValue += betAmount;
       }
     });
+
+    // 🔧 根据策略类型筛选最终的下注目标
+    let finalMatches: any[] = [];
+
+    if (config.strategy === 'single_bet') {
+      // 🎯 单项下注：只选择一个最优的Token（通常是置信度最高或排名最高的）
+      if (allMatches.length > 0) {
+        // 按置信度排序，选择最优的一个
+        const sortedByConfidence = [...allMatches].sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+        finalMatches = [sortedByConfidence[0]];
+        console.log(
+          `🎯 单项策略：从 ${allMatches.length} 个符合条件的Token中选择最优: ${finalMatches[0].symbol} (置信度: ${finalMatches[0].confidence})`
+        );
+      }
+    } else if (config.strategy === 'rank_betting') {
+      // 🏆 排名下注：按预测排名过滤并排序
+      const enabledRanks = config.rank_betting_enabled_ranks || [1, 2, 3];
+      finalMatches = allMatches
+        .filter((match) => enabledRanks.includes(match.predicted_rank))
+        .sort((a, b) => (a.predicted_rank || 999) - (b.predicted_rank || 999));
+      console.log(
+        `🏆 排名策略：从 ${allMatches.length} 个符合条件的Token中选择排名 ${enabledRanks.join(',')} 的 ${finalMatches.length} 个Token`
+      );
+    } else {
+      // 🚀 多项下注、对冲下注等：使用所有符合条件的Token
+      finalMatches = allMatches;
+      console.log(`🚀 ${config.strategy}策略：选择所有 ${finalMatches.length} 个符合条件的Token`);
+    }
+
+    // 计算总下注金额
+    totalMatchedValue = finalMatches.reduce((sum, match) => sum + match.bet_amount, 0);
 
     const actualBalance = userInfo.value?.ojoValue || 0;
     const balanceInsufficient = totalMatchedValue > actualBalance;
 
     strategyValidation.value = {
-      matches,
-      total_matched: matches.length,
+      matches: finalMatches,
+      total_matched: finalMatches.length,
       balance_sufficient: !balanceInsufficient,
       required_balance: totalMatchedValue,
       actual_balance: actualBalance

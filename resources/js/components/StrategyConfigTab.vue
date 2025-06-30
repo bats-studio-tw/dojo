@@ -26,15 +26,15 @@
             <div
               v-for="(template, key) in strategyTemplates"
               :key="key"
-              class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-3 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
+              class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-3 transition-all duration-200 hover:border-orange-400/60 hover:bg-orange-500/10"
               :class="{
-                'border-blue-400 bg-blue-500/20': selectedTemplate === String(key)
+                'border-orange-400 bg-orange-500/20 shadow-lg shadow-orange-500/25': selectedTemplate === String(key)
               }"
               @click="applyStrategyTemplate(String(key))"
             >
               <div class="mb-2 flex items-center justify-between">
                 <span class="text-sm text-white font-medium">{{ template.name }}</span>
-                <n-tag :type="selectedTemplate === String(key) ? 'primary' : 'default'" size="small">
+                <n-tag :type="selectedTemplate === String(key) ? 'warning' : 'default'" size="small">
                   {{ template.confidence_threshold }}%
                 </n-tag>
               </div>
@@ -92,7 +92,7 @@
                 <div class="flex items-center space-x-3">
                   <span class="text-white font-medium">{{ match.symbol }}</span>
                   <span class="text-xs text-gray-400">TOP{{ match.predicted_rank }}</span>
-                  <span class="text-xs text-blue-400">{{ match.confidence }}%</span>
+                  <span class="text-xs text-orange-400">{{ match.confidence }}%</span>
                 </div>
                 <div class="text-right">
                   <div class="text-sm text-green-400">${{ match.bet_amount }}</div>
@@ -239,8 +239,8 @@
                   class="cursor-pointer border-2 rounded-lg p-3 text-center transition-all duration-200"
                   :class="
                     config.rank_betting_enabled_ranks.includes(rank)
-                      ? 'border-blue-400 bg-blue-500/20 text-blue-400'
-                      : 'border-gray-500/30 bg-gray-500/10 text-gray-400 hover:border-gray-400/60'
+                      ? 'border-orange-400 bg-orange-500/20 text-orange-400 shadow-lg shadow-orange-500/25'
+                      : 'border-gray-500/30 bg-gray-500/10 text-gray-400 hover:border-orange-400/60 hover:bg-orange-500/10'
                   "
                   @click="toggleRankBetting(rank, !config.rank_betting_enabled_ranks.includes(rank))"
                 >
@@ -283,7 +283,7 @@
               <div v-else class="space-y-4">
                 <div v-for="rank in config.rank_betting_enabled_ranks" :key="rank" class="flex items-center space-x-4">
                   <div class="flex items-center space-x-2">
-                    <span class="text-blue-400 font-bold">TOP {{ rank }}</span>
+                    <span class="text-orange-400 font-bold">TOP {{ rank }}</span>
                     <span class="text-xs text-gray-500">下注金额:</span>
                   </div>
                   <n-input-number
@@ -327,10 +327,10 @@
             </div>
 
             <!-- 排名下注说明 -->
-            <div class="mt-4 border border-blue-500/30 rounded-lg bg-blue-500/10 p-4">
+            <div class="mt-4 border border-orange-500/30 rounded-lg bg-orange-500/10 p-4">
               <div class="mb-2 flex items-center space-x-2">
-                <span class="text-blue-400">ℹ️</span>
-                <span class="text-sm text-blue-400 font-medium">指定排名下注说明</span>
+                <span class="text-orange-400">ℹ️</span>
+                <span class="text-sm text-orange-400 font-medium">指定排名下注说明</span>
               </div>
               <div class="text-xs text-gray-300 space-y-1">
                 <div>• 每轮游戏会自动下注您选择的排名，无需满足其他条件</div>

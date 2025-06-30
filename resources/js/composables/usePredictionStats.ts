@@ -1,5 +1,6 @@
 import { computed, ref, Ref } from 'vue';
-import type { PredictionHistoryRound, PredictionData, ResultData } from '@/stores/gamePrediction';
+import { analyzePredictionResult } from '@/utils/statusUtils';
+import type { PredictionHistoryRound } from '@/stores/gamePrediction';
 
 export interface PredictionAnalysis {
   status: 'exact' | 'breakeven' | 'loss';
@@ -40,37 +41,15 @@ export function usePredictionStats(
   predictionHistory: Ref<PredictionHistoryRound[]>,
   recentRoundsCount: Ref<number> = ref(50)
 ) {
-  // 获取单个代币的预测分析结果
+  // 获取单个代币的预测分析结果（使用统一的状态工具）
   const getTokenPredictionAnalysis = (predictedRank: number, actualRank: number): PredictionAnalysis => {
-    // 精准预测：预测排名和实际排名完全一致
-    if (predictedRank === actualRank) {
-      return {
-        status: 'exact',
-        text: '精准预测',
-        icon: '🎯',
-        color: 'text-green-400',
-        bgColor: 'bg-green-500/20'
-      };
-    }
-
-    // 保本：实际排名在前三名
-    if (actualRank <= 3) {
-      return {
-        status: 'breakeven',
-        text: '保本',
-        icon: '💰',
-        color: 'text-blue-400',
-        bgColor: 'bg-blue-500/20'
-      };
-    }
-
-    // 亏本：实际排名不在前三名
+    const result = analyzePredictionResult(predictedRank, actualRank);
     return {
-      status: 'loss',
-      text: '亏本',
-      icon: '📉',
-      color: 'text-red-400',
-      bgColor: 'bg-red-500/20'
+      status: result.label === '精准预测' ? 'exact' : result.label === '保本' ? 'breakeven' : 'loss',
+      text: result.label,
+      icon: result.icon,
+      color: result.color,
+      bgColor: result.bgColor
     };
   };
 

@@ -95,19 +95,8 @@ export const useAutoBettingControl = () => {
     }
   };
 
-  // 获取状态标签类型
-  const getStatusTagType = (status: string) => {
-    switch (status) {
-      case 'bet':
-        return 'success';
-      case 'settling':
-        return 'warning';
-      case 'settled':
-        return 'info';
-      default:
-        return 'default';
-    }
-  };
+  // 状态标签类型（使用统一的状态工具）
+  const getStatusTagType = getGameStatusTagType;
 
   // 加载自动下注状态
   const loadStatus = async () => {

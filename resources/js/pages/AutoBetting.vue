@@ -352,8 +352,18 @@
 
   // 评估预测是否符合策略条件
   const evaluatePredictionMatch = (prediction: any): boolean => {
+    // 对于排名下注策略，首先检查排名是否在选中范围内
     if (config.strategy === 'rank_betting') {
-      return config.rank_betting_enabled_ranks.includes(prediction.predicted_rank);
+      if (!config.rank_betting_enabled_ranks.includes(prediction.predicted_rank)) {
+        return false;
+      }
+      // 即使是排名下注，也可以应用额外的过滤条件进行精细筛选
+    } else {
+      // 非排名下注策略的基础条件检查
+      if (prediction.confidence < config.confidence_threshold) return false;
+      if (prediction.score < config.score_gap_threshold) return false;
+      if (prediction.sample_count < config.min_sample_count) return false;
+      if (prediction.historical_accuracy < config.historical_accuracy_threshold) return false;
     }
 
     // 基础策略条件

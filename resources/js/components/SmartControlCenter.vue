@@ -341,7 +341,7 @@
             </div>
 
             <!-- 🆕 高级过滤器配置 -->
-            <div v-if="props.config.strategy !== 'rank_betting'" class="border-t border-gray-600 pt-4">
+            <div class="border-t border-gray-600 pt-4">
               <NCollapse size="small">
                 <!-- 历史表现过滤器 -->
                 <NCollapseItem title="📊 历史表现过滤器" name="historical">

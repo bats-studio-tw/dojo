@@ -190,93 +190,79 @@
               </div>
             </div>
 
-            <!-- 🆕 高级过滤器状态显示 -->
+            <!-- 🆕 高级过滤器数值显示 -->
             <div v-if="hasActiveAdvancedFilters()" class="mt-3 border-t border-gray-600 pt-2">
-              <div class="mb-1 text-xs text-gray-400">高级过滤器:</div>
-              <div class="grid grid-cols-2 gap-1 text-xs">
+              <div class="text-xs space-y-2">
                 <!-- 历史表现过滤器 -->
-                <div v-if="config.enable_win_rate_filter" class="flex items-center space-x-1">
+                <div v-if="config.enable_win_rate_filter" class="flex justify-between">
+                  <span class="text-gray-400">胜率:</span>
                   <span :class="checkWinRateFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ checkWinRateFilter(token) ? '✓' : '✗' }}
+                    {{ (token.win_rate || 0).toFixed(1) }}%
                   </span>
-                  <span class="text-gray-400">胜率</span>
                 </div>
-                <div v-if="config.enable_top3_rate_filter" class="flex items-center space-x-1">
+                <div v-if="config.enable_top3_rate_filter" class="flex justify-between">
+                  <span class="text-gray-400">保本率:</span>
                   <span :class="checkTop3RateFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ checkTop3RateFilter(token) ? '✓' : '✗' }}
+                    {{ (token.top3_rate || 0).toFixed(1) }}%
                   </span>
-                  <span class="text-gray-400">保本率</span>
                 </div>
-                <div v-if="config.enable_avg_rank_filter" class="flex items-center space-x-1">
+                <div v-if="config.enable_avg_rank_filter" class="flex justify-between">
+                  <span class="text-gray-400">平均排名:</span>
                   <span :class="checkAvgRankFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ checkAvgRankFilter(token) ? '✓' : '✗' }}
+                    {{ (token.avg_rank || 3).toFixed(1) }}
                   </span>
-                  <span class="text-gray-400">平均排名</span>
                 </div>
-                <div v-if="config.enable_stability_filter" class="flex items-center space-x-1">
+                <div v-if="config.enable_stability_filter" class="flex justify-between">
+                  <span class="text-gray-400">稳定性:</span>
                   <span :class="checkStabilityFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ checkStabilityFilter(token) ? '✓' : '✗' }}
+                    {{ (token.value_stddev || 0).toFixed(2) }}
                   </span>
-                  <span class="text-gray-400">稳定性</span>
                 </div>
 
                 <!-- 评分过滤器 -->
-                <div v-if="config.enable_absolute_score_filter" class="flex items-center space-x-1">
+                <div v-if="config.enable_absolute_score_filter" class="flex justify-between">
+                  <span class="text-gray-400">绝对分数:</span>
                   <span :class="checkAbsoluteScoreFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ checkAbsoluteScoreFilter(token) ? '✓' : '✗' }}
+                    {{ (token.absolute_score || 0).toFixed(1) }}
                   </span>
-                  <span class="text-gray-400">绝对分数</span>
                 </div>
-                <div v-if="config.enable_relative_score_filter" class="flex items-center space-x-1">
+                <div v-if="config.enable_relative_score_filter" class="flex justify-between">
+                  <span class="text-gray-400">相对分数:</span>
                   <span :class="checkRelativeScoreFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ checkRelativeScoreFilter(token) ? '✓' : '✗' }}
+                    {{ (token.relative_score || 0).toFixed(1) }}
                   </span>
-                  <span class="text-gray-400">相对分数</span>
                 </div>
-                <div v-if="config.enable_h2h_score_filter" class="flex items-center space-x-1">
+                <div v-if="config.enable_h2h_score_filter" class="flex justify-between">
+                  <span class="text-gray-400">H2H分数:</span>
                   <span :class="checkH2HScoreFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ checkH2HScoreFilter(token) ? '✓' : '✗' }}
+                    {{ (token.h2h_score || 0).toFixed(1) }}
                   </span>
-                  <span class="text-gray-400">H2H分数</span>
                 </div>
 
                 <!-- 市场动态过滤器 -->
-                <div v-if="config.enable_change_5m_filter" class="flex items-center space-x-1">
+                <div v-if="config.enable_change_5m_filter" class="flex justify-between">
+                  <span class="text-gray-400">5分钟涨跌:</span>
                   <span :class="checkChange5mFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ checkChange5mFilter(token) ? '✓' : '✗' }}
+                    {{ ((token.change_5m || 0) * 100).toFixed(1) }}%
                   </span>
-                  <span class="text-gray-400">5分钟</span>
                 </div>
-                <div v-if="config.enable_change_1h_filter" class="flex items-center space-x-1">
+                <div v-if="config.enable_change_1h_filter" class="flex justify-between">
+                  <span class="text-gray-400">1小时涨跌:</span>
                   <span :class="checkChange1hFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ checkChange1hFilter(token) ? '✓' : '✗' }}
+                    {{ ((token.change_1h || 0) * 100).toFixed(1) }}%
                   </span>
-                  <span class="text-gray-400">1小时</span>
                 </div>
-                <div v-if="config.enable_change_4h_filter" class="flex items-center space-x-1">
+                <div v-if="config.enable_change_4h_filter" class="flex justify-between">
+                  <span class="text-gray-400">4小时涨跌:</span>
                   <span :class="checkChange4hFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ checkChange4hFilter(token) ? '✓' : '✗' }}
+                    {{ ((token.change_4h || 0) * 100).toFixed(1) }}%
                   </span>
-                  <span class="text-gray-400">4小时</span>
                 </div>
-                <div v-if="config.enable_change_24h_filter" class="flex items-center space-x-1">
+                <div v-if="config.enable_change_24h_filter" class="flex justify-between">
+                  <span class="text-gray-400">24小时涨跌:</span>
                   <span :class="checkChange24hFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ checkChange24hFilter(token) ? '✓' : '✗' }}
+                    {{ ((token.change_24h || 0) * 100).toFixed(1) }}%
                   </span>
-                  <span class="text-gray-400">24小时</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 🆕 失败原因汇总（仅在不匹配时显示） -->
-            <div v-if="!isTokenMatching(token)" class="mt-2 border-t border-red-600/30 pt-2">
-              <div class="mb-1 text-xs text-red-400">未通过原因:</div>
-              <div class="text-xs text-red-300 space-y-1">
-                <div v-for="reason in getTokenFailureReasons(token).slice(0, 2)" :key="reason" class="truncate">
-                  • {{ reason }}
-                </div>
-                <div v-if="getTokenFailureReasons(token).length > 2" class="text-red-400">
-                  还有 {{ getTokenFailureReasons(token).length - 2 }} 个原因...
                 </div>
               </div>
             </div>

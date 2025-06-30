@@ -212,44 +212,5 @@ class WebSocketController extends Controller
         }
     }
 
-    /**
-     * 测试广播功能
-     */
-    public function testBroadcast(Request $request): JsonResponse
-    {
-        try {
-            $testData = [
-                'rdId' => 'test_' . time(),
-                'status' => 'test',
-                'type' => 'round',
-                'token' => [
-                    'BTC' => ['s' => 1, 'p' => 50000],
-                    'ETH' => ['s' => 2, 'p' => 3000]
-                ],
-                'message' => '这是一条测试消息'
-            ];
 
-            // 直接广播游戏数据更新
-            broadcast(new GameDataUpdated($testData, 'test'));
-
-            Log::info('手动触发广播测试', ['data' => $testData]);
-
-            return response()->json([
-                'success' => true,
-                'message' => '测试广播已发送',
-                'data' => $testData
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('测试广播失败', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => '测试广播失败: ' . $e->getMessage()
-            ], 500);
-        }
-    }
 }

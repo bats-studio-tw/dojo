@@ -10,9 +10,6 @@
       >
         重新连接
       </button>
-      <button @click="testBroadcast" class="ml-2 rounded bg-green-500 px-2 py-1 text-xs text-white hover:bg-green-600">
-        测试广播
-      </button>
     </div>
 
     <!-- 实时游戏数据 -->
@@ -205,24 +202,6 @@
       minute: '2-digit',
       second: '2-digit'
     });
-  };
-
-  // 测试广播功能
-  const testBroadcast = async () => {
-    try {
-      addMessage('connection', '🧪 触发测试广播...');
-      const response = await window.axios.get('/websocket/test-broadcast');
-
-      if (response.data.success) {
-        addMessage('connection', '✅ 测试广播已发送');
-        console.log('测试广播响应:', response.data);
-      } else {
-        addMessage('error', `❌ 测试广播失败: ${response.data.message}`);
-      }
-    } catch (error) {
-      console.error('测试广播错误:', error);
-      addMessage('error', `❌ 测试广播请求失败: ${(error as any).message}`);
-    }
   };
 
   // 监听store数据变化，记录到消息日志

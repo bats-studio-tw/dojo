@@ -56,3 +56,9 @@ Route::prefix('auto-betting')->group(function () {
     Route::get('/config', [AutoBettingController::class, 'getConfig'])->name('api.auto-betting.config.get');
     Route::post('/config', [AutoBettingController::class, 'saveConfig'])->name('api.auto-betting.config.save');
 });
+
+// 投注表现分析API
+Route::prefix('betting-analysis')->group(function () {
+    Route::get('/performance', [PredictionAnalysisController::class, 'getUserBettingPerformance'])->name('api.betting-analysis.performance');
+    Route::get('/token-stats', [PredictionAnalysisController::class, 'getTokenPerformanceStats'])->name('api.betting-analysis.token-stats');
+});

@@ -153,6 +153,23 @@ export const autoBettingApi = {
   }
 };
 
+// 投注表现分析API
+export const bettingAnalysisApi = {
+  // 获取用户投注表现分析（包含实际保本率）
+  getPerformanceAnalysis: (uid: string, days?: number, limit?: number) => {
+    return api.get('/betting-analysis/performance', {
+      params: { uid, days, limit }
+    });
+  },
+
+  // 获取代币表现统计
+  getTokenStats: (uid: string, days?: number) => {
+    return api.get('/betting-analysis/token-stats', {
+      params: { uid, days }
+    });
+  }
+};
+
 // 游戏数据相关API
 export const gameApi = {
   // 获取当前分析数据

@@ -42,6 +42,32 @@ class AutoBettingRecord extends Model
     }
 
     /**
+     * 获取该记录对应的实际游戏结果
+     */
+    public function getActualResult()
+    {
+        $gameRound = \App\Models\GameRound::where('round_id', $this->round_id)->first();
+        if (!$gameRound) return null;
+
+        return \App\Models\RoundResult::where('game_round_id', $gameRound->id)
+            ->where('token_symbol', strtoupper($this->token_symbol))
+            ->first();
+    }
+
+    /**
+     * 获取该记录对应的AI预测
+     */
+    public function getPrediction()
+    {
+        $gameRound = \App\Models\GameRound::where('round_id', $this->round_id)->first();
+        if (!$gameRound) return null;
+
+        return \App\Models\RoundPredict::where('game_round_id', $gameRound->id)
+            ->where('token_symbol', strtoupper($this->token_symbol))
+            ->first();
+    }
+
+    /**
      * 根据用户UID获取用户的下注统计
      */
     public static function getUserStats(string $uid): array

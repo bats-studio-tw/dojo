@@ -153,6 +153,11 @@
               @clear-bet-results="clearBetResults"
             />
           </NTabPane>
+
+          <!-- 投注表现分析标签页 -->
+          <NTabPane name="performance" tab="💰 实际保本率">
+            <BettingPerformanceAnalysis :uid="currentUID || ''" />
+          </NTabPane>
         </NTabs>
       </div>
     </div>
@@ -169,6 +174,7 @@
   import SmartControlCenter from '@/components/SmartControlCenter.vue';
   import HistoryAnalysisTab from '@/components/HistoryAnalysisTab.vue';
   import DiagnosticsTab from '@/components/DiagnosticsTab.vue';
+  import BettingPerformanceAnalysis from '@/components/BettingPerformanceAnalysis.vue';
 
   // 导入composables和stores
   import { useAutoBettingConfig, strategyTemplates } from '@/composables/useAutoBettingConfig';

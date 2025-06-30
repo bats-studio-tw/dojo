@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, triggerRef } from 'vue';
 import api from '@/utils/api';
 
 // 类型定义
@@ -260,9 +260,28 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
       // 监听游戏数据更新 - 包含当前轮次信息
       gameUpdatesChannel = window.Echo.channel('game-updates').listen('game.data.updated', (data: any) => {
         console.log('🎮 收到游戏数据更新:', data);
+        console.log('🎮 数据类型:', data.type);
+        console.log('🎮 游戏数据:', data.data);
+        console.log('🎮 轮次ID:', data.data?.rdId);
+        console.log('🎮 游戏状态:', data.data?.status);
 
-        // 更新最新游戏数据
-        latestGameData.value = data.data;
+        // 强制响应式更新 - 使用深拷贝确保Vue检测到变化
+        latestGameData.value = { ...data.data };
+
+        console.log('✅ 已更新latestGameData:', {
+          rdId: latestGameData.value?.rdId,
+          status: latestGameData.value?.status,
+          tokenCount: latestGameData.value?.token ? Object.keys(latestGameData.value.token).length : 0
+        });
+
+        // 🔥 强制触发Vue响应式更新
+        triggerRef(latestGameData);
+        console.log(
+          '🔥 已强制触发响应式更新 - 当前轮次:',
+          latestGameData.value?.rdId,
+          '状态:',
+          latestGameData.value?.status
+        );
 
         // 如果是结算数据，刷新预测历史
         if (data.type === 'settlement') {
@@ -305,6 +324,10 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
               currentAnalysis.value = [...data.data]; // 使用展开运算符确保响应式更新
               analysisMeta.value = { ...data.meta };
 
+              // 🔥 强制触发Vue响应式更新
+              triggerRef(currentAnalysis);
+              triggerRef(analysisMeta);
+
               console.log(`✅ 已更新预测分析数据（完整结构）: ${data.data.length} 个代币`);
               console.log('📊 更新的轮次信息:', data.meta.round_id, '状态:', data.meta.status);
               console.log('📊 更新后的currentAnalysis数量:', currentAnalysis.value.length);
@@ -324,6 +347,10 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
                 };
               }
 
+              // 🔥 强制触发Vue响应式更新
+              triggerRef(currentAnalysis);
+              triggerRef(analysisMeta);
+
               console.log(`✅ 已更新预测分析数据（兼容模式）: ${data.data.length} 个代币`);
               console.log('📊 更新后的currentAnalysis数量:', currentAnalysis.value.length);
               console.log('📊 更新后的第一个代币:', currentAnalysis.value[0]?.symbol || '无');
@@ -332,16 +359,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
               console.warn('⚠️ 预期格式: {success: true, data: Array, meta: Object} 或 {data: Array}');
               console.warn('⚠️ 实际数据结构:', Object.keys(data));
               console.warn('⚠️ 原始数据:', receivedData);
-            }
-
-            // 🔥 强制触发Vue的响应式更新
-            console.log('🔥 强制检查响应式更新 - currentAnalysis长度:', currentAnalysis.value.length);
-            console.log('🔥 强制检查响应式更新 - 第一个代币:', currentAnalysis.value[0]?.symbol || '无');
-
-            // 触发Vue的deep reactive更新
-            currentAnalysis.value = [...currentAnalysis.value];
-            if (analysisMeta.value) {
-              analysisMeta.value = { ...analysisMeta.value };
             }
           } catch (error) {
             console.error('❌ 解析预测数据失败:', error);

@@ -11,10 +11,10 @@
             <!-- WebSocket状态指示器 -->
             <div
               class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2"
-              :class="getWSStatusClass(gamePredictionStore.websocketStatus.status)"
+              :class="getWSStatusClass(websocketStatus.status)"
             >
               <span>{{ wsStatusConfig.icon }}</span>
-              <span>{{ gamePredictionStore.websocketStatus.message }}</span>
+              <span>{{ websocketStatus.message }}</span>
               <button
                 v-if="!gamePredictionStore.isConnected"
                 @click="gamePredictionStore.reconnectWebSocket()"
@@ -48,11 +48,9 @@
             </div>
             <div class="space-y-1">
               <div class="text-blue-300 font-medium">WebSocket状态</div>
-              <div class="text-gray-300">状态: {{ gamePredictionStore.websocketStatus.status }}</div>
-              <div class="text-gray-300">重连次数: {{ gamePredictionStore.websocketStatus.reconnectAttempts }}</div>
-              <div class="text-gray-300">
-                最后连接: {{ formatTimeUtil(gamePredictionStore.websocketStatus.lastConnectedAt) }}
-              </div>
+              <div class="text-gray-300">状态: {{ websocketStatus.status }}</div>
+              <div class="text-gray-300">重连次数: {{ websocketStatus.reconnectAttempts }}</div>
+              <div class="text-gray-300">最后连接: {{ formatTimeUtil(websocketStatus.lastConnectedAt) }}</div>
             </div>
             <div class="space-y-1">
               <div class="text-blue-300 font-medium">轮次信息</div>
@@ -512,6 +510,7 @@
 
 <script setup lang="ts">
   import { ref, onMounted, computed, h, watch } from 'vue';
+  import { storeToRefs } from 'pinia';
   import { NEmpty, type DataTableColumn } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import api from '@/utils/api';
@@ -566,19 +565,20 @@
   // 使用游戏预测store - 统一的数据管理，支持WebSocket实时更新
   const gamePredictionStore = useGamePredictionStore();
 
-  // 从store中获取数据 - 直接使用store的响应式数据
-  const analysisData = computed(() => gamePredictionStore.currentAnalysis);
-  const analysisMeta = computed(() => gamePredictionStore.analysisMeta);
-  const predictionHistoryData = computed(() => gamePredictionStore.predictionHistory);
-  const analysisLoading = computed(() => gamePredictionStore.analysisLoading);
-  const latestGameData = computed(() => gamePredictionStore.latestGameData);
-
-  // 🆕 新增计算属性 - 使用store的增强功能
-  const currentRoundId = computed(() => gamePredictionStore.currentRoundId);
-  const currentGameStatus = computed(() => gamePredictionStore.currentGameStatus);
-  const canBet = computed(() => gamePredictionStore.canBet);
-  const isSettled = computed(() => gamePredictionStore.isSettled);
-  const isSettling = computed(() => gamePredictionStore.isSettling);
+  // 从store中获取数据 - 使用storeToRefs保持响应性
+  const {
+    currentAnalysis: analysisData,
+    analysisMeta,
+    predictionHistory: predictionHistoryData,
+    analysisLoading,
+    latestGameData,
+    currentRoundId,
+    currentGameStatus,
+    canBet,
+    isSettled,
+    isSettling,
+    websocketStatus
+  } = storeToRefs(gamePredictionStore);
 
   // 历史游戏数据仍然通过API获取（这部分数据更新频率较低）
   const historyData = ref<HistoryRound[]>([]);
@@ -749,7 +749,7 @@
   };
 
   // 使用统一的状态工具
-  const wsStatusConfig = computed(() => getWebSocketStatusConfig(gamePredictionStore.websocketStatus.status));
+  const wsStatusConfig = computed(() => getWebSocketStatusConfig(websocketStatus.value.status));
 
   // 测试函数
   const testStoreUpdate = () => {
@@ -841,7 +841,7 @@
   const testWebSocket = () => {
     console.log('🔍 WebSocket连接测试开始');
     console.log('🔍 Echo实例:', window.Echo);
-    console.log('🔍 WebSocket状态:', gamePredictionStore.websocketStatus);
+    console.log('🔍 WebSocket状态:', websocketStatus.value);
 
     if (window.Echo?.connector?.pusher) {
       const pusher = window.Echo.connector.pusher;
@@ -1104,22 +1104,22 @@
     console.log('🐛 Dashboard初始化时的状态:');
     console.log('🐛 - 当前分析数据数量:', analysisData.value.length);
     console.log('🐛 - 分析数据内容:', analysisData.value);
-    console.log('🐛 - WebSocket状态:', gamePredictionStore.websocketStatus);
+    console.log('🐛 - WebSocket状态:', websocketStatus.value);
     console.log('🐛 - 是否已连接:', gamePredictionStore.isConnected);
-    console.log('🐛 - Store currentAnalysis长度:', gamePredictionStore.currentAnalysis.length);
-    console.log('🐛 - Store currentAnalysis内容:', gamePredictionStore.currentAnalysis);
+    console.log('🐛 - Store currentAnalysis长度:', analysisData.value.length);
+    console.log('🐛 - Store currentAnalysis内容:', analysisData.value);
 
     // 监听store状态变化
     watch(
-      () => gamePredictionStore.currentAnalysis.length,
+      () => analysisData.value.length,
       (newLength: number, oldLength: number) => {
         console.log('🔥 Store currentAnalysis数量变化:', oldLength, '->', newLength);
-        console.log('🔥 新的分析数据:', gamePredictionStore.currentAnalysis);
+        console.log('🔥 新的分析数据:', analysisData.value);
       }
     );
 
     watch(
-      () => gamePredictionStore.websocketStatus.status,
+      () => websocketStatus.value.status,
       (newStatus: string, oldStatus: string) => {
         console.log('🔥 WebSocket状态变化:', oldStatus, '->', newStatus);
       }
@@ -1131,11 +1131,11 @@
         '🐛 定期检查 - 分析数据数量:',
         analysisData.value.length,
         '/ Store数量:',
-        gamePredictionStore.currentAnalysis.length,
+        analysisData.value.length,
         'WebSocket状态:',
-        gamePredictionStore.websocketStatus.status,
+        websocketStatus.value.status,
         '最后连接时间:',
-        gamePredictionStore.websocketStatus.lastConnectedAt
+        websocketStatus.value.lastConnectedAt
       );
     }, 5000);
   });

@@ -132,6 +132,7 @@
   import { useAutoBettingControl } from '@/composables/useAutoBettingControl';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import { usePredictionStats } from '@/composables/usePredictionStats';
+  import { storeToRefs } from 'pinia';
   import type { StrategyValidation } from '@/types/autoBetting';
   import { handleError, createConfirmDialog, handleAsyncOperation } from '@/utils/errorHandler';
   import { autoBettingApi } from '@/utils/api';
@@ -140,6 +141,9 @@
   const configComposable = useAutoBettingConfig();
   const controlComposable = useAutoBettingControl();
   const predictionStore = useGamePredictionStore();
+
+  // 从store中获取响应式数据
+  const { predictionHistory, currentAnalysis, currentRoundId } = storeToRefs(predictionStore);
 
   // 从composables中解构状态和方法
   const {
@@ -186,10 +190,7 @@
 
   // 预测统计相关
   const recentRoundsCount = ref(50);
-  const predictionStats = usePredictionStats(
-    computed(() => predictionStore.predictionHistory),
-    recentRoundsCount
-  );
+  const predictionStats = usePredictionStats(predictionHistory, recentRoundsCount);
 
   // 策略验证状态
   const strategyValidation = ref<StrategyValidation | null>(null);
@@ -252,13 +253,12 @@
     debugInfo.lastValidationTime = new Date().toLocaleTimeString();
 
     // 使用store的当前分析数据
-    const currentAnalysisData = predictionStore.currentAnalysis;
-    if (!currentAnalysisData || currentAnalysisData.length === 0) {
+    if (!currentAnalysis.value || currentAnalysis.value.length === 0) {
       strategyValidation.value = null;
       return;
     }
 
-    const predictions = currentAnalysisData;
+    const predictions = currentAnalysis.value;
     const matches: any[] = [];
     let totalMatchedValue = 0;
 
@@ -310,7 +310,7 @@
             let successCount = 0;
             let failCount = 0;
             // 使用store的增强功能获取轮次ID
-            const roundId = predictionStore.currentRoundId;
+            const roundId = currentRoundId.value;
 
             if (!roundId) {
               throw new Error('无法获取当前轮次ID');
@@ -401,7 +401,7 @@
   );
 
   const analysisWatcher = watch(
-    () => predictionStore.currentAnalysis,
+    currentAnalysis,
     () => {
       validateCurrentStrategy();
     },
@@ -421,23 +421,22 @@
     }
 
     // 检查是否有分析数据
-    const currentAnalysisData = predictionStore.currentAnalysis;
-    if (!currentAnalysisData || currentAnalysisData.length === 0) {
+    if (!currentAnalysis.value || currentAnalysis.value.length === 0) {
       return;
     }
 
     // 检查当前轮次是否已经下过注
-    const currentRoundId = predictionStore.currentRoundId;
-    if (!currentRoundId) {
+    const roundId = currentRoundId.value;
+    if (!roundId) {
       return;
     }
 
     try {
       // 检查是否已经在该轮次下过注
-      const roundBetCheck = await autoBettingApi.checkRoundBet(currentUID.value, currentRoundId);
+      const roundBetCheck = await autoBettingApi.checkRoundBet(currentUID.value, roundId);
       if (roundBetCheck.data.success && roundBetCheck.data.data.has_bet) {
         // 已经下过注，跳过
-        console.log(`轮次 ${currentRoundId} 已下注，跳过`);
+        console.log(`轮次 ${roundId} 已下注，跳过`);
         return;
       }
     } catch (error) {
@@ -469,7 +468,7 @@
 
       for (const match of strategyValidation.value.matches) {
         try {
-          const betSuccess = await executeSingleBet(currentRoundId, match.symbol, match.bet_amount, config.jwt_token);
+          const betSuccess = await executeSingleBet(roundId, match.symbol, match.bet_amount, config.jwt_token);
           if (betSuccess) {
             successCount++;
             // 记录成功的下注到调试信息

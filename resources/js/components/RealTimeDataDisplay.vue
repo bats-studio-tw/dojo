@@ -24,20 +24,20 @@
           游戏数据
         </h3>
 
-        <div v-if="predictionStore.latestGameData" class="space-y-3">
+        <div v-if="latestGameData" class="space-y-3">
           <div class="flex justify-between">
             <span class="text-gray-600">轮次ID:</span>
-            <span class="font-mono">{{ predictionStore.currentRoundId || 'N/A' }}</span>
+            <span class="font-mono">{{ currentRoundId || 'N/A' }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">状态:</span>
-            <span :class="getStatusColor(predictionStore.currentGameStatus)">
-              {{ predictionStore.currentGameStatus }}
+            <span :class="getStatusColor(currentGameStatus)">
+              {{ currentGameStatus }}
             </span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">代币数量:</span>
-            <span>{{ predictionStore.currentGameTokens.length }}</span>
+            <span>{{ currentGameTokens.length }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">更新时间:</span>
@@ -45,11 +45,11 @@
           </div>
 
           <!-- 代币列表 -->
-          <div v-if="predictionStore.currentGameTokens.length > 0" class="mt-4">
+          <div v-if="currentGameTokens.length > 0" class="mt-4">
             <h4 class="mb-2 text-sm text-gray-700 font-medium">当前代币:</h4>
             <div class="flex flex-wrap gap-2">
               <span
-                v-for="token in predictionStore.currentGameTokens"
+                v-for="token in currentGameTokens"
                 :key="token"
                 class="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800"
               >
@@ -69,14 +69,14 @@
           预测分析
         </h3>
 
-        <div v-if="predictionStore.hasCurrentAnalysis" class="space-y-3">
+        <div v-if="hasCurrentAnalysis" class="space-y-3">
           <div class="flex justify-between">
             <span class="text-gray-600">轮次ID:</span>
-            <span class="font-mono">{{ predictionStore.currentRoundId || 'N/A' }}</span>
+            <span class="font-mono">{{ currentRoundId || 'N/A' }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">预测数量:</span>
-            <span>{{ predictionStore.currentAnalysis.length }}</span>
+            <span>{{ currentAnalysis.length }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">更新时间:</span>
@@ -84,11 +84,11 @@
           </div>
 
           <!-- 预测排名 -->
-          <div v-if="predictionStore.currentAnalysis.length > 0" class="mt-4">
+          <div v-if="currentAnalysis.length > 0" class="mt-4">
             <h4 class="mb-2 text-sm text-gray-700 font-medium">预测排名:</h4>
             <div class="space-y-2">
               <div
-                v-for="(prediction, index) in predictionStore.currentAnalysis.slice(0, 5)"
+                v-for="(prediction, index) in currentAnalysis.slice(0, 5)"
                 :key="prediction.symbol"
                 class="flex items-center justify-between rounded bg-gray-50 p-2"
               >
@@ -138,9 +138,21 @@
   import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import { getWebSocketStatusConfig, getGameStatusConfig } from '@/utils/statusUtils';
+  import { storeToRefs } from 'pinia';
 
   // 使用预测数据store
   const predictionStore = useGamePredictionStore();
+
+  // 从store中获取响应式数据
+  const {
+    latestGameData,
+    currentRoundId,
+    currentGameStatus,
+    currentGameTokens,
+    hasCurrentAnalysis,
+    currentAnalysis,
+    websocketStatus
+  } = storeToRefs(predictionStore);
 
   // 响应式数据 - 只保留必要的本地状态
   const recentMessages = ref<Array<{ type: string; message: string; timestamp: string }>>([]);
@@ -148,7 +160,7 @@
   const predictionTimestamp = ref<string>('');
 
   // 使用统一的状态工具
-  const wsStatusConfig = computed(() => getWebSocketStatusConfig(predictionStore.websocketStatus.status));
+  const wsStatusConfig = computed(() => getWebSocketStatusConfig(websocketStatus.value.status));
 
   // 计算属性
   const connectionStatusText = computed(() => wsStatusConfig.value.label);
@@ -215,24 +227,24 @@
 
   // 监听store数据变化，记录到消息日志
   const gameDataWatcher = watch(
-    () => predictionStore.latestGameData,
+    latestGameData,
     (newData) => {
       if (newData) {
         gameDataTimestamp.value = new Date().toISOString();
-        addMessage('game', `🎮 游戏数据更新: ${newData.status} (轮次: ${predictionStore.currentRoundId || 'N/A'})`);
+        addMessage('game', `🎮 游戏数据更新: ${newData.status} (轮次: ${currentRoundId.value || 'N/A'})`);
       }
     },
     { deep: true }
   );
 
   const analysisWatcher = watch(
-    () => predictionStore.currentAnalysis,
+    currentAnalysis,
     (newAnalysis) => {
       if (newAnalysis && newAnalysis.length > 0) {
         predictionTimestamp.value = new Date().toISOString();
         addMessage(
           'prediction',
-          `🧠 预测数据更新: ${newAnalysis.length} 个代币 (轮次: ${predictionStore.currentRoundId || 'N/A'})`
+          `🧠 预测数据更新: ${newAnalysis.length} 个代币 (轮次: ${currentRoundId.value || 'N/A'})`
         );
       }
     },
@@ -240,7 +252,7 @@
   );
 
   const websocketStatusWatcher = watch(
-    () => predictionStore.websocketStatus.status,
+    () => websocketStatus.value.status,
     (newStatus, oldStatus) => {
       if (oldStatus && newStatus !== oldStatus) {
         const statusMessages = {
@@ -261,10 +273,10 @@
     addMessage('connection', '📡 实时数据显示组件已加载');
 
     // 初始化时间戳
-    if (predictionStore.latestGameData) {
+    if (latestGameData.value) {
       gameDataTimestamp.value = new Date().toISOString();
     }
-    if (predictionStore.hasCurrentAnalysis) {
+    if (hasCurrentAnalysis.value) {
       predictionTimestamp.value = new Date().toISOString();
     }
   });

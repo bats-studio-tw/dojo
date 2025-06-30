@@ -182,48 +182,6 @@
                   {{ (getTokenHistoricalAccuracy(token) * 100).toFixed(1) }}%
                 </span>
               </div>
-
-              <!-- 门槛显示（仅在不匹配时显示） -->
-              <div v-if="!isTokenMatching(token)" class="mt-3 pt-2 border-t border-gray-600/30">
-                <div class="text-xs text-gray-500 mb-1">要求门槛:</div>
-                <div class="space-y-1">
-                  <div class="flex justify-between">
-                    <span class="text-gray-500">置信度:</span>
-                    <span class="text-gray-400">≥{{ confidenceThreshold }}%</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-500">分数:</span>
-                    <span class="text-gray-400">≥{{ config.score_gap_threshold }}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-500">样本数:</span>
-                    <span class="text-gray-400">≥{{ config.min_sample_count }}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-500">历史准确率:</span>
-                    <span class="text-gray-400">≥{{ (config.historical_accuracy_threshold * 100).toFixed(1) }}%</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 失败原因（只在不匹配时显示） -->
-              <div v-if="!isTokenMatching(token)" class="mt-3 rounded bg-red-500/10 p-2">
-                <div class="text-xs text-red-400">
-                  <strong>未通过:</strong>
-                  <div class="mt-1">
-                    <div v-for="reason in getTokenFailureReasons(token).slice(0, 3)" :key="reason" class="text-red-300">
-                      • {{ reason }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 成功匹配时的额外信息 -->
-              <div v-if="isTokenMatching(token)" class="mt-3 rounded bg-green-500/10 p-2">
-                <div class="text-xs text-green-400 text-center">
-                  <strong>✅ 全部通过</strong>
-                </div>
-              </div>
             </div>
           </div>
         </div>

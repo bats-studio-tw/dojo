@@ -51,46 +51,50 @@
 
         <!-- 详细数据参数 -->
         <div class="text-xs space-y-1">
-          <div v-if="token.absolute_score" class="flex justify-between">
+          <div class="flex justify-between">
             <span class="text-gray-400">绝对分数:</span>
-            <span class="text-purple-400 font-bold">{{ (token.absolute_score || 0).toFixed(1) }}</span>
-          </div>
-          <div v-if="token.relative_score || token.h2h_score" class="flex justify-between">
-            <span class="text-gray-400">相对分数:</span>
-            <span class="text-orange-400 font-bold">
-              {{ (token.relative_score || token.h2h_score || 0).toFixed(1) }}
+            <span class="text-purple-400 font-bold">
+              {{ token.absolute_score ? (token.absolute_score || 0).toFixed(1) : '-' }}
             </span>
           </div>
-          <div v-if="token.top3_rate" class="flex justify-between">
-            <span class="text-gray-400">保本率:</span>
-            <span class="text-green-400 font-bold">{{ (token.top3_rate || 0).toFixed(1) }}%</span>
+          <div class="flex justify-between">
+            <span class="text-gray-400">相对分数:</span>
+            <span class="text-orange-400 font-bold">
+              {{
+                token.relative_score || token.h2h_score
+                  ? (token.relative_score || token.h2h_score || 0).toFixed(1)
+                  : '-'
+              }}
+            </span>
           </div>
-          <div v-if="token.win_rate" class="flex justify-between">
+          <div class="flex justify-between">
+            <span class="text-gray-400">保本率:</span>
+            <span class="text-green-400 font-bold">
+              {{ token.top3_rate ? (token.top3_rate || 0).toFixed(1) + '%' : '-' }}
+            </span>
+          </div>
+          <div class="flex justify-between">
             <span class="text-gray-400">胜率:</span>
-            <span class="text-yellow-400 font-bold">{{ (token.win_rate || 0).toFixed(1) }}%</span>
+            <span class="text-yellow-400 font-bold">
+              {{ token.win_rate ? (token.win_rate || 0).toFixed(1) + '%' : '-' }}
+            </span>
           </div>
 
           <!-- 代币涨跌幅信息 -->
-          <div v-if="hasAnyPriceChange(token)" class="mt-2 border-t border-gray-600/30 pt-1">
-            <div v-if="token.change_5m !== null && token.change_5m !== undefined" class="flex justify-between">
+          <div class="mt-2 border-t border-gray-600/30 pt-1">
+            <div class="flex justify-between">
               <span class="text-gray-400">5分钟:</span>
               <span class="font-bold" :class="formatTokenPriceChange(token.change_5m).color">
                 {{ formatTokenPriceChange(token.change_5m).text }}
               </span>
             </div>
-            <div v-if="token.change_1h !== null && token.change_1h !== undefined" class="flex justify-between">
+            <div class="flex justify-between">
               <span class="text-gray-400">1小时:</span>
               <span class="font-bold" :class="formatTokenPriceChange(token.change_1h).color">
                 {{ formatTokenPriceChange(token.change_1h).text }}
               </span>
             </div>
-            <div v-if="token.change_4h !== null && token.change_4h !== undefined" class="flex justify-between">
-              <span class="text-gray-400">4小时:</span>
-              <span class="font-bold" :class="formatTokenPriceChange(token.change_4h).color">
-                {{ formatTokenPriceChange(token.change_4h).text }}
-              </span>
-            </div>
-            <div v-if="token.change_24h !== null && token.change_24h !== undefined" class="flex justify-between">
+            <div class="flex justify-between">
               <span class="text-gray-400">24小时:</span>
               <span class="font-bold" :class="formatTokenPriceChange(token.change_24h).color">
                 {{ formatTokenPriceChange(token.change_24h).text }}
@@ -212,16 +216,6 @@
     return { text, color };
   };
 
-  // 检查Token是否有任何涨跌幅数据
-  const hasAnyPriceChange = (token: any) => {
-    return (
-      (token.change_5m !== null && token.change_5m !== undefined) ||
-      (token.change_1h !== null && token.change_1h !== undefined) ||
-      (token.change_4h !== null && token.change_4h !== undefined) ||
-      (token.change_24h !== null && token.change_24h !== undefined)
-    );
-  };
-
   // ==================== 样式相关函数 ====================
 
   const getUnifiedCardClass = (index: number) => {
@@ -248,6 +242,6 @@
     if (index === 0) return '🥇';
     if (index === 1) return '🥈';
     if (index === 2) return '🥉';
-    return '📊';
+    return '��';
   };
 </script>

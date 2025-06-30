@@ -51,23 +51,33 @@
 
         <!-- 详细数据参数 -->
         <div class="text-xs space-y-1">
-          <div v-if="token.absolute_score" class="flex justify-between">
+          <div class="flex justify-between">
             <span class="text-gray-400">绝对分数:</span>
-            <span class="text-purple-400 font-bold">{{ (token.absolute_score || 0).toFixed(1) }}</span>
-          </div>
-          <div v-if="token.relative_score || token.h2h_score" class="flex justify-between">
-            <span class="text-gray-400">相对分数:</span>
-            <span class="text-orange-400 font-bold">
-              {{ (token.relative_score || token.h2h_score || 0).toFixed(1) }}
+            <span class="text-purple-400 font-bold">
+              {{ token.absolute_score ? (token.absolute_score || 0).toFixed(1) : '-' }}
             </span>
           </div>
-          <div v-if="token.top3_rate" class="flex justify-between">
-            <span class="text-gray-400">保本率:</span>
-            <span class="text-green-400 font-bold">{{ (token.top3_rate || 0).toFixed(1) }}%</span>
+          <div class="flex justify-between">
+            <span class="text-gray-400">相对分数:</span>
+            <span class="text-orange-400 font-bold">
+              {{
+                token.relative_score || token.h2h_score
+                  ? (token.relative_score || token.h2h_score || 0).toFixed(1)
+                  : '-'
+              }}
+            </span>
           </div>
-          <div v-if="token.win_rate" class="flex justify-between">
+          <div class="flex justify-between">
+            <span class="text-gray-400">保本率:</span>
+            <span class="text-green-400 font-bold">
+              {{ token.top3_rate ? (token.top3_rate || 0).toFixed(1) + '%' : '-' }}
+            </span>
+          </div>
+          <div class="flex justify-between">
             <span class="text-gray-400">胜率:</span>
-            <span class="text-yellow-400 font-bold">{{ (token.win_rate || 0).toFixed(1) }}%</span>
+            <span class="text-yellow-400 font-bold">
+              {{ token.win_rate ? (token.win_rate || 0).toFixed(1) + '%' : '-' }}
+            </span>
           </div>
 
           <!-- 实时游戏数据对比（如果有） -->

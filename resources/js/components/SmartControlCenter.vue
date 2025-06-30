@@ -342,6 +342,24 @@
 
             <!-- 🆕 高级过滤器配置 -->
             <div class="border-t border-gray-600 pt-4">
+              <!-- 🔧 过滤器工具栏 -->
+              <div class="mb-3 flex items-center justify-between">
+                <span class="text-sm text-gray-300 font-medium">高级过滤器</span>
+                <div class="flex space-x-2">
+                  <n-button @click="resetAllFilters" :disabled="isRunning" size="tiny" type="error">
+                    <template #icon>
+                      <span>🧹</span>
+                    </template>
+                    清除全部
+                  </n-button>
+                  <n-button @click="resetToDefaults" :disabled="isRunning" size="tiny" type="warning">
+                    <template #icon>
+                      <span>🔄</span>
+                    </template>
+                    重置默认
+                  </n-button>
+                </div>
+              </div>
               <NCollapse size="small">
                 <!-- 历史表现过滤器 -->
                 <NCollapseItem title="📊 历史表现过滤器" name="historical">
@@ -743,6 +761,98 @@
         props.config.rank_betting_enabled_ranks.splice(index, 1);
       }
     }
+  };
+
+  // 🧹 清除全部过滤器
+  const resetAllFilters = () => {
+    window.$dialog?.warning({
+      title: '确认清除',
+      content: '确定要清除所有过滤器吗？这将关闭所有高级过滤条件。',
+      positiveText: '确认清除',
+      negativeText: '取消',
+      onPositiveClick: () => {
+        // 历史表现过滤器
+        props.config.enable_win_rate_filter = false;
+        props.config.enable_top3_rate_filter = false;
+        props.config.enable_avg_rank_filter = false;
+        props.config.enable_stability_filter = false;
+
+        // 评分过滤器
+        props.config.enable_absolute_score_filter = false;
+        props.config.enable_relative_score_filter = false;
+        props.config.enable_h2h_score_filter = false;
+        props.config.enable_risk_adjusted_filter = false;
+
+        // 市场动态过滤器
+        props.config.enable_change_5m_filter = false;
+        props.config.enable_change_1h_filter = false;
+        props.config.enable_change_4h_filter = false;
+        props.config.enable_change_24h_filter = false;
+
+        window.$message?.success('🧹 已清除全部过滤器，所有过滤器已关闭');
+      }
+    });
+  };
+
+  // 🔄 重置为默认配置
+  const resetToDefaults = () => {
+    window.$dialog?.warning({
+      title: '确认重置',
+      content: '确定要重置为默认配置吗？这将恢复所有参数到初始状态，包括下注金额、策略等。',
+      positiveText: '确认重置',
+      negativeText: '取消',
+      onPositiveClick: () => {
+        // 重置所有过滤器为默认值（关闭状态）
+        // 历史表现过滤器
+        props.config.enable_win_rate_filter = false;
+        props.config.min_win_rate_threshold = 0.65;
+        props.config.enable_top3_rate_filter = false;
+        props.config.min_top3_rate_threshold = 0.6;
+        props.config.enable_avg_rank_filter = false;
+        props.config.max_avg_rank_threshold = 2.8;
+        props.config.enable_stability_filter = false;
+        props.config.max_stability_threshold = 0.7;
+
+        // 评分过滤器
+        props.config.enable_absolute_score_filter = false;
+        props.config.min_absolute_score_threshold = 0.7;
+        props.config.enable_relative_score_filter = false;
+        props.config.min_relative_score_threshold = 0.65;
+        props.config.enable_h2h_score_filter = false;
+        props.config.min_h2h_score_threshold = 0.65;
+        props.config.enable_risk_adjusted_filter = false;
+        props.config.min_risk_adjusted_threshold = 0.7;
+
+        // 市场动态过滤器
+        props.config.enable_change_5m_filter = false;
+        props.config.min_change_5m_threshold = -0.01;
+        props.config.max_change_5m_threshold = 0.07;
+        props.config.enable_change_1h_filter = false;
+        props.config.min_change_1h_threshold = -0.03;
+        props.config.max_change_1h_threshold = 0.1;
+        props.config.enable_change_4h_filter = false;
+        props.config.min_change_4h_threshold = -0.05;
+        props.config.max_change_4h_threshold = 0.15;
+        props.config.enable_change_24h_filter = false;
+        props.config.min_change_24h_threshold = 0.0;
+        props.config.max_change_24h_threshold = 0.0;
+
+        // 基础参数重置为合理默认值
+        props.config.confidence_threshold = 88;
+        props.config.score_gap_threshold = 6.0;
+        props.config.min_total_games = 25;
+        props.config.historical_accuracy_threshold = 0.7;
+        props.config.min_sample_count = 40;
+        props.config.max_bet_percentage = 15;
+        props.config.strategy = 'single_bet';
+        props.config.bet_amount = 200;
+
+        // 重置排名下注设置
+        props.config.rank_betting_enabled_ranks = [1, 2, 3];
+
+        window.$message?.success('🔄 已重置为默认配置，所有参数恢复初始状态');
+      }
+    });
   };
 
   // ==================== 本地状态管理 ====================

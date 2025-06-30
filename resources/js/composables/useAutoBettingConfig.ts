@@ -263,7 +263,7 @@ export const strategyTemplates = {
     max_change_24h_threshold: 0.0
   },
 
-  // 🎯 智能排名策略 - 保留原有的排名下注功能
+  // 🎯 智能排名策略 - 保留原有的排名下注功能，但参数更宽松
   rank_betting_smart: {
     name: '🎯 智能排名策略',
     description: '基于排名下注，但加入智能过滤，提高胜率。选择TOP1、TOP2等排名进行下注。',
@@ -277,37 +277,37 @@ export const strategyTemplates = {
     enable_trend_analysis: false,
     enable_volume_filter: false,
     stop_loss_consecutive: 8, // 允许较多连续失败
-    // 🎯 智能排名策略：适度的历史表现过滤器
-    enable_win_rate_filter: true,
-    min_win_rate_threshold: 0.6, // 胜率要求适中
-    enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 0.55, // 保本率要求适中
-    enable_avg_rank_filter: true,
-    max_avg_rank_threshold: 3.0, // 平均排名要求宽松
-    enable_stability_filter: false, // 不要求稳定性
-    max_stability_threshold: 1.0,
-    // 🎯 智能排名策略：基础的评分过滤器
-    enable_absolute_score_filter: true,
-    min_absolute_score_threshold: 0.65, // 基础的绝对分数要求
-    enable_relative_score_filter: false, // 不使用相对分数
+    // 🎯 智能排名策略：轻量级历史表现过滤器（主要靠排名，过滤器作为辅助）
+    enable_win_rate_filter: false, // 关闭胜率过滤，避免过度限制
+    min_win_rate_threshold: 0.5,
+    enable_top3_rate_filter: false, // 关闭保本率过滤
+    min_top3_rate_threshold: 0.5,
+    enable_avg_rank_filter: false, // 关闭平均排名过滤
+    max_avg_rank_threshold: 5.0,
+    enable_stability_filter: false, // 关闭稳定性过滤
+    max_stability_threshold: 2.0,
+    // 🎯 智能排名策略：轻量级评分过滤器
+    enable_absolute_score_filter: false, // 关闭绝对分数过滤
+    min_absolute_score_threshold: 0.5,
+    enable_relative_score_filter: false, // 关闭相对分数过滤
     min_relative_score_threshold: 0.5,
-    enable_h2h_score_filter: true,
-    min_h2h_score_threshold: 0.6, // 基础的H2H分数要求
-    enable_risk_adjusted_filter: false, // 不使用风险调整分数
-    min_risk_adjusted_threshold: 0.6,
-    // 🎯 智能排名策略：避免极端市场情况的过滤器
-    enable_change_5m_filter: true,
-    min_change_5m_threshold: -0.03, // 允许适度下跌
-    max_change_5m_threshold: 0.08, // 允许适度上涨
+    enable_h2h_score_filter: false, // 关闭H2H分数过滤
+    min_h2h_score_threshold: 0.5,
+    enable_risk_adjusted_filter: false, // 关闭风险调整分数过滤
+    min_risk_adjusted_threshold: 0.5,
+    // 🎯 智能排名策略：仅避免极端市场情况
+    enable_change_5m_filter: false, // 关闭短期市场过滤，让排名策略更纯粹
+    min_change_5m_threshold: -0.1,
+    max_change_5m_threshold: 0.1,
     enable_change_1h_filter: false,
-    min_change_1h_threshold: 0.0,
-    max_change_1h_threshold: 0.0,
+    min_change_1h_threshold: -0.1,
+    max_change_1h_threshold: 0.1,
     enable_change_4h_filter: false,
-    min_change_4h_threshold: 0.0,
-    max_change_4h_threshold: 0.0,
+    min_change_4h_threshold: -0.1,
+    max_change_4h_threshold: 0.1,
     enable_change_24h_filter: false,
-    min_change_24h_threshold: 0.0,
-    max_change_24h_threshold: 0.0
+    min_change_24h_threshold: -0.1,
+    max_change_24h_threshold: 0.1
   }
 };
 

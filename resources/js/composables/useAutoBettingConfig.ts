@@ -1,4 +1,4 @@
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive } from 'vue';
 import { autoBettingApi } from '@/utils/api';
 
 export interface AutoBettingConfig {
@@ -34,6 +34,40 @@ export interface AutoBettingConfig {
   rank_betting_rank2_amount: number;
   rank_betting_rank3_amount: number;
   rank_betting_max_ranks: number;
+
+  // 🆕 新增历史表现过滤器
+  enable_win_rate_filter: boolean;
+  min_win_rate_threshold: number;
+  enable_top3_rate_filter: boolean;
+  min_top3_rate_threshold: number;
+  enable_avg_rank_filter: boolean;
+  max_avg_rank_threshold: number;
+  enable_stability_filter: boolean;
+  max_stability_threshold: number;
+
+  // 🆕 新增评分过滤器
+  enable_absolute_score_filter: boolean;
+  min_absolute_score_threshold: number;
+  enable_relative_score_filter: boolean;
+  min_relative_score_threshold: number;
+  enable_h2h_score_filter: boolean;
+  min_h2h_score_threshold: number;
+  enable_risk_adjusted_filter: boolean;
+  min_risk_adjusted_threshold: number;
+
+  // 🆕 新增市场动态过滤器
+  enable_change_5m_filter: boolean;
+  min_change_5m_threshold: number;
+  max_change_5m_threshold: number;
+  enable_change_1h_filter: boolean;
+  min_change_1h_threshold: number;
+  max_change_1h_threshold: number;
+  enable_change_4h_filter: boolean;
+  min_change_4h_threshold: number;
+  max_change_4h_threshold: number;
+  enable_change_24h_filter: boolean;
+  min_change_24h_threshold: number;
+  max_change_24h_threshold: number;
 }
 
 export const strategyTemplates = {
@@ -157,7 +191,41 @@ export const useAutoBettingConfig = () => {
     rank_betting_rank1_amount: 200,
     rank_betting_rank2_amount: 200,
     rank_betting_rank3_amount: 200,
-    rank_betting_max_ranks: 5
+    rank_betting_max_ranks: 5,
+
+    // 🆕 新增历史表现过滤器
+    enable_win_rate_filter: false,
+    min_win_rate_threshold: 0.7,
+    enable_top3_rate_filter: false,
+    min_top3_rate_threshold: 0.5,
+    enable_avg_rank_filter: false,
+    max_avg_rank_threshold: 3.0,
+    enable_stability_filter: false,
+    max_stability_threshold: 0.8,
+
+    // 🆕 新增评分过滤器
+    enable_absolute_score_filter: false,
+    min_absolute_score_threshold: 0.7,
+    enable_relative_score_filter: false,
+    min_relative_score_threshold: 0.5,
+    enable_h2h_score_filter: false,
+    min_h2h_score_threshold: 0.7,
+    enable_risk_adjusted_filter: false,
+    min_risk_adjusted_threshold: 0.6,
+
+    // 🆕 新增市场动态过滤器
+    enable_change_5m_filter: false,
+    min_change_5m_threshold: 0.0,
+    max_change_5m_threshold: 0.0,
+    enable_change_1h_filter: false,
+    min_change_1h_threshold: 0.0,
+    max_change_1h_threshold: 0.0,
+    enable_change_4h_filter: false,
+    min_change_4h_threshold: 0.0,
+    max_change_4h_threshold: 0.0,
+    enable_change_24h_filter: false,
+    min_change_24h_threshold: 0.0,
+    max_change_24h_threshold: 0.0
   });
 
   // 策略模式状态

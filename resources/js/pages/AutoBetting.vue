@@ -356,10 +356,55 @@
       return config.rank_betting_enabled_ranks.includes(prediction.predicted_rank);
     }
 
+    // 基础策略条件
     if (prediction.confidence < config.confidence_threshold) return false;
     if (prediction.score < config.score_gap_threshold) return false;
     if (prediction.sample_count < config.min_sample_count) return false;
     if (prediction.historical_accuracy < config.historical_accuracy_threshold) return false;
+
+    // 🆕 历史表现过滤器
+    if (config.enable_win_rate_filter && (prediction.win_rate || 0) < config.min_win_rate_threshold * 100) return false;
+    if (config.enable_top3_rate_filter && (prediction.top3_rate || 0) < config.min_top3_rate_threshold * 100)
+      return false;
+    if (config.enable_avg_rank_filter && (prediction.avg_rank || 3) > config.max_avg_rank_threshold) return false;
+    if (config.enable_stability_filter && (prediction.value_stddev || 0) > config.max_stability_threshold) return false;
+
+    // 🆕 评分过滤器
+    if (
+      config.enable_absolute_score_filter &&
+      (prediction.absolute_score || 0) < config.min_absolute_score_threshold * 100
+    )
+      return false;
+    if (
+      config.enable_relative_score_filter &&
+      (prediction.relative_score || 0) < config.min_relative_score_threshold * 100
+    )
+      return false;
+    if (config.enable_h2h_score_filter && (prediction.h2h_score || 0) < config.min_h2h_score_threshold * 100)
+      return false;
+    if (
+      config.enable_risk_adjusted_filter &&
+      (prediction.risk_adjusted_score || 0) < config.min_risk_adjusted_threshold * 100
+    )
+      return false;
+
+    // 🆕 市场动态过滤器
+    if (config.enable_change_5m_filter) {
+      const change5m = prediction.change_5m || 0;
+      if (change5m < config.min_change_5m_threshold || change5m > config.max_change_5m_threshold) return false;
+    }
+    if (config.enable_change_1h_filter) {
+      const change1h = prediction.change_1h || 0;
+      if (change1h < config.min_change_1h_threshold || change1h > config.max_change_1h_threshold) return false;
+    }
+    if (config.enable_change_4h_filter) {
+      const change4h = prediction.change_4h || 0;
+      if (change4h < config.min_change_4h_threshold || change4h > config.max_change_4h_threshold) return false;
+    }
+    if (config.enable_change_24h_filter) {
+      const change24h = prediction.change_24h || 0;
+      if (change24h < config.min_change_24h_threshold || change24h > config.max_change_24h_threshold) return false;
+    }
 
     return true;
   };

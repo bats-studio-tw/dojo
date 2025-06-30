@@ -340,6 +340,306 @@
               </div>
             </div>
 
+            <!-- 🆕 高级过滤器配置 -->
+            <div v-if="props.config.strategy !== 'rank_betting'" class="border-t border-gray-600 pt-4">
+              <NCollapse size="small">
+                <!-- 历史表现过滤器 -->
+                <NCollapseItem title="📊 历史表现过滤器" name="historical">
+                  <div class="space-y-3">
+                    <!-- 胜率过滤器 -->
+                    <div class="flex items-center space-x-3">
+                      <NSwitch v-model:value="props.config.enable_win_rate_filter" size="small" :disabled="isRunning" />
+                      <div class="grid grid-cols-2 flex-1 gap-2">
+                        <label class="text-xs text-gray-300">胜率 ≥</label>
+                        <NInputNumber
+                          v-model:value="props.config.min_win_rate_threshold"
+                          :min="0"
+                          :max="1"
+                          :step="0.1"
+                          :precision="1"
+                          :disabled="isRunning || !props.config.enable_win_rate_filter"
+                          size="tiny"
+                          placeholder="0.7"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- 保本率过滤器 -->
+                    <div class="flex items-center space-x-3">
+                      <NSwitch
+                        v-model:value="props.config.enable_top3_rate_filter"
+                        size="small"
+                        :disabled="isRunning"
+                      />
+                      <div class="grid grid-cols-2 flex-1 gap-2">
+                        <label class="text-xs text-gray-300">保本率 ≥</label>
+                        <NInputNumber
+                          v-model:value="props.config.min_top3_rate_threshold"
+                          :min="0"
+                          :max="1"
+                          :step="0.1"
+                          :precision="1"
+                          :disabled="isRunning || !props.config.enable_top3_rate_filter"
+                          size="tiny"
+                          placeholder="0.5"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- 平均排名过滤器 -->
+                    <div class="flex items-center space-x-3">
+                      <NSwitch v-model:value="props.config.enable_avg_rank_filter" size="small" :disabled="isRunning" />
+                      <div class="grid grid-cols-2 flex-1 gap-2">
+                        <label class="text-xs text-gray-300">平均排名 ≤</label>
+                        <NInputNumber
+                          v-model:value="props.config.max_avg_rank_threshold"
+                          :min="1"
+                          :max="5"
+                          :step="0.1"
+                          :precision="1"
+                          :disabled="isRunning || !props.config.enable_avg_rank_filter"
+                          size="tiny"
+                          placeholder="3.0"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- 稳定性过滤器 -->
+                    <div class="flex items-center space-x-3">
+                      <NSwitch
+                        v-model:value="props.config.enable_stability_filter"
+                        size="small"
+                        :disabled="isRunning"
+                      />
+                      <div class="grid grid-cols-2 flex-1 gap-2">
+                        <label class="text-xs text-gray-300">波动性 ≤</label>
+                        <NInputNumber
+                          v-model:value="props.config.max_stability_threshold"
+                          :min="0"
+                          :max="2"
+                          :step="0.1"
+                          :precision="1"
+                          :disabled="isRunning || !props.config.enable_stability_filter"
+                          size="tiny"
+                          placeholder="0.8"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </NCollapseItem>
+
+                <!-- 算法评分过滤器 -->
+                <NCollapseItem title="🎯 算法评分过滤器" name="scores">
+                  <div class="space-y-3">
+                    <!-- 绝对分数过滤器 -->
+                    <div class="flex items-center space-x-3">
+                      <NSwitch
+                        v-model:value="props.config.enable_absolute_score_filter"
+                        size="small"
+                        :disabled="isRunning"
+                      />
+                      <div class="grid grid-cols-2 flex-1 gap-2">
+                        <label class="text-xs text-gray-300">绝对分数 ≥</label>
+                        <NInputNumber
+                          v-model:value="props.config.min_absolute_score_threshold"
+                          :min="0"
+                          :max="1"
+                          :step="0.1"
+                          :precision="1"
+                          :disabled="isRunning || !props.config.enable_absolute_score_filter"
+                          size="tiny"
+                          placeholder="0.7"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- 相对分数过滤器 -->
+                    <div class="flex items-center space-x-3">
+                      <NSwitch
+                        v-model:value="props.config.enable_relative_score_filter"
+                        size="small"
+                        :disabled="isRunning"
+                      />
+                      <div class="grid grid-cols-2 flex-1 gap-2">
+                        <label class="text-xs text-gray-300">相对分数 ≥</label>
+                        <NInputNumber
+                          v-model:value="props.config.min_relative_score_threshold"
+                          :min="0"
+                          :max="1"
+                          :step="0.1"
+                          :precision="1"
+                          :disabled="isRunning || !props.config.enable_relative_score_filter"
+                          size="tiny"
+                          placeholder="0.5"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- H2H分数过滤器 -->
+                    <div class="flex items-center space-x-3">
+                      <NSwitch
+                        v-model:value="props.config.enable_h2h_score_filter"
+                        size="small"
+                        :disabled="isRunning"
+                      />
+                      <div class="grid grid-cols-2 flex-1 gap-2">
+                        <label class="text-xs text-gray-300">H2H分数 ≥</label>
+                        <NInputNumber
+                          v-model:value="props.config.min_h2h_score_threshold"
+                          :min="0"
+                          :max="1"
+                          :step="0.1"
+                          :precision="1"
+                          :disabled="isRunning || !props.config.enable_h2h_score_filter"
+                          size="tiny"
+                          placeholder="0.7"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- 风险调整分数过滤器 -->
+                    <div class="flex items-center space-x-3">
+                      <NSwitch
+                        v-model:value="props.config.enable_risk_adjusted_filter"
+                        size="small"
+                        :disabled="isRunning"
+                      />
+                      <div class="grid grid-cols-2 flex-1 gap-2">
+                        <label class="text-xs text-gray-300">风险调整分数 ≥</label>
+                        <NInputNumber
+                          v-model:value="props.config.min_risk_adjusted_threshold"
+                          :min="0"
+                          :max="1"
+                          :step="0.1"
+                          :precision="1"
+                          :disabled="isRunning || !props.config.enable_risk_adjusted_filter"
+                          size="tiny"
+                          placeholder="0.6"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </NCollapseItem>
+
+                <!-- 市场动态过滤器 -->
+                <NCollapseItem title="📈 市场动态过滤器" name="market">
+                  <div class="space-y-3">
+                    <!-- 5分钟涨跌幅过滤器 -->
+                    <div class="flex items-center space-x-3">
+                      <NSwitch
+                        v-model:value="props.config.enable_change_5m_filter"
+                        size="small"
+                        :disabled="isRunning"
+                      />
+                      <div class="grid grid-cols-3 flex-1 gap-1">
+                        <label class="text-xs text-gray-300">5分钟</label>
+                        <NInputNumber
+                          v-model:value="props.config.min_change_5m_threshold"
+                          :step="0.01"
+                          :precision="2"
+                          :disabled="isRunning || !props.config.enable_change_5m_filter"
+                          size="tiny"
+                          placeholder="最小"
+                        />
+                        <NInputNumber
+                          v-model:value="props.config.max_change_5m_threshold"
+                          :step="0.01"
+                          :precision="2"
+                          :disabled="isRunning || !props.config.enable_change_5m_filter"
+                          size="tiny"
+                          placeholder="最大"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- 1小时涨跌幅过滤器 -->
+                    <div class="flex items-center space-x-3">
+                      <NSwitch
+                        v-model:value="props.config.enable_change_1h_filter"
+                        size="small"
+                        :disabled="isRunning"
+                      />
+                      <div class="grid grid-cols-3 flex-1 gap-1">
+                        <label class="text-xs text-gray-300">1小时</label>
+                        <NInputNumber
+                          v-model:value="props.config.min_change_1h_threshold"
+                          :step="0.01"
+                          :precision="2"
+                          :disabled="isRunning || !props.config.enable_change_1h_filter"
+                          size="tiny"
+                          placeholder="最小"
+                        />
+                        <NInputNumber
+                          v-model:value="props.config.max_change_1h_threshold"
+                          :step="0.01"
+                          :precision="2"
+                          :disabled="isRunning || !props.config.enable_change_1h_filter"
+                          size="tiny"
+                          placeholder="最大"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- 4小时涨跌幅过滤器 -->
+                    <div class="flex items-center space-x-3">
+                      <NSwitch
+                        v-model:value="props.config.enable_change_4h_filter"
+                        size="small"
+                        :disabled="isRunning"
+                      />
+                      <div class="grid grid-cols-3 flex-1 gap-1">
+                        <label class="text-xs text-gray-300">4小时</label>
+                        <NInputNumber
+                          v-model:value="props.config.min_change_4h_threshold"
+                          :step="0.01"
+                          :precision="2"
+                          :disabled="isRunning || !props.config.enable_change_4h_filter"
+                          size="tiny"
+                          placeholder="最小"
+                        />
+                        <NInputNumber
+                          v-model:value="props.config.max_change_4h_threshold"
+                          :step="0.01"
+                          :precision="2"
+                          :disabled="isRunning || !props.config.enable_change_4h_filter"
+                          size="tiny"
+                          placeholder="最大"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- 24小时涨跌幅过滤器 -->
+                    <div class="flex items-center space-x-3">
+                      <NSwitch
+                        v-model:value="props.config.enable_change_24h_filter"
+                        size="small"
+                        :disabled="isRunning"
+                      />
+                      <div class="grid grid-cols-3 flex-1 gap-1">
+                        <label class="text-xs text-gray-300">24小时</label>
+                        <NInputNumber
+                          v-model:value="props.config.min_change_24h_threshold"
+                          :step="0.01"
+                          :precision="2"
+                          :disabled="isRunning || !props.config.enable_change_24h_filter"
+                          size="tiny"
+                          placeholder="最小"
+                        />
+                        <NInputNumber
+                          v-model:value="props.config.max_change_24h_threshold"
+                          :step="0.01"
+                          :precision="2"
+                          :disabled="isRunning || !props.config.enable_change_24h_filter"
+                          size="tiny"
+                          placeholder="最大"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </NCollapseItem>
+              </NCollapse>
+            </div>
+
             <!-- 保存按钮 -->
             <div class="text-center">
               <n-button @click="manualSaveConfig" :disabled="isRunning" :loading="configSaving" type="primary">
@@ -358,7 +658,7 @@
 
 <script setup lang="ts">
   import { onMounted, watch } from 'vue';
-  import { NEmpty, NTag } from 'naive-ui';
+  import { NEmpty, NTag, NCollapse, NCollapseItem, NSwitch, NInputNumber } from 'naive-ui';
   import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
   import type { AutoBettingStatus, DebugInfo } from '@/composables/useAutoBettingControl';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';

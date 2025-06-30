@@ -180,6 +180,7 @@
   import type { UserInfo } from '@/types';
   import { handleError, createConfirmDialog, handleAsyncOperation } from '@/utils/errorHandler';
   import { autoBettingApi, gameApi } from '@/utils/api';
+  import { canBet } from '@/utils/statusUtils';
 
   // 初始化composables和stores
   const configComposable = useAutoBettingConfig();
@@ -431,6 +432,12 @@
       return;
     }
 
+    // 🔧 新增：检查游戏状态是否允许下注
+    if (!canBet(currentGameStatus.value || '')) {
+      window.$message?.error(`当前游戏状态不允许下注 (状态: ${currentGameStatus.value})`);
+      return;
+    }
+
     createConfirmDialog(
       '确认执行策略下注',
       `将下注 ${strategyValidation.value.matches.length} 个游戏，总金额 $${strategyValidation.value.required_balance.toFixed(2)}。是否继续？`,
@@ -491,6 +498,12 @@
 
   // 手动执行一次下注
   const executeManualBetting = async () => {
+    // 🔧 新增：检查游戏状态是否允许下注
+    if (!canBet(currentGameStatus.value || '')) {
+      window.$message?.error(`当前游戏状态不允许下注 (状态: ${currentGameStatus.value})`);
+      return;
+    }
+
     await executeAutoBetting(config);
   };
 
@@ -550,13 +563,21 @@
       current_round_id: currentRoundId.value,
       current_uid: currentUID.value,
       analysis_count: currentAnalysis.value?.length || 0,
-      strategy_type: config.strategy
+      strategy_type: config.strategy,
+      current_game_status: currentGameStatus.value,
+      can_bet: canBet(currentGameStatus.value || '')
     };
 
     console.log(`📊 [${timestamp}] 自动下注检查状态:`, checkResults);
 
     if (!autoBettingStatus.value.is_running) {
       console.log(`❌ [${timestamp}] 自动下注未运行，跳过`);
+      return;
+    }
+
+    // 🔧 新增：检查游戏状态是否允许下注
+    if (!canBet(currentGameStatus.value || '')) {
+      console.log(`❌ [${timestamp}] 游戏状态不允许下注，当前状态: ${currentGameStatus.value}，跳过`);
       return;
     }
 

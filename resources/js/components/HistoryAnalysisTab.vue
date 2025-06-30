@@ -280,27 +280,6 @@
       key: 'success',
       width: 80,
       render: (row: any) => (row.success ? '✅ 成功' : '❌ 失败')
-    },
-    {
-      title: '盈亏',
-      key: 'profitLoss',
-      width: 100,
-      render: (row: any) => {
-        const color = row.profitLoss >= 0 ? 'text-green-400' : 'text-red-400';
-        const prefix = row.profitLoss >= 0 ? '+' : '';
-        return `<span class="${color}">${prefix}$${row.profitLoss}</span>`;
-      }
-    },
-    {
-      title: '置信度',
-      key: 'confidence',
-      width: 100,
-      render: (row: any) => `${row.confidence}%`
-    },
-    {
-      title: '策略',
-      key: 'strategy',
-      width: 100
     }
   ];
 
@@ -320,16 +299,13 @@
     // 导出功能实现
     const data = filteredBettingRecords.value;
     const csv = [
-      ['时间', '轮次ID', '代币', '下注金额', '状态', '盈亏', '置信度', '策略'],
+      ['时间', '轮次ID', '代币', '下注金额', '状态'],
       ...data.map((record) => [
         new Date(record.date).toLocaleString(),
         record.roundId,
         record.tokenSymbol,
         record.amount,
-        record.success ? '成功' : '失败',
-        record.profitLoss,
-        record.confidence,
-        record.strategy
+        record.success ? '成功' : '失败'
       ])
     ]
       .map((row) => row.join(','))

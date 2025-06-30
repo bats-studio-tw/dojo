@@ -450,13 +450,54 @@
                 <label class="text-xs text-gray-300 font-medium">置信度(%)</label>
                 <n-input-number
                   v-model:value="props.config.confidence_threshold"
-                  :min="70"
-                  :max="99"
+                  :min="0"
+                  :max="100"
                   :step="1"
                   :disabled="isRunning || props.config.strategy === 'rank_betting'"
                   size="small"
                 />
               </div>
+              <div class="space-y-2">
+                <label class="text-xs text-gray-300 font-medium">分数门槛</label>
+                <n-input-number
+                  v-model:value="props.config.score_gap_threshold"
+                  :min="0"
+                  :max="50"
+                  :step="0.1"
+                  :precision="1"
+                  :disabled="isRunning || props.config.strategy === 'rank_betting'"
+                  size="small"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <label class="text-xs text-gray-300 font-medium">最少样本数</label>
+                <n-input-number
+                  v-model:value="props.config.min_sample_count"
+                  :min="1"
+                  :max="200"
+                  :step="1"
+                  :disabled="isRunning || props.config.strategy === 'rank_betting'"
+                  size="small"
+                />
+              </div>
+              <div class="space-y-2">
+                <label class="text-xs text-gray-300 font-medium">历史准确率(%)</label>
+                <n-input-number
+                  v-model:value="historyAccuracyPercent"
+                  :min="0"
+                  :max="100"
+                  :step="1"
+                  :precision="0"
+                  :disabled="isRunning || props.config.strategy === 'rank_betting'"
+                  size="small"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4">
               <div class="space-y-2">
                 <label class="text-xs text-gray-300 font-medium">下注策略</label>
                 <n-select
@@ -798,7 +839,7 @@
 </template>
 
 <script setup lang="ts">
-  import { onMounted, watch, ref } from 'vue';
+  import { onMounted, watch, ref, computed } from 'vue';
   import { NEmpty, NTag, NCollapse, NCollapseItem, NSwitch, NInputNumber } from 'naive-ui';
   import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
   import type { AutoBettingStatus, DebugInfo } from '@/composables/useAutoBettingControl';
@@ -1001,6 +1042,14 @@
 
   // 调试面板状态
   const showDebugPanel = ref(false);
+
+  // 历史准确率百分比计算属性（用于快速配置区块的显示和编辑）
+  const historyAccuracyPercent = computed({
+    get: () => Math.round((props.config.historical_accuracy_threshold || 0) * 100),
+    set: (value: number) => {
+      props.config.historical_accuracy_threshold = value / 100;
+    }
+  });
 
   // 数据映射函数（复制自AutoBetting.vue）
   const mapPredictionData = (rawPrediction: any): any => {

@@ -384,6 +384,12 @@ export const useAutoBettingControl = () => {
       localStorage.setItem('userInfo', JSON.stringify(data.user_info));
     }
 
+    // 🔧 重要修复：在Token验证成功时记录，由外部组件负责同步
+    if (data.jwt_token) {
+      console.log('🔑 Token验证成功，JWT Token:', `${data.jwt_token.slice(0, 20)}...`);
+      console.log('⚠️ 需要外部组件将JWT Token同步到自动下注配置中');
+    }
+
     await loadStatus();
     await fetchAnalysisData();
   };

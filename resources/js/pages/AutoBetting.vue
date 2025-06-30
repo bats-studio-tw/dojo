@@ -3,7 +3,7 @@
     <Head title="自动下注控制中心" />
 
     <!-- 身份验证模态框 -->
-    <WalletSetup :visible="!isTokenValidated" @validated="onTokenValidated" />
+    <WalletSetup :visible="!isTokenValidated" @validated="handleTokenValidated" />
 
     <div
       v-if="isTokenValidated"
@@ -177,6 +177,7 @@
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import { usePredictionStats } from '@/composables/usePredictionStats';
   import type { StrategyValidation } from '@/types/autoBetting';
+  import type { UserInfo } from '@/types';
   import { handleError, createConfirmDialog, handleAsyncOperation } from '@/utils/errorHandler';
   import { autoBettingApi, gameApi } from '@/utils/api';
 
@@ -233,11 +234,33 @@
     executeAutoBetting,
     runApiDiagnostics,
     reconnectToken,
-    onTokenValidated,
     restoreAuthState,
     executeSingleBet,
     loadStatus
   } = controlComposable;
+
+  // 🔧 自定义Token验证处理函数 - 修复JWT Token同步问题
+  const handleTokenValidated = async (data: {
+    uid: string;
+    jwt_token: string;
+    user_stats: any;
+    today_stats: any;
+    user_info: UserInfo;
+  }) => {
+    console.log('🔑 开始处理Token验证...');
+
+    // 🔧 关键修复：先同步JWT Token到配置中
+    if (data.jwt_token) {
+      config.jwt_token = data.jwt_token;
+      console.log('✅ JWT Token已同步到自动下注配置中:', `${data.jwt_token.slice(0, 20)}...`);
+      console.log('🔧 config.jwt_token现在是:', !!config.jwt_token);
+    }
+
+    // 然后调用原始的验证回调
+    await controlComposable.onTokenValidated(data);
+
+    console.log('✅ Token验证和配置同步完成');
+  };
 
   // 从store中获取WebSocket重连方法
   const { reconnectWebSocket } = predictionStore;
@@ -522,6 +545,7 @@
     const checkResults = {
       is_running: autoBettingStatus.value.is_running,
       has_jwt_token: !!config.jwt_token,
+      jwt_token_preview: config.jwt_token ? `${config.jwt_token.slice(0, 20)}...` : 'null',
       has_analysis_data: !!(currentAnalysis.value && currentAnalysis.value.length > 0),
       current_round_id: currentRoundId.value,
       current_uid: currentUID.value,
@@ -537,8 +561,28 @@
     }
 
     if (!config.jwt_token) {
-      console.log(`❌ [${timestamp}] 缺少JWT Token，跳过`);
-      return;
+      console.log(`❌ [${timestamp}] 缺少JWT Token，尝试从localStorage恢复...`);
+
+      // 🔧 尝试从localStorage恢复JWT Token
+      const savedTokenData = localStorage.getItem('tokenSetupData');
+      if (savedTokenData) {
+        try {
+          const tokenData = JSON.parse(savedTokenData);
+          if (tokenData.jwt_token) {
+            config.jwt_token = tokenData.jwt_token;
+            console.log(`✅ [${timestamp}] 成功从localStorage恢复JWT Token`);
+          } else {
+            console.log(`❌ [${timestamp}] localStorage中没有有效的JWT Token，跳过`);
+            return;
+          }
+        } catch (error) {
+          console.log(`❌ [${timestamp}] 恢复JWT Token失败，跳过:`, error);
+          return;
+        }
+      } else {
+        console.log(`❌ [${timestamp}] localStorage中没有Token数据，跳过`);
+        return;
+      }
     }
 
     if (!currentAnalysis.value || currentAnalysis.value.length === 0) {
@@ -742,9 +786,24 @@
   // 组件挂载时初始化
   onMounted(async () => {
     await initializeConfig();
-    const restored = await restoreAuthState();
 
+    // 🔧 重要：恢复认证状态时同时恢复JWT Token到配置
+    const restored = await restoreAuthState();
     if (restored) {
+      // 从localStorage恢复JWT Token到配置中
+      const savedTokenData = localStorage.getItem('tokenSetupData');
+      if (savedTokenData) {
+        try {
+          const tokenData = JSON.parse(savedTokenData);
+          if (tokenData.jwt_token && !config.jwt_token) {
+            config.jwt_token = tokenData.jwt_token;
+            console.log('🔧 从localStorage恢复JWT Token到配置中');
+          }
+        } catch (error) {
+          console.warn('恢复JWT Token失败:', error);
+        }
+      }
+
       if (!isMonitoringRounds.value) {
         isMonitoringRounds.value = true;
       }

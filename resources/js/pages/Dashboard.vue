@@ -106,7 +106,14 @@
                 <div class="mb-3 text-center">
                   <div class="text-xs text-gray-400">预测分数</div>
                   <div class="text-lg font-bold" :class="getScoreTextClass(index)">
-                    {{ (token.prediction_score || 0).toFixed(1) }}
+                    {{
+                      (
+                        token.final_prediction_score ||
+                        token.risk_adjusted_score ||
+                        token.prediction_score ||
+                        0
+                      ).toFixed(1)
+                    }}
                   </div>
                   <div v-if="token.rank_confidence" class="text-xs text-gray-400">
                     置信度 {{ (token.rank_confidence || 0).toFixed(0) }}%
@@ -702,6 +709,23 @@
 
   // ==================== API调用函数 ====================
 
+  const fetchInitialPredictionData = async () => {
+    // 在页面初始化时获取预测数据，避免等待WebSocket
+    console.log('🔮 获取初始预测数据...');
+    try {
+      const response = await api.get('/game/current-analysis');
+      if (response.data.success) {
+        currentAnalysis.value = response.data.data || [];
+        analysisMeta.value = response.data.meta || null;
+        console.log(`✅ 成功获取初始预测数据: ${currentAnalysis.value.length} 个Token`);
+      } else {
+        console.warn('⚠️ 获取初始预测数据失败:', response.data.message);
+      }
+    } catch (error) {
+      console.error('❌ 获取初始预测数据失败:', error);
+    }
+  };
+
   const fetchHistoryData = async () => {
     historyLoading.value = true;
     try {
@@ -740,7 +764,8 @@
   // ==================== 刷新函数 ====================
 
   const refreshAnalysis = () => {
-    // WebSocket会自动更新，这里提供手动刷新选项（空实现）
+    // 手动刷新预测分析数据
+    fetchInitialPredictionData();
   };
 
   const refreshHistoryData = () => fetchHistoryData();
@@ -748,6 +773,7 @@
 
   const manualRefresh = () => {
     console.log('🔄 手动刷新所有数据');
+    fetchInitialPredictionData();
     fetchHistoryData();
     fetchPredictionHistoryData();
   };
@@ -1094,6 +1120,9 @@
 
   onMounted(() => {
     console.log('📊 Dashboard页面初始化，加载历史数据...');
+
+    // 获取初始预测数据（优先执行，避免等待WebSocket）
+    fetchInitialPredictionData();
 
     // 获取历史数据
     fetchHistoryData();

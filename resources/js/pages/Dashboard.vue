@@ -161,82 +161,6 @@
           <NEmpty v-else description="暂无AI预测数据" class="py-8" />
         </NCard>
 
-        <!-- 实时游戏数据面板 -->
-        <NCard
-          v-if="latestGameData"
-          class="mb-6 border border-cyan-500/30 bg-cyan-500/5 shadow-lg backdrop-blur-lg"
-          title="🎮 实时游戏数据"
-        >
-          <div class="space-y-4">
-            <!-- 游戏状态信息 -->
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div class="rounded bg-gray-800/50 p-3">
-                <div class="text-sm text-gray-400">游戏状态</div>
-                <div class="text-lg font-bold" :class="getStatusColorClass(currentGameStatus)">
-                  {{ getStatusText(currentGameStatus) }}
-                </div>
-              </div>
-              <div class="rounded bg-gray-800/50 p-3">
-                <div class="text-sm text-gray-400">轮次ID</div>
-                <div class="text-lg text-cyan-400 font-mono">{{ latestGameData.rdId }}</div>
-              </div>
-              <div class="rounded bg-gray-800/50 p-3">
-                <div class="text-sm text-gray-400">Token数量</div>
-                <div class="text-lg text-white font-bold">{{ currentGameTokens.length }}</div>
-              </div>
-            </div>
-
-            <!-- Token排名信息 -->
-            <div v-if="sortedTokensByRank.length > 0">
-              <h4 class="mb-3 text-white font-medium">📊 当前Token排名</h4>
-              <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 md:grid-cols-2">
-                <div v-for="token in sortedTokensByRank" :key="token.symbol" class="rounded bg-gray-800/50 p-3">
-                  <div class="flex items-center justify-between">
-                    <span class="text-white font-medium">{{ token.symbol }}</span>
-                    <span class="text-lg font-bold" :class="getRankColorClass(token.rank)">#{{ token.rank }}</span>
-                  </div>
-                  <div class="text-sm" :class="formatPriceChange(token.priceChange).color">
-                    {{ formatPriceChange(token.priceChange).text }}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 投注统计 -->
-            <div v-if="bettingStats">
-              <h4 class="mb-3 text-white font-medium">💰 投注统计</h4>
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div class="rounded bg-green-900/20 p-3">
-                  <div class="mb-2 text-green-300 font-medium">🎯 真实投注</div>
-                  <div class="text-sm text-gray-300 space-y-1">
-                    <div>
-                      总金额:
-                      <span class="text-green-400">${{ bettingStats.real.PAmt.toFixed(2) }}</span>
-                    </div>
-                    <div>
-                      投注次数:
-                      <span class="text-green-400">{{ bettingStats.real.TCount }}</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="rounded bg-blue-900/20 p-3">
-                  <div class="mb-2 text-blue-300 font-medium">🧪 模拟投注</div>
-                  <div class="text-sm text-gray-300 space-y-1">
-                    <div>
-                      总金额:
-                      <span class="text-blue-400">${{ bettingStats.dummy.PAmt.toFixed(2) }}</span>
-                    </div>
-                    <div>
-                      投注次数:
-                      <span class="text-blue-400">{{ bettingStats.dummy.TCount }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </NCard>
-
         <!-- 预测历史数据表格 -->
         <NCard
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
@@ -468,9 +392,7 @@
     historyLoading,
     currentRoundId,
     currentGameStatus,
-    currentGameTokens,
-    currentGameTokensWithRanks,
-    bettingStats
+    currentGameTokensWithRanks
   } = storeToRefs(gamePredictionStore);
 
   // 从store中获取方法
@@ -558,28 +480,7 @@
     }
   };
 
-  // 状态颜色类
-  const getStatusColorClass = (status: string) => {
-    switch (status) {
-      case 'bet':
-        return 'text-green-400';
-      case 'lock':
-        return 'text-yellow-400';
-      case 'settling':
-        return 'text-orange-400';
-      case 'settled':
-        return 'text-blue-400';
-      default:
-        return 'text-gray-400';
-    }
-  };
-
   // ==================== 排序和计算 ====================
-
-  // Token按排名排序
-  const sortedTokensByRank = computed(() => {
-    return [...currentGameTokensWithRanks.value].sort((a, b) => a.rank - b.rank);
-  });
 
   // 预测Token按排名排序
   const sortedPredictionsByRank = computed(() => {
@@ -625,13 +526,6 @@
     if (index === 1) return '🥈';
     if (index === 2) return '🥉';
     return '📊';
-  };
-
-  const getRankColorClass = (rank: number) => {
-    if (rank === 1) return 'text-yellow-400';
-    if (rank === 2) return 'text-gray-300';
-    if (rank === 3) return 'text-orange-400';
-    return 'text-blue-400';
   };
 
   const getRankIcon = (rank: number) => {

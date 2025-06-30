@@ -164,20 +164,22 @@
 
     <!-- 当前预测展示 -->
     <div class="mb-6">
-      <PredictionDisplay
-        :analysis-data="currentAnalysis?.predictions || []"
+      <AIPredictionRanking
+        :current-analysis="currentAnalysis?.predictions || []"
         :analysis-meta="currentAnalysis?.meta"
-        :loading="analysisLoading"
-        @refresh="fetchAnalysisData"
+        :current-round-id="currentAnalysis?.meta?.round_id || null"
+        :current-game-status="currentAnalysis?.meta?.status || 'unknown'"
+        :current-game-tokens-with-ranks="[]"
+        :analysis-loading="analysisLoading"
+        @refresh-analysis="fetchAnalysisData"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue';
   import { NEmpty } from 'naive-ui';
-  import PredictionDisplay from './PredictionDisplay.vue';
+  import AIPredictionRanking from './AIPredictionRanking.vue';
   import type { UserInfo } from '@/types';
   import type { AutoBettingStatus, DebugInfo } from '@/composables/useAutoBettingControl';
 
@@ -195,7 +197,7 @@
     riskLevel: number;
   }
 
-  const props = defineProps<Props>();
+  defineProps<Props>();
 
   // Emits
   const emit = defineEmits<{
@@ -204,7 +206,6 @@
     executeManualBetting: [];
     fetchAnalysisData: [];
     reconnectToken: [];
-    clearBetResults: [];
   }>();
 
   // Methods
@@ -213,5 +214,4 @@
   const executeManualBetting = () => emit('executeManualBetting');
   const fetchAnalysisData = () => emit('fetchAnalysisData');
   const reconnectToken = () => emit('reconnectToken');
-  const clearBetResults = () => emit('clearBetResults');
 </script>

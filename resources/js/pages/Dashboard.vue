@@ -24,41 +24,6 @@
           </div>
         </div>
 
-        <!-- 调试信息面板 -->
-        <NCard
-          class="mb-4 border border-blue-500/30 bg-blue-500/5 shadow-lg backdrop-blur-lg"
-          title="🐛 系统状态"
-          size="small"
-        >
-          <div class="grid grid-cols-1 gap-3 text-xs lg:grid-cols-4 sm:grid-cols-2">
-            <div class="space-y-1">
-              <div class="text-blue-300 font-medium">数据状态</div>
-              <div class="text-gray-300">预测数据: {{ currentAnalysis.length }} 个</div>
-              <div class="text-gray-300">历史数据: {{ predictionHistoryData.length }} 局</div>
-              <div class="text-gray-300">游戏数据: {{ latestGameData ? '有' : '无' }}</div>
-            </div>
-            <div class="space-y-1">
-              <div class="text-blue-300 font-medium">WebSocket状态</div>
-              <div class="text-gray-300">状态: {{ websocketStatus.status }}</div>
-              <div class="text-gray-300">最后连接: {{ formatTime(websocketStatus.lastConnectedAt) }}</div>
-            </div>
-            <div class="space-y-1">
-              <div class="text-blue-300 font-medium">轮次信息</div>
-              <div class="text-gray-300">轮次ID: {{ currentRoundId || '无' }}</div>
-              <div class="text-gray-300">状态: {{ currentGameStatus }}</div>
-              <div class="text-gray-300">更新时间: {{ formatTime(analysisMeta?.updated_at) }}</div>
-            </div>
-            <div class="space-y-1">
-              <div class="text-blue-300 font-medium">控制操作</div>
-              <div class="mt-2 flex flex-wrap gap-1">
-                <n-button size="tiny" @click="manualRefresh" type="info">🔄 刷新</n-button>
-                <n-button size="tiny" @click="testWebSocket" type="warning">🧪 测试</n-button>
-                <n-button size="tiny" @click="clearConsole" type="default">🧹 清空</n-button>
-              </div>
-            </div>
-          </div>
-        </NCard>
-
         <!-- AI预测分析面板 -->
         <NCard
           class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
@@ -387,7 +352,6 @@
     currentAnalysis,
     analysisMeta,
     predictionHistory,
-    latestGameData,
     analysisLoading,
     historyLoading,
     currentRoundId,
@@ -448,21 +412,6 @@
         return '🔴';
       default:
         return '⚪';
-    }
-  };
-
-  // 时间格式化
-  const formatTime = (timeString: string | null | undefined) => {
-    if (!timeString) return '无';
-    try {
-      const date = new Date(timeString);
-      return date.toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-    } catch {
-      return '无效';
     }
   };
 
@@ -664,25 +613,6 @@
 
   const refreshHistoryData = () => fetchHistoryData();
   const refreshPredictionHistoryData = () => fetchPredictionHistoryData();
-
-  const manualRefresh = () => {
-    console.log('🔄 手动刷新所有数据');
-    fetchInitialPredictionData();
-    fetchHistoryData();
-    fetchPredictionHistoryData();
-  };
-
-  const testWebSocket = () => {
-    console.log('🔍 WebSocket连接测试开始');
-    console.log('🔍 Echo实例:', window.Echo);
-    console.log('🔍 WebSocket状态:', websocketStatus.value);
-    reconnectWebSocket();
-  };
-
-  const clearConsole = () => {
-    console.clear();
-    console.log('🧹 控制台已清空，开始新的调试会话');
-  };
 
   // ==================== 历史数据表格 ====================
 

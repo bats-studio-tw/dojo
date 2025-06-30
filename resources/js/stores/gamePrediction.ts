@@ -217,8 +217,8 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         .subscribed(() => {
           console.log('✅ [DEBUG] 成功订阅 game-updates 频道');
         })
-        .listen('game.data.updated', (data: any) => {
-          console.log('📨 [DEBUG] ========== 收到 game.data.updated 事件 ==========');
+        .listen('GameDataUpdated', (data: any) => {
+          console.log('📨 [DEBUG] ========== 收到 GameDataUpdated 事件 ==========');
           console.log('📨 [DEBUG] 完整数据:', data);
           console.log('📨 [DEBUG] 数据类型:', typeof data);
           console.log('📨 [DEBUG] 数据键:', Object.keys(data));
@@ -243,8 +243,8 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         .subscribed(() => {
           console.log('✅ [DEBUG] 成功订阅 predictions 频道');
         })
-        .listen('prediction.updated', (data: any) => {
-          console.log('🔮 [DEBUG] ========== 收到 prediction.updated 事件 ==========');
+        .listen('PredictionUpdated', (data: any) => {
+          console.log('🔮 [DEBUG] ========== 收到 PredictionUpdated 事件 ==========');
           console.log('🔮 [DEBUG] 完整数据:', data);
           console.log('🔮 [DEBUG] 数据类型:', typeof data);
           console.log('🔮 [DEBUG] 数据键:', Object.keys(data));
@@ -285,7 +285,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
       console.log('✅ [DEBUG] WebSocket连接成功建立');
 
-      // 输出连接后的状态信息
+      // 输出连接后的状态信息和设置原始事件监听器
       setTimeout(() => {
         console.log('🔍 [DEBUG] 连接建立后的状态检查:');
         if (window.Echo?.connector?.pusher) {
@@ -296,9 +296,59 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
           const channels = window.Echo.connector.pusher.channels.channels;
           if (channels['game-updates']) {
             console.log('🔍 [DEBUG] game-updates 频道存在');
+
+            // 设置原始Pusher事件监听器（延迟执行确保频道已准备好）
+            channels['game-updates'].bind('game.data.updated', (data: any) => {
+              console.log('📨 [DEBUG] ========== 收到原始 game.data.updated 事件 ==========');
+              console.log('📨 [DEBUG] 完整数据:', data);
+              console.log('📨 [DEBUG] 数据类型:', typeof data);
+              console.log('📨 [DEBUG] 时间戳:', new Date().toLocaleString());
+              console.log('📨 [DEBUG] ==========================================');
+
+              try {
+                let parsedData = data;
+                if (typeof data === 'string') {
+                  parsedData = JSON.parse(data);
+                }
+
+                if (parsedData.data) {
+                  latestGameData.value = { ...parsedData.data };
+                  console.log('📨 [DEBUG] 已更新latestGameData（原始事件）');
+                }
+              } catch (error) {
+                console.error('❌ [DEBUG] 解析游戏数据失败:', error);
+              }
+            });
           }
           if (channels['predictions']) {
             console.log('🔍 [DEBUG] predictions 频道存在');
+
+            // 设置原始Pusher事件监听器（延迟执行确保频道已准备好）
+            channels['predictions'].bind('prediction.updated', (data: any) => {
+              console.log('🔮 [DEBUG] ========== 收到原始 prediction.updated 事件 ==========');
+              console.log('🔮 [DEBUG] 完整数据:', data);
+              console.log('🔮 [DEBUG] 数据类型:', typeof data);
+              console.log('🔮 [DEBUG] 时间戳:', new Date().toLocaleString());
+              console.log('🔮 [DEBUG] ==========================================');
+
+              try {
+                let parsedData = data;
+                if (typeof data === 'string') {
+                  parsedData = JSON.parse(data);
+                }
+
+                if (parsedData.success && parsedData.data && Array.isArray(parsedData.data)) {
+                  currentAnalysis.value = [...parsedData.data];
+                  analysisMeta.value = parsedData.meta || null;
+                  console.log('🔮 [DEBUG] 已更新currentAnalysis和analysisMeta（原始事件）');
+                } else if (parsedData.data && Array.isArray(parsedData.data)) {
+                  currentAnalysis.value = [...parsedData.data];
+                  console.log('🔮 [DEBUG] 已更新currentAnalysis（原始事件）');
+                }
+              } catch (error) {
+                console.error('❌ [DEBUG] 解析预测数据失败:', error);
+              }
+            });
           }
         }
       }, 2000);
@@ -399,11 +449,56 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         console.log(`🧪 [DEBUG] 频道 ${channelName}:`, {
           subscribed: channel.subscribed,
           state: channel.state,
-          callbacks: Object.keys(channel.callbacks || {})
+          callbacks: Object.keys(channel.callbacks || {}),
+          eventCallbacks: channel.callbacks
         });
+
+        // 列出所有绑定的事件
+        if (channel.callbacks) {
+          Object.keys(channel.callbacks).forEach((eventName) => {
+            console.log(`🧪 [DEBUG] 频道 ${channelName} 绑定的事件: ${eventName}`);
+          });
+        }
       });
     }
     console.log('🧪 [DEBUG] ========== 连接测试结束 ==========');
+  };
+
+  const testEventBinding = () => {
+    console.log('🧪 [DEBUG] ========== 测试事件绑定 ==========');
+
+    if (window.Echo?.connector?.pusher) {
+      const channels = window.Echo.connector.pusher.channels.channels;
+
+      // 测试绑定一个临时事件监听器
+      if (channels['game-updates']) {
+        console.log('🧪 [DEBUG] 测试绑定 test.event 到 game-updates 频道');
+        channels['game-updates'].bind('test.event', (data: any) => {
+          console.log('🧪 [DEBUG] 收到测试事件:', data);
+        });
+      }
+
+      if (channels['predictions']) {
+        console.log('🧪 [DEBUG] 测试绑定 test.prediction 到 predictions 频道');
+        channels['predictions'].bind('test.prediction', (data: any) => {
+          console.log('🧪 [DEBUG] 收到测试预测事件:', data);
+        });
+      }
+
+      // 重新检查绑定的事件
+      setTimeout(() => {
+        Object.entries(channels).forEach(([channelName, channel]: [string, any]) => {
+          console.log(`🧪 [DEBUG] 重新检查频道 ${channelName} 的绑定事件:`);
+          if (channel.callbacks) {
+            Object.keys(channel.callbacks).forEach((eventName) => {
+              console.log(`🧪 [DEBUG] - ${eventName}`);
+            });
+          }
+        });
+      }, 1000);
+    }
+
+    console.log('🧪 [DEBUG] ========== 测试事件绑定结束 ==========');
   };
 
   return {
@@ -439,6 +534,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     initialize,
     cleanup,
     testConnection,
+    testEventBinding,
 
     // ==================== 为了兼容性导出的方法 ====================
     fetchCurrentAnalysis,

@@ -297,32 +297,24 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     return status === 'lock';
   });
 
-  // ==================== WebSocket初始化（修复重复订阅问题） ====================
+  // ==================== WebSocket初始化 ====================
   const initializeWebSocket = () => {
     // 防止重复初始化
     if (isInitialized) {
-      console.log('⚠️ [DEBUG] WebSocket已经初始化，跳过重复初始化');
+      console.log('⚠️ WebSocket已经初始化，跳过重复初始化');
       return;
     }
 
-    console.log('🔄 [DEBUG] 开始初始化WebSocket连接...');
+    console.log('🔄 初始化WebSocket连接...');
 
     if (!window.Echo) {
-      console.error('❌ [DEBUG] Echo WebSocket未初始化');
+      console.error('❌ Echo WebSocket未初始化');
       websocketStatus.value = {
         status: 'error',
         message: 'WebSocket Echo未初始化',
         lastConnectedAt: null
       };
       return;
-    }
-
-    // 检查Echo状态
-    console.log('🔍 [DEBUG] Echo实例:', window.Echo);
-    console.log('🔍 [DEBUG] Echo connector:', window.Echo.connector);
-
-    if (window.Echo.connector?.pusher) {
-      console.log('🔍 [DEBUG] Pusher连接状态:', window.Echo.connector.pusher.connection.state);
     }
 
     websocketStatus.value = {
@@ -332,54 +324,34 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     };
 
     try {
-      // 1. 监听游戏数据更新 - 只使用Echo方式，避免重复
-      console.log('🎮 [DEBUG] 开始监听 game-updates 频道...');
+      // 1. 监听游戏数据更新
       gameUpdatesChannel = window.Echo.channel('game-updates');
 
       gameUpdatesChannel
         .subscribed(() => {
-          console.log('✅ [DEBUG] 成功订阅 game-updates 频道');
+          console.log('✅ 成功订阅 game-updates 频道');
         })
         .listen('.game.data.updated', (event: GameDataUpdateEvent) => {
-          console.log('📨 [DEBUG] ========== 收到 game.data.updated 事件 ==========');
-          console.log('📨 [DEBUG] 事件类型:', event.type);
-          console.log('📨 [DEBUG] 游戏状态:', event.data.status);
-          console.log('📨 [DEBUG] 轮次ID:', event.data.rdId);
-          console.log('📨 [DEBUG] Token数据:', event.data.token);
-          console.log('📨 [DEBUG] 完整数据:', event);
-          console.log('📨 [DEBUG] 时间戳:', new Date().toLocaleString());
-          console.log('📨 [DEBUG] ==========================================');
+          console.log(`📨 收到游戏数据更新: ${event.data.status} - 轮次 ${event.data.rdId}`);
 
           // 更新游戏数据
           if (event.data) {
             latestGameData.value = { ...event.data };
-            console.log('📨 [DEBUG] 已更新latestGameData - 状态:', event.data.status);
-            console.log(
-              '📨 [DEBUG] 当前Token排名:',
-              Object.entries(event.data.token)
-                .map(([symbol, data]) => `${symbol}: ${data.s}`)
-                .join(', ')
-            );
           }
         })
         .error((error: any) => {
-          console.error('❌ [DEBUG] game-updates 频道错误:', error);
+          console.error('❌ game-updates 频道错误:', error);
         });
 
-      // 2. 监听预测数据更新 - 只使用Echo方式，避免重复
-      console.log('🧠 [DEBUG] 开始监听 predictions 频道...');
+      // 2. 监听预测数据更新
       predictionsChannel = window.Echo.channel('predictions');
 
       predictionsChannel
         .subscribed(() => {
-          console.log('✅ [DEBUG] 成功订阅 predictions 频道');
+          console.log('✅ 成功订阅 predictions 频道');
         })
         .listen('.prediction.updated', (rawEvent: any) => {
-          console.log('🔮 [DEBUG] ========== 收到 prediction.updated 事件 ==========');
-          console.log('🔮 [DEBUG] 原始事件数据:', rawEvent);
-          console.log('🔮 [DEBUG] 数据类型:', typeof rawEvent.data);
-          console.log('🔮 [DEBUG] 时间戳:', new Date().toLocaleString());
-          console.log('🔮 [DEBUG] ==========================================');
+          console.log('🔮 收到预测数据更新');
 
           // 解析WebSocket数据
           try {
@@ -388,7 +360,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
             // WebSocket的data字段可能是JSON字符串，需要解析
             if (typeof rawEvent.data === 'string') {
               actualData = JSON.parse(rawEvent.data);
-              console.log('🔮 [DEBUG] 解析后的数据:', actualData);
             } else {
               actualData = rawEvent.data;
             }
@@ -399,7 +370,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
             if (Array.isArray(actualData)) {
               // 直接是数组格式的预测数据
-              console.log('🔮 [DEBUG] 检测到数组格式的预测数据，长度:', actualData.length);
               predictionArray = actualData;
 
               // 从当前游戏数据或其他地方获取meta信息
@@ -414,23 +384,16 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
             } else if (actualData && typeof actualData === 'object') {
               // 检查是否是包装格式 {success, data, meta}
               if (actualData.success !== undefined && actualData.data) {
-                console.log('🔮 [DEBUG] 检测到包装格式的预测数据');
-                console.log('🔮 [DEBUG] 预测成功:', actualData.success);
-                console.log('🔮 [DEBUG] 预测Token数量:', actualData.data?.length || 0);
-                console.log('🔮 [DEBUG] 轮次ID:', actualData.meta?.round_id);
-                console.log('🔮 [DEBUG] 算法:', actualData.meta?.prediction_algorithm);
-
                 if (actualData.success && Array.isArray(actualData.data)) {
                   predictionArray = actualData.data;
                   metaInfo = actualData.meta || null;
                 }
               } else if (actualData.data && Array.isArray(actualData.data)) {
                 // 可能是 {data: []} 格式
-                console.log('🔮 [DEBUG] 检测到简单包装格式 {data: []}');
                 predictionArray = actualData.data;
                 metaInfo = actualData.meta || null;
               } else {
-                console.warn('⚠️ [DEBUG] 未识别的预测数据格式:', actualData);
+                console.warn('⚠️ 未识别的预测数据格式');
               }
             }
 
@@ -438,28 +401,16 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
             if (predictionArray && Array.isArray(predictionArray) && predictionArray.length > 0) {
               currentAnalysis.value = [...predictionArray];
               analysisMeta.value = metaInfo;
-              console.log('🔮 [DEBUG] 已更新预测分析数据，Token数量:', predictionArray.length);
-
-              // 输出预测排名（如果有predicted_rank字段）
-              const predictionsWithRank = predictionArray.filter((token) => token.predicted_rank !== undefined);
-              if (predictionsWithRank.length > 0) {
-                console.log(
-                  '🔮 [DEBUG] 预测排名:',
-                  predictionsWithRank.map((token) => `${token.symbol}: #${token.predicted_rank}`).join(', ')
-                );
-              } else {
-                console.log('🔮 [DEBUG] 预测Token列表:', predictionArray.map((token) => token.symbol).join(', '));
-              }
+              console.log(`🔮 更新预测数据: ${predictionArray.length} 个Token`);
             } else {
-              console.warn('⚠️ [DEBUG] 预测数据为空或格式不正确');
+              console.warn('⚠️ 预测数据为空或格式不正确');
             }
           } catch (error) {
-            console.error('❌ [DEBUG] 解析预测数据失败:', error);
-            console.error('❌ [DEBUG] 原始数据:', rawEvent);
+            console.error('❌ 解析预测数据失败:', error);
           }
         })
         .error((error: any) => {
-          console.error('❌ [DEBUG] predictions 频道错误:', error);
+          console.error('❌ predictions 频道错误:', error);
         });
 
       // 连接成功
@@ -470,27 +421,9 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
       };
 
       isInitialized = true; // 标记为已初始化
-      console.log('✅ [DEBUG] WebSocket连接成功建立');
-
-      // 输出连接后的状态信息（仅用于调试，不再绑定额外事件）
-      setTimeout(() => {
-        console.log('🔍 [DEBUG] 连接建立后的状态检查:');
-        if (window.Echo?.connector?.pusher) {
-          console.log('🔍 [DEBUG] Pusher连接状态:', window.Echo.connector.pusher.connection.state);
-          console.log('🔍 [DEBUG] 已订阅的频道:', Object.keys(window.Echo.connector.pusher.channels.channels));
-
-          // 检查频道详情（仅输出信息，不再绑定事件）
-          const channels = window.Echo.connector.pusher.channels.channels;
-          if (channels['game-updates']) {
-            console.log('🔍 [DEBUG] game-updates 频道存在');
-          }
-          if (channels['predictions']) {
-            console.log('🔍 [DEBUG] predictions 频道存在');
-          }
-        }
-      }, 2000);
+      console.log('✅ WebSocket连接成功建立');
     } catch (error) {
-      console.error('❌ [DEBUG] WebSocket连接失败:', error);
+      console.error('❌ WebSocket连接失败:', error);
       websocketStatus.value = {
         status: 'error',
         message: `连接失败: ${error instanceof Error ? error.message : String(error)}`,
@@ -499,17 +432,16 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     }
   };
 
-  // ==================== 断开连接（完善清理机制） ====================
+  // ==================== 断开连接 ====================
   const disconnectWebSocket = () => {
-    console.log('🔌 [DEBUG] 断开WebSocket连接');
+    console.log('🔌 断开WebSocket连接');
 
     if (gameUpdatesChannel) {
       try {
         window.Echo.leaveChannel('game-updates');
         gameUpdatesChannel = null;
-        console.log('🔌 [DEBUG] 已断开 game-updates 频道');
       } catch (error) {
-        console.error('❌ [DEBUG] 断开 game-updates 频道失败:', error);
+        console.error('❌ 断开 game-updates 频道失败:', error);
       }
     }
 
@@ -517,9 +449,8 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
       try {
         window.Echo.leaveChannel('predictions');
         predictionsChannel = null;
-        console.log('🔌 [DEBUG] 已断开 predictions 频道');
       } catch (error) {
-        console.error('❌ [DEBUG] 断开 predictions 频道失败:', error);
+        console.error('❌ 断开 predictions 频道失败:', error);
       }
     }
 
@@ -533,7 +464,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
   // ==================== 重连 ====================
   const reconnectWebSocket = () => {
-    console.log('🔄 [DEBUG] 手动重连WebSocket...');
+    console.log('🔄 重连WebSocket...');
     disconnectWebSocket();
     setTimeout(() => {
       initializeWebSocket();
@@ -542,35 +473,34 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
   // ==================== 为了兼容性添加的空方法 ====================
   const fetchCurrentAnalysis = async () => {
-    console.log('📊 [DEBUG] fetchCurrentAnalysis 被调用（简化实现，不做任何操作）');
+    // 简化实现，不做任何操作
   };
 
   const fetchPredictionHistory = async () => {
-    console.log('📈 [DEBUG] fetchPredictionHistory 被调用（简化实现，不做任何操作）');
+    // 简化实现，不做任何操作
   };
 
   const fetchInitialData = async () => {
-    console.log('🚀 [DEBUG] fetchInitialData 被调用（简化实现，不做任何操作）');
+    // 简化实现，不做任何操作
   };
 
   const refreshAllPredictionData = async () => {
-    console.log('🔄 [DEBUG] refreshAllPredictionData 被调用（简化实现，不做任何操作）');
+    // 简化实现，不做任何操作
   };
 
   const clearErrors = () => {
-    console.log('🧹 [DEBUG] clearErrors 被调用（简化实现，不做任何操作）');
     analysisError.value = null;
     historyError.value = null;
   };
 
-  // ==================== 初始化（防重复调用） ====================
+  // ==================== 初始化 ====================
   const initialize = async () => {
     if (isInitialized) {
-      console.log('⚠️ [DEBUG] store已经初始化，跳过重复初始化');
+      console.log('⚠️ store已经初始化，跳过重复初始化');
       return;
     }
 
-    console.log('🏗️ [DEBUG] 初始化游戏预测数据store...');
+    console.log('🏗️ 初始化游戏预测数据store...');
 
     // 延迟初始化WebSocket，确保Echo已准备好
     setTimeout(() => {
@@ -580,79 +510,8 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
   // ==================== 清理 ====================
   const cleanup = () => {
-    console.log('🧹 [DEBUG] 清理游戏预测数据store资源...');
+    console.log('🧹 清理游戏预测数据store资源...');
     disconnectWebSocket();
-  };
-
-  // ==================== 测试方法 ====================
-  const testConnection = () => {
-    console.log('🧪 [DEBUG] ========== 连接测试开始 ==========');
-    console.log('🧪 [DEBUG] WebSocket状态:', websocketStatus.value);
-    console.log('🧪 [DEBUG] 初始化状态:', isInitialized);
-    console.log('🧪 [DEBUG] Echo实例:', window.Echo);
-
-    if (window.Echo?.connector?.pusher) {
-      const pusher = window.Echo.connector.pusher;
-      console.log('🧪 [DEBUG] Pusher连接状态:', pusher.connection.state);
-      console.log('🧪 [DEBUG] 已订阅的频道:', Object.keys(pusher.channels.channels));
-
-      // 检查频道状态
-      Object.entries(pusher.channels.channels).forEach(([channelName, channel]: [string, any]) => {
-        console.log(`🧪 [DEBUG] 频道 ${channelName}:`, {
-          subscribed: channel.subscribed,
-          state: channel.state,
-          callbacks: Object.keys(channel.callbacks || {}),
-          eventCallbacks: channel.callbacks
-        });
-
-        // 列出所有绑定的事件
-        if (channel.callbacks) {
-          Object.keys(channel.callbacks).forEach((eventName) => {
-            console.log(
-              `🧪 [DEBUG] 频道 ${channelName} 绑定的事件: ${eventName} (${channel.callbacks[eventName].length} listeners)`
-            );
-          });
-        }
-      });
-    }
-    console.log('🧪 [DEBUG] ========== 连接测试结束 ==========');
-  };
-
-  const testEventBinding = () => {
-    console.log('🧪 [DEBUG] ========== 测试事件绑定 ==========');
-
-    if (window.Echo?.connector?.pusher) {
-      const channels = window.Echo.connector.pusher.channels.channels;
-
-      // 测试绑定一个临时事件监听器
-      if (channels['game-updates']) {
-        console.log('🧪 [DEBUG] 测试绑定 test.event 到 game-updates 频道');
-        channels['game-updates'].bind('test.event', (data: any) => {
-          console.log('🧪 [DEBUG] 收到测试事件:', data);
-        });
-      }
-
-      if (channels['predictions']) {
-        console.log('🧪 [DEBUG] 测试绑定 test.prediction 到 predictions 频道');
-        channels['predictions'].bind('test.prediction', (data: any) => {
-          console.log('🧪 [DEBUG] 收到测试预测事件:', data);
-        });
-      }
-
-      // 重新检查绑定的事件
-      setTimeout(() => {
-        Object.entries(channels).forEach(([channelName, channel]: [string, any]) => {
-          console.log(`🧪 [DEBUG] 重新检查频道 ${channelName} 的绑定事件:`);
-          if (channel.callbacks) {
-            Object.keys(channel.callbacks).forEach((eventName) => {
-              console.log(`🧪 [DEBUG] - ${eventName} (${channel.callbacks[eventName].length} listeners)`);
-            });
-          }
-        });
-      }, 1000);
-    }
-
-    console.log('🧪 [DEBUG] ========== 测试事件绑定结束 ==========');
   };
 
   return {
@@ -692,8 +551,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     reconnectWebSocket,
     initialize,
     cleanup,
-    testConnection,
-    testEventBinding,
 
     // ==================== 兼容性方法导出 ====================
     fetchCurrentAnalysis,

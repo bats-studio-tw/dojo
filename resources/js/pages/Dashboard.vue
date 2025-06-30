@@ -1,99 +1,157 @@
 <template>
   <DefaultLayout>
-    <Head title="Dashboard" />
+    <Head title="数据分析面板" />
 
     <div class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br p-3 sm:p-6">
-      <div class="mx-auto max-w-4xl">
-        <!-- 页面标题 -->
-        <div class="mb-6 text-center">
-          <h1 class="text-3xl text-white font-bold">🔍 WebSocket 调试面板</h1>
-          <p class="mt-2 text-gray-400">专注于检查 WebSocket 事件接收</p>
-          <div class="mt-3 rounded bg-green-900/20 p-3 text-sm text-green-300">
-            ✅
-            <strong>修复完成</strong>
-            ：已解决重复订阅、事件名称不匹配和数据解析问题
-            <br />
-            现在正确监听
-            <code>game.data.updated</code>
-            和
-            <code>prediction.updated</code>
-            事件，并支持完整的类型系统
+      <div class="mx-auto max-w-7xl">
+        <!-- 导航栏 -->
+        <div class="mb-6 flex items-center justify-between">
+          <h1 class="text-2xl text-white font-bold">📊 数据分析面板</h1>
+          <div class="flex space-x-3">
+            <!-- WebSocket状态指示器 -->
+            <div class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2" :class="getWebSocketStatusClass()">
+              <span>{{ getWebSocketStatusIcon() }}</span>
+              <span>{{ websocketStatus.message }}</span>
+              <button v-if="!isConnected" @click="reconnectWebSocket()" class="text-xs underline">重连</button>
+            </div>
+            <router-link
+              to="/auto-betting"
+              class="flex items-center rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors duration-200 space-x-2 hover:bg-purple-700"
+            >
+              <span>🤖</span>
+              <span>自动下注控制</span>
+            </router-link>
           </div>
         </div>
 
-        <!-- WebSocket状态面板 -->
+        <!-- 调试信息面板 -->
         <NCard
-          class="mb-6 border border-blue-500/30 bg-blue-500/5 shadow-lg backdrop-blur-lg"
-          title="📡 WebSocket 连接状态"
+          class="mb-4 border border-blue-500/30 bg-blue-500/5 shadow-lg backdrop-blur-lg"
+          title="🐛 系统状态"
+          size="small"
         >
-          <div class="space-y-4">
-            <!-- 状态指示器 -->
-            <div class="flex items-center justify-between">
-              <div class="flex items-center space-x-3">
-                <div
-                  class="h-4 w-4 rounded-full"
-                  :class="{
-                    'bg-green-500 animate-pulse': isConnected,
-                    'bg-yellow-500 animate-spin': websocketStatus.status === 'connecting',
-                    'bg-red-500': websocketStatus.status === 'error',
-                    'bg-gray-500': websocketStatus.status === 'disconnected'
-                  }"
-                ></div>
-                <span class="text-lg text-white font-medium">{{ websocketStatus.message }}</span>
-              </div>
-              <div class="flex space-x-2">
-                <n-button v-if="!isConnected" @click="reconnectWebSocket" type="primary" size="small">
-                  🔄 重新连接
-                </n-button>
-                <n-button @click="testConnection" type="info" size="small">🧪 测试连接</n-button>
-              </div>
+          <div class="grid grid-cols-1 gap-3 text-xs lg:grid-cols-4 sm:grid-cols-2">
+            <div class="space-y-1">
+              <div class="text-blue-300 font-medium">数据状态</div>
+              <div class="text-gray-300">预测数据: {{ currentAnalysis.length }} 个</div>
+              <div class="text-gray-300">历史数据: {{ predictionHistoryData.length }} 局</div>
+              <div class="text-gray-300">游戏数据: {{ latestGameData ? '有' : '无' }}</div>
             </div>
-
-            <!-- 连接详情 -->
-            <div class="text-sm text-gray-300 space-y-1">
-              <div>
-                状态:
-                <span class="text-cyan-400 font-mono">{{ websocketStatus.status }}</span>
-              </div>
-              <div>
-                最后连接:
-                <span class="text-cyan-400 font-mono">{{ websocketStatus.lastConnectedAt || '从未连接' }}</span>
+            <div class="space-y-1">
+              <div class="text-blue-300 font-medium">WebSocket状态</div>
+              <div class="text-gray-300">状态: {{ websocketStatus.status }}</div>
+              <div class="text-gray-300">最后连接: {{ formatTime(websocketStatus.lastConnectedAt) }}</div>
+            </div>
+            <div class="space-y-1">
+              <div class="text-blue-300 font-medium">轮次信息</div>
+              <div class="text-gray-300">轮次ID: {{ currentRoundId || '无' }}</div>
+              <div class="text-gray-300">状态: {{ currentGameStatus }}</div>
+              <div class="text-gray-300">更新时间: {{ formatTime(analysisMeta?.updated_at) }}</div>
+            </div>
+            <div class="space-y-1">
+              <div class="text-blue-300 font-medium">控制操作</div>
+              <div class="mt-2 flex flex-wrap gap-1">
+                <n-button size="tiny" @click="manualRefresh" type="info">🔄 刷新</n-button>
+                <n-button size="tiny" @click="testWebSocket" type="warning">🧪 测试</n-button>
+                <n-button size="tiny" @click="clearConsole" type="default">🧹 清空</n-button>
               </div>
             </div>
           </div>
         </NCard>
 
-        <!-- 事件监听面板 -->
+        <!-- AI预测分析面板 -->
         <NCard
-          class="mb-6 border border-green-500/30 bg-green-500/5 shadow-lg backdrop-blur-lg"
-          title="📨 WebSocket 事件监听"
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="🔮 AI预测排名"
+          size="large"
         >
-          <div class="space-y-4">
-            <div class="text-sm text-gray-300">
-              <p>当前正在监听以下 WebSocket 事件：</p>
-              <ul class="mt-2 list-disc list-inside space-y-1">
-                <li>
-                  📨
-                  <code class="text-cyan-400">game.data.updated</code>
-                  - 游戏数据更新事件
-                </li>
-                <li>
-                  🔮
-                  <code class="text-purple-400">prediction.updated</code>
-                  - 预测数据更新事件
-                </li>
-              </ul>
+          <template #header-extra>
+            <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-x-3 sm:space-y-0">
+              <div
+                v-if="analysisMeta"
+                class="flex flex-wrap items-center gap-1 text-xs text-gray-300 sm:gap-2 sm:text-sm"
+              >
+                <span class="font-medium">轮次:</span>
+                <span class="text-cyan-400">{{ analysisMeta.round_id || currentRoundId }}</span>
+                <span class="font-medium">状态:</span>
+                <NTag :type="getStatusTagType(currentGameStatus)" size="small">
+                  {{ getStatusText(currentGameStatus) }}
+                </NTag>
+              </div>
+              <n-button :loading="analysisLoading" @click="refreshAnalysis" type="primary" size="small">
+                🔄 刷新分析
+              </n-button>
             </div>
+          </template>
 
-            <div class="rounded bg-yellow-900/20 p-3 text-xs text-yellow-300">
-              <strong>📝 说明：</strong>
-              所有收到的事件数据都会在浏览器控制台 (F12) 中详细打印出来。
-              <br />
-              请打开控制台查看以
-              <code>[DEBUG]</code>
-              开头的日志信息。
+          <div v-if="currentAnalysis && currentAnalysis.length > 0" class="space-y-4">
+            <!-- 横向预测排名展示 -->
+            <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5">
+              <div
+                v-for="(token, index) in sortedPredictionsByRank"
+                :key="`prediction-${index}-${token.symbol}`"
+                class="relative overflow-hidden border rounded-lg p-3 transition-all duration-300 hover:shadow-lg"
+                :class="getUnifiedCardClass(index)"
+              >
+                <!-- 预测排名头部 -->
+                <div class="mb-2 flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <div class="text-lg">{{ getPredictionIcon(index) }}</div>
+                    <div class="text-sm text-white font-bold">{{ token.symbol }}</div>
+                  </div>
+                  <div class="text-xs text-gray-400">#{{ token.predicted_rank }}</div>
+                </div>
+
+                <!-- 核心评分 -->
+                <div class="mb-3 text-center">
+                  <div class="text-xs text-gray-400">预测分数</div>
+                  <div class="text-lg font-bold" :class="getScoreTextClass(index)">
+                    {{ (token.prediction_score || 0).toFixed(1) }}
+                  </div>
+                  <div v-if="token.rank_confidence" class="text-xs text-gray-400">
+                    置信度 {{ (token.rank_confidence || 0).toFixed(0) }}%
+                  </div>
+                </div>
+
+                <!-- 详细数据参数 -->
+                <div class="text-xs space-y-1">
+                  <div v-if="token.absolute_score" class="flex justify-between">
+                    <span class="text-gray-400">绝对分数:</span>
+                    <span class="text-purple-400 font-bold">{{ (token.absolute_score || 0).toFixed(1) }}</span>
+                  </div>
+                  <div v-if="token.relative_score || token.h2h_score" class="flex justify-between">
+                    <span class="text-gray-400">相对分数:</span>
+                    <span class="text-orange-400 font-bold">
+                      {{ (token.relative_score || token.h2h_score || 0).toFixed(1) }}
+                    </span>
+                  </div>
+                  <div v-if="token.top3_rate" class="flex justify-between">
+                    <span class="text-gray-400">保本率:</span>
+                    <span class="text-green-400 font-bold">{{ (token.top3_rate || 0).toFixed(1) }}%</span>
+                  </div>
+                  <div v-if="token.win_rate" class="flex justify-between">
+                    <span class="text-gray-400">胜率:</span>
+                    <span class="text-yellow-400 font-bold">{{ (token.win_rate || 0).toFixed(1) }}%</span>
+                  </div>
+
+                  <!-- 实时游戏数据对比（如果有） -->
+                  <div v-if="getTokenCurrentRank(token.symbol)" class="mt-2 border-t border-gray-600/30 pt-1">
+                    <div class="flex justify-between">
+                      <span class="text-gray-400">当前排名:</span>
+                      <span class="text-cyan-400 font-bold">#{{ getTokenCurrentRank(token.symbol) }}</span>
+                    </div>
+                    <div v-if="getTokenCurrentChange(token.symbol)" class="flex justify-between">
+                      <span class="text-gray-400">价格变化:</span>
+                      <span class="font-bold" :class="formatPriceChange(getTokenCurrentChange(token.symbol)).color">
+                        {{ formatPriceChange(getTokenCurrentChange(token.symbol)).text }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+          <NEmpty v-else description="暂无AI预测数据" class="py-8" />
         </NCard>
 
         <!-- 实时游戏数据面板 -->
@@ -107,15 +165,7 @@
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div class="rounded bg-gray-800/50 p-3">
                 <div class="text-sm text-gray-400">游戏状态</div>
-                <div
-                  class="text-lg font-bold"
-                  :class="{
-                    'text-green-400': currentGameStatus === 'bet',
-                    'text-yellow-400': currentGameStatus === 'lock',
-                    'text-orange-400': currentGameStatus === 'settling',
-                    'text-blue-400': currentGameStatus === 'settled'
-                  }"
-                >
+                <div class="text-lg font-bold" :class="getStatusColorClass(currentGameStatus)">
                   {{ getStatusText(currentGameStatus) }}
                 </div>
               </div>
@@ -130,33 +180,16 @@
             </div>
 
             <!-- Token排名信息 -->
-            <div v-if="currentGameTokensWithRanks.length > 0">
+            <div v-if="sortedTokensByRank.length > 0">
               <h4 class="mb-3 text-white font-medium">📊 当前Token排名</h4>
               <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 md:grid-cols-2">
                 <div v-for="token in sortedTokensByRank" :key="token.symbol" class="rounded bg-gray-800/50 p-3">
                   <div class="flex items-center justify-between">
                     <span class="text-white font-medium">{{ token.symbol }}</span>
-                    <span
-                      class="text-lg font-bold"
-                      :class="{
-                        'text-yellow-400': token.rank === 1,
-                        'text-gray-300': token.rank === 2,
-                        'text-orange-400': token.rank === 3,
-                        'text-blue-400': token.rank > 3
-                      }"
-                    >
-                      #{{ token.rank }}
-                    </span>
+                    <span class="text-lg font-bold" :class="getRankColorClass(token.rank)">#{{ token.rank }}</span>
                   </div>
-                  <div
-                    class="text-sm"
-                    :class="{
-                      'text-green-400': token.priceChange > 0,
-                      'text-red-400': token.priceChange < 0,
-                      'text-gray-400': token.priceChange === 0
-                    }"
-                  >
-                    {{ token.priceChange > 0 ? '+' : '' }}{{ (token.priceChange * 100).toFixed(4) }}%
+                  <div class="text-sm" :class="formatPriceChange(token.priceChange).color">
+                    {{ formatPriceChange(token.priceChange).text }}
                   </div>
                 </div>
               </div>
@@ -197,144 +230,172 @@
           </div>
         </NCard>
 
-        <!-- 预测数据面板 -->
+        <!-- 预测历史数据表格 -->
         <NCard
-          v-if="hasCurrentAnalysis"
-          class="mb-6 border border-purple-500/30 bg-purple-500/5 shadow-lg backdrop-blur-lg"
-          title="🔮 AI预测分析"
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="🔮 预测历史数据"
+          size="large"
         >
-          <div class="space-y-4">
-            <!-- 预测元信息 -->
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div class="rounded bg-gray-800/50 p-3">
-                <div class="text-sm text-gray-400">算法版本</div>
-                <div class="text-sm text-purple-400 font-mono">{{ analysisMeta?.prediction_algorithm }}</div>
-              </div>
-              <div class="rounded bg-gray-800/50 p-3">
-                <div class="text-sm text-gray-400">分析Token数</div>
-                <div class="text-lg text-white font-bold">{{ currentAnalysis.length }}</div>
-              </div>
-              <div class="rounded bg-gray-800/50 p-3">
-                <div class="text-sm text-gray-400">轮次ID</div>
-                <div class="text-sm text-cyan-400 font-mono">{{ analysisMeta?.round_id }}</div>
-              </div>
-            </div>
+          <template #header-extra>
+            <n-button
+              :loading="predictionHistoryLoading"
+              @click="refreshPredictionHistoryData"
+              type="primary"
+              size="small"
+            >
+              🔄 刷新预测历史
+            </n-button>
+          </template>
 
-            <!-- 预测排名 -->
-            <div>
-              <h4 class="mb-3 text-white font-medium">🏆 AI预测排名</h4>
-              <div class="space-y-2">
-                <div
-                  v-for="token in sortedPredictionsByRank"
-                  :key="token.symbol"
-                  class="flex items-center justify-between rounded bg-gray-800/50 p-3"
-                >
-                  <div class="flex items-center space-x-3">
-                    <span
-                      class="text-2xl font-bold"
-                      :class="{
-                        'text-yellow-400': token.predicted_rank === 1,
-                        'text-gray-300': token.predicted_rank === 2,
-                        'text-orange-400': token.predicted_rank === 3,
-                        'text-blue-400': token.predicted_rank > 3
-                      }"
-                    >
-                      #{{ token.predicted_rank }}
-                    </span>
-                    <div>
-                      <div class="text-white font-medium">{{ token.symbol }}</div>
-                      <div class="text-sm text-gray-400">
-                        预测分数: {{ token.prediction_score?.toFixed(1) }} | 置信度:
-                        {{ token.rank_confidence?.toFixed(1) }}%
-                      </div>
-                    </div>
+          <NSpin :show="predictionHistoryLoading">
+            <div v-if="predictionHistoryData && predictionHistoryData.length > 0" class="space-y-4">
+              <!-- 局数选择器 -->
+              <div
+                class="mb-3 border border-white/20 rounded-lg from-gray-500/10 to-slate-600/5 bg-gradient-to-br px-3 py-2"
+              >
+                <div class="mb-1 flex items-center justify-between">
+                  <div class="py-1 text-sm text-white font-medium">📊 最新N局分析设置</div>
+                  <div class="text-xs text-gray-300">
+                    当前:
+                    <span class="text-cyan-400 font-bold">{{ recentRoundsCount }}</span>
+                    局
                   </div>
-                  <div class="text-right">
-                    <div class="text-sm text-gray-400">胜率</div>
-                    <div class="text-green-400 font-bold">{{ token.win_rate?.toFixed(1) }}%</div>
+                </div>
+                <div class="flex items-center space-x-3">
+                  <span class="whitespace-nowrap text-xs text-gray-300 font-medium">局数:</span>
+                  <div class="min-w-0 flex-1">
+                    <n-slider
+                      v-model:value="recentRoundsCount"
+                      :min="1"
+                      :max="Math.min(300, predictionHistoryData?.length || 0)"
+                      :step="1"
+                      :tooltip="true"
+                    />
+                  </div>
+                  <div class="whitespace-nowrap text-xs text-gray-400">
+                    1-{{ Math.min(300, predictionHistoryData?.length || 0) }}局
                   </div>
                 </div>
               </div>
-            </div>
 
-            <!-- 预测统计信息 -->
-            <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div class="rounded bg-blue-900/20 p-3 text-center">
-                <div class="text-sm text-blue-300">算法描述</div>
-                <div class="mt-1 text-xs text-blue-400">保本优先策略</div>
+              <!-- 预测准确度统计卡片 -->
+              <div class="grid grid-cols-1 gap-3 lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5 sm:gap-4">
+                <!-- 精准预测率 -->
+                <div
+                  class="prediction-stat-card border-green-500/30 from-green-500/10 to-emerald-600/5 bg-gradient-to-br hover:border-green-400/50 hover:shadow-green-500/20"
+                >
+                  <div class="stat-icon">🎯</div>
+                  <div class="stat-content">
+                    <div class="stat-label text-green-300">精准预测率</div>
+                    <div class="stat-value text-green-400">
+                      {{ (calculateRoundBasedStats().exactRate || 0).toFixed(1) }}
+                      <span>%</span>
+                    </div>
+                    <div class="stat-desc text-green-200/70">预测与实际完全相同</div>
+                  </div>
+                </div>
+
+                <!-- 预测总局数 -->
+                <div
+                  class="prediction-stat-card border-purple-500/30 from-purple-500/10 to-indigo-600/5 bg-gradient-to-br hover:border-purple-400/50 hover:shadow-purple-500/20"
+                >
+                  <div class="stat-icon">📊</div>
+                  <div class="stat-content">
+                    <div class="stat-label text-purple-300">预测总局数</div>
+                    <div class="stat-value text-purple-400">{{ calculatePortfolioStats().totalRounds }}</div>
+                    <div class="stat-desc text-purple-200/70">模型运行总局数</div>
+                  </div>
+                </div>
+
+                <!-- 预测排名统计 -->
+                <div
+                  v-for="rank in [1, 2, 3]"
+                  :key="`rank-${rank}`"
+                  class="prediction-stat-card"
+                  :class="getRankCardClass(rank)"
+                >
+                  <div class="stat-icon">{{ getRankIcon(rank) }}</div>
+                  <div class="stat-content">
+                    <div class="stat-label" :class="getRankLabelClass(rank)">预测第{{ rank }}名</div>
+                    <div class="stat-multi-value">
+                      <!-- 全部历史数据 -->
+                      <div class="mb-2 border-b border-opacity-20 pb-2" :class="getRankBorderClass(rank)">
+                        <div class="mb-1 text-xs opacity-50" :class="getRankTextClass(rank)">
+                          全部{{ getRankStats(rank).total }}局
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-base font-bold" :class="getRankValueClass(rank)">
+                            {{ (calculateRankBasedStats()[`rank${rank}`].breakevenRate || 0).toFixed(1) }}%
+                          </span>
+                          <span class="text-xs opacity-70" :class="getRankTextClass(rank)">保本率</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-base font-bold" :class="getRankSecondaryClass(rank)">
+                            {{ (calculateRankBasedStats()[`rank${rank}`].firstPlaceRate || 0).toFixed(1) }}%
+                          </span>
+                          <span class="text-xs opacity-70" :class="getRankSecondaryTextClass(rank)">第一名率</span>
+                        </div>
+                      </div>
+                      <!-- 最新N局数据 -->
+                      <div class="pt-1">
+                        <div class="mb-1 text-xs text-cyan-300/70">最新{{ recentRoundsCount }}局</div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-base text-cyan-400 font-bold">
+                            {{ (calculateRecentRankBasedStats[`rank${rank}`].breakevenRate || 0).toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-cyan-200/70">保本率</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-base text-teal-300 font-bold">
+                            {{ (calculateRecentRankBasedStats[`rank${rank}`].firstPlaceRate || 0).toFixed(1) }}%
+                          </span>
+                          <span class="text-xs text-teal-200/70">第一名率</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div class="rounded bg-green-900/20 p-3 text-center">
-                <div class="text-sm text-green-300">分析轮次</div>
-                <div class="text-green-400 font-bold">{{ analysisMeta?.analysis_rounds_count || 120 }}</div>
-              </div>
-              <div class="rounded bg-purple-900/20 p-3 text-center">
-                <div class="text-sm text-purple-300">数据源</div>
-                <div class="text-xs text-purple-400">{{ analysisMeta?.source || 'websocket' }}</div>
-              </div>
-              <div class="rounded bg-yellow-900/20 p-3 text-center">
-                <div class="text-sm text-yellow-300">更新时间</div>
-                <div class="text-xs text-yellow-400">{{ formatTimestamp(analysisMeta?.timestamp) }}</div>
-              </div>
+
+              <!-- 预测对比表格 -->
+              <NDataTable
+                :columns="predictionComparisonColumns"
+                :data="predictionComparisonTableData"
+                :pagination="{ pageSize: 10 }"
+                :scroll-x="800"
+                striped
+                :row-props="rowProps"
+                size="small"
+              />
             </div>
-          </div>
+            <NEmpty v-else description="暂无预测历史数据" class="py-8" />
+          </NSpin>
         </NCard>
 
-        <!-- 控制按钮 -->
-        <NCard class="mb-6 border border-purple-500/30 bg-purple-500/5 shadow-lg backdrop-blur-lg" title="🎛️ 调试控制">
-          <div class="flex flex-wrap gap-3">
-            <n-button @click="initializeWebSocket" type="primary">🚀 初始化 WebSocket</n-button>
-            <n-button @click="disconnectWebSocket" type="error">🔌 断开连接</n-button>
-            <n-button @click="reconnectWebSocket" type="warning">🔄 重新连接</n-button>
-            <n-button @click="testConnection" type="info">🧪 连接测试</n-button>
-            <n-button @click="clearConsole" type="default">🧹 清空控制台</n-button>
-          </div>
-        </NCard>
+        <!-- 历史游戏数据表格 -->
+        <NCard
+          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+          title="📊 历史游戏数据 (最近50局)"
+          size="large"
+        >
+          <template #header-extra>
+            <n-button :loading="historyLoading" @click="refreshHistoryData" type="primary" size="small">
+              🔄 刷新历史
+            </n-button>
+          </template>
 
-        <!-- 使用说明 -->
-        <NCard class="border border-gray-500/30 bg-gray-500/5 shadow-lg backdrop-blur-lg" title="📖 使用说明">
-          <div class="text-sm text-gray-300 space-y-3">
-            <div>
-              <h4 class="mb-2 text-white font-medium">🔍 如何检查 WebSocket 事件：</h4>
-              <ol class="list-decimal list-inside space-y-1">
-                <li>
-                  按
-                  <kbd class="rounded bg-gray-700 px-2 py-1 text-xs">F12</kbd>
-                  打开浏览器开发者工具
-                </li>
-                <li>
-                  切换到
-                  <strong>Console</strong>
-                  标签页
-                </li>
-                <li>确保 WebSocket 状态显示为 "已连接"</li>
-                <li>等待后端发送 WebSocket 事件，或手动触发事件</li>
-                <li>
-                  查看控制台中以
-                  <code class="text-cyan-400">[DEBUG]</code>
-                  开头的日志
-                </li>
-              </ol>
-            </div>
-
-            <div>
-              <h4 class="mb-2 text-white font-medium">📨 预期的日志格式：</h4>
-              <div class="rounded bg-black/50 p-3 text-xs font-mono">
-                <div class="text-green-400">📨 [DEBUG] ========== 收到 game.data.updated 事件 ==========</div>
-                <div class="text-gray-300">📨 [DEBUG] 完整数据: {...}</div>
-                <div class="text-gray-300">📨 [DEBUG] ==========================================</div>
-              </div>
-            </div>
-
-            <div class="rounded bg-yellow-900/20 p-3 text-yellow-300">
-              <strong>⚠️ 注意：</strong>
-              如果长时间没有看到事件日志，可能是：
-              <ul class="mt-1 list-disc list-inside">
-                <li>后端没有发送 WebSocket 事件</li>
-                <li>频道名称或事件名称不匹配</li>
-                <li>WebSocket 连接有问题</li>
-              </ul>
-            </div>
-          </div>
+          <NSpin :show="historyLoading">
+            <NDataTable
+              v-if="historyData && historyData.length > 0"
+              :columns="historyColumns"
+              :data="historyTableData"
+              :pagination="{ pageSize: 5 }"
+              :scroll-x="700"
+              striped
+              size="small"
+            />
+            <NEmpty v-else description="暂无历史数据" class="py-8" />
+          </NSpin>
         </NCard>
       </div>
     </div>
@@ -342,33 +403,79 @@
 </template>
 
 <script setup lang="ts">
+  import { ref, onMounted, computed, h } from 'vue';
+  import { NEmpty, type DataTableColumn } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import { storeToRefs } from 'pinia';
-  import { onMounted, computed } from 'vue';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
+  import api from '@/utils/api';
 
-  // 使用简化的游戏预测store
+  // 导入游戏预测store - 统一的数据管理
   import { useGamePredictionStore } from '@/stores/gamePrediction';
 
-  // 使用store
+  // 历史数据相关接口
+  interface RoundToken {
+    symbol: string;
+    rank: number;
+    value: string;
+  }
+
+  interface HistoryRound {
+    id: number;
+    round_id: string;
+    settled_at: string | null;
+    tokens: RoundToken[];
+  }
+
+  interface HistoryTableRow extends HistoryRound {
+    key: number;
+  }
+
+  interface DetailedPredictionItem {
+    round_id: string;
+    symbol: string;
+    predicted_rank: number;
+    actual_rank: number;
+    is_exact_match: boolean;
+    is_better_than_expected: boolean;
+    rank_difference: number;
+    settled_at: string;
+  }
+
+  interface PredictionComparisonRow extends DetailedPredictionItem {
+    key: string;
+  }
+
+  // 使用游戏预测store - 统一的数据管理，支持WebSocket实时更新
   const gamePredictionStore = useGamePredictionStore();
 
-  // 从store中获取状态
+  // 从store中获取响应式数据
   const {
     websocketStatus,
     isConnected,
+    currentAnalysis,
+    analysisMeta,
+    predictionHistory,
     latestGameData,
+    analysisLoading,
+    historyLoading,
+    currentRoundId,
     currentGameStatus,
     currentGameTokens,
     currentGameTokensWithRanks,
-    bettingStats,
-    currentAnalysis,
-    analysisMeta,
-    hasCurrentAnalysis
+    bettingStats
   } = storeToRefs(gamePredictionStore);
 
   // 从store中获取方法
-  const { initializeWebSocket, disconnectWebSocket, reconnectWebSocket, testConnection } = gamePredictionStore;
+  const { reconnectWebSocket } = gamePredictionStore;
+
+  // 本地状态管理
+  const historyData = ref<HistoryRound[]>([]);
+  const predictionHistoryLoading = ref(false);
+  const predictionHistoryData = computed(() => predictionHistory.value);
+  const recentRoundsCount = ref(50);
+
+  // ==================== 工具函数 ====================
 
   // 状态文本转换
   const getStatusText = (status: string) => {
@@ -382,6 +489,86 @@
     return statusMap[status as keyof typeof statusMap] || '❓ 未知';
   };
 
+  // WebSocket状态样式
+  const getWebSocketStatusClass = () => {
+    const status = websocketStatus.value.status;
+    switch (status) {
+      case 'connected':
+        return 'bg-green-500/20 border border-green-500/30 text-green-400';
+      case 'connecting':
+        return 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-400';
+      case 'disconnected':
+        return 'bg-gray-500/20 border border-gray-500/30 text-gray-400';
+      case 'error':
+        return 'bg-red-500/20 border border-red-500/30 text-red-400';
+      default:
+        return 'bg-gray-500/20 border border-gray-500/30 text-gray-400';
+    }
+  };
+
+  const getWebSocketStatusIcon = () => {
+    const status = websocketStatus.value.status;
+    switch (status) {
+      case 'connected':
+        return '🟢';
+      case 'connecting':
+        return '🟡';
+      case 'disconnected':
+        return '⚪';
+      case 'error':
+        return '🔴';
+      default:
+        return '⚪';
+    }
+  };
+
+  // 时间格式化
+  const formatTime = (timeString: string | null | undefined) => {
+    if (!timeString) return '无';
+    try {
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch {
+      return '无效';
+    }
+  };
+
+  // 状态标签类型
+  const getStatusTagType = (status: string) => {
+    switch (status) {
+      case 'bet':
+        return 'success';
+      case 'settling':
+        return 'warning';
+      case 'settled':
+        return 'info';
+      default:
+        return 'default';
+    }
+  };
+
+  // 状态颜色类
+  const getStatusColorClass = (status: string) => {
+    switch (status) {
+      case 'bet':
+        return 'text-green-400';
+      case 'lock':
+        return 'text-yellow-400';
+      case 'settling':
+        return 'text-orange-400';
+      case 'settled':
+        return 'text-blue-400';
+      default:
+        return 'text-gray-400';
+    }
+  };
+
+  // ==================== 排序和计算 ====================
+
   // Token按排名排序
   const sortedTokensByRank = computed(() => {
     return [...currentGameTokensWithRanks.value].sort((a, b) => a.rank - b.rank);
@@ -392,43 +579,587 @@
     return [...currentAnalysis.value].sort((a, b) => a.predicted_rank - b.predicted_rank);
   });
 
-  // 时间戳格式化
-  const formatTimestamp = (timestamp: string | undefined) => {
-    if (!timestamp) return '未知';
-    try {
-      return new Date(timestamp).toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-    } catch {
-      return '无效时间';
+  // 获取Token当前排名
+  const getTokenCurrentRank = (symbol: string) => {
+    const token = currentGameTokensWithRanks.value.find((t) => t.symbol === symbol);
+    return token?.rank || null;
+  };
+
+  // 获取Token当前价格变化
+  const getTokenCurrentChange = (symbol: string) => {
+    const token = currentGameTokensWithRanks.value.find((t) => t.symbol === symbol);
+    return token?.priceChange || null;
+  };
+
+  // ==================== 样式相关函数 ====================
+
+  const getUnifiedCardClass = (index: number) => {
+    if (index === 0)
+      return 'border-yellow-400/30 bg-gradient-to-br from-yellow-500/10 to-amber-600/5 hover:border-yellow-400/50 hover:shadow-yellow-500/20';
+    if (index === 1)
+      return 'border-slate-400/30 bg-gradient-to-br from-slate-500/10 to-gray-600/5 hover:border-slate-400/50 hover:shadow-slate-500/20';
+    if (index === 2)
+      return 'border-orange-400/30 bg-gradient-to-br from-orange-500/10 to-red-600/5 hover:border-orange-400/50 hover:shadow-orange-500/20';
+    if (index === 3)
+      return 'border-blue-400/30 bg-gradient-to-br from-blue-500/10 to-indigo-600/5 hover:border-blue-400/50 hover:shadow-blue-500/20';
+    return 'border-purple-400/30 bg-gradient-to-br from-purple-500/10 to-pink-600/5 hover:border-purple-400/50 hover:shadow-purple-500/20';
+  };
+
+  const getScoreTextClass = (index: number) => {
+    if (index === 0) return 'text-yellow-400';
+    if (index === 1) return 'text-slate-400';
+    if (index === 2) return 'text-orange-400';
+    if (index === 3) return 'text-blue-400';
+    return 'text-purple-400';
+  };
+
+  const getPredictionIcon = (index: number) => {
+    if (index === 0) return '🥇';
+    if (index === 1) return '🥈';
+    if (index === 2) return '🥉';
+    return '📊';
+  };
+
+  const getRankColorClass = (rank: number) => {
+    if (rank === 1) return 'text-yellow-400';
+    if (rank === 2) return 'text-gray-300';
+    if (rank === 3) return 'text-orange-400';
+    return 'text-blue-400';
+  };
+
+  const getRankIcon = (rank: number) => {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    return '📊';
+  };
+
+  // 排名卡片样式
+  const getRankCardClass = (rank: number) => {
+    if (rank === 1)
+      return 'bg-gradient-to-br from-yellow-500/10 to-amber-600/5 border-yellow-500/30 hover:border-yellow-400/50 hover:shadow-yellow-500/20';
+    if (rank === 2)
+      return 'bg-gradient-to-br from-slate-500/10 to-gray-600/5 border-slate-500/30 hover:border-slate-400/50 hover:shadow-slate-500/20';
+    if (rank === 3)
+      return 'bg-gradient-to-br from-orange-500/10 to-red-600/5 border-orange-500/30 hover:border-orange-400/50 hover:shadow-orange-500/20';
+    return 'bg-gradient-to-br from-purple-500/10 to-indigo-600/5 border-purple-500/30 hover:border-purple-400/50 hover:shadow-purple-500/20';
+  };
+
+  const getRankLabelClass = (rank: number) => {
+    if (rank === 1) return 'text-yellow-300';
+    if (rank === 2) return 'text-slate-300';
+    if (rank === 3) return 'text-orange-300';
+    return 'text-purple-300';
+  };
+
+  const getRankValueClass = (rank: number) => {
+    if (rank === 1) return 'text-yellow-400';
+    if (rank === 2) return 'text-slate-400';
+    if (rank === 3) return 'text-orange-400';
+    return 'text-purple-400';
+  };
+
+  const getRankSecondaryClass = (rank: number) => {
+    if (rank === 1) return 'text-amber-300';
+    if (rank === 2) return 'text-gray-300';
+    if (rank === 3) return 'text-red-300';
+    return 'text-pink-300';
+  };
+
+  const getRankTextClass = (rank: number) => {
+    if (rank === 1) return 'text-yellow-200';
+    if (rank === 2) return 'text-slate-200';
+    if (rank === 3) return 'text-orange-200';
+    return 'text-purple-200';
+  };
+
+  const getRankSecondaryTextClass = (rank: number) => {
+    if (rank === 1) return 'text-amber-200';
+    if (rank === 2) return 'text-gray-200';
+    if (rank === 3) return 'text-red-200';
+    return 'text-pink-200';
+  };
+
+  const getRankBorderClass = (rank: number) => {
+    if (rank === 1) return 'border-yellow-400';
+    if (rank === 2) return 'border-slate-400';
+    if (rank === 3) return 'border-orange-400';
+    return 'border-purple-400';
+  };
+
+  // 格式化价格变化
+  const formatPriceChange = (change: number | null) => {
+    if (change === null || change === undefined) return { text: '-', color: 'text-gray-500' };
+    const value = change.toFixed(2);
+    if (change > 0) {
+      return { text: `+${value}%`, color: 'text-green-400' };
+    } else if (change < 0) {
+      return { text: `${value}%`, color: 'text-red-400' };
+    } else {
+      return { text: '0.00%', color: 'text-gray-400' };
     }
   };
 
-  // 清空控制台
-  const clearConsole = () => {
-    console.clear();
-    console.log('🧹 [DEBUG] 控制台已清空，开始新的调试会话');
-    console.log('🔍 [DEBUG] 当前 WebSocket 状态:', websocketStatus.value);
+  // ==================== API调用函数 ====================
+
+  const fetchHistoryData = async () => {
+    historyLoading.value = true;
+    try {
+      const response = await api.get('/game/history');
+      if (response.data.success) {
+        historyData.value = response.data.data;
+      } else {
+        window.$message?.error(response.data.message || '获取历史数据失败');
+      }
+    } catch (error) {
+      console.error('获取历史数据失败:', error);
+      window.$message?.error('获取历史数据失败');
+    } finally {
+      historyLoading.value = false;
+    }
   };
 
-  // 页面初始化
+  const fetchPredictionHistoryData = async () => {
+    predictionHistoryLoading.value = true;
+    try {
+      const response = await api.get('/game/prediction-history');
+      if (response.data.success) {
+        // 更新store中的预测历史数据
+        predictionHistory.value = response.data.data;
+      } else {
+        window.$message?.error(response.data.message || '获取预测历史数据失败');
+      }
+    } catch (error) {
+      console.error('获取预测历史数据失败:', error);
+      window.$message?.error('获取预测历史数据失败');
+    } finally {
+      predictionHistoryLoading.value = false;
+    }
+  };
 
-  onMounted(async () => {
-    console.log('🏗️ [DEBUG] Dashboard 页面开始初始化...');
-    console.log('🔍 [DEBUG] Echo 是否存在:', !!window.Echo);
+  // ==================== 刷新函数 ====================
 
-    // 不再在页面级别初始化store，由 app.ts 全局初始化负责
-    // 这样避免了重复初始化和WebSocket事件的重复订阅
-    console.log('🔍 [DEBUG] 等待全局store初始化完成...');
+  const refreshAnalysis = () => {
+    // WebSocket会自动更新，这里提供手动刷新选项（空实现）
+  };
 
-    console.log('✅ [DEBUG] Dashboard 页面初始化完成');
-    console.log('📖 [DEBUG] 请查看上方的使用说明，了解如何检查 WebSocket 事件');
+  const refreshHistoryData = () => fetchHistoryData();
+  const refreshPredictionHistoryData = () => fetchPredictionHistoryData();
+
+  const manualRefresh = () => {
+    console.log('🔄 手动刷新所有数据');
+    fetchHistoryData();
+    fetchPredictionHistoryData();
+  };
+
+  const testWebSocket = () => {
+    console.log('🔍 WebSocket连接测试开始');
+    console.log('🔍 Echo实例:', window.Echo);
+    console.log('🔍 WebSocket状态:', websocketStatus.value);
+    reconnectWebSocket();
+  };
+
+  const clearConsole = () => {
+    console.clear();
+    console.log('🧹 控制台已清空，开始新的调试会话');
+  };
+
+  // ==================== 历史数据表格 ====================
+
+  const getTokensByRank = (tokens: RoundToken[], rank: number): string => {
+    const tokensAtRank = tokens.filter((t) => t.rank === rank);
+    if (tokensAtRank.length === 0) return '-';
+    if (tokensAtRank.length === 1) return tokensAtRank[0].symbol;
+    return tokensAtRank.map((t) => t.symbol).join(' / ');
+  };
+
+  const historyColumns: DataTableColumn<HistoryTableRow>[] = [
+    { title: '轮次ID', key: 'round_id', width: 120 },
+    { title: '结算时间', key: 'settled_at', width: 160 },
+    { title: '第1名', key: 'rank_1', width: 100, render: (row: HistoryTableRow) => getTokensByRank(row.tokens, 1) },
+    { title: '第2名', key: 'rank_2', width: 100, render: (row: HistoryTableRow) => getTokensByRank(row.tokens, 2) },
+    { title: '第3名', key: 'rank_3', width: 100, render: (row: HistoryTableRow) => getTokensByRank(row.tokens, 3) },
+    { title: '第4名', key: 'rank_4', width: 100, render: (row: HistoryTableRow) => getTokensByRank(row.tokens, 4) },
+    { title: '第5名', key: 'rank_5', width: 100, render: (row: HistoryTableRow) => getTokensByRank(row.tokens, 5) }
+  ];
+
+  const historyTableData = computed((): HistoryTableRow[] => {
+    return historyData.value.map(
+      (item: HistoryRound): HistoryTableRow => ({
+        ...item,
+        key: item.id
+      })
+    );
+  });
+
+  // ==================== 辅助函数 for template ====================
+
+  // 获取指定排名的统计数据
+  const getRankStats = (rank: number) => {
+    const stats = calculateRankBasedStats();
+    if (rank === 1) return stats.rank1;
+    if (rank === 2) return stats.rank2;
+    if (rank === 3) return stats.rank3;
+    return { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 };
+  };
+
+  // 获取指定排名的最新N局统计数据
+  const getRecentRankStats = (rank: number) => {
+    const stats = calculateRecentRankBasedStats.value;
+    if (rank === 1) return stats.rank1;
+    if (rank === 2) return stats.rank2;
+    if (rank === 3) return stats.rank3;
+    return { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 };
+  };
+
+  // ==================== 预测统计计算 ====================
+
+  // 获取预测总局数统计
+  const calculatePortfolioStats = () => {
+    return {
+      totalRounds: predictionHistoryData.value.length
+    };
+  };
+
+  // 计算基于单次预测的精准率
+  const calculateRoundBasedStats = () => {
+    if (predictionHistoryData.value.length === 0) {
+      return { exactRate: 0 };
+    }
+
+    let exactPredictions = 0;
+    let totalPredictions = 0;
+
+    predictionHistoryData.value.forEach((round) => {
+      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
+
+      top3Predictions.forEach((prediction) => {
+        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        if (actualResult) {
+          totalPredictions++;
+          if (prediction.predicted_rank === actualResult.actual_rank) {
+            exactPredictions++;
+          }
+        }
+      });
+    });
+
+    return {
+      exactRate: totalPredictions > 0 ? (exactPredictions / totalPredictions) * 100 : 0
+    };
+  };
+
+  // 按预测排名分别统计保本/亏本率和第一名率
+  const calculateRankBasedStats = () => {
+    const rankStats = {
+      rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
+    };
+
+    if (predictionHistoryData.value.length === 0) {
+      return rankStats;
+    }
+
+    predictionHistoryData.value.forEach((round) => {
+      [1, 2, 3].forEach((predictedRank) => {
+        const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
+
+        predictions.forEach((prediction) => {
+          const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          if (actualResult) {
+            if (predictedRank === 1) {
+              rankStats.rank1.total++;
+              if (actualResult.actual_rank <= 3) {
+                rankStats.rank1.breakeven++;
+              } else {
+                rankStats.rank1.loss++;
+              }
+              if (actualResult.actual_rank === 1) {
+                rankStats.rank1.firstPlace++;
+              }
+            } else if (predictedRank === 2) {
+              rankStats.rank2.total++;
+              if (actualResult.actual_rank <= 3) {
+                rankStats.rank2.breakeven++;
+              } else {
+                rankStats.rank2.loss++;
+              }
+              if (actualResult.actual_rank === 1) {
+                rankStats.rank2.firstPlace++;
+              }
+            } else if (predictedRank === 3) {
+              rankStats.rank3.total++;
+              if (actualResult.actual_rank <= 3) {
+                rankStats.rank3.breakeven++;
+              } else {
+                rankStats.rank3.loss++;
+              }
+              if (actualResult.actual_rank === 1) {
+                rankStats.rank3.firstPlace++;
+              }
+            }
+          }
+        });
+      });
+    });
+
+    // 计算百分比
+    [rankStats.rank1, rankStats.rank2, rankStats.rank3].forEach((stats) => {
+      if (stats.total > 0) {
+        stats.breakevenRate = (stats.breakeven / stats.total) * 100;
+        stats.lossRate = (stats.loss / stats.total) * 100;
+        stats.firstPlaceRate = (stats.firstPlace / stats.total) * 100;
+      }
+    });
+
+    return rankStats;
+  };
+
+  // 按预测排名分别统计最新N局的保本/亏本率和第一名率
+  const calculateRecentRankBasedStats = computed(() => {
+    const rankStats = {
+      rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
+    };
+
+    if (predictionHistoryData.value.length === 0) {
+      return rankStats;
+    }
+
+    // 获取最新N局数据
+    const recentRounds = predictionHistoryData.value
+      .slice()
+      .sort((a, b) => b.round_id.localeCompare(a.round_id))
+      .slice(0, recentRoundsCount.value);
+
+    recentRounds.forEach((round) => {
+      [1, 2, 3].forEach((predictedRank) => {
+        const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
+
+        predictions.forEach((prediction) => {
+          const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          if (actualResult) {
+            if (predictedRank === 1) {
+              rankStats.rank1.total++;
+              if (actualResult.actual_rank <= 3) {
+                rankStats.rank1.breakeven++;
+              } else {
+                rankStats.rank1.loss++;
+              }
+              if (actualResult.actual_rank === 1) {
+                rankStats.rank1.firstPlace++;
+              }
+            } else if (predictedRank === 2) {
+              rankStats.rank2.total++;
+              if (actualResult.actual_rank <= 3) {
+                rankStats.rank2.breakeven++;
+              } else {
+                rankStats.rank2.loss++;
+              }
+              if (actualResult.actual_rank === 1) {
+                rankStats.rank2.firstPlace++;
+              }
+            } else if (predictedRank === 3) {
+              rankStats.rank3.total++;
+              if (actualResult.actual_rank <= 3) {
+                rankStats.rank3.breakeven++;
+              } else {
+                rankStats.rank3.loss++;
+              }
+              if (actualResult.actual_rank === 1) {
+                rankStats.rank3.firstPlace++;
+              }
+            }
+          }
+        });
+      });
+    });
+
+    // 计算百分比
+    [rankStats.rank1, rankStats.rank2, rankStats.rank3].forEach((stats) => {
+      if (stats.total > 0) {
+        stats.breakevenRate = (stats.breakeven / stats.total) * 100;
+        stats.lossRate = (stats.loss / stats.total) * 100;
+        stats.firstPlaceRate = (stats.firstPlace / stats.total) * 100;
+      }
+    });
+
+    return rankStats;
+  });
+
+  // ==================== 预测对比表格 ====================
+
+  const predictionComparisonTableData = computed((): PredictionComparisonRow[] => {
+    const detailedData: PredictionComparisonRow[] = [];
+
+    predictionHistoryData.value.forEach((round) => {
+      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
+
+      top3Predictions.forEach((prediction) => {
+        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        if (actualResult) {
+          const rankDifference = Math.abs(prediction.predicted_rank - actualResult.actual_rank);
+
+          detailedData.push({
+            key: `${round.round_id}-${prediction.symbol}`,
+            round_id: round.round_id,
+            symbol: prediction.symbol,
+            predicted_rank: prediction.predicted_rank,
+            actual_rank: actualResult.actual_rank,
+            is_exact_match: rankDifference === 0,
+            is_better_than_expected: actualResult.actual_rank < prediction.predicted_rank,
+            rank_difference: rankDifference,
+            settled_at: round.settled_at || '-'
+          });
+        }
+      });
+    });
+
+    return detailedData.sort((a, b) => b.round_id.localeCompare(a.round_id));
+  });
+
+  const getPredictionRankIcon = (rank: number) => {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    if (rank === 4) return '4️⃣';
+    if (rank === 5) return '5️⃣';
+    return '📊';
+  };
+
+  const getTokenPredictionAnalysis = (predictedRank: number, actualRank: number) => {
+    if (predictedRank === actualRank) {
+      return { status: 'exact', text: '精准预测', icon: '🎯', color: 'text-green-400', bgColor: 'bg-green-500/20' };
+    }
+    if (actualRank <= 3) {
+      return { status: 'breakeven', text: '保本', icon: '💰', color: 'text-blue-400', bgColor: 'bg-blue-500/20' };
+    }
+    return { status: 'loss', text: '亏本', icon: '📉', color: 'text-red-400', bgColor: 'bg-red-500/20' };
+  };
+
+  const getPredictionRowClass = (detail: DetailedPredictionItem) => {
+    const analysis = getTokenPredictionAnalysis(detail.predicted_rank, detail.actual_rank);
+    if (analysis.status === 'exact' || analysis.status === 'breakeven') {
+      return 'bg-green-500/20 border-l-4 border-green-500';
+    } else {
+      return 'bg-red-500/20 border-l-4 border-red-500';
+    }
+  };
+
+  const rowProps = (row: PredictionComparisonRow) => {
+    return { style: getPredictionRowClass(row) };
+  };
+
+  const predictionComparisonColumns: DataTableColumn<PredictionComparisonRow>[] = [
+    { title: '轮次', key: 'round_id', width: 100 },
+    { title: '代币', key: 'symbol', width: 80 },
+    {
+      title: '预测排名',
+      key: 'predicted_rank',
+      width: 100,
+      render: (row: PredictionComparisonRow) =>
+        h('div', { class: 'flex items-center justify-center' }, [
+          h('span', { class: 'text-lg mr-1' }, getPredictionRankIcon(row.predicted_rank)),
+          h('span', { class: 'font-medium' }, `#${row.predicted_rank}`)
+        ])
+    },
+    {
+      title: '实际排名',
+      key: 'actual_rank',
+      width: 100,
+      render: (row: PredictionComparisonRow) =>
+        h('div', { class: 'flex items-center justify-center' }, [
+          h('span', { class: 'text-lg mr-1' }, getPredictionRankIcon(row.actual_rank)),
+          h('span', { class: 'font-medium' }, `#${row.actual_rank}`)
+        ])
+    },
+    {
+      title: '预测分析',
+      key: 'analysis',
+      width: 160,
+      render: (row: PredictionComparisonRow) => {
+        const analysis = getTokenPredictionAnalysis(row.predicted_rank, row.actual_rank);
+        return h('div', { class: `px-3 py-1 rounded-full text-sm font-medium ${analysis.color} ${analysis.bgColor}` }, [
+          h('span', { class: 'mr-1' }, analysis.icon),
+          h('span', {}, analysis.text)
+        ]);
+      }
+    },
+    { title: '结算时间', key: 'settled_at', width: 140 }
+  ];
+
+  // ==================== 辅助函数 for template ====================
+
+  // 获取指定排名的统计数据
+  const getRankStats = (rank: number) => {
+    const stats = calculateRankBasedStats();
+    if (rank === 1) return stats.rank1;
+    if (rank === 2) return stats.rank2;
+    if (rank === 3) return stats.rank3;
+    return { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 };
+  };
+
+  // 获取指定排名的最新N局统计数据
+  const getRecentRankStats = (rank: number) => {
+    const stats = calculateRecentRankBasedStats.value;
+    if (rank === 1) return stats.rank1;
+    if (rank === 2) return stats.rank2;
+    if (rank === 3) return stats.rank3;
+    return { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 };
+  };
+
+  // ==================== 页面初始化 ====================
+
+  onMounted(() => {
+    console.log('📊 Dashboard页面初始化，加载历史数据...');
+
+    // 获取历史数据
+    fetchHistoryData();
+    fetchPredictionHistoryData();
+
+    // 设置定时刷新（历史数据更新频率较低）
+    setInterval(() => {
+      fetchHistoryData();
+      fetchPredictionHistoryData();
+    }, 30000); // 30秒刷新一次
   });
 </script>
 
 <style scoped>
+  .prediction-stat-card {
+    @apply relative overflow-hidden border rounded-xl p-4 transition-all duration-300 hover:shadow-lg sm:p-6;
+  }
+
+  .stat-icon {
+    @apply absolute right-2 top-2 text-xl opacity-20 sm:text-2xl;
+  }
+
+  .stat-content {
+    @apply relative;
+  }
+
+  .stat-label {
+    @apply text-xs font-medium sm:text-sm;
+  }
+
+  .stat-value {
+    @apply mt-2 text-2xl font-bold sm:text-3xl;
+  }
+
+  .stat-value span {
+    @apply text-base sm:text-lg;
+  }
+
+  .stat-desc {
+    @apply mt-2 text-xs;
+  }
+
+  .stat-multi-value {
+    @apply mt-2 space-y-1;
+  }
+
   kbd {
     @apply bg-gray-700 text-gray-200 px-1.5 py-0.5 rounded text-xs font-mono;
   }

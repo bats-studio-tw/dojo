@@ -1,5 +1,16 @@
 <template>
   <div class="space-y-6">
+    <!-- 🔮 AI预测排名面板 (使用组件) -->
+    <AIPredictionRanking
+      :current-analysis="currentAnalysis"
+      :analysis-meta="analysisMeta"
+      :current-round-id="currentRoundId"
+      :current-game-status="currentGameStatus"
+      :current-game-tokens-with-ranks="currentGameTokensWithRanks"
+      :analysis-loading="analysisLoading"
+      @refresh-analysis="refreshAnalysis"
+    />
+
     <!-- 🤖 自动下注状态面板 (整合自页面) -->
     <NCard
       class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
@@ -174,17 +185,6 @@
       </div>
     </NCard>
 
-    <!-- 🔮 AI预测排名面板 (使用组件) -->
-    <AIPredictionRanking
-      :current-analysis="currentAnalysis"
-      :analysis-meta="analysisMeta"
-      :current-round-id="currentRoundId"
-      :current-game-status="currentGameStatus"
-      :current-game-tokens-with-ranks="currentGameTokensWithRanks"
-      :analysis-loading="analysisLoading"
-      @refresh-analysis="refreshAnalysis"
-    />
-
     <!-- 主要工作区域：左侧策略配置，右侧快速配置 -->
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
       <!-- 左侧：策略选择和配置区域 -->
@@ -345,7 +345,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, onMounted, watch } from 'vue';
+  import { onMounted, watch } from 'vue';
   import { NEmpty, NTag } from 'naive-ui';
   import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
   import type { AutoBettingStatus, DebugInfo } from '@/composables/useAutoBettingControl';
@@ -396,32 +396,6 @@
 
   // ==================== 工具函数 ====================
 
-  // 状态文本转换
-  const getStatusText = (status: string) => {
-    const statusMap = {
-      bet: '🟢 投注中',
-      lock: '🟡 已锁定',
-      settling: '🟠 结算中',
-      settled: '🔵 已结算',
-      unknown: '❓ 未知'
-    };
-    return statusMap[status as keyof typeof statusMap] || '❓ 未知';
-  };
-
-  // 状态标签类型
-  const getStatusTagType = (status: string) => {
-    switch (status) {
-      case 'bet':
-        return 'success';
-      case 'settling':
-        return 'warning';
-      case 'settled':
-        return 'info';
-      default:
-        return 'default';
-    }
-  };
-
   // 预测图标
   const getPredictionIcon = (index: number) => {
     if (index === 0) return '🥇';
@@ -442,59 +416,7 @@
     return colors[index % colors.length];
   };
 
-  // 统一卡片样式
-  const getUnifiedCardClass = (index: number) => {
-    if (index === 0)
-      return 'border-yellow-400/30 bg-gradient-to-br from-yellow-500/10 to-amber-600/5 hover:border-yellow-400/50 hover:shadow-yellow-500/20';
-    if (index === 1)
-      return 'border-slate-400/30 bg-gradient-to-br from-slate-500/10 to-gray-600/5 hover:border-slate-400/50 hover:shadow-slate-500/20';
-    if (index === 2)
-      return 'border-orange-400/30 bg-gradient-to-br from-orange-500/10 to-red-600/5 hover:border-orange-400/50 hover:shadow-orange-500/20';
-    if (index === 3)
-      return 'border-blue-400/30 bg-gradient-to-br from-blue-500/10 to-indigo-600/5 hover:border-blue-400/50 hover:shadow-blue-500/20';
-    return 'border-purple-400/30 bg-gradient-to-br from-purple-500/10 to-pink-600/5 hover:border-purple-400/50 hover:shadow-purple-500/20';
-  };
-
-  // 分数文本样式
-  const getScoreTextClass = (index: number) => {
-    if (index === 0) return 'text-yellow-400';
-    if (index === 1) return 'text-slate-400';
-    if (index === 2) return 'text-orange-400';
-    if (index === 3) return 'text-blue-400';
-    return 'text-purple-400';
-  };
-
-  // 格式化价格变化
-  const formatPriceChange = (change: number | null) => {
-    if (change === null || change === undefined) return { text: '-', color: 'text-gray-500' };
-    const value = change.toFixed(2);
-    if (change > 0) {
-      return { text: `+${value}%`, color: 'text-green-400' };
-    } else if (change < 0) {
-      return { text: `${value}%`, color: 'text-red-400' };
-    } else {
-      return { text: '0.00%', color: 'text-gray-400' };
-    }
-  };
-
   // ==================== 计算属性 ====================
-
-  // 预测Token按排名排序
-  const sortedPredictionsByRank = computed(() => {
-    return [...props.currentAnalysis].sort((a, b) => a.predicted_rank - b.predicted_rank);
-  });
-
-  // 获取Token当前排名
-  const getTokenCurrentRank = (symbol: string) => {
-    const token = props.currentGameTokensWithRanks.find((t) => t.symbol === symbol);
-    return token?.rank || null;
-  };
-
-  // 获取Token当前价格变化
-  const getTokenCurrentChange = (symbol: string) => {
-    const token = props.currentGameTokensWithRanks.find((t) => t.symbol === symbol);
-    return token?.priceChange || null;
-  };
 
   // 排名下注相关方法 - 直接操作props中的config
   const toggleRankBetting = (rank: number, checked: boolean) => {
@@ -512,9 +434,6 @@
   };
 
   // ==================== 本地状态管理 ====================
-
-  // 本地加载状态（独立于props中的analysisLoading）
-  const localAnalysisLoading = computed(() => props.analysisLoading);
 
   // ==================== 数据获取函数 ====================
 

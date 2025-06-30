@@ -147,18 +147,7 @@
           手动执行一次
         </n-button>
 
-        <n-button
-          @click="fetchAnalysisData"
-          :loading="analysisLoading"
-          type="info"
-          size="large"
-          class="shadow-blue-500/25 shadow-lg hover:shadow-blue-500/40"
-        >
-          <template #icon>
-            <span>🔄</span>
-          </template>
-          刷新数据
-        </n-button>
+        <!-- 数据通过WebSocket自动更新，无需手动刷新 -->
       </div>
     </NCard>
     <!-- 当前预测展示 -->
@@ -166,7 +155,6 @@
       :analysis-data="currentAnalysis?.predictions || []"
       :analysis-meta="currentAnalysis?.meta"
       :loading="analysisLoading"
-      @refresh="fetchAnalysisData"
     />
 
     <!-- 主要工作区域：左侧策略配置，右侧预测和控制 -->
@@ -193,7 +181,7 @@
                 @click="applyStrategyTemplate(String(key))"
               >
                 <div class="mb-2 flex items-center justify-between">
-                  <span class="text-sm text-white font-medium flex items-center space-x-1">
+                  <span class="flex items-center text-sm text-white font-medium space-x-1">
                     <span v-if="String(key) === 'custom'">🎨</span>
                     <span v-else>📋</span>
                     <span>{{ template.name }}</span>
@@ -431,14 +419,9 @@
     startAutoBetting: [];
     stopAutoBetting: [];
     executeManualBetting: [];
-    fetchAnalysisData: [];
     reconnectToken: [];
-    clearBetResults: [];
     applyStrategyTemplate: [key: string];
-    switchToCustomMode: [];
-    resetToTemplateMode: [];
     executeStrategyBetting: [];
-
     manualSaveConfig: [];
   }>();
 
@@ -461,13 +444,8 @@
   const startAutoBetting = () => emit('startAutoBetting');
   const stopAutoBetting = () => emit('stopAutoBetting');
   const executeManualBetting = () => emit('executeManualBetting');
-  const fetchAnalysisData = () => emit('fetchAnalysisData');
   const reconnectToken = () => emit('reconnectToken');
-  const clearBetResults = () => emit('clearBetResults');
   const applyStrategyTemplate = (key: string) => emit('applyStrategyTemplate', key);
-  const switchToCustomMode = () => emit('switchToCustomMode');
-  const resetToTemplateMode = () => emit('resetToTemplateMode');
   const executeStrategyBetting = () => emit('executeStrategyBetting');
-
   const manualSaveConfig = () => emit('manualSaveConfig');
 </script>

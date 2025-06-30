@@ -62,231 +62,7 @@
           </div>
         </div>
 
-        <!-- 自动下注控制面板 -->
-        <NCard
-          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="🤖 自动下注状态"
-          size="large"
-        >
-          <template #header-extra>
-            <div class="flex items-center space-x-3">
-              <n-button
-                v-if="strategyValidation?.matches.length"
-                :loading="executeLoading"
-                @click="executeStrategyBetting"
-                type="warning"
-                size="small"
-              >
-                ⚡ 执行策略下注
-              </n-button>
-            </div>
-          </template>
-
-          <div class="grid grid-cols-1 gap-4 lg:grid-cols-4 md:grid-cols-2 sm:grid-cols-2">
-            <!-- 用户余额 -->
-            <div
-              class="prediction-stat-card border-blue-500/30 from-blue-500/10 to-indigo-600/5 bg-gradient-to-br hover:border-blue-400/50 hover:shadow-blue-500/20"
-            >
-              <div class="stat-icon">👤</div>
-              <div class="stat-content">
-                <div class="stat-label text-blue-300">用户余额</div>
-                <div class="stat-value text-blue-400">${{ (userInfo?.ojoValue || 0).toFixed(2) }}</div>
-                <div class="stat-desc text-blue-200/70">可用于下注</div>
-              </div>
-            </div>
-
-            <!-- 策略匹配 -->
-            <div
-              class="prediction-stat-card border-purple-500/30 from-purple-500/10 to-indigo-600/5 bg-gradient-to-br hover:border-purple-400/50 hover:shadow-purple-500/20"
-            >
-              <div class="stat-icon">🎯</div>
-              <div class="stat-content">
-                <div class="stat-label text-purple-300">策略匹配</div>
-                <div class="stat-value text-purple-400">
-                  {{ strategyValidation?.total_matched || 0 }}
-                </div>
-                <div class="stat-desc text-purple-200/70">符合条件的Token</div>
-              </div>
-            </div>
-
-            <!-- 下注金额 -->
-            <div
-              class="prediction-stat-card border-cyan-500/30 from-cyan-500/10 to-blue-600/5 bg-gradient-to-br hover:border-cyan-400/50 hover:shadow-cyan-500/20"
-            >
-              <div class="stat-icon">💰</div>
-              <div class="stat-content">
-                <div class="stat-label text-cyan-300">所需金额</div>
-                <div class="stat-value text-cyan-400">
-                  ${{ (strategyValidation?.required_balance || 0).toFixed(0) }}
-                </div>
-                <div class="stat-desc text-cyan-200/70">总下注金额</div>
-              </div>
-            </div>
-
-            <!-- 余额状态 -->
-            <div
-              class="prediction-stat-card hover:shadow-lg"
-              :class="
-                (strategyValidation?.balance_sufficient ?? true)
-                  ? 'border-green-500/30 from-green-500/10 to-emerald-600/5 bg-gradient-to-br hover:border-green-400/50 hover:shadow-green-500/20'
-                  : 'border-red-500/30 from-red-500/10 to-pink-600/5 bg-gradient-to-br hover:border-red-400/50 hover:shadow-red-500/20'
-              "
-            >
-              <div class="stat-icon">{{ (strategyValidation?.balance_sufficient ?? true) ? '✅' : '❌' }}</div>
-              <div class="stat-content">
-                <div
-                  class="stat-label"
-                  :class="(strategyValidation?.balance_sufficient ?? true) ? 'text-green-300' : 'text-red-300'"
-                >
-                  余额状态
-                </div>
-                <div
-                  class="stat-value"
-                  :class="(strategyValidation?.balance_sufficient ?? true) ? 'text-green-400' : 'text-red-400'"
-                >
-                  {{ (strategyValidation?.balance_sufficient ?? true) ? '充足' : '不足' }}
-                </div>
-                <div
-                  class="stat-desc"
-                  :class="(strategyValidation?.balance_sufficient ?? true) ? 'text-green-200/70' : 'text-red-200/70'"
-                >
-                  实际余额: ${{ (strategyValidation?.actual_balance || userInfo?.ojoValue || 0).toFixed(0) }}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 匹配的Token展示 -->
-          <div v-if="strategyValidation?.matches.length" class="mt-6 space-y-3">
-            <h3 class="text-white font-medium">符合策略条件的Token:</h3>
-            <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 md:grid-cols-2 xl:grid-cols-5">
-              <div
-                v-for="(match, index) in strategyValidation.matches"
-                :key="`match-${index}-${match.symbol}`"
-                class="relative overflow-hidden border rounded-lg p-3 transition-all duration-300 hover:shadow-lg"
-                :class="getMatchCardClass(index)"
-              >
-                <div class="mb-2 flex items-center justify-between">
-                  <div class="flex items-center space-x-2">
-                    <div class="text-lg">{{ getPredictionIcon(match.predicted_rank - 1) }}</div>
-                    <div class="text-sm text-white font-bold">{{ match.symbol }}</div>
-                  </div>
-                  <div class="text-xs text-gray-400">#{{ match.predicted_rank }}</div>
-                </div>
-
-                <div class="text-xs space-y-1">
-                  <div class="flex justify-between">
-                    <span class="text-gray-400">下注金额:</span>
-                    <span class="text-green-400 font-bold">${{ match.bet_amount }}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-400">置信度:</span>
-                    <span class="text-blue-400 font-bold">{{ (match.confidence || 0).toFixed(1) }}%</span>
-                  </div>
-                  <div v-if="match.score" class="flex justify-between">
-                    <span class="text-gray-400">预测分数:</span>
-                    <span class="text-purple-400 font-bold">{{ (match.score || 0).toFixed(1) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <NEmpty v-else-if="currentAnalysis.length > 0" description="当前无符合策略条件的Token" class="mt-6 py-8" />
-        </NCard>
-
-        <!-- AI预测分析面板 (复用Dashboard逻辑) -->
-        <NCard
-          v-if="currentAnalysis.length > 0"
-          class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-          title="🔮 AI预测排名"
-          size="large"
-        >
-          <template #header-extra>
-            <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-x-3 sm:space-y-0">
-              <div
-                v-if="analysisMeta"
-                class="flex flex-wrap items-center gap-1 text-xs text-gray-300 sm:gap-2 sm:text-sm"
-              >
-                <span class="font-medium">轮次:</span>
-                <span class="text-cyan-400">{{ analysisMeta.round_id || currentRoundId }}</span>
-                <span class="font-medium">状态:</span>
-                <NTag :type="getStatusTagType(currentGameStatus)" size="small">
-                  {{ getStatusText(currentGameStatus) }}
-                </NTag>
-              </div>
-            </div>
-          </template>
-
-          <!-- 横向预测排名展示 (复用Dashboard的逻辑) -->
-          <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5">
-            <div
-              v-for="(token, index) in sortedPredictionsByRank"
-              :key="`prediction-${index}-${token.symbol}`"
-              class="relative overflow-hidden border rounded-lg p-3 transition-all duration-300 hover:shadow-lg"
-              :class="getUnifiedCardClass(index)"
-            >
-              <!-- 预测排名头部 -->
-              <div class="mb-2 flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                  <div class="text-lg">{{ getPredictionIcon(index) }}</div>
-                  <div class="text-sm text-white font-bold">{{ token.symbol }}</div>
-                </div>
-                <div class="text-xs text-gray-400">#{{ token.predicted_rank }}</div>
-              </div>
-
-              <!-- 核心评分 -->
-              <div class="mb-3 text-center">
-                <div class="text-xs text-gray-400">预测分数</div>
-                <div class="text-lg font-bold" :class="getScoreTextClass(index)">
-                  {{
-                    (token.final_prediction_score || token.risk_adjusted_score || token.prediction_score || 0).toFixed(
-                      1
-                    )
-                  }}
-                </div>
-                <div v-if="token.rank_confidence" class="text-xs text-gray-400">
-                  置信度 {{ (token.rank_confidence || 0).toFixed(0) }}%
-                </div>
-              </div>
-
-              <!-- 详细数据参数 -->
-              <div class="text-xs space-y-1">
-                <div v-if="token.absolute_score" class="flex justify-between">
-                  <span class="text-gray-400">绝对分数:</span>
-                  <span class="text-purple-400 font-bold">{{ (token.absolute_score || 0).toFixed(1) }}</span>
-                </div>
-                <div v-if="token.relative_score || token.h2h_score" class="flex justify-between">
-                  <span class="text-gray-400">相对分数:</span>
-                  <span class="text-orange-400 font-bold">
-                    {{ (token.relative_score || token.h2h_score || 0).toFixed(1) }}
-                  </span>
-                </div>
-                <div v-if="token.top3_rate" class="flex justify-between">
-                  <span class="text-gray-400">保本率:</span>
-                  <span class="text-green-400 font-bold">{{ (token.top3_rate || 0).toFixed(1) }}%</span>
-                </div>
-                <div v-if="token.win_rate" class="flex justify-between">
-                  <span class="text-gray-400">胜率:</span>
-                  <span class="text-yellow-400 font-bold">{{ (token.win_rate || 0).toFixed(1) }}%</span>
-                </div>
-
-                <!-- 实时游戏数据对比（如果有） -->
-                <div v-if="getTokenCurrentRank(token.symbol)" class="mt-2 border-t border-gray-600/30 pt-1">
-                  <div class="flex justify-between">
-                    <span class="text-gray-400">当前排名:</span>
-                    <span class="text-cyan-400 font-bold">#{{ getTokenCurrentRank(token.symbol) }}</span>
-                  </div>
-                  <div v-if="getTokenCurrentChange(token.symbol)" class="flex justify-between">
-                    <span class="text-gray-400">价格变化:</span>
-                    <span class="font-bold" :class="formatPriceChange(getTokenCurrentChange(token.symbol)).color">
-                      {{ formatPriceChange(getTokenCurrentChange(token.symbol)).text }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </NCard>
+        <!-- 原先的🤖 自动下注状态和🔮 AI预测排名已整合到智能控制中心标签页中 -->
 
         <!-- 标签页导航 -->
         <NTabs v-model:value="activeTab" type="card" size="large" class="auto-betting-tabs">
@@ -296,6 +72,10 @@
               :user-info="userInfo"
               :auto-betting-status="autoBettingStatus"
               :current-analysis="currentAnalysis"
+              :analysis-meta="analysisMeta"
+              :current-round-id="currentRoundId"
+              :current-game-status="currentGameStatus"
+              :current-game-tokens-with-ranks="currentGameTokensWithRanks"
               :debug-info="debugInfo"
               :toggle-loading="toggleLoading"
               :execute-loading="executeLoading"
@@ -365,7 +145,7 @@
 
 <script setup lang="ts">
   import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
-  import { NTabs, NTabPane, NEmpty, NTag } from 'naive-ui';
+  import { NTabs, NTabPane } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
   import { storeToRefs } from 'pinia';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
@@ -457,32 +237,6 @@
 
   // ==================== 工具函数 ====================
 
-  // 状态文本转换
-  const getStatusText = (status: string) => {
-    const statusMap = {
-      bet: '🟢 投注中',
-      lock: '🟡 已锁定',
-      settling: '🟠 结算中',
-      settled: '🔵 已结算',
-      unknown: '❓ 未知'
-    };
-    return statusMap[status as keyof typeof statusMap] || '❓ 未知';
-  };
-
-  // 状态标签类型
-  const getStatusTagType = (status: string) => {
-    switch (status) {
-      case 'bet':
-        return 'success';
-      case 'settling':
-        return 'warning';
-      case 'settled':
-        return 'info';
-      default:
-        return 'default';
-    }
-  };
-
   // WebSocket状态样式
   const getWebSocketStatusClass = () => {
     const status = websocketStatus.value.status;
@@ -527,61 +281,6 @@
     return autoBettingStatus.value.is_running ? '🤖' : '⏹️';
   };
 
-  // 预测图标
-  const getPredictionIcon = (index: number) => {
-    if (index === 0) return '🥇';
-    if (index === 1) return '🥈';
-    if (index === 2) return '🥉';
-    return '📊';
-  };
-
-  // 匹配卡片样式
-  const getMatchCardClass = (index: number) => {
-    const colors = [
-      'border-yellow-400/30 bg-gradient-to-br from-yellow-500/10 to-amber-600/5 hover:border-yellow-400/50 hover:shadow-yellow-500/20',
-      'border-slate-400/30 bg-gradient-to-br from-slate-500/10 to-gray-600/5 hover:border-slate-400/50 hover:shadow-slate-500/20',
-      'border-orange-400/30 bg-gradient-to-br from-orange-500/10 to-red-600/5 hover:border-orange-400/50 hover:shadow-orange-500/20',
-      'border-blue-400/30 bg-gradient-to-br from-blue-500/10 to-indigo-600/5 hover:border-blue-400/50 hover:shadow-blue-500/20',
-      'border-purple-400/30 bg-gradient-to-br from-purple-500/10 to-pink-600/5 hover:border-purple-400/50 hover:shadow-purple-500/20'
-    ];
-    return colors[index % colors.length];
-  };
-
-  // 统一卡片样式 (复用Dashboard逻辑)
-  const getUnifiedCardClass = (index: number) => {
-    if (index === 0)
-      return 'border-yellow-400/30 bg-gradient-to-br from-yellow-500/10 to-amber-600/5 hover:border-yellow-400/50 hover:shadow-yellow-500/20';
-    if (index === 1)
-      return 'border-slate-400/30 bg-gradient-to-br from-slate-500/10 to-gray-600/5 hover:border-slate-400/50 hover:shadow-slate-500/20';
-    if (index === 2)
-      return 'border-orange-400/30 bg-gradient-to-br from-orange-500/10 to-red-600/5 hover:border-orange-400/50 hover:shadow-orange-500/20';
-    if (index === 3)
-      return 'border-blue-400/30 bg-gradient-to-br from-blue-500/10 to-indigo-600/5 hover:border-blue-400/50 hover:shadow-blue-500/20';
-    return 'border-purple-400/30 bg-gradient-to-br from-purple-500/10 to-pink-600/5 hover:border-purple-400/50 hover:shadow-purple-500/20';
-  };
-
-  // 分数文本样式 (复用Dashboard逻辑)
-  const getScoreTextClass = (index: number) => {
-    if (index === 0) return 'text-yellow-400';
-    if (index === 1) return 'text-slate-400';
-    if (index === 2) return 'text-orange-400';
-    if (index === 3) return 'text-blue-400';
-    return 'text-purple-400';
-  };
-
-  // 格式化价格变化 (复用Dashboard逻辑)
-  const formatPriceChange = (change: number | null) => {
-    if (change === null || change === undefined) return { text: '-', color: 'text-gray-500' };
-    const value = change.toFixed(2);
-    if (change > 0) {
-      return { text: `+${value}%`, color: 'text-green-400' };
-    } else if (change < 0) {
-      return { text: `${value}%`, color: 'text-red-400' };
-    } else {
-      return { text: '0.00%', color: 'text-gray-400' };
-    }
-  };
-
   // ==================== 计算属性 ====================
 
   // 当前策略名称计算属性
@@ -594,23 +293,6 @@
     }
     return '未选择策略';
   });
-
-  // 预测Token按排名排序 (复用Dashboard逻辑)
-  const sortedPredictionsByRank = computed(() => {
-    return [...currentAnalysis.value].sort((a, b) => a.predicted_rank - b.predicted_rank);
-  });
-
-  // 获取Token当前排名
-  const getTokenCurrentRank = (symbol: string) => {
-    const token = currentGameTokensWithRanks.value.find((t) => t.symbol === symbol);
-    return token?.rank || null;
-  };
-
-  // 获取Token当前价格变化
-  const getTokenCurrentChange = (symbol: string) => {
-    const token = currentGameTokensWithRanks.value.find((t) => t.symbol === symbol);
-    return token?.priceChange || null;
-  };
 
   // ==================== 核心逻辑函数 ====================
 

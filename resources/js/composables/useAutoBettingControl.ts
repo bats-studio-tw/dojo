@@ -1,5 +1,6 @@
 import { ref, reactive, computed } from 'vue';
 import { getUserInfo, autoBettingApi, gameApi } from '@/utils/api';
+import { getGameStatusTagType } from '@/utils/statusUtils';
 import type { UserInfo } from '@/types';
 
 export interface AutoBettingStatus {

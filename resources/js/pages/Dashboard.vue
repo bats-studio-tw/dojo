@@ -11,7 +11,13 @@
           <div class="mt-3 rounded bg-green-900/20 p-3 text-sm text-green-300">
             ✅
             <strong>修复完成</strong>
-            ：已解决重复订阅问题，现在每个事件只会收到一次
+            ：已解决重复订阅和事件名称不匹配问题
+            <br />
+            现在正确监听
+            <code>game.data.updated</code>
+            和
+            <code>prediction.updated</code>
+            事件
           </div>
         </div>
 

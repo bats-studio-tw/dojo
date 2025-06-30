@@ -224,8 +224,8 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         .subscribed(() => {
           console.log('✅ [DEBUG] 成功订阅 game-updates 频道');
         })
-        .listen('GameDataUpdated', (data: any) => {
-          console.log('📨 [DEBUG] ========== 收到 GameDataUpdated 事件 ==========');
+        .listen('.game.data.updated', (data: any) => {
+          console.log('📨 [DEBUG] ========== 收到 game.data.updated 事件 ==========');
           console.log('📨 [DEBUG] 完整数据:', data);
           console.log('📨 [DEBUG] 数据类型:', typeof data);
           console.log('📨 [DEBUG] 数据键:', Object.keys(data));
@@ -250,8 +250,8 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         .subscribed(() => {
           console.log('✅ [DEBUG] 成功订阅 predictions 频道');
         })
-        .listen('PredictionUpdated', (data: any) => {
-          console.log('🔮 [DEBUG] ========== 收到 PredictionUpdated 事件 ==========');
+        .listen('.prediction.updated', (data: any) => {
+          console.log('🔮 [DEBUG] ========== 收到 prediction.updated 事件 ==========');
           console.log('🔮 [DEBUG] 完整数据:', data);
           console.log('🔮 [DEBUG] 数据类型:', typeof data);
           console.log('🔮 [DEBUG] 数据键:', Object.keys(data));

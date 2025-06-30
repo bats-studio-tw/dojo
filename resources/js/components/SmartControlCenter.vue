@@ -189,6 +189,97 @@
                 </span>
               </div>
             </div>
+
+            <!-- 🆕 高级过滤器状态显示 -->
+            <div v-if="hasActiveAdvancedFilters()" class="mt-3 border-t border-gray-600 pt-2">
+              <div class="mb-1 text-xs text-gray-400">高级过滤器:</div>
+              <div class="grid grid-cols-2 gap-1 text-xs">
+                <!-- 历史表现过滤器 -->
+                <div v-if="config.enable_win_rate_filter" class="flex items-center space-x-1">
+                  <span :class="checkWinRateFilter(token) ? 'text-green-400' : 'text-red-400'">
+                    {{ checkWinRateFilter(token) ? '✓' : '✗' }}
+                  </span>
+                  <span class="text-gray-400">胜率</span>
+                </div>
+                <div v-if="config.enable_top3_rate_filter" class="flex items-center space-x-1">
+                  <span :class="checkTop3RateFilter(token) ? 'text-green-400' : 'text-red-400'">
+                    {{ checkTop3RateFilter(token) ? '✓' : '✗' }}
+                  </span>
+                  <span class="text-gray-400">保本率</span>
+                </div>
+                <div v-if="config.enable_avg_rank_filter" class="flex items-center space-x-1">
+                  <span :class="checkAvgRankFilter(token) ? 'text-green-400' : 'text-red-400'">
+                    {{ checkAvgRankFilter(token) ? '✓' : '✗' }}
+                  </span>
+                  <span class="text-gray-400">平均排名</span>
+                </div>
+                <div v-if="config.enable_stability_filter" class="flex items-center space-x-1">
+                  <span :class="checkStabilityFilter(token) ? 'text-green-400' : 'text-red-400'">
+                    {{ checkStabilityFilter(token) ? '✓' : '✗' }}
+                  </span>
+                  <span class="text-gray-400">稳定性</span>
+                </div>
+
+                <!-- 评分过滤器 -->
+                <div v-if="config.enable_absolute_score_filter" class="flex items-center space-x-1">
+                  <span :class="checkAbsoluteScoreFilter(token) ? 'text-green-400' : 'text-red-400'">
+                    {{ checkAbsoluteScoreFilter(token) ? '✓' : '✗' }}
+                  </span>
+                  <span class="text-gray-400">绝对分数</span>
+                </div>
+                <div v-if="config.enable_relative_score_filter" class="flex items-center space-x-1">
+                  <span :class="checkRelativeScoreFilter(token) ? 'text-green-400' : 'text-red-400'">
+                    {{ checkRelativeScoreFilter(token) ? '✓' : '✗' }}
+                  </span>
+                  <span class="text-gray-400">相对分数</span>
+                </div>
+                <div v-if="config.enable_h2h_score_filter" class="flex items-center space-x-1">
+                  <span :class="checkH2HScoreFilter(token) ? 'text-green-400' : 'text-red-400'">
+                    {{ checkH2HScoreFilter(token) ? '✓' : '✗' }}
+                  </span>
+                  <span class="text-gray-400">H2H分数</span>
+                </div>
+
+                <!-- 市场动态过滤器 -->
+                <div v-if="config.enable_change_5m_filter" class="flex items-center space-x-1">
+                  <span :class="checkChange5mFilter(token) ? 'text-green-400' : 'text-red-400'">
+                    {{ checkChange5mFilter(token) ? '✓' : '✗' }}
+                  </span>
+                  <span class="text-gray-400">5分钟</span>
+                </div>
+                <div v-if="config.enable_change_1h_filter" class="flex items-center space-x-1">
+                  <span :class="checkChange1hFilter(token) ? 'text-green-400' : 'text-red-400'">
+                    {{ checkChange1hFilter(token) ? '✓' : '✗' }}
+                  </span>
+                  <span class="text-gray-400">1小时</span>
+                </div>
+                <div v-if="config.enable_change_4h_filter" class="flex items-center space-x-1">
+                  <span :class="checkChange4hFilter(token) ? 'text-green-400' : 'text-red-400'">
+                    {{ checkChange4hFilter(token) ? '✓' : '✗' }}
+                  </span>
+                  <span class="text-gray-400">4小时</span>
+                </div>
+                <div v-if="config.enable_change_24h_filter" class="flex items-center space-x-1">
+                  <span :class="checkChange24hFilter(token) ? 'text-green-400' : 'text-red-400'">
+                    {{ checkChange24hFilter(token) ? '✓' : '✗' }}
+                  </span>
+                  <span class="text-gray-400">24小时</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 🆕 失败原因汇总（仅在不匹配时显示） -->
+            <div v-if="!isTokenMatching(token)" class="mt-2 border-t border-red-600/30 pt-2">
+              <div class="mb-1 text-xs text-red-400">未通过原因:</div>
+              <div class="text-xs text-red-300 space-y-1">
+                <div v-for="reason in getTokenFailureReasons(token).slice(0, 2)" :key="reason" class="truncate">
+                  • {{ reason }}
+                </div>
+                <div v-if="getTokenFailureReasons(token).length > 2" class="text-red-400">
+                  还有 {{ getTokenFailureReasons(token).length - 2 }} 个原因...
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -919,7 +1010,7 @@
 </template>
 
 <script setup lang="ts">
-  import { onMounted, watch, ref, computed } from 'vue';
+  import { onMounted, watch, computed } from 'vue';
   import { NEmpty, NTag, NCollapse, NCollapseItem, NSwitch, NInputNumber, NTooltip } from 'naive-ui';
   import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
   import type { AutoBettingStatus, DebugInfo } from '@/composables/useAutoBettingControl';
@@ -977,16 +1068,84 @@
     return '📊';
   };
 
-  // 匹配卡片样式
-  const getMatchCardClass = (index: number) => {
-    const colors = [
-      'border-yellow-400/30 bg-gradient-to-br from-yellow-500/10 to-amber-600/5 hover:border-yellow-400/50 hover:shadow-yellow-500/20',
-      'border-slate-400/30 bg-gradient-to-br from-slate-500/10 to-gray-600/5 hover:border-slate-400/50 hover:shadow-slate-500/20',
-      'border-orange-400/30 bg-gradient-to-br from-orange-500/10 to-red-600/5 hover:border-orange-400/50 hover:shadow-orange-500/20',
-      'border-blue-400/30 bg-gradient-to-br from-blue-500/10 to-indigo-600/5 hover:border-blue-400/50 hover:shadow-blue-500/20',
-      'border-purple-400/30 bg-gradient-to-br from-purple-500/10 to-pink-600/5 hover:border-purple-400/50 hover:shadow-purple-500/20'
-    ];
-    return colors[index % colors.length];
+  // 🔍 检查是否有激活的高级过滤器
+  const hasActiveAdvancedFilters = (): boolean => {
+    return (
+      props.config.enable_win_rate_filter ||
+      props.config.enable_top3_rate_filter ||
+      props.config.enable_avg_rank_filter ||
+      props.config.enable_stability_filter ||
+      props.config.enable_absolute_score_filter ||
+      props.config.enable_relative_score_filter ||
+      props.config.enable_h2h_score_filter ||
+      props.config.enable_change_5m_filter ||
+      props.config.enable_change_1h_filter ||
+      props.config.enable_change_4h_filter ||
+      props.config.enable_change_24h_filter
+    );
+  };
+
+  // 🔍 各个过滤器的检查函数
+  const checkWinRateFilter = (token: any): boolean => {
+    return !props.config.enable_win_rate_filter || (token.win_rate || 0) >= props.config.min_win_rate_threshold * 100;
+  };
+
+  const checkTop3RateFilter = (token: any): boolean => {
+    return (
+      !props.config.enable_top3_rate_filter || (token.top3_rate || 0) >= props.config.min_top3_rate_threshold * 100
+    );
+  };
+
+  const checkAvgRankFilter = (token: any): boolean => {
+    return !props.config.enable_avg_rank_filter || (token.avg_rank || 3) <= props.config.max_avg_rank_threshold;
+  };
+
+  const checkStabilityFilter = (token: any): boolean => {
+    return !props.config.enable_stability_filter || (token.value_stddev || 0) <= props.config.max_stability_threshold;
+  };
+
+  const checkAbsoluteScoreFilter = (token: any): boolean => {
+    return (
+      !props.config.enable_absolute_score_filter ||
+      (token.absolute_score || 0) >= props.config.min_absolute_score_threshold * 100
+    );
+  };
+
+  const checkRelativeScoreFilter = (token: any): boolean => {
+    return (
+      !props.config.enable_relative_score_filter ||
+      (token.relative_score || 0) >= props.config.min_relative_score_threshold * 100
+    );
+  };
+
+  const checkH2HScoreFilter = (token: any): boolean => {
+    return (
+      !props.config.enable_h2h_score_filter || (token.h2h_score || 0) >= props.config.min_h2h_score_threshold * 100
+    );
+  };
+
+  const checkChange5mFilter = (token: any): boolean => {
+    if (!props.config.enable_change_5m_filter) return true;
+    const change5m = token.change_5m || 0;
+    return change5m >= props.config.min_change_5m_threshold && change5m <= props.config.max_change_5m_threshold;
+  };
+
+  const checkChange1hFilter = (token: any): boolean => {
+    if (!props.config.enable_change_1h_filter) return true;
+    const change1h = token.change_1h || 0;
+    return change1h >= props.config.min_change_1h_threshold && change1h <= props.config.max_change_1h_threshold;
+  };
+
+  const checkChange4hFilter = (token: any): boolean => {
+    if (!props.config.enable_change_4h_filter) return true;
+    const change4h = token.change_4h || 0;
+    return change4h >= props.config.min_change_4h_threshold && change4h <= props.config.max_change_4h_threshold;
+  };
+
+  const checkChange24hFilter = (token: any): boolean => {
+    if (!props.config.enable_change_24h_filter) return true;
+    const change24h = token.change_24h || 0;
+    return change24h >= props.config.min_change_24h_threshold && change24h <= props.config.max_change_24h_threshold;
   };
 
   // ==================== 计算属性 ====================
@@ -1119,9 +1278,6 @@
   );
 
   // ==================== 调试面板状态和函数 ====================
-
-  // 调试面板状态
-  const showDebugPanel = ref(false);
 
   // 历史准确率百分比计算属性（用于快速配置区块的显示和编辑）
   const historyAccuracyPercent = computed({
@@ -1256,45 +1412,79 @@
     const prediction = mapPredictionData(token);
     const reasons: string[] = [];
 
-    if (prediction.confidence < props.config.confidence_threshold) {
-      reasons.push(`置信度不足(${prediction.confidence.toFixed(1)}% < ${props.config.confidence_threshold}%)`);
+    // 对于排名下注策略，首先检查排名
+    if (props.config.strategy === 'rank_betting') {
+      if (!props.config.rank_betting_enabled_ranks.includes(prediction.predicted_rank)) {
+        reasons.push(`排名不在选中范围(#${prediction.predicted_rank})`);
+      }
+    } else {
+      // 非排名下注策略的基础条件检查
+      if (prediction.confidence < props.config.confidence_threshold) {
+        reasons.push(`置信度不足(${prediction.confidence.toFixed(1)}% < ${props.config.confidence_threshold}%)`);
+      }
+      if (prediction.score < props.config.score_gap_threshold) {
+        reasons.push(`分数不足(${prediction.score.toFixed(1)} < ${props.config.score_gap_threshold})`);
+      }
+      if (prediction.sample_count < props.config.min_sample_count) {
+        reasons.push(`样本数不足(${prediction.sample_count} < ${props.config.min_sample_count})`);
+      }
+      if (prediction.historical_accuracy < props.config.historical_accuracy_threshold) {
+        reasons.push(
+          `历史准确率不足(${(prediction.historical_accuracy * 100).toFixed(1)}% < ${(props.config.historical_accuracy_threshold * 100).toFixed(1)}%)`
+        );
+      }
     }
-    if (prediction.score < props.config.score_gap_threshold) {
-      reasons.push(`分数不足(${prediction.score.toFixed(1)} < ${props.config.score_gap_threshold})`);
-    }
-    if (prediction.sample_count < props.config.min_sample_count) {
-      reasons.push(`样本数不足(${prediction.sample_count} < ${props.config.min_sample_count})`);
-    }
-    if (prediction.historical_accuracy < props.config.historical_accuracy_threshold) {
+
+    // 高级过滤器检查（所有策略都适用）
+    if (!checkWinRateFilter(token)) {
       reasons.push(
-        `历史准确率不足(${(prediction.historical_accuracy * 100).toFixed(1)}% < ${(props.config.historical_accuracy_threshold * 100).toFixed(1)}%)`
+        `胜率过滤器未通过(${(token.win_rate || 0).toFixed(1)}% < ${(props.config.min_win_rate_threshold * 100).toFixed(1)}%)`
       );
     }
+    if (!checkTop3RateFilter(token)) {
+      reasons.push(
+        `保本率过滤器未通过(${(token.top3_rate || 0).toFixed(1)}% < ${(props.config.min_top3_rate_threshold * 100).toFixed(1)}%)`
+      );
+    }
+    if (!checkAvgRankFilter(token)) {
+      reasons.push(
+        `平均排名过滤器未通过(${(token.avg_rank || 3).toFixed(1)} > ${props.config.max_avg_rank_threshold})`
+      );
+    }
+    if (!checkStabilityFilter(token)) {
+      reasons.push(
+        `稳定性过滤器未通过(${(token.value_stddev || 0).toFixed(2)} > ${props.config.max_stability_threshold})`
+      );
+    }
+    if (!checkAbsoluteScoreFilter(token)) {
+      reasons.push(
+        `绝对分数过滤器未通过(${(token.absolute_score || 0).toFixed(1)} < ${(props.config.min_absolute_score_threshold * 100).toFixed(1)})`
+      );
+    }
+    if (!checkRelativeScoreFilter(token)) {
+      reasons.push(
+        `相对分数过滤器未通过(${(token.relative_score || 0).toFixed(1)} < ${(props.config.min_relative_score_threshold * 100).toFixed(1)})`
+      );
+    }
+    if (!checkH2HScoreFilter(token)) {
+      reasons.push(
+        `H2H分数过滤器未通过(${(token.h2h_score || 0).toFixed(1)} < ${(props.config.min_h2h_score_threshold * 100).toFixed(1)})`
+      );
+    }
+    if (!checkChange5mFilter(token)) {
+      reasons.push(`5分钟涨跌幅过滤器未通过(${((token.change_5m || 0) * 100).toFixed(1)}%)`);
+    }
+    if (!checkChange1hFilter(token)) {
+      reasons.push(`1小时涨跌幅过滤器未通过(${((token.change_1h || 0) * 100).toFixed(1)}%)`);
+    }
+    if (!checkChange4hFilter(token)) {
+      reasons.push(`4小时涨跌幅过滤器未通过(${((token.change_4h || 0) * 100).toFixed(1)}%)`);
+    }
+    if (!checkChange24hFilter(token)) {
+      reasons.push(`24小时涨跌幅过滤器未通过(${((token.change_24h || 0) * 100).toFixed(1)}%)`);
+    }
 
-    // 高级过滤器检查
-    if (props.config.enable_win_rate_filter && (prediction.win_rate || 0) < props.config.min_win_rate_threshold * 100) {
-      reasons.push(`胜率过滤器未通过`);
-    }
-    if (
-      props.config.enable_top3_rate_filter &&
-      (prediction.top3_rate || 0) < props.config.min_top3_rate_threshold * 100
-    ) {
-      reasons.push(`保本率过滤器未通过`);
-    }
-    if (
-      props.config.enable_absolute_score_filter &&
-      (prediction.absolute_score || 0) < props.config.min_absolute_score_threshold * 100
-    ) {
-      reasons.push(`绝对分数过滤器未通过`);
-    }
-    if (
-      props.config.enable_relative_score_filter &&
-      (prediction.relative_score || 0) < props.config.min_relative_score_threshold * 100
-    ) {
-      reasons.push(`相对分数过滤器未通过`);
-    }
-
-    return reasons.length > 0 ? reasons : ['未知原因'];
+    return reasons.length > 0 ? reasons : ['所有条件都通过但仍未匹配'];
   };
 
   // 紧急降低所有门槛

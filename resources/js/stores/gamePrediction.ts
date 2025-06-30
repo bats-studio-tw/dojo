@@ -1,6 +1,86 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
+// ==================== 类型定义（为了兼容性保留） ====================
+export interface TokenAnalysis {
+  symbol: string;
+  name: string;
+  change_5m: number | null;
+  change_1h: number | null;
+  change_4h: number | null;
+  change_24h: number | null;
+  volume_24h: string;
+  market_cap: number | null;
+  logo: string | null;
+  prediction_score: number;
+  win_rate: number;
+  top3_rate: number;
+  avg_rank: number;
+  total_games: number;
+  wins: number;
+  top3: number;
+  predicted_rank: number;
+  // v8 H2H 数据
+  absolute_score?: number;
+  relative_score?: number;
+  h2h_score?: number;
+  risk_adjusted_score?: number;
+  rank_confidence?: number;
+  final_prediction_score?: number;
+  market_momentum_score?: number;
+  value_stddev?: number;
+  recent_avg_value?: number;
+  avg_value?: number;
+}
+
+export interface PredictionData {
+  symbol: string;
+  predicted_rank: number;
+  prediction_score: number;
+  predicted_at: string;
+}
+
+export interface ResultData {
+  symbol: string;
+  actual_rank: number;
+  value: string;
+}
+
+export interface AccuracyDetail {
+  symbol: string;
+  predicted_rank: number;
+  actual_rank: number;
+  rank_difference: number;
+  is_exact_match: boolean;
+  is_close_match: boolean;
+}
+
+export interface Accuracy {
+  total_predictions: number;
+  exact_matches: number;
+  close_matches: number;
+  exact_accuracy: number;
+  close_accuracy: number;
+  avg_rank_difference: number;
+  details: AccuracyDetail[];
+}
+
+export interface PredictionHistoryRound {
+  id: number;
+  round_id: string;
+  settled_at: string | null;
+  predictions: PredictionData[];
+  results: ResultData[];
+  accuracy: Accuracy;
+}
+
+export interface AnalysisMeta {
+  round_id: string;
+  status: string;
+  updated_at: string;
+  [key: string]: any;
+}
+
 // 最简单的WebSocket状态类型
 export interface WebSocketStatus {
   status: 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -9,12 +89,26 @@ export interface WebSocketStatus {
 }
 
 export const useGamePredictionStore = defineStore('gamePrediction', () => {
-  // ==================== 最简单的状态管理 ====================
+  // ==================== 状态管理 ====================
   const websocketStatus = ref<WebSocketStatus>({
     status: 'disconnected',
     message: '未连接',
     lastConnectedAt: null
   });
+
+  // ==================== 为了兼容性添加的空数据 ====================
+  const currentAnalysis = ref<TokenAnalysis[]>([]);
+  const analysisMeta = ref<AnalysisMeta | null>(null);
+  const predictionHistory = ref<PredictionHistoryRound[]>([]);
+  const latestGameData = ref<any>(null);
+
+  // 加载状态（空实现）
+  const analysisLoading = ref(false);
+  const historyLoading = ref(false);
+
+  // 错误状态（空实现）
+  const analysisError = ref<string | null>(null);
+  const historyError = ref<string | null>(null);
 
   // WebSocket连接引用
   let gameUpdatesChannel: any = null;
@@ -22,6 +116,69 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
   // ==================== 计算属性 ====================
   const isConnected = computed(() => websocketStatus.value.status === 'connected');
+
+  // ==================== 为了兼容性添加的计算属性 ====================
+  const hasCurrentAnalysis = computed(() => currentAnalysis.value.length > 0);
+  const totalHistoryRounds = computed(() => predictionHistory.value.length);
+
+  const currentRoundId = computed(() => {
+    if (latestGameData.value?.rdId) {
+      return latestGameData.value.rdId;
+    }
+    if (analysisMeta.value?.round_id) {
+      return analysisMeta.value.round_id;
+    }
+    return null;
+  });
+
+  const currentGameStatus = computed(() => {
+    return latestGameData.value?.status || 'unknown';
+  });
+
+  const currentGameTokens = computed(() => {
+    if (!latestGameData.value?.token) return [];
+    return Object.keys(latestGameData.value.token);
+  });
+
+  const currentGameTokensWithRanks = computed(() => {
+    if (!latestGameData.value?.token) return [];
+    return Object.entries(latestGameData.value.token).map(([symbol, data]: [string, any]) => ({
+      symbol,
+      rank: data.s || data.rank,
+      price: data.p || data.price,
+      ...data
+    }));
+  });
+
+  const currentAnalysisFormatted = computed(() => {
+    return {
+      predictions: currentAnalysis.value,
+      meta: analysisMeta.value,
+      game_data: latestGameData.value,
+      round_id: currentRoundId.value,
+      status: currentGameStatus.value
+    };
+  });
+
+  const canBet = computed(() => {
+    const status = currentGameStatus.value;
+    return status === 'bet';
+  });
+
+  const isSettled = computed(() => {
+    const status = currentGameStatus.value;
+    return status === 'settled';
+  });
+
+  const isSettling = computed(() => {
+    const status = currentGameStatus.value;
+    return status === 'settling';
+  });
+
+  const isLocked = computed(() => {
+    const status = currentGameStatus.value;
+    return status === 'lock';
+  });
 
   // ==================== 最简单的WebSocket初始化 ====================
   const initializeWebSocket = () => {
@@ -67,6 +224,12 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
           console.log('📨 [DEBUG] 数据键:', Object.keys(data));
           console.log('📨 [DEBUG] 时间戳:', new Date().toLocaleString());
           console.log('📨 [DEBUG] ==========================================');
+
+          // 🔍 [DEBUG] 简单更新游戏数据（用于其他组件兼容性）
+          if (data.data) {
+            latestGameData.value = { ...data.data };
+            console.log('📨 [DEBUG] 已更新latestGameData用于兼容性');
+          }
         })
         .error((error: any) => {
           console.error('❌ [DEBUG] game-updates 频道错误:', error);
@@ -87,6 +250,27 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
           console.log('🔮 [DEBUG] 数据键:', Object.keys(data));
           console.log('🔮 [DEBUG] 时间戳:', new Date().toLocaleString());
           console.log('🔮 [DEBUG] ==========================================');
+
+          // 🔍 [DEBUG] 简单更新预测数据（用于其他组件兼容性）
+          try {
+            let parsedData = data;
+            if (typeof data === 'string') {
+              parsedData = JSON.parse(data);
+            } else if (data.data && typeof data.data === 'string') {
+              parsedData = JSON.parse(data.data);
+            }
+
+            if (parsedData.success && parsedData.data && Array.isArray(parsedData.data)) {
+              currentAnalysis.value = [...parsedData.data];
+              analysisMeta.value = parsedData.meta || null;
+              console.log('🔮 [DEBUG] 已更新currentAnalysis和analysisMeta用于兼容性');
+            } else if (parsedData.data && Array.isArray(parsedData.data)) {
+              currentAnalysis.value = [...parsedData.data];
+              console.log('🔮 [DEBUG] 已更新currentAnalysis用于兼容性（简化格式）');
+            }
+          } catch (error) {
+            console.error('❌ [DEBUG] 解析预测数据失败:', error);
+          }
         })
         .error((error: any) => {
           console.error('❌ [DEBUG] predictions 频道错误:', error);
@@ -160,6 +344,29 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     }, 1000);
   };
 
+  // ==================== 为了兼容性添加的空方法 ====================
+  const fetchCurrentAnalysis = async () => {
+    console.log('📊 [DEBUG] fetchCurrentAnalysis 被调用（简化实现，不做任何操作）');
+  };
+
+  const fetchPredictionHistory = async () => {
+    console.log('📈 [DEBUG] fetchPredictionHistory 被调用（简化实现，不做任何操作）');
+  };
+
+  const fetchInitialData = async () => {
+    console.log('🚀 [DEBUG] fetchInitialData 被调用（简化实现，不做任何操作）');
+  };
+
+  const refreshAllPredictionData = async () => {
+    console.log('🔄 [DEBUG] refreshAllPredictionData 被调用（简化实现，不做任何操作）');
+  };
+
+  const clearErrors = () => {
+    console.log('🧹 [DEBUG] clearErrors 被调用（简化实现，不做任何操作）');
+    analysisError.value = null;
+    historyError.value = null;
+  };
+
   // ==================== 初始化 ====================
   const initialize = async () => {
     console.log('🏗️ [DEBUG] 初始化游戏预测数据store...');
@@ -200,16 +407,44 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   };
 
   return {
-    // 状态
+    // ==================== 状态导出 ====================
     websocketStatus,
     isConnected,
 
-    // 方法
+    // ==================== 为了兼容性导出的属性 ====================
+    currentAnalysis,
+    analysisMeta,
+    predictionHistory,
+    latestGameData,
+    analysisLoading,
+    historyLoading,
+    analysisError,
+    historyError,
+    hasCurrentAnalysis,
+    totalHistoryRounds,
+    currentRoundId,
+    currentGameStatus,
+    currentGameTokens,
+    currentGameTokensWithRanks,
+    currentAnalysisFormatted,
+    canBet,
+    isLocked,
+    isSettled,
+    isSettling,
+
+    // ==================== 方法导出 ====================
     initializeWebSocket,
     disconnectWebSocket,
     reconnectWebSocket,
     initialize,
     cleanup,
-    testConnection
+    testConnection,
+
+    // ==================== 为了兼容性导出的方法 ====================
+    fetchCurrentAnalysis,
+    fetchPredictionHistory,
+    fetchInitialData,
+    refreshAllPredictionData,
+    clearErrors
   };
 });

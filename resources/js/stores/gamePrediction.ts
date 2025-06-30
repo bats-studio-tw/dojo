@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import api from '@/utils/api';
 
 // ==================== WebSocket游戏数据类型定义 ====================
 
@@ -471,21 +472,61 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     }, 1000);
   };
 
-  // ==================== 为了兼容性添加的空方法 ====================
+  // ==================== API调用方法 ====================
   const fetchCurrentAnalysis = async () => {
-    // 简化实现，不做任何操作
+    analysisLoading.value = true;
+    analysisError.value = null;
+
+    try {
+      const response = await api.get('/game/current-analysis');
+      if (response.data.success) {
+        currentAnalysis.value = response.data.data || [];
+        analysisMeta.value = response.data.meta || null;
+        console.log(`✅ 成功获取当前分析数据: ${currentAnalysis.value.length} 个Token`);
+      } else {
+        throw new Error(response.data.message || '获取当前分析数据失败');
+      }
+    } catch (error) {
+      console.error('❌ 获取当前分析数据失败:', error);
+      analysisError.value = error instanceof Error ? error.message : String(error);
+      throw error;
+    } finally {
+      analysisLoading.value = false;
+    }
   };
 
   const fetchPredictionHistory = async () => {
-    // 简化实现，不做任何操作
+    historyLoading.value = true;
+    historyError.value = null;
+
+    try {
+      console.log('🔄 获取预测历史数据...');
+      const response = await api.get('/game/prediction-history');
+      if (response.data.success) {
+        // 更新store中的预测历史数据
+        predictionHistory.value = response.data.data || [];
+        console.log(`✅ 成功获取预测历史数据: ${predictionHistory.value.length} 轮`);
+      } else {
+        window.$message?.error(response.data.message || '获取预测历史数据失败');
+      }
+    } catch (error) {
+      console.error('❌ 获取预测历史数据失败:', error);
+      historyError.value = error instanceof Error ? error.message : String(error);
+      window.$message?.error('获取预测历史数据失败');
+      // 不抛出错误，让调用者可以继续运行
+    } finally {
+      historyLoading.value = false;
+    }
   };
 
   const fetchInitialData = async () => {
-    // 简化实现，不做任何操作
+    console.log('🔄 获取初始数据...');
+    await Promise.all([fetchCurrentAnalysis().catch(console.error), fetchPredictionHistory().catch(console.error)]);
   };
 
   const refreshAllPredictionData = async () => {
-    // 简化实现，不做任何操作
+    console.log('🔄 刷新所有预测数据...');
+    await fetchInitialData();
   };
 
   const clearErrors = () => {

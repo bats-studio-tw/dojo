@@ -185,19 +185,25 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   // 检查是否可以下注
   const canBet = computed(() => {
     const status = currentGameStatus.value;
-    return status === 'bet' || status === 'betting' || status === 'open';
+    return status === 'bet';
   });
 
   // 检查是否已结算
   const isSettled = computed(() => {
     const status = currentGameStatus.value;
-    return status === 'settled' || status === 'completed';
+    return status === 'settled';
   });
 
   // 检查是否正在结算
   const isSettling = computed(() => {
     const status = currentGameStatus.value;
-    return status === 'settling' || status === 'processing';
+    return status === 'settling';
+  });
+
+  // 检查是否已锁定
+  const isLocked = computed(() => {
+    const status = currentGameStatus.value;
+    return status === 'lock';
   });
 
   // ==================== 数据获取方法 ====================
@@ -606,6 +612,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     currentGameTokensWithRanks,
     currentAnalysisFormatted,
     canBet,
+    isLocked,
     isSettled,
     isSettling,
 

@@ -9,8 +9,11 @@
           <h1 class="text-2xl text-white font-bold">📊 数据分析面板</h1>
           <div class="flex space-x-3">
             <!-- WebSocket状态指示器 -->
-            <div class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2" :class="getWebSocketStatusClass()">
-              <span>{{ getWebSocketStatusIcon() }}</span>
+            <div
+              class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2"
+              :class="getWSStatusClass(gamePredictionStore.websocketStatus.status)"
+            >
+              <span>{{ wsStatusConfig.icon }}</span>
               <span>{{ gamePredictionStore.websocketStatus.message }}</span>
               <button
                 v-if="!gamePredictionStore.isConnected"
@@ -48,21 +51,32 @@
               <div class="text-gray-300">状态: {{ gamePredictionStore.websocketStatus.status }}</div>
               <div class="text-gray-300">重连次数: {{ gamePredictionStore.websocketStatus.reconnectAttempts }}</div>
               <div class="text-gray-300">
-                最后连接: {{ formatTime(gamePredictionStore.websocketStatus.lastConnectedAt) }}
+                最后连接: {{ formatTimeUtil(gamePredictionStore.websocketStatus.lastConnectedAt) }}
               </div>
             </div>
             <div class="space-y-1">
               <div class="text-blue-300 font-medium">轮次信息</div>
               <div class="text-gray-300">轮次ID: {{ currentRoundId || '无' }}</div>
               <div class="text-gray-300">状态: {{ currentGameStatus || '无' }}</div>
-              <div class="text-gray-300">更新时间: {{ formatTime(analysisMeta?.updated_at) }}</div>
+              <div class="text-gray-300">更新时间: {{ formatTimeUtil(analysisMeta?.updated_at) }}</div>
               <div class="flex items-center gap-2 text-gray-300">
                 <div v-if="canBet" class="h-2 w-2 rounded-full bg-green-500"></div>
-                <div v-else-if="isSettling" class="h-2 w-2 rounded-full bg-yellow-500"></div>
+                <div v-else-if="currentGameStatus === 'lock'" class="h-2 w-2 rounded-full bg-orange-500"></div>
+                <div v-else-if="isSettling" class="h-2 w-2 rounded-full bg-red-500"></div>
                 <div v-else-if="isSettled" class="h-2 w-2 rounded-full bg-blue-500"></div>
                 <div v-else class="h-2 w-2 rounded-full bg-gray-500"></div>
                 <span class="text-xs">
-                  {{ canBet ? '可下注' : isSettling ? '结算中' : isSettled ? '已结算' : '等待中' }}
+                  {{
+                    canBet
+                      ? '可下注'
+                      : currentGameStatus === 'lock'
+                        ? '锁定中'
+                        : isSettling
+                          ? '结算中'
+                          : isSettled
+                            ? '已结算'
+                            : '未知'
+                  }}
                 </span>
               </div>
             </div>
@@ -100,14 +114,15 @@
                 <span class="font-medium">轮次:</span>
                 <span class="text-red">{{ currentRoundId }}</span>
                 <span class="font-medium">状态:</span>
-                <NTag :type="getStatusTagType(currentGameStatus)" size="small">
+                <NTag :type="getGameStatusTagType(currentGameStatus)" size="small">
                   {{ currentGameStatus }}
                 </NTag>
                 <span class="font-medium">|</span>
                 <span v-if="canBet" class="text-green-400">🟢 可下注</span>
-                <span v-else-if="isSettling" class="text-yellow-400">🟡 结算中</span>
+                <span v-else-if="currentGameStatus === 'lock'" class="text-orange-400">🟠 锁定中</span>
+                <span v-else-if="isSettling" class="text-red-400">🔴 结算中</span>
                 <span v-else-if="isSettled" class="text-blue-400">🔵 已结算</span>
-                <span v-else class="text-gray-400">⚪ 锁定中</span>
+                <span v-else class="text-gray-400">⚪ 未知状态</span>
               </div>
               <n-button
                 :loading="analysisLoading"
@@ -505,6 +520,14 @@
   // 导入游戏预测store - 统一的数据管理
   import { useGamePredictionStore } from '@/stores/gamePrediction';
 
+  // 导入状态工具 - 统一的状态管理
+  import {
+    getGameStatusTagType,
+    getWebSocketStatusClass as getWSStatusClass,
+    getWebSocketStatusConfig,
+    formatTime as formatTimeUtil
+  } from '@/utils/statusUtils';
+
   // 注意：TokenAnalysis类型现在从store导入，不需要重复定义
 
   interface RoundToken {
@@ -683,21 +706,7 @@
   // v8 注释：移除了价格变化和交易量格式化函数，专注于 H2H 战术分析数据
   // 如需要市场数据展示，可在未来版本重新加入
 
-  const getStatusTagType = (status: string) => {
-    switch (status) {
-      case 'bet':
-        return 'success';
-      case 'lock':
-        return 'warning';
-      case 'settling':
-      case 'processing':
-        return 'error';
-      case 'settled':
-        return 'info';
-      default:
-        return 'default';
-    }
-  };
+  // 移除重复的状态判断函数，使用统一的状态工具
 
   // API调用函数 - 现在使用store的方法
   const fetchAnalysisData = async () => {
@@ -739,53 +748,8 @@
     fetchPredictionHistoryData();
   };
 
-  // WebSocket状态相关函数
-  const getWebSocketStatusClass = () => {
-    const status = gamePredictionStore.websocketStatus.status;
-    switch (status) {
-      case 'connected':
-        return 'bg-green-500/20 border border-green-500/30 text-green-400';
-      case 'connecting':
-        return 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-400';
-      case 'disconnected':
-        return 'bg-gray-500/20 border border-gray-500/30 text-gray-400';
-      case 'error':
-        return 'bg-red-500/20 border border-red-500/30 text-red-400';
-      default:
-        return 'bg-gray-500/20 border border-gray-500/30 text-gray-400';
-    }
-  };
-
-  const getWebSocketStatusIcon = () => {
-    const status = gamePredictionStore.websocketStatus.status;
-    switch (status) {
-      case 'connected':
-        return '🟢';
-      case 'connecting':
-        return '🟡';
-      case 'disconnected':
-        return '⚪';
-      case 'error':
-        return '🔴';
-      default:
-        return '⚪';
-    }
-  };
-
-  // 格式化时间函数
-  const formatTime = (timeString: string | null | undefined) => {
-    if (!timeString) return '无';
-    try {
-      const date = new Date(timeString);
-      return date.toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-    } catch {
-      return '无效';
-    }
-  };
+  // 使用统一的状态工具
+  const wsStatusConfig = computed(() => getWebSocketStatusConfig(gamePredictionStore.websocketStatus.status));
 
   // 测试函数
   const testStoreUpdate = () => {

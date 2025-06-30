@@ -2,16 +2,7 @@
   <div class="real-time-data-container">
     <!-- 连接状态指示器 -->
     <div class="mb-4 flex items-center gap-2">
-      <div
-        :class="[
-          'w-3 h-3 rounded-full',
-          predictionStore.websocketStatus.status === 'connected'
-            ? 'bg-green-500'
-            : predictionStore.websocketStatus.status === 'connecting'
-              ? 'bg-yellow-500'
-              : 'bg-red-500'
-        ]"
-      ></div>
+      <div :class="['w-3 h-3 rounded-full', wsStatusConfig.bgColor.replace('bg-', 'bg-').replace('/20', '-500')]"></div>
       <span class="text-sm font-medium">WebSocket {{ connectionStatusText }}</span>
       <button
         @click="predictionStore.reconnectWebSocket()"
@@ -146,6 +137,7 @@
 <script setup lang="ts">
   import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
+  import { getWebSocketStatusConfig, getGameStatusConfig } from '@/utils/statusUtils';
 
   // 使用预测数据store
   const predictionStore = useGamePredictionStore();
@@ -155,19 +147,11 @@
   const gameDataTimestamp = ref<string>('');
   const predictionTimestamp = ref<string>('');
 
+  // 使用统一的状态工具
+  const wsStatusConfig = computed(() => getWebSocketStatusConfig(predictionStore.websocketStatus.status));
+
   // 计算属性
-  const connectionStatusText = computed(() => {
-    switch (predictionStore.websocketStatus.status) {
-      case 'connected':
-        return '已连接';
-      case 'connecting':
-        return '连接中';
-      case 'disconnected':
-        return '已断开';
-      default:
-        return '未知状态';
-    }
-  });
+  const connectionStatusText = computed(() => wsStatusConfig.value.label);
 
   // 方法
   const addMessage = (type: string, message: string) => {
@@ -184,20 +168,7 @@
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'bet':
-      case 'betting':
-      case 'open':
-        return 'text-green-600 font-medium';
-      case 'settling':
-      case 'processing':
-        return 'text-yellow-600 font-medium';
-      case 'settled':
-      case 'completed':
-        return 'text-blue-600 font-medium';
-      default:
-        return 'text-gray-600';
-    }
+    return `${getGameStatusConfig(status).color} font-medium`;
   };
 
   const getMessageColor = (type: string) => {

@@ -325,13 +325,13 @@
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base font-bold" :class="getRankValueClass(rank)">
-                            {{ (calculateRankBasedStats()[`rank${rank}`].breakevenRate || 0).toFixed(1) }}%
+                            {{ (getRankStats(rank).breakevenRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs opacity-70" :class="getRankTextClass(rank)">保本率</span>
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base font-bold" :class="getRankSecondaryClass(rank)">
-                            {{ (calculateRankBasedStats()[`rank${rank}`].firstPlaceRate || 0).toFixed(1) }}%
+                            {{ (getRankStats(rank).firstPlaceRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs opacity-70" :class="getRankSecondaryTextClass(rank)">第一名率</span>
                         </div>
@@ -341,13 +341,13 @@
                         <div class="mb-1 text-xs text-cyan-300/70">最新{{ recentRoundsCount }}局</div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-cyan-400 font-bold">
-                            {{ (calculateRecentRankBasedStats[`rank${rank}`].breakevenRate || 0).toFixed(1) }}%
+                            {{ (getRecentRankStats(rank).breakevenRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-cyan-200/70">保本率</span>
                         </div>
                         <div class="flex items-center justify-between">
                           <span class="text-base text-teal-300 font-bold">
-                            {{ (calculateRecentRankBasedStats[`rank${rank}`].firstPlaceRate || 0).toFixed(1) }}%
+                            {{ (getRecentRankStats(rank).firstPlaceRate || 0).toFixed(1) }}%
                           </span>
                           <span class="text-xs text-teal-200/70">第一名率</span>
                         </div>
@@ -792,26 +792,6 @@
     );
   });
 
-  // ==================== 辅助函数 for template ====================
-
-  // 获取指定排名的统计数据
-  const getRankStats = (rank: number) => {
-    const stats = calculateRankBasedStats();
-    if (rank === 1) return stats.rank1;
-    if (rank === 2) return stats.rank2;
-    if (rank === 3) return stats.rank3;
-    return { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 };
-  };
-
-  // 获取指定排名的最新N局统计数据
-  const getRecentRankStats = (rank: number) => {
-    const stats = calculateRecentRankBasedStats.value;
-    if (rank === 1) return stats.rank1;
-    if (rank === 2) return stats.rank2;
-    if (rank === 3) return stats.rank3;
-    return { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 };
-  };
-
   // ==================== 预测统计计算 ====================
 
   // 获取预测总局数统计
@@ -989,6 +969,26 @@
     return rankStats;
   });
 
+  // ==================== 辅助函数 for template ====================
+
+  // 获取指定排名的统计数据
+  const getRankStats = (rank: number) => {
+    const stats = calculateRankBasedStats();
+    if (rank === 1) return stats.rank1;
+    if (rank === 2) return stats.rank2;
+    if (rank === 3) return stats.rank3;
+    return { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 };
+  };
+
+  // 获取指定排名的最新N局统计数据
+  const getRecentRankStats = (rank: number) => {
+    const stats = calculateRecentRankBasedStats.value;
+    if (rank === 1) return stats.rank1;
+    if (rank === 2) return stats.rank2;
+    if (rank === 3) return stats.rank3;
+    return { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 };
+  };
+
   // ==================== 预测对比表格 ====================
 
   const predictionComparisonTableData = computed((): PredictionComparisonRow[] => {
@@ -1089,26 +1089,6 @@
     },
     { title: '结算时间', key: 'settled_at', width: 140 }
   ];
-
-  // ==================== 辅助函数 for template ====================
-
-  // 获取指定排名的统计数据
-  const getRankStats = (rank: number) => {
-    const stats = calculateRankBasedStats();
-    if (rank === 1) return stats.rank1;
-    if (rank === 2) return stats.rank2;
-    if (rank === 3) return stats.rank3;
-    return { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 };
-  };
-
-  // 获取指定排名的最新N局统计数据
-  const getRecentRankStats = (rank: number) => {
-    const stats = calculateRecentRankBasedStats.value;
-    if (rank === 1) return stats.rank1;
-    if (rank === 2) return stats.rank2;
-    if (rank === 3) return stats.rank3;
-    return { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 };
-  };
 
   // ==================== 页面初始化 ====================
 

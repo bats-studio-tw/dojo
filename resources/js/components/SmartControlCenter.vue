@@ -364,12 +364,12 @@
                         <NInputNumber
                           v-model:value="props.config.min_win_rate_threshold"
                           :min="0"
-                          :max="100"
-                          :step="1"
-                          :precision="0"
+                          :max="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_win_rate_filter"
                           size="tiny"
-                          placeholder="70"
+                          placeholder="0.70"
                         />
                       </div>
                     </div>
@@ -386,12 +386,12 @@
                         <NInputNumber
                           v-model:value="props.config.min_top3_rate_threshold"
                           :min="0"
-                          :max="100"
-                          :step="1"
-                          :precision="0"
+                          :max="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_top3_rate_filter"
                           size="tiny"
-                          placeholder="60"
+                          placeholder="0.50"
                         />
                       </div>
                     </div>
@@ -453,12 +453,12 @@
                         <NInputNumber
                           v-model:value="props.config.min_absolute_score_threshold"
                           :min="0"
-                          :max="100"
-                          :step="1"
-                          :precision="0"
+                          :max="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_absolute_score_filter"
                           size="tiny"
-                          placeholder="70"
+                          placeholder="0.70"
                         />
                       </div>
                     </div>
@@ -475,12 +475,12 @@
                         <NInputNumber
                           v-model:value="props.config.min_relative_score_threshold"
                           :min="0"
-                          :max="100"
-                          :step="1"
-                          :precision="0"
+                          :max="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_relative_score_filter"
                           size="tiny"
-                          placeholder="65"
+                          placeholder="0.50"
                         />
                       </div>
                     </div>
@@ -497,12 +497,12 @@
                         <NInputNumber
                           v-model:value="props.config.min_h2h_score_threshold"
                           :min="0"
-                          :max="100"
-                          :step="1"
-                          :precision="0"
+                          :max="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_h2h_score_filter"
                           size="tiny"
-                          placeholder="65"
+                          placeholder="0.70"
                         />
                       </div>
                     </div>
@@ -519,12 +519,12 @@
                         <NInputNumber
                           v-model:value="props.config.min_risk_adjusted_threshold"
                           :min="0"
-                          :max="100"
-                          :step="1"
-                          :precision="0"
+                          :max="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_risk_adjusted_filter"
                           size="tiny"
-                          placeholder="70"
+                          placeholder="0.60"
                         />
                       </div>
                     </div>
@@ -766,9 +766,9 @@
         // 重置所有过滤器为默认值（关闭状态）
         // 历史表现过滤器
         props.config.enable_win_rate_filter = false;
-        props.config.min_win_rate_threshold = 65;
+        props.config.min_win_rate_threshold = 0.65;
         props.config.enable_top3_rate_filter = false;
-        props.config.min_top3_rate_threshold = 60;
+        props.config.min_top3_rate_threshold = 0.6;
         props.config.enable_avg_rank_filter = false;
         props.config.max_avg_rank_threshold = 2.8;
         props.config.enable_stability_filter = false;
@@ -776,13 +776,13 @@
 
         // 评分过滤器
         props.config.enable_absolute_score_filter = false;
-        props.config.min_absolute_score_threshold = 70;
+        props.config.min_absolute_score_threshold = 0.7;
         props.config.enable_relative_score_filter = false;
-        props.config.min_relative_score_threshold = 65;
+        props.config.min_relative_score_threshold = 0.65;
         props.config.enable_h2h_score_filter = false;
-        props.config.min_h2h_score_threshold = 65;
+        props.config.min_h2h_score_threshold = 0.65;
         props.config.enable_risk_adjusted_filter = false;
-        props.config.min_risk_adjusted_threshold = 70;
+        props.config.min_risk_adjusted_threshold = 0.7;
 
         // 市场动态过滤器
         props.config.enable_change_5m_filter = false;

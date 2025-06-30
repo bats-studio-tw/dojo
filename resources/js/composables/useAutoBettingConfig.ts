@@ -91,22 +91,22 @@ export const strategyTemplates = {
     stop_loss_consecutive: 1, // 一次失败就暂停
     // 🗿 磐石型：最严苛的历史表现过滤器
     enable_win_rate_filter: true,
-    min_win_rate_threshold: 85, // 胜率必须≥85%
+    min_win_rate_threshold: 0.85, // 胜率必须≥85%
     enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 90, // 保本率必须≥90%
+    min_top3_rate_threshold: 0.9, // 保本率必须≥90%
     enable_avg_rank_filter: true,
     max_avg_rank_threshold: 1.5, // 平均排名必须≤1.5
     enable_stability_filter: true,
     max_stability_threshold: 0.2, // 极低波动性
     // 🗿 磐石型：最严苛的评分过滤器
     enable_absolute_score_filter: true,
-    min_absolute_score_threshold: 90, // 绝对分数≥90%
+    min_absolute_score_threshold: 0.9, // 绝对分数≥90%
     enable_relative_score_filter: true,
-    min_relative_score_threshold: 85, // 相对分数≥85%
+    min_relative_score_threshold: 0.85, // 相对分数≥85%
     enable_h2h_score_filter: true,
-    min_h2h_score_threshold: 85, // H2H分数≥85%
+    min_h2h_score_threshold: 0.85, // H2H分数≥85%
     enable_risk_adjusted_filter: true,
-    min_risk_adjusted_threshold: 90, // 风险调整分数≥90%
+    min_risk_adjusted_threshold: 0.9, // 风险调整分数≥90%
     // 🗿 磐石型：极度保守的市场动态过滤器
     enable_change_5m_filter: true,
     min_change_5m_threshold: -0.01,
@@ -138,22 +138,22 @@ export const strategyTemplates = {
     stop_loss_consecutive: 3, // 允许少量试错
     // 🎯 狙击手型：关注相对优势的历史表现过滤器
     enable_win_rate_filter: true,
-    min_win_rate_threshold: 70, // 胜率要求适中
+    min_win_rate_threshold: 0.7, // 胜率要求适中
     enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 65, // 保本率要求适中
+    min_top3_rate_threshold: 0.65, // 保本率要求适中
     enable_avg_rank_filter: true,
     max_avg_rank_threshold: 2.0, // 平均排名要求较高
     enable_stability_filter: false, // 不强调稳定性
     max_stability_threshold: 1.0,
     // 🎯 狙击手型：重视相对强势的评分过滤器
     enable_absolute_score_filter: false, // 不强调绝对分数
-    min_absolute_score_threshold: 70,
+    min_absolute_score_threshold: 0.7,
     enable_relative_score_filter: true, // **核心：重视相对分数**
-    min_relative_score_threshold: 80, // 相对分数要求很高
+    min_relative_score_threshold: 0.8, // 相对分数要求很高
     enable_h2h_score_filter: true,
-    min_h2h_score_threshold: 75, // H2H分数要求较高
+    min_h2h_score_threshold: 0.75, // H2H分数要求较高
     enable_risk_adjusted_filter: true,
-    min_risk_adjusted_threshold: 75,
+    min_risk_adjusted_threshold: 0.75,
     // 🎯 狙击手型：适度的市场动态过滤器
     enable_change_5m_filter: true,
     min_change_5m_threshold: 0.0,
@@ -185,22 +185,22 @@ export const strategyTemplates = {
     stop_loss_consecutive: 2, // **核心：严格的止损控制**
     // 🏇 动量骑士型：动态的历史表现过滤器
     enable_win_rate_filter: true,
-    min_win_rate_threshold: 60, // 胜率要求不高
+    min_win_rate_threshold: 0.6, // 胜率要求不高
     enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 55, // 保本率要求不高
+    min_top3_rate_threshold: 0.55, // 保本率要求不高
     enable_avg_rank_filter: false, // 不限制平均排名
     max_avg_rank_threshold: 3.0,
     enable_stability_filter: false, // **核心：不要求稳定性**
     max_stability_threshold: 2.0,
     // 🏇 动量骑士型：平衡的评分过滤器
     enable_absolute_score_filter: true,
-    min_absolute_score_threshold: 70,
+    min_absolute_score_threshold: 0.7,
     enable_relative_score_filter: true,
-    min_relative_score_threshold: 65,
+    min_relative_score_threshold: 0.65,
     enable_h2h_score_filter: true,
-    min_h2h_score_threshold: 65,
+    min_h2h_score_threshold: 0.65,
     enable_risk_adjusted_filter: true,
-    min_risk_adjusted_threshold: 65,
+    min_risk_adjusted_threshold: 0.65,
     // 🏇 动量骑士型：**核心：追逐短期动量的市场过滤器**
     enable_change_5m_filter: true,
     min_change_5m_threshold: 0.01, // **核心：要求正向动量**
@@ -232,22 +232,22 @@ export const strategyTemplates = {
     stop_loss_consecutive: 3, // 适中的止损设置
     // ⚖️ 全能平衡型：平衡的历史表现过滤器
     enable_win_rate_filter: true,
-    min_win_rate_threshold: 70, // 平衡的胜率要求
+    min_win_rate_threshold: 0.7, // 平衡的胜率要求
     enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 65, // 平衡的保本率要求
+    min_top3_rate_threshold: 0.65, // 平衡的保本率要求
     enable_avg_rank_filter: true,
     max_avg_rank_threshold: 2.5, // 平衡的排名要求
     enable_stability_filter: true,
     max_stability_threshold: 0.6, // 适度的稳定性要求
     // ⚖️ 全能平衡型：全面的评分过滤器
     enable_absolute_score_filter: true,
-    min_absolute_score_threshold: 75, // 平衡的绝对分数要求
+    min_absolute_score_threshold: 0.75, // 平衡的绝对分数要求
     enable_relative_score_filter: true,
-    min_relative_score_threshold: 70, // 平衡的相对分数要求
+    min_relative_score_threshold: 0.7, // 平衡的相对分数要求
     enable_h2h_score_filter: true,
-    min_h2h_score_threshold: 70, // 平衡的H2H分数要求
+    min_h2h_score_threshold: 0.7, // 平衡的H2H分数要求
     enable_risk_adjusted_filter: true,
-    min_risk_adjusted_threshold: 75, // 平衡的风险调整分数要求
+    min_risk_adjusted_threshold: 0.75, // 平衡的风险调整分数要求
     // ⚖️ 全能平衡型：适度的市场动态过滤器
     enable_change_5m_filter: true,
     min_change_5m_threshold: -0.02, // 允许小幅下跌
@@ -279,22 +279,22 @@ export const strategyTemplates = {
     stop_loss_consecutive: 8, // 允许较多连续失败
     // 🎯 智能排名策略：轻量级历史表现过滤器（主要靠排名，过滤器作为辅助）
     enable_win_rate_filter: false, // 关闭胜率过滤，避免过度限制
-    min_win_rate_threshold: 50,
+    min_win_rate_threshold: 0.5,
     enable_top3_rate_filter: false, // 关闭保本率过滤
-    min_top3_rate_threshold: 50,
+    min_top3_rate_threshold: 0.5,
     enable_avg_rank_filter: false, // 关闭平均排名过滤
     max_avg_rank_threshold: 5.0,
     enable_stability_filter: false, // 关闭稳定性过滤
     max_stability_threshold: 2.0,
     // 🎯 智能排名策略：轻量级评分过滤器
     enable_absolute_score_filter: false, // 关闭绝对分数过滤
-    min_absolute_score_threshold: 50,
+    min_absolute_score_threshold: 0.5,
     enable_relative_score_filter: false, // 关闭相对分数过滤
-    min_relative_score_threshold: 50,
+    min_relative_score_threshold: 0.5,
     enable_h2h_score_filter: false, // 关闭H2H分数过滤
-    min_h2h_score_threshold: 50,
+    min_h2h_score_threshold: 0.5,
     enable_risk_adjusted_filter: false, // 关闭风险调整分数过滤
-    min_risk_adjusted_threshold: 50,
+    min_risk_adjusted_threshold: 0.5,
     // 🎯 智能排名策略：仅避免极端市场情况
     enable_change_5m_filter: false, // 关闭短期市场过滤，让排名策略更纯粹
     min_change_5m_threshold: -0.1,
@@ -349,9 +349,9 @@ export const useAutoBettingConfig = () => {
 
     // 🆕 新增历史表现过滤器 (默认使用AI优化策略的中等设置)
     enable_win_rate_filter: false,
-    min_win_rate_threshold: 65,
+    min_win_rate_threshold: 0.65,
     enable_top3_rate_filter: false,
-    min_top3_rate_threshold: 60,
+    min_top3_rate_threshold: 0.6,
     enable_avg_rank_filter: false,
     max_avg_rank_threshold: 2.8,
     enable_stability_filter: false,
@@ -359,13 +359,13 @@ export const useAutoBettingConfig = () => {
 
     // 🆕 新增评分过滤器 (默认使用AI优化策略的平衡设置)
     enable_absolute_score_filter: false,
-    min_absolute_score_threshold: 70,
+    min_absolute_score_threshold: 0.7,
     enable_relative_score_filter: false,
-    min_relative_score_threshold: 65,
+    min_relative_score_threshold: 0.65,
     enable_h2h_score_filter: false,
-    min_h2h_score_threshold: 65,
+    min_h2h_score_threshold: 0.65,
     enable_risk_adjusted_filter: false,
-    min_risk_adjusted_threshold: 70,
+    min_risk_adjusted_threshold: 0.7,
 
     // 🆕 新增市场动态过滤器 (默认禁用，用户可根据需要启用)
     enable_change_5m_filter: false,

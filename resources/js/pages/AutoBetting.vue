@@ -373,20 +373,28 @@
     if (prediction.historical_accuracy < config.historical_accuracy_threshold) return false;
 
     // 🆕 历史表现过滤器
-    if (config.enable_win_rate_filter && (prediction.win_rate || 0) < config.min_win_rate_threshold) return false;
-    if (config.enable_top3_rate_filter && (prediction.top3_rate || 0) < config.min_top3_rate_threshold) return false;
+    if (config.enable_win_rate_filter && (prediction.win_rate || 0) < config.min_win_rate_threshold * 100) return false;
+    if (config.enable_top3_rate_filter && (prediction.top3_rate || 0) < config.min_top3_rate_threshold * 100)
+      return false;
     if (config.enable_avg_rank_filter && (prediction.avg_rank || 3) > config.max_avg_rank_threshold) return false;
     if (config.enable_stability_filter && (prediction.value_stddev || 0) > config.max_stability_threshold) return false;
 
     // 🆕 评分过滤器
-    if (config.enable_absolute_score_filter && (prediction.absolute_score || 0) < config.min_absolute_score_threshold)
+    if (
+      config.enable_absolute_score_filter &&
+      (prediction.absolute_score || 0) < config.min_absolute_score_threshold * 100
+    )
       return false;
-    if (config.enable_relative_score_filter && (prediction.relative_score || 0) < config.min_relative_score_threshold)
+    if (
+      config.enable_relative_score_filter &&
+      (prediction.relative_score || 0) < config.min_relative_score_threshold * 100
+    )
       return false;
-    if (config.enable_h2h_score_filter && (prediction.h2h_score || 0) < config.min_h2h_score_threshold) return false;
+    if (config.enable_h2h_score_filter && (prediction.h2h_score || 0) < config.min_h2h_score_threshold * 100)
+      return false;
     if (
       config.enable_risk_adjusted_filter &&
-      (prediction.risk_adjusted_score || 0) < config.min_risk_adjusted_threshold
+      (prediction.risk_adjusted_score || 0) < config.min_risk_adjusted_threshold * 100
     )
       return false;
 

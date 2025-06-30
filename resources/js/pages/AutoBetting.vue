@@ -133,10 +133,10 @@
               :all-stats="predictionStats.calculateRankBasedStats.value"
               :recent-stats="predictionStats.calculateRecentRankBasedStats.value"
               :recent-rounds-count="recentRoundsCount"
-              :max-rounds="predictionStore.totalHistoryRounds"
+              :max-rounds="predictionHistory.length"
               :history-loading="predictionStore.historyLoading"
               :prediction-comparison-data="predictionStats.getPredictionComparisonData.value"
-              @refresh-prediction-history="predictionStore.fetchPredictionHistory"
+              @refresh-prediction-history="refreshPredictionHistory"
               @update:recent-rounds-count="updateRecentRoundsCount"
             />
           </NTabPane>
@@ -501,6 +501,12 @@
       console.error('❌ 刷新预测数据失败:', error);
       window.$message?.error('刷新预测数据失败');
     }
+  };
+
+  // 刷新预测历史数据
+  const refreshPredictionHistory = async () => {
+    console.log('🔄 AutoBetting: 刷新预测历史数据');
+    await predictionStore.fetchPredictionHistory();
   };
 
   // ==================== 自动下注逻辑 ====================

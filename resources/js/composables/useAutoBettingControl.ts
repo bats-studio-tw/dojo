@@ -441,8 +441,7 @@ export const useAutoBettingControl = () => {
     // 这个计算属性可以由使用此composable的组件传入具体的策略信息
     return {
       name: '当前策略',
-      confidence: 88,
-      riskLevel: 15
+      confidence: 88
     };
   });
 

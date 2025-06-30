@@ -238,9 +238,6 @@
                 <div class="text-xs text-gray-400">{{ template.description }}</div>
                 <div v-if="String(key) !== 'custom'" class="mt-2 flex flex-wrap gap-1">
                   <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
-                    风险: {{ template.max_bet_percentage }}%
-                  </span>
-                  <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
                     {{
                       template.strategy === 'single_bet'
                         ? '单项'
@@ -267,7 +264,7 @@
         <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="⚙️ 快速配置">
           <div class="space-y-4">
             <!-- 基础配置 -->
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4">
               <div class="space-y-2">
                 <label class="text-xs text-gray-300 font-medium">下注金额</label>
                 <n-input-number
@@ -275,17 +272,6 @@
                   :min="200"
                   :max="2000"
                   :step="50"
-                  :disabled="isRunning"
-                  size="small"
-                />
-              </div>
-              <div class="space-y-2">
-                <label class="text-xs text-gray-300 font-medium">风险比例(%)</label>
-                <n-input-number
-                  v-model:value="props.config.max_bet_percentage"
-                  :min="5"
-                  :max="50"
-                  :step="1"
                   :disabled="isRunning"
                   size="small"
                 />
@@ -506,28 +492,6 @@
                         />
                       </div>
                     </div>
-
-                    <!-- 风险调整分数过滤器 -->
-                    <div class="flex items-center space-x-3">
-                      <NSwitch
-                        v-model:value="props.config.enable_risk_adjusted_filter"
-                        size="small"
-                        :disabled="isRunning"
-                      />
-                      <div class="grid grid-cols-2 flex-1 gap-2">
-                        <label class="text-xs text-gray-300">风险调整分数 ≥</label>
-                        <NInputNumber
-                          v-model:value="props.config.min_risk_adjusted_threshold"
-                          :min="0"
-                          :max="1"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_risk_adjusted_filter"
-                          size="tiny"
-                          placeholder="0.60"
-                        />
-                      </div>
-                    </div>
                   </div>
                 </NCollapseItem>
 
@@ -689,7 +653,6 @@
 
     strategyName: string;
     confidenceThreshold: number;
-    riskLevel: number;
     config: AutoBettingConfig;
     selectedTemplate: string;
     customStrategyMode: boolean;
@@ -781,8 +744,6 @@
         props.config.min_relative_score_threshold = 0.65;
         props.config.enable_h2h_score_filter = false;
         props.config.min_h2h_score_threshold = 0.65;
-        props.config.enable_risk_adjusted_filter = false;
-        props.config.min_risk_adjusted_threshold = 0.7;
 
         // 市场动态过滤器
         props.config.enable_change_5m_filter = false;
@@ -804,7 +765,6 @@
         props.config.min_total_games = 25;
         props.config.historical_accuracy_threshold = 0.7;
         props.config.min_sample_count = 40;
-        props.config.max_bet_percentage = 15;
         props.config.strategy = 'single_bet';
         props.config.bet_amount = 200;
 

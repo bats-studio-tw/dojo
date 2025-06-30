@@ -41,9 +41,6 @@
               <div class="text-xs text-gray-400">{{ template.description }}</div>
               <div class="mt-2 flex flex-wrap gap-1">
                 <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
-                  风险: {{ template.max_bet_percentage }}%
-                </span>
-                <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
                   {{
                     template.strategy === 'single_bet'
                       ? '单项'
@@ -151,18 +148,6 @@
                   :min="200"
                   :max="2000"
                   :step="50"
-                  :disabled="isRunning"
-                  class="w-full"
-                />
-              </div>
-
-              <div class="space-y-2">
-                <label class="text-sm text-gray-300 font-medium">最大下注比例 (%)</label>
-                <n-input-number
-                  v-model:value="config.max_bet_percentage"
-                  :min="5"
-                  :max="50"
-                  :step="1"
                   :disabled="isRunning"
                   class="w-full"
                 />

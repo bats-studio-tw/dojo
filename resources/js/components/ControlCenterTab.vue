@@ -90,10 +90,7 @@
               <span>置信度阈值:</span>
               <span class="text-purple-400">{{ confidenceThreshold }}%</span>
             </div>
-            <div class="flex justify-between">
-              <span>风险水平:</span>
-              <span class="text-purple-400">{{ riskLevel }}%</span>
-            </div>
+
             <div class="flex justify-between">
               <span>当前轮次:</span>
               <span class="text-xs text-purple-400 font-mono">
@@ -194,7 +191,6 @@
     analysisLoading: boolean;
     strategyName: string;
     confidenceThreshold: number;
-    riskLevel: number;
   }
 
   defineProps<Props>();

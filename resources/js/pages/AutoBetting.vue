@@ -100,7 +100,6 @@
               :diagnostics-loading="diagnosticsLoading"
               :strategy-name="currentStrategyName"
               :confidence-threshold="config.confidence_threshold"
-              :risk-level="config.max_bet_percentage"
               :config="config"
               :selected-template="selectedTemplate"
               :custom-strategy-mode="customStrategyMode"
@@ -392,11 +391,6 @@
       return false;
     if (config.enable_h2h_score_filter && (prediction.h2h_score || 0) < config.min_h2h_score_threshold * 100)
       return false;
-    if (
-      config.enable_risk_adjusted_filter &&
-      (prediction.risk_adjusted_score || 0) < config.min_risk_adjusted_threshold * 100
-    )
-      return false;
 
     // 🆕 市场动态过滤器
     if (config.enable_change_5m_filter) {
@@ -423,11 +417,6 @@
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const calculateBetAmount = (prediction: any): number => {
     let betAmount = config.bet_amount;
-    const walletBalance = userInfo.value?.ojoValue || 0;
-
-    if (walletBalance > 0) {
-      betAmount = Math.min(betAmount, walletBalance * (config.max_bet_percentage / 100));
-    }
 
     betAmount = Math.max(betAmount, 200);
     return Math.round(betAmount);

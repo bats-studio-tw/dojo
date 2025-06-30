@@ -52,8 +52,6 @@ export interface AutoBettingConfig {
   min_relative_score_threshold: number;
   enable_h2h_score_filter: boolean;
   min_h2h_score_threshold: number;
-  enable_risk_adjusted_filter: boolean;
-  min_risk_adjusted_threshold: number;
 
   // 🆕 新增市场动态过滤器
   enable_change_5m_filter: boolean;
@@ -105,8 +103,7 @@ export const strategyTemplates = {
     min_relative_score_threshold: 0.85, // 相对分数≥85%
     enable_h2h_score_filter: true,
     min_h2h_score_threshold: 0.85, // H2H分数≥85%
-    enable_risk_adjusted_filter: true,
-    min_risk_adjusted_threshold: 0.9, // 风险调整分数≥90%
+
     // 🗿 磐石型：极度保守的市场动态过滤器
     enable_change_5m_filter: true,
     min_change_5m_threshold: -0.01,
@@ -152,8 +149,6 @@ export const strategyTemplates = {
     min_relative_score_threshold: 0.8, // 相对分数要求很高
     enable_h2h_score_filter: true,
     min_h2h_score_threshold: 0.75, // H2H分数要求较高
-    enable_risk_adjusted_filter: true,
-    min_risk_adjusted_threshold: 0.75,
     // 🎯 狙击手型：适度的市场动态过滤器
     enable_change_5m_filter: true,
     min_change_5m_threshold: 0.0,
@@ -199,8 +194,6 @@ export const strategyTemplates = {
     min_relative_score_threshold: 0.65,
     enable_h2h_score_filter: true,
     min_h2h_score_threshold: 0.65,
-    enable_risk_adjusted_filter: true,
-    min_risk_adjusted_threshold: 0.65,
     // 🏇 动量骑士型：**核心：追逐短期动量的市场过滤器**
     enable_change_5m_filter: true,
     min_change_5m_threshold: 0.01, // **核心：要求正向动量**
@@ -246,8 +239,6 @@ export const strategyTemplates = {
     min_relative_score_threshold: 0.7, // 平衡的相对分数要求
     enable_h2h_score_filter: true,
     min_h2h_score_threshold: 0.7, // 平衡的H2H分数要求
-    enable_risk_adjusted_filter: true,
-    min_risk_adjusted_threshold: 0.75, // 平衡的风险调整分数要求
     // ⚖️ 全能平衡型：适度的市场动态过滤器
     enable_change_5m_filter: true,
     min_change_5m_threshold: -0.02, // 允许小幅下跌
@@ -293,8 +284,6 @@ export const strategyTemplates = {
     min_relative_score_threshold: 0.5,
     enable_h2h_score_filter: false, // 关闭H2H分数过滤
     min_h2h_score_threshold: 0.5,
-    enable_risk_adjusted_filter: false, // 关闭风险调整分数过滤
-    min_risk_adjusted_threshold: 0.5,
     // 🎯 智能排名策略：仅避免极端市场情况
     enable_change_5m_filter: false, // 关闭短期市场过滤，让排名策略更纯粹
     min_change_5m_threshold: -0.1,
@@ -364,8 +353,6 @@ export const useAutoBettingConfig = () => {
     min_relative_score_threshold: 0.65,
     enable_h2h_score_filter: false,
     min_h2h_score_threshold: 0.65,
-    enable_risk_adjusted_filter: false,
-    min_risk_adjusted_threshold: 0.7,
 
     // 🆕 新增市场动态过滤器 (默认禁用，用户可根据需要启用)
     enable_change_5m_filter: false,
@@ -423,8 +410,6 @@ export const useAutoBettingConfig = () => {
       min_relative_score_threshold: config.min_relative_score_threshold,
       enable_h2h_score_filter: config.enable_h2h_score_filter,
       min_h2h_score_threshold: config.min_h2h_score_threshold,
-      enable_risk_adjusted_filter: config.enable_risk_adjusted_filter,
-      min_risk_adjusted_threshold: config.min_risk_adjusted_threshold,
 
       // 🔧 新增：市场动态过滤器参数
       enable_change_5m_filter: config.enable_change_5m_filter,
@@ -578,8 +563,6 @@ export const useAutoBettingConfig = () => {
         config.min_relative_score_threshold === template.min_relative_score_threshold &&
         config.enable_h2h_score_filter === template.enable_h2h_score_filter &&
         config.min_h2h_score_threshold === template.min_h2h_score_threshold &&
-        config.enable_risk_adjusted_filter === template.enable_risk_adjusted_filter &&
-        config.min_risk_adjusted_threshold === template.min_risk_adjusted_threshold &&
         // 🔧 新增：市场动态过滤器参数匹配
         config.enable_change_5m_filter === template.enable_change_5m_filter &&
         config.min_change_5m_threshold === template.min_change_5m_threshold &&
@@ -644,8 +627,6 @@ export const useAutoBettingConfig = () => {
       min_relative_score_threshold: template.min_relative_score_threshold,
       enable_h2h_score_filter: template.enable_h2h_score_filter,
       min_h2h_score_threshold: template.min_h2h_score_threshold,
-      enable_risk_adjusted_filter: template.enable_risk_adjusted_filter,
-      min_risk_adjusted_threshold: template.min_risk_adjusted_threshold,
 
       // 🆕 市场动态过滤器参数
       enable_change_5m_filter: template.enable_change_5m_filter,

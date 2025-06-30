@@ -11,6 +11,173 @@
       @refresh-analysis="refreshAnalysis"
     />
 
+    <!-- 🔧 策略匹配调试面板 -->
+    <NCard
+      v-if="currentAnalysis && currentAnalysis.length > 0 && (!strategyValidation?.matches.length || showDebugPanel)"
+      class="mb-6 border border-orange-500/20 bg-orange-500/5 shadow-2xl backdrop-blur-lg"
+      title="🔧 策略匹配调试"
+      size="large"
+    >
+      <template #header-extra>
+        <div class="flex items-center space-x-2">
+          <n-button @click="showDebugPanel = !showDebugPanel" type="tertiary" size="small">
+            {{ showDebugPanel ? '隐藏调试' : '显示调试' }}
+          </n-button>
+          <n-button @click="setVeryLowThresholds" type="warning" size="small">🚨 紧急降低所有门槛</n-button>
+        </div>
+      </template>
+
+      <div v-if="showDebugPanel || !strategyValidation?.matches.length" class="space-y-4">
+        <!-- 全局统计 -->
+        <div class="rounded-lg bg-gray-800/50 p-4">
+          <h3 class="mb-3 text-white font-medium">📊 当前情况概览</h3>
+          <div class="grid grid-cols-2 gap-4 text-sm lg:grid-cols-4">
+            <div>
+              <span class="text-gray-400">总Token数:</span>
+              <span class="ml-2 text-white font-bold">{{ currentAnalysis.length }}</span>
+            </div>
+            <div>
+              <span class="text-gray-400">匹配数:</span>
+              <span
+                class="ml-2 font-bold"
+                :class="strategyValidation?.matches.length ? 'text-green-400' : 'text-red-400'"
+              >
+                {{ strategyValidation?.matches.length || 0 }}
+              </span>
+            </div>
+            <div>
+              <span class="text-gray-400">当前策略:</span>
+              <span class="ml-2 text-blue-400 font-bold">{{ strategyName }}</span>
+            </div>
+            <div>
+              <span class="text-gray-400">置信度门槛:</span>
+              <span class="ml-2 text-purple-400 font-bold">{{ confidenceThreshold }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Token详细分析 -->
+        <div class="space-y-2">
+          <h3 class="text-white font-medium">🔍 Token匹配分析详情</h3>
+          <div class="max-h-96 overflow-y-auto space-y-2">
+            <div
+              v-for="(token, index) in currentAnalysis.slice(0, 10)"
+              :key="`debug-${index}-${token.symbol}`"
+              class="border rounded-lg p-3"
+              :class="getTokenDebugClass(token)"
+            >
+              <div class="mb-2 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                  <span class="text-lg">{{ getPredictionIcon(index) }}</span>
+                  <span class="text-white font-bold">{{ token.symbol }}</span>
+                  <span class="text-xs text-gray-400">#{{ token.predicted_rank || index + 1 }}</span>
+                </div>
+                <div class="text-xs" :class="isTokenMatching(token) ? 'text-green-400' : 'text-red-400'">
+                  {{ isTokenMatching(token) ? '✅ 匹配' : '❌ 不匹配' }}
+                </div>
+              </div>
+
+              <div class="text-xs space-y-1">
+                <div class="grid grid-cols-2 gap-2">
+                  <!-- 基础指标 -->
+                  <div class="space-y-1">
+                    <div class="flex justify-between">
+                      <span class="text-gray-400">置信度:</span>
+                      <span :class="getMetricClass(getTokenConfidence(token), confidenceThreshold, 'gte')">
+                        {{ getTokenConfidence(token).toFixed(1) }}% / {{ confidenceThreshold }}%
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-400">分数:</span>
+                      <span :class="getMetricClass(getTokenScore(token), config.score_gap_threshold, 'gte')">
+                        {{ getTokenScore(token).toFixed(1) }} / {{ config.score_gap_threshold }}
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-400">样本数:</span>
+                      <span :class="getMetricClass(getTokenSampleCount(token), config.min_sample_count, 'gte')">
+                        {{ getTokenSampleCount(token) }} / {{ config.min_sample_count }}
+                      </span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-400">历史准确率:</span>
+                      <span
+                        :class="
+                          getMetricClass(getTokenHistoricalAccuracy(token), config.historical_accuracy_threshold, 'gte')
+                        "
+                      >
+                        {{ (getTokenHistoricalAccuracy(token) * 100).toFixed(1) }}% /
+                        {{ (config.historical_accuracy_threshold * 100).toFixed(1) }}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- 高级过滤器状态 -->
+                  <div class="space-y-1">
+                    <div v-if="config.enable_win_rate_filter" class="flex justify-between">
+                      <span class="text-gray-400">胜率过滤:</span>
+                      <span :class="getMetricClass(token.win_rate || 0, config.min_win_rate_threshold * 100, 'gte')">
+                        {{ (token.win_rate || 0).toFixed(1) }}% /
+                        {{ (config.min_win_rate_threshold * 100).toFixed(1) }}%
+                      </span>
+                    </div>
+                    <div v-if="config.enable_top3_rate_filter" class="flex justify-between">
+                      <span class="text-gray-400">保本率过滤:</span>
+                      <span :class="getMetricClass(token.top3_rate || 0, config.min_top3_rate_threshold * 100, 'gte')">
+                        {{ (token.top3_rate || 0).toFixed(1) }}% /
+                        {{ (config.min_top3_rate_threshold * 100).toFixed(1) }}%
+                      </span>
+                    </div>
+                    <div v-if="config.enable_absolute_score_filter" class="flex justify-between">
+                      <span class="text-gray-400">绝对分过滤:</span>
+                      <span
+                        :class="
+                          getMetricClass(token.absolute_score || 0, config.min_absolute_score_threshold * 100, 'gte')
+                        "
+                      >
+                        {{ (token.absolute_score || 0).toFixed(1) }} /
+                        {{ (config.min_absolute_score_threshold * 100).toFixed(1) }}
+                      </span>
+                    </div>
+                    <div v-if="config.enable_relative_score_filter" class="flex justify-between">
+                      <span class="text-gray-400">相对分过滤:</span>
+                      <span
+                        :class="
+                          getMetricClass(token.relative_score || 0, config.min_relative_score_threshold * 100, 'gte')
+                        "
+                      >
+                        {{ (token.relative_score || 0).toFixed(1) }} /
+                        {{ (config.min_relative_score_threshold * 100).toFixed(1) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 失败原因 -->
+                <div v-if="!isTokenMatching(token)" class="mt-2 rounded bg-red-500/10 p-2">
+                  <div class="text-xs text-red-400">
+                    <strong>未匹配原因:</strong>
+                    <span class="ml-1">{{ getTokenFailureReasons(token).join(', ') }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 快速修复建议 -->
+        <div class="rounded-lg bg-blue-500/10 p-4">
+          <h3 class="mb-2 text-blue-400 font-medium">💡 快速修复建议</h3>
+          <div class="text-sm text-gray-300 space-y-1">
+            <div>• 点击"🚨 紧急降低所有门槛"按钮可以快速降低所有过滤条件</div>
+            <div>• 切换到"🎯 智能排名策略"，该策略专门设计为宽松匹配</div>
+            <div>• 在策略配置标签页中手动调整具体的过滤器参数</div>
+            <div>• 如果数据质量较低，可以降低样本数要求和历史准确率要求</div>
+          </div>
+        </div>
+      </div>
+    </NCard>
+
     <!-- 🤖 自动下注状态面板 (整合自页面) -->
     <NCard
       class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
@@ -631,7 +798,7 @@
 </template>
 
 <script setup lang="ts">
-  import { onMounted, watch } from 'vue';
+  import { onMounted, watch, ref } from 'vue';
   import { NEmpty, NTag, NCollapse, NCollapseItem, NSwitch, NInputNumber } from 'naive-ui';
   import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
   import type { AutoBettingStatus, DebugInfo } from '@/composables/useAutoBettingControl';
@@ -829,6 +996,209 @@
     },
     { immediate: false }
   );
+
+  // ==================== 调试面板状态和函数 ====================
+
+  // 调试面板状态
+  const showDebugPanel = ref(false);
+
+  // 数据映射函数（复制自AutoBetting.vue）
+  const mapPredictionData = (rawPrediction: any): any => {
+    return {
+      ...rawPrediction,
+      confidence: rawPrediction.rank_confidence || rawPrediction.confidence || 0,
+      score: rawPrediction.predicted_final_value || rawPrediction.score || 0,
+      sample_count: rawPrediction.total_games || rawPrediction.sample_count || 0,
+      historical_accuracy: (rawPrediction.win_rate || 0) / 100,
+      symbol: rawPrediction.symbol,
+      predicted_rank: rawPrediction.predicted_rank
+    };
+  };
+
+  // 评估预测是否符合策略条件（复制自AutoBetting.vue）
+  const evaluatePredictionMatch = (prediction: any): boolean => {
+    // 对于排名下注策略，首先检查排名是否在选中范围内
+    if (props.config.strategy === 'rank_betting') {
+      if (!props.config.rank_betting_enabled_ranks.includes(prediction.predicted_rank)) {
+        return false;
+      }
+    } else {
+      // 非排名下注策略的基础条件检查
+      if (prediction.confidence < props.config.confidence_threshold) return false;
+      if (prediction.score < props.config.score_gap_threshold) return false;
+      if (prediction.sample_count < props.config.min_sample_count) return false;
+      if (prediction.historical_accuracy < props.config.historical_accuracy_threshold) return false;
+    }
+
+    // 基础策略条件
+    if (prediction.confidence < props.config.confidence_threshold) return false;
+    if (prediction.score < props.config.score_gap_threshold) return false;
+    if (prediction.sample_count < props.config.min_sample_count) return false;
+    if (prediction.historical_accuracy < props.config.historical_accuracy_threshold) return false;
+
+    // 历史表现过滤器
+    if (props.config.enable_win_rate_filter && (prediction.win_rate || 0) < props.config.min_win_rate_threshold * 100)
+      return false;
+    if (
+      props.config.enable_top3_rate_filter &&
+      (prediction.top3_rate || 0) < props.config.min_top3_rate_threshold * 100
+    )
+      return false;
+    if (props.config.enable_avg_rank_filter && (prediction.avg_rank || 3) > props.config.max_avg_rank_threshold)
+      return false;
+    if (props.config.enable_stability_filter && (prediction.value_stddev || 0) > props.config.max_stability_threshold)
+      return false;
+
+    // 评分过滤器
+    if (
+      props.config.enable_absolute_score_filter &&
+      (prediction.absolute_score || 0) < props.config.min_absolute_score_threshold * 100
+    )
+      return false;
+    if (
+      props.config.enable_relative_score_filter &&
+      (prediction.relative_score || 0) < props.config.min_relative_score_threshold * 100
+    )
+      return false;
+    if (
+      props.config.enable_h2h_score_filter &&
+      (prediction.h2h_score || 0) < props.config.min_h2h_score_threshold * 100
+    )
+      return false;
+
+    // 市场动态过滤器
+    if (props.config.enable_change_5m_filter) {
+      const change5m = prediction.change_5m || 0;
+      if (change5m < props.config.min_change_5m_threshold || change5m > props.config.max_change_5m_threshold)
+        return false;
+    }
+    if (props.config.enable_change_1h_filter) {
+      const change1h = prediction.change_1h || 0;
+      if (change1h < props.config.min_change_1h_threshold || change1h > props.config.max_change_1h_threshold)
+        return false;
+    }
+    if (props.config.enable_change_4h_filter) {
+      const change4h = prediction.change_4h || 0;
+      if (change4h < props.config.min_change_4h_threshold || change4h > props.config.max_change_4h_threshold)
+        return false;
+    }
+    if (props.config.enable_change_24h_filter) {
+      const change24h = prediction.change_24h || 0;
+      if (change24h < props.config.min_change_24h_threshold || change24h > props.config.max_change_24h_threshold)
+        return false;
+    }
+
+    return true;
+  };
+
+  // 调试工具函数
+  const getTokenConfidence = (token: any): number => {
+    return token.rank_confidence || token.confidence || 0;
+  };
+
+  const getTokenScore = (token: any): number => {
+    return token.predicted_final_value || token.score || 0;
+  };
+
+  const getTokenSampleCount = (token: any): number => {
+    return token.total_games || token.sample_count || 0;
+  };
+
+  const getTokenHistoricalAccuracy = (token: any): number => {
+    return (token.win_rate || 0) / 100;
+  };
+
+  const isTokenMatching = (token: any): boolean => {
+    const prediction = mapPredictionData(token);
+    return evaluatePredictionMatch(prediction);
+  };
+
+  const getTokenDebugClass = (token: any): string => {
+    const isMatching = isTokenMatching(token);
+    return isMatching ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5';
+  };
+
+  const getMetricClass = (value: number, threshold: number, operation: 'gte' | 'lte'): string => {
+    const isPass = operation === 'gte' ? value >= threshold : value <= threshold;
+    return isPass ? 'text-green-400 font-bold' : 'text-red-400 font-bold';
+  };
+
+  const getTokenFailureReasons = (token: any): string[] => {
+    const prediction = mapPredictionData(token);
+    const reasons: string[] = [];
+
+    if (prediction.confidence < props.config.confidence_threshold) {
+      reasons.push(`置信度不足(${prediction.confidence.toFixed(1)}% < ${props.config.confidence_threshold}%)`);
+    }
+    if (prediction.score < props.config.score_gap_threshold) {
+      reasons.push(`分数不足(${prediction.score.toFixed(1)} < ${props.config.score_gap_threshold})`);
+    }
+    if (prediction.sample_count < props.config.min_sample_count) {
+      reasons.push(`样本数不足(${prediction.sample_count} < ${props.config.min_sample_count})`);
+    }
+    if (prediction.historical_accuracy < props.config.historical_accuracy_threshold) {
+      reasons.push(
+        `历史准确率不足(${(prediction.historical_accuracy * 100).toFixed(1)}% < ${(props.config.historical_accuracy_threshold * 100).toFixed(1)}%)`
+      );
+    }
+
+    // 高级过滤器检查
+    if (props.config.enable_win_rate_filter && (prediction.win_rate || 0) < props.config.min_win_rate_threshold * 100) {
+      reasons.push(`胜率过滤器未通过`);
+    }
+    if (
+      props.config.enable_top3_rate_filter &&
+      (prediction.top3_rate || 0) < props.config.min_top3_rate_threshold * 100
+    ) {
+      reasons.push(`保本率过滤器未通过`);
+    }
+    if (
+      props.config.enable_absolute_score_filter &&
+      (prediction.absolute_score || 0) < props.config.min_absolute_score_threshold * 100
+    ) {
+      reasons.push(`绝对分数过滤器未通过`);
+    }
+    if (
+      props.config.enable_relative_score_filter &&
+      (prediction.relative_score || 0) < props.config.min_relative_score_threshold * 100
+    ) {
+      reasons.push(`相对分数过滤器未通过`);
+    }
+
+    return reasons.length > 0 ? reasons : ['未知原因'];
+  };
+
+  // 紧急降低所有门槛
+  const setVeryLowThresholds = () => {
+    window.$dialog?.warning({
+      title: '🚨 紧急降低门槛',
+      content: '这将把所有过滤条件设置为极低的门槛，可能会增加风险。确定要继续吗？',
+      positiveText: '确认降低',
+      negativeText: '取消',
+      onPositiveClick: () => {
+        // 基础门槛大幅降低
+        props.config.confidence_threshold = 10; // 从70%降到10%
+        props.config.score_gap_threshold = 0.1; // 极低分数要求
+        props.config.min_sample_count = 1; // 最少样本数
+        props.config.historical_accuracy_threshold = 0.1; // 极低历史准确率
+
+        // 关闭所有高级过滤器
+        props.config.enable_win_rate_filter = false;
+        props.config.enable_top3_rate_filter = false;
+        props.config.enable_avg_rank_filter = false;
+        props.config.enable_stability_filter = false;
+        props.config.enable_absolute_score_filter = false;
+        props.config.enable_relative_score_filter = false;
+        props.config.enable_h2h_score_filter = false;
+        props.config.enable_change_5m_filter = false;
+        props.config.enable_change_1h_filter = false;
+        props.config.enable_change_4h_filter = false;
+        props.config.enable_change_24h_filter = false;
+
+        window.$message?.success('🚨 已将所有门槛设置为极低水平，请检查匹配结果');
+      }
+    });
+  };
 
   // Methods
   const startAutoBetting = () => emit('startAutoBetting');

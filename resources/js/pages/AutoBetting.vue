@@ -346,49 +346,12 @@
       sample_count: rawPrediction.total_games || rawPrediction.sample_count || 0,
       historical_accuracy: (rawPrediction.win_rate || 0) / 100,
       symbol: rawPrediction.symbol,
-      predicted_rank: rawPrediction.predicted_rank,
-
-      // 🔧 新增：正确映射历史表现过滤器需要的字段
-      win_rate: rawPrediction.win_rate || 0, // 胜率（已经是百分比格式）
-      top3_rate: rawPrediction.top3_rate || 0, // 保本率（已经是百分比格式）
-      avg_rank: rawPrediction.avg_rank || 3, // 平均排名
-      value_stddev: rawPrediction.value_stddev || 0, // 波动性
-
-      // 🔧 新增：正确映射评分过滤器需要的字段
-      absolute_score: rawPrediction.absolute_score || 0, // 绝对分数（已经是百分比格式）
-      relative_score: rawPrediction.relative_score || 0, // 相对分数（已经是百分比格式）
-      h2h_score: rawPrediction.h2h_score || 0, // H2H分数（已经是百分比格式）
-      risk_adjusted_score: rawPrediction.risk_adjusted_score || 0, // 风险调整分数（已经是百分比格式）
-
-      // 🔧 新增：正确映射市场动态过滤器需要的字段
-      change_5m: rawPrediction.change_5m || 0, // 5分钟变化
-      change_1h: rawPrediction.change_1h || 0, // 1小时变化
-      change_4h: rawPrediction.change_4h || 0, // 4小时变化
-      change_24h: rawPrediction.change_24h || 0 // 24小时变化
+      predicted_rank: rawPrediction.predicted_rank
     };
   };
 
   // 评估预测是否符合策略条件
   const evaluatePredictionMatch = (prediction: any): boolean => {
-    // 🔧 调试：打印ONDO的数据和过滤条件
-    if (prediction.symbol === 'ONDO') {
-      console.log('🔍 ONDO 数据调试:');
-      console.log('原始数据:', prediction);
-      console.log('过滤条件:');
-      console.log('- enable_win_rate_filter:', config.enable_win_rate_filter);
-      console.log('- min_win_rate_threshold:', config.min_win_rate_threshold);
-      console.log('- prediction.win_rate:', prediction.win_rate);
-      console.log('- enable_top3_rate_filter:', config.enable_top3_rate_filter);
-      console.log('- min_top3_rate_threshold:', config.min_top3_rate_threshold);
-      console.log('- prediction.top3_rate:', prediction.top3_rate);
-      console.log('- enable_avg_rank_filter:', config.enable_avg_rank_filter);
-      console.log('- max_avg_rank_threshold:', config.max_avg_rank_threshold);
-      console.log('- prediction.avg_rank:', prediction.avg_rank);
-      console.log('- enable_stability_filter:', config.enable_stability_filter);
-      console.log('- max_stability_threshold:', config.max_stability_threshold);
-      console.log('- prediction.value_stddev:', prediction.value_stddev);
-    }
-
     // 对于排名下注策略，首先检查排名是否在选中范围内
     if (config.strategy === 'rank_betting') {
       if (!config.rank_betting_enabled_ranks.includes(prediction.predicted_rank)) {

@@ -345,20 +345,12 @@
               <!-- 🔧 过滤器工具栏 -->
               <div class="mb-3 flex items-center justify-between">
                 <span class="text-sm text-gray-300 font-medium">高级过滤器</span>
-                <div class="flex space-x-2">
-                  <n-button @click="resetAllFilters" :disabled="isRunning" size="tiny" type="error">
-                    <template #icon>
-                      <span>🧹</span>
-                    </template>
-                    清除全部
-                  </n-button>
-                  <n-button @click="resetToDefaults" :disabled="isRunning" size="tiny" type="warning">
-                    <template #icon>
-                      <span>🔄</span>
-                    </template>
-                    重置默认
-                  </n-button>
-                </div>
+                <n-button @click="resetToDefaults" :disabled="isRunning" size="tiny" type="warning">
+                  <template #icon>
+                    <span>🔄</span>
+                  </template>
+                  重置默认
+                </n-button>
               </div>
               <NCollapse size="small">
                 <!-- 历史表现过滤器 -->
@@ -373,11 +365,11 @@
                           v-model:value="props.config.min_win_rate_threshold"
                           :min="0"
                           :max="1"
-                          :step="0.1"
-                          :precision="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_win_rate_filter"
                           size="tiny"
-                          placeholder="0.7"
+                          placeholder="0.70"
                         />
                       </div>
                     </div>
@@ -395,11 +387,11 @@
                           v-model:value="props.config.min_top3_rate_threshold"
                           :min="0"
                           :max="1"
-                          :step="0.1"
-                          :precision="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_top3_rate_filter"
                           size="tiny"
-                          placeholder="0.5"
+                          placeholder="0.50"
                         />
                       </div>
                     </div>
@@ -413,11 +405,11 @@
                           v-model:value="props.config.max_avg_rank_threshold"
                           :min="1"
                           :max="5"
-                          :step="0.1"
-                          :precision="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_avg_rank_filter"
                           size="tiny"
-                          placeholder="3.0"
+                          placeholder="3.00"
                         />
                       </div>
                     </div>
@@ -435,11 +427,11 @@
                           v-model:value="props.config.max_stability_threshold"
                           :min="0"
                           :max="2"
-                          :step="0.1"
-                          :precision="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_stability_filter"
                           size="tiny"
-                          placeholder="0.8"
+                          placeholder="0.80"
                         />
                       </div>
                     </div>
@@ -462,11 +454,11 @@
                           v-model:value="props.config.min_absolute_score_threshold"
                           :min="0"
                           :max="1"
-                          :step="0.1"
-                          :precision="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_absolute_score_filter"
                           size="tiny"
-                          placeholder="0.7"
+                          placeholder="0.70"
                         />
                       </div>
                     </div>
@@ -484,11 +476,11 @@
                           v-model:value="props.config.min_relative_score_threshold"
                           :min="0"
                           :max="1"
-                          :step="0.1"
-                          :precision="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_relative_score_filter"
                           size="tiny"
-                          placeholder="0.5"
+                          placeholder="0.50"
                         />
                       </div>
                     </div>
@@ -506,11 +498,11 @@
                           v-model:value="props.config.min_h2h_score_threshold"
                           :min="0"
                           :max="1"
-                          :step="0.1"
-                          :precision="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_h2h_score_filter"
                           size="tiny"
-                          placeholder="0.7"
+                          placeholder="0.70"
                         />
                       </div>
                     </div>
@@ -528,11 +520,11 @@
                           v-model:value="props.config.min_risk_adjusted_threshold"
                           :min="0"
                           :max="1"
-                          :step="0.1"
-                          :precision="1"
+                          :step="0.01"
+                          :precision="2"
                           :disabled="isRunning || !props.config.enable_risk_adjusted_filter"
                           size="tiny"
-                          placeholder="0.6"
+                          placeholder="0.60"
                         />
                       </div>
                     </div>
@@ -761,37 +753,6 @@
         props.config.rank_betting_enabled_ranks.splice(index, 1);
       }
     }
-  };
-
-  // 🧹 清除全部过滤器
-  const resetAllFilters = () => {
-    window.$dialog?.warning({
-      title: '确认清除',
-      content: '确定要清除所有过滤器吗？这将关闭所有高级过滤条件。',
-      positiveText: '确认清除',
-      negativeText: '取消',
-      onPositiveClick: () => {
-        // 历史表现过滤器
-        props.config.enable_win_rate_filter = false;
-        props.config.enable_top3_rate_filter = false;
-        props.config.enable_avg_rank_filter = false;
-        props.config.enable_stability_filter = false;
-
-        // 评分过滤器
-        props.config.enable_absolute_score_filter = false;
-        props.config.enable_relative_score_filter = false;
-        props.config.enable_h2h_score_filter = false;
-        props.config.enable_risk_adjusted_filter = false;
-
-        // 市场动态过滤器
-        props.config.enable_change_5m_filter = false;
-        props.config.enable_change_1h_filter = false;
-        props.config.enable_change_4h_filter = false;
-        props.config.enable_change_24h_filter = false;
-
-        window.$message?.success('🧹 已清除全部过滤器，所有过滤器已关闭');
-      }
-    });
   };
 
   // 🔄 重置为默认配置

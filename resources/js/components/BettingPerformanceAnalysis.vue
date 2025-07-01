@@ -154,7 +154,7 @@
   const searchKeyword = ref('');
   const backendStats = ref<any>({});
 
-  // 天数选项
+  // 天数选项 - 确保所有值都符合后端验证要求（-1或大于0的天数）
   const dayOptions = [
     { label: '7天', value: 7 },
     { label: '30天', value: 30 },
@@ -318,7 +318,20 @@
 
     loading.value = true;
     try {
-      const response = await bettingAnalysisApi.getPerformanceAnalysis(props.uid, selectedDays.value);
+      // 🔧 修复：确保days参数符合后端验证要求（-1或大于0的天数）
+      let daysParam = selectedDays.value;
+
+      // 验证并修正参数
+      if (daysParam === null || daysParam === undefined || daysParam === 0) {
+        daysParam = -1; // 默认使用全部历史
+      } else if (daysParam > 0) {
+        daysParam = Math.max(1, Math.floor(daysParam)); // 确保是大于0的整数
+      } else if (daysParam !== -1) {
+        daysParam = -1; // 其他无效值都改为全部历史
+      }
+
+      console.log('📊 发送API请求，days参数:', daysParam);
+      const response = await bettingAnalysisApi.getPerformanceAnalysis(props.uid, daysParam);
 
       if (response.data.success) {
         const data = response.data.data;
@@ -346,6 +359,7 @@
         throw new Error(response.data.message || '获取投注记录失败');
       }
     } catch (error) {
+      console.error('📊 API请求失败:', error);
       handleError(error, {
         showToast: true,
         fallbackMessage: '获取投注记录失败'
@@ -358,6 +372,7 @@
   // 监听天数变化并重新获取数据
   const refreshOnDaysChange = async () => {
     if (props.uid) {
+      console.log('📊 天数选择变化，当前值:', selectedDays.value);
       await refreshAnalysis();
     }
   };
@@ -392,6 +407,7 @@
 
   // 组件挂载时获取数据
   onMounted(async () => {
+    console.log('📊 组件挂载，初始参数:', { uid: props.uid, selectedDays: selectedDays.value });
     if (props.uid) {
       await refreshAnalysis();
     }

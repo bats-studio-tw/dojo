@@ -14,13 +14,6 @@
               <span>{{ websocketStatus.message }}</span>
               <button v-if="!isConnected" @click="reconnectWebSocket()" class="text-xs underline">重连</button>
             </div>
-            <router-link
-              to="/auto-betting"
-              class="flex items-center rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors duration-200 space-x-2 hover:bg-purple-700"
-            >
-              <span>🤖</span>
-              <span>自动下注控制</span>
-            </router-link>
           </div>
         </div>
 

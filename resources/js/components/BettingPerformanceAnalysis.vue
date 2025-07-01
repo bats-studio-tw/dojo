@@ -24,34 +24,48 @@
       </div>
 
       <!-- 统计卡片 -->
-      <div v-if="bettingRecords.length > 0" class="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div v-if="bettingRecords.length > 0" class="grid grid-cols-2 gap-4 md:grid-cols-6">
         <div
           class="border border-cyan-500/30 rounded-lg from-cyan-500/10 to-blue-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-cyan-400/50 hover:shadow-cyan-500/20"
         >
-          <div class="text-sm text-cyan-300">总下注次数</div>
+          <div class="text-xs text-cyan-300">总下注次数</div>
           <div class="text-xl text-cyan-400 font-bold">{{ bettingStats.totalBets }}</div>
-          <div class="text-xs text-cyan-200/70">{{ selectedDays }}天内</div>
+          <div class="text-xs text-cyan-200/70">包括失败下注</div>
+        </div>
+        <div
+          class="border border-blue-500/30 rounded-lg from-blue-500/10 to-indigo-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-blue-400/50 hover:shadow-blue-500/20"
+        >
+          <div class="text-xs text-blue-300">已结算次数</div>
+          <div class="text-xl text-blue-400 font-bold">{{ bettingStats.settledBets }}</div>
+          <div class="text-xs text-blue-200/70">有结果数据</div>
         </div>
         <div
           class="border border-emerald-500/30 rounded-lg from-emerald-500/10 to-green-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-emerald-400/50 hover:shadow-emerald-500/20"
         >
-          <div class="text-sm text-emerald-300">成功率</div>
-          <div class="text-xl text-emerald-400 font-bold">{{ bettingStats.successRate.toFixed(1) }}%</div>
-          <div class="text-xs text-emerald-200/70">前三名率</div>
+          <div class="text-xs text-emerald-300">盈利次数</div>
+          <div class="text-xl text-emerald-400 font-bold">{{ bettingStats.successfulBets }}</div>
+          <div class="text-xs text-emerald-200/70">前三名或保本</div>
+        </div>
+        <div
+          class="border border-red-500/30 rounded-lg from-red-500/10 to-pink-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-red-400/50 hover:shadow-red-500/20"
+        >
+          <div class="text-xs text-red-300">亏损次数</div>
+          <div class="text-xl text-red-400 font-bold">{{ bettingStats.failedBets }}</div>
+          <div class="text-xs text-red-200/70">第四名及以后</div>
         </div>
         <div
           class="border border-violet-500/30 rounded-lg from-violet-500/10 to-purple-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-violet-400/50 hover:shadow-violet-500/20"
         >
-          <div class="text-sm text-violet-300">成功次数</div>
-          <div class="text-xl text-violet-400 font-bold">{{ bettingStats.successfulBets }}</div>
-          <div class="text-xs text-violet-200/70">前三名</div>
+          <div class="text-xs text-violet-300">胜率</div>
+          <div class="text-xl text-violet-400 font-bold">{{ bettingStats.successRate.toFixed(1) }}%</div>
+          <div class="text-xs text-violet-200/70">已结算基准</div>
         </div>
         <div
           class="border border-amber-500/30 rounded-lg from-amber-500/10 to-orange-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-amber-400/50 hover:shadow-amber-500/20"
         >
-          <div class="text-sm text-amber-300">失败次数</div>
-          <div class="text-xl text-red-400 font-bold">{{ bettingStats.failedBets }}</div>
-          <div class="text-xs text-amber-200/70">第四名及以后</div>
+          <div class="text-xs text-amber-300">保本率</div>
+          <div class="text-xl text-amber-400 font-bold">{{ bettingStats.breakEvenRate.toFixed(1) }}%</div>
+          <div class="text-xs text-amber-200/70">投资回报</div>
         </div>
       </div>
 
@@ -62,8 +76,10 @@
             v-model:value="recordFilter"
             :options="[
               { label: '全部记录', value: 'all' },
-              { label: '成功记录', value: 'success' },
-              { label: '失败记录', value: 'failed' }
+              { label: '盈利记录', value: 'success' },
+              { label: '亏损记录', value: 'failed' },
+              { label: '已结算', value: 'settled' },
+              { label: '未结算', value: 'unsettled' }
             ]"
             style="width: 150px"
             size="small"
@@ -136,6 +152,7 @@
   const selectedDays = ref(30);
   const recordFilter = ref('all');
   const searchKeyword = ref('');
+  const backendStats = ref<any>({});
 
   // 天数选项
   const dayOptions = [
@@ -178,6 +195,12 @@
       render: (row: any) => row.token_symbol
     },
     {
+      title: '下注金额',
+      key: 'bet_amount',
+      width: 100,
+      render: (row: any) => (row.bet_amount ? `$${row.bet_amount.toFixed(2)}` : '-')
+    },
+    {
       title: '预测排名',
       key: 'predicted_rank',
       width: 100,
@@ -187,15 +210,28 @@
       title: '实际排名',
       key: 'actual_rank',
       width: 100,
-      render: (row: any) => row.actual_rank || '-'
+      render: (row: any) => row.actual_rank || '⏳'
     },
     {
-      title: '结果',
-      key: 'is_top3',
+      title: '盈亏',
+      key: 'actual_profit',
+      width: 100,
+      render: (row: any) => {
+        if (row.actual_profit === undefined || row.actual_profit === null) return '-';
+        const profit = Number(row.actual_profit);
+        const color = profit > 0 ? 'text-green-400' : profit < 0 ? 'text-red-400' : 'text-gray-400';
+        const prefix = profit > 0 ? '+' : '';
+        return `<span class="${color}">${prefix}$${profit.toFixed(2)}</span>`;
+      }
+    },
+    {
+      title: '状态',
+      key: 'status',
       width: 80,
       render: (row: any) => {
-        if (!row.actual_rank) return '⏳ 待定';
-        return row.actual_rank <= 3 ? '✅ 成功' : '❌ 失败';
+        if (!row.success) return '❌ 下注失败';
+        if (!row.actual_rank) return '⏳ 待结算';
+        return row.actual_rank <= 3 ? '✅ 盈利' : '📉 亏损';
       }
     }
   ];
@@ -207,19 +243,40 @@
     pageSizes: [10, 20, 50, 100]
   };
 
-  // 计算投注统计
+  // 🔧 修复：使用后端返回的正确统计数据
   const bettingStats = computed(() => {
-    const records = bettingRecords.value.filter((r) => r.success && r.actual_rank !== null);
-    const totalBets = records.length;
-    const successfulBets = records.filter((r) => r.actual_rank <= 3).length;
-    const failedBets = records.filter((r) => r.actual_rank > 3).length;
-    const successRate = totalBets > 0 ? (successfulBets / totalBets) * 100 : 0;
+    // 优先使用后端统计数据
+    if (backendStats.value && Object.keys(backendStats.value).length > 0) {
+      const stats = backendStats.value;
+      return {
+        totalBets: stats.total_bets || 0, // 真实的总下注次数（包括成功和失败的）
+        successfulBets:
+          (stats.betting_distribution?.winning_bets || 0) + (stats.betting_distribution?.break_even_bets || 0), // 盈利+保本的下注
+        failedBets: stats.betting_distribution?.losing_bets || 0, // 亏损的下注
+        successRate: stats.win_rate_percentage || 0, // 后端计算的胜率
+        settledBets: stats.settled_bets || 0, // 有实际结果的下注数
+        totalAmount: stats.total_amount_invested || 0, // 总投资金额
+        actualProfitLoss: stats.actual_profit_loss || 0, // 实际盈亏
+        breakEvenRate: stats.break_even_rate || 0 // 保本率
+      };
+    }
+
+    // 兜底：如果没有后端数据，使用前端计算（但提示数据可能不完整）
+    const settledRecords = bettingRecords.value.filter((r) => r.success && r.actual_rank !== null);
+    const allRecords = bettingRecords.value;
+    const successfulBets = settledRecords.filter((r) => r.actual_rank <= 3).length;
+    const failedBets = settledRecords.filter((r) => r.actual_rank > 3).length;
+    const successRate = settledRecords.length > 0 ? (successfulBets / settledRecords.length) * 100 : 0;
 
     return {
-      totalBets,
+      totalBets: allRecords.length, // 所有记录数
       successfulBets,
       failedBets,
-      successRate
+      successRate,
+      settledBets: settledRecords.length,
+      totalAmount: 0,
+      actualProfitLoss: 0,
+      breakEvenRate: 0
     };
   });
 
@@ -229,9 +286,13 @@
 
     // 按状态过滤
     if (recordFilter.value === 'success') {
-      filtered = filtered.filter((r) => r.actual_rank <= 3);
+      filtered = filtered.filter((r) => r.success && r.actual_rank && r.actual_rank <= 3);
     } else if (recordFilter.value === 'failed') {
-      filtered = filtered.filter((r) => r.actual_rank > 3);
+      filtered = filtered.filter((r) => !r.success || (r.actual_rank && r.actual_rank > 3));
+    } else if (recordFilter.value === 'settled') {
+      filtered = filtered.filter((r) => r.success && r.actual_rank !== null);
+    } else if (recordFilter.value === 'unsettled') {
+      filtered = filtered.filter((r) => r.success && r.actual_rank === null);
     }
 
     // 按关键词搜索
@@ -258,21 +319,26 @@
 
       if (response.data.success) {
         const data = response.data.data;
-        // 处理详细记录，只保留成功下注且有实际结果的记录
-        bettingRecords.value = (data.detailed_records || [])
-          .filter((record: any) => record.success) // 只显示成功下注的记录
-          .map((record: any) => ({
-            id: record.id,
-            created_at: record.created_at,
-            round_id: record.round_id,
-            token_symbol: record.token_symbol,
-            predicted_rank: record.predicted_rank,
-            actual_rank: record.actual_rank,
-            success: record.success,
-            is_top3: record.actual_rank ? record.actual_rank <= 3 : null
-          }));
+
+        // 🔧 修复：保存后端统计数据，用于显示正确的总下注次数
+        backendStats.value = data.betting_performance || {};
+
+        // 处理详细记录，保留所有记录用于表格显示
+        bettingRecords.value = (data.detailed_records || []).map((record: any) => ({
+          id: record.id,
+          created_at: record.created_at,
+          round_id: record.round_id,
+          token_symbol: record.token_symbol,
+          predicted_rank: record.predicted_rank,
+          actual_rank: record.actual_rank,
+          success: record.success,
+          bet_amount: record.bet_amount,
+          actual_profit: record.actual_profit,
+          is_top3: record.actual_rank ? record.actual_rank <= 3 : null
+        }));
 
         console.log('📊 投注记录数据:', bettingRecords.value.length, '条记录');
+        console.log('📊 后端统计数据:', backendStats.value);
       } else {
         throw new Error(response.data.message || '获取投注记录失败');
       }

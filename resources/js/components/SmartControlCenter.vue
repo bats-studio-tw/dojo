@@ -182,7 +182,7 @@
                 <span class="text-gray-400">历史准确率:</span>
                 <span
                   :class="
-                    getMetricClass(getTokenHistoricalAccuracy(token), config.historical_accuracy_threshold, 'gte')
+                    getMetricClass(getTokenHistoricalAccuracy(token) * 100, config.historical_accuracy_threshold, 'gte')
                   "
                 >
                   {{ (getTokenHistoricalAccuracy(token) * 100).toFixed(1) }}%
@@ -620,17 +620,17 @@
                               <span class="text-xs text-blue-400">ℹ️</span>
                             </label>
                           </template>
-                          Token 在历史预测中获胜的比例。胜率越高表示该 Token 过往表现越稳定。建议设置在 0.65-0.75 之间。
+                          Token 在历史预测中获胜的比例。胜率越高表示该 Token 过往表现越稳定。建议设置在 65-75 之间。
                         </NTooltip>
                         <NInputNumber
                           v-model:value="props.config.min_win_rate_threshold"
                           :min="0"
-                          :max="1"
-                          :step="0.01"
-                          :precision="2"
+                          :max="100"
+                          :step="1"
+                          :precision="1"
                           :disabled="isRunning || !props.config.enable_win_rate_filter"
                           size="tiny"
-                          placeholder="0.70"
+                          placeholder="70"
                         />
                       </div>
                     </div>
@@ -651,17 +651,17 @@
                             </label>
                           </template>
                           Token 排名进入前三的比例（通常前三有奖励，可以保本或盈利）。数值越高表示风险越低。建议设置在
-                          0.50-0.65 之间。
+                          50-65 之间。
                         </NTooltip>
                         <NInputNumber
                           v-model:value="props.config.min_top3_rate_threshold"
                           :min="0"
-                          :max="1"
-                          :step="0.01"
-                          :precision="2"
+                          :max="100"
+                          :step="1"
+                          :precision="1"
                           :disabled="isRunning || !props.config.enable_top3_rate_filter"
                           size="tiny"
-                          placeholder="0.50"
+                          placeholder="50"
                         />
                       </div>
                     </div>
@@ -1358,7 +1358,7 @@
       onPositiveClick: () => {
         // 基础门槛大幅降低
         props.config.confidence_threshold = 10; // 从70%降到10%
-        props.config.score_gap_threshold = 0.1; // 极低分数要求
+        props.config.score_gap_threshold = 1; // 极低分数要求
         props.config.min_sample_count = 1; // 最少样本数
         props.config.historical_accuracy_threshold = 1; // 极低历史准确率 1%
 

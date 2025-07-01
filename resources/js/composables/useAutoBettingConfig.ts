@@ -90,7 +90,7 @@ export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token'> = {
   bet_amount: 200,
   daily_stop_loss_percentage: 15,
   confidence_threshold: 80, // 降低至80%，适应NEAR 82%的情况
-  score_gap_threshold: 60.0, // 降低至60，更宽松的分数要求
+  score_gap_threshold: 60, // 降低至60，更宽松的分数要求
   min_total_games: 1, // 降低至1，适应样本不足现实
   historical_accuracy_threshold: 10, // 10%，更宽松的历史准确率要求 (统一为0-100)
   min_sample_count: 1, // 降低至1，适应样本不足现实
@@ -150,7 +150,7 @@ export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token'> = {
   max_change_1h_threshold: 4.0,
   enable_change_4h_filter: false, // 默认关闭
   min_change_4h_threshold: -8.0,
-  max_change_4h_threshold: 10.0,
+  max_change_4h_threshold: 10,
   enable_change_24h_filter: false, // 默认关闭，变化范围很大
   min_change_24h_threshold: -12.0, // 适应VANA +16.81%等情况
   max_change_24h_threshold: 18.0
@@ -254,7 +254,7 @@ export const strategyTemplates = {
     max_avg_rank_threshold: 2.5,
     // 波動
     enable_stability_filter: true,
-    max_stability_threshold: 90, // 90% (统一为0-100)
+    max_stability_threshold: 0.9, // 0.9 (标准差小数格式)
     // 僅保留 24 h 正動能
     enable_change_24h_filter: true,
     min_change_24h_threshold: 0,
@@ -324,7 +324,7 @@ export const strategyTemplates = {
     min_absolute_score_threshold: 97,
     // 波動 & 動能
     enable_stability_filter: true,
-    max_stability_threshold: 0.03, // 0.03% (统一为0-100)
+    max_stability_threshold: 0.03, // 0.03 (标准差小数格式)
     enable_change_24h_filter: true,
     min_change_24h_threshold: 2.0,
     max_change_24h_threshold: 100, // 設定上限值
@@ -391,17 +391,17 @@ export const strategyTemplates = {
     min_sample_count: 3,
     // 動能濾器
     enable_change_5m_filter: true,
-    min_change_5m_threshold: 5.0, // 5% (统一为0-100)
+    min_change_5m_threshold: 5, // 5% (统一为0-100)
     max_change_5m_threshold: 100, // 設定上限值
     enable_change_1h_filter: true,
-    min_change_1h_threshold: 20.0, // 20% (统一为0-100)
+    min_change_1h_threshold: 20, // 20% (统一为0-100)
     max_change_1h_threshold: 100, // 設定上限值
     enable_change_24h_filter: true,
-    min_change_24h_threshold: 50.0, // 50% (统一为0-100)
+    min_change_24h_threshold: 50, // 50% (统一为0-100)
     max_change_24h_threshold: 100, // 設定上限值
     // 波動
     enable_stability_filter: true,
-    max_stability_threshold: 120, // 120% (统一为0-100)
+    max_stability_threshold: 1.2, // 1.2 (标准差小数格式)
     // 馬丁格爾
     enable_martingale: true,
     martingale_multiplier: 2.0,
@@ -464,13 +464,13 @@ export const strategyTemplates = {
     min_top3_rate_threshold: 60, // 60% (统一为0-100)
     // 波動
     enable_stability_filter: true,
-    max_stability_threshold: 0.14, // 0.14% (统一为0-100)
+    max_stability_threshold: 0.14, // 0.14 (标准差小数格式)
     // 動能
     enable_change_1h_filter: true,
-    min_change_1h_threshold: 5.0, // 5% (统一为0-100)
+    min_change_1h_threshold: 5, // 5% (统一为0-100)
     max_change_1h_threshold: 100, // 設定上限值
     enable_change_24h_filter: true,
-    min_change_24h_threshold: 100.0, // 100% (统一为0-100)
+    min_change_24h_threshold: 100, // 100% (统一为0-100)
     max_change_24h_threshold: 100, // 設定上限值
     // 風控
     enable_kelly_criterion: true,
@@ -522,7 +522,7 @@ export const strategyTemplates = {
     name: '🎯 智能排名策略',
     description: '基于排名下注，参数要求最宽松。选择TOP1、TOP2等排名进行下注。',
     confidence_threshold: 0, // 排名下注不使用置信度
-    score_gap_threshold: 0.0, // 排名下注不使用分数差距
+    score_gap_threshold: 0, // 排名下注不使用分数差距
     min_total_games: 1, // 最低要求
     historical_accuracy_threshold: 0, // 排名下注不使用历史准确率 (统一为0-100)
     min_sample_count: 1, // 最低要求
@@ -554,31 +554,31 @@ export const strategyTemplates = {
     rank_betting_max_ranks: 5,
     // 🎯 智能排名策略：关闭所有过滤器
     enable_win_rate_filter: false,
-    min_win_rate_threshold: 0.0,
+    min_win_rate_threshold: 0,
     enable_top3_rate_filter: false,
-    min_top3_rate_threshold: 0.0,
+    min_top3_rate_threshold: 0,
     enable_avg_rank_filter: false,
-    max_avg_rank_threshold: 0.0,
+    max_avg_rank_threshold: 0,
     enable_stability_filter: false,
-    max_stability_threshold: 0.0,
+    max_stability_threshold: 0,
     enable_absolute_score_filter: false,
-    min_absolute_score_threshold: 0.0,
+    min_absolute_score_threshold: 0,
     enable_relative_score_filter: false,
-    min_relative_score_threshold: 0.0,
+    min_relative_score_threshold: 0,
     enable_h2h_score_filter: false,
-    min_h2h_score_threshold: 0.0,
+    min_h2h_score_threshold: 0,
     enable_change_5m_filter: false,
-    min_change_5m_threshold: 0.0,
-    max_change_5m_threshold: 0.0,
+    min_change_5m_threshold: 0,
+    max_change_5m_threshold: 0,
     enable_change_1h_filter: false,
-    min_change_1h_threshold: 0.0,
-    max_change_1h_threshold: 0.0,
+    min_change_1h_threshold: 0,
+    max_change_1h_threshold: 0,
     enable_change_4h_filter: false,
-    min_change_4h_threshold: 0.0,
-    max_change_4h_threshold: 0.0,
+    min_change_4h_threshold: 0,
+    max_change_4h_threshold: 0,
     enable_change_24h_filter: false,
-    min_change_24h_threshold: 0.0,
-    max_change_24h_threshold: 0.0
+    min_change_24h_threshold: 0,
+    max_change_24h_threshold: 0
   }
 };
 

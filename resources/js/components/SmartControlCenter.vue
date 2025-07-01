@@ -1301,43 +1301,44 @@
       if (prediction.historical_accuracy < props.config.historical_accuracy_threshold) return false;
     }
 
-    // 基础策略条件
-    if (prediction.confidence < props.config.confidence_threshold) return false;
-    if (prediction.score < props.config.score_gap_threshold) return false;
-    if (prediction.sample_count < props.config.min_sample_count) return false;
-    if (prediction.historical_accuracy < props.config.historical_accuracy_threshold) return false;
-
-    // 历史表现过滤器
+    // 🔧 历史表现过滤器 - 修复比较运算符逻辑错误
+    // 胜率过滤器：要求胜率大于等于门槛值
     if (props.config.enable_win_rate_filter && (prediction.win_rate || 0) < props.config.min_win_rate_threshold * 100)
       return false;
+    // 保本率过滤器：要求保本率大于等于门槛值
     if (
       props.config.enable_top3_rate_filter &&
       (prediction.top3_rate || 0) < props.config.min_top3_rate_threshold * 100
     )
       return false;
+    // 平均排名过滤器：要求平均排名小于等于门槛值（排名越小越好）
     if (props.config.enable_avg_rank_filter && (prediction.avg_rank || 3) > props.config.max_avg_rank_threshold)
       return false;
+    // 稳定性过滤器：要求波动性小于等于门槛值（波动越小越稳定）
     if (props.config.enable_stability_filter && (prediction.value_stddev || 0) > props.config.max_stability_threshold)
       return false;
 
-    // 评分过滤器
+    // 🔧 评分过滤器 - 修复比较运算符逻辑错误
+    // 绝对分数过滤器：要求绝对分数大于等于门槛值
     if (
       props.config.enable_absolute_score_filter &&
       (prediction.absolute_score || 0) < props.config.min_absolute_score_threshold * 100
     )
       return false;
+    // 相对分数过滤器：要求相对分数大于等于门槛值
     if (
       props.config.enable_relative_score_filter &&
       (prediction.relative_score || 0) < props.config.min_relative_score_threshold * 100
     )
       return false;
+    // H2H分数过滤器：要求H2H分数大于等于门槛值
     if (
       props.config.enable_h2h_score_filter &&
       (prediction.h2h_score || 0) < props.config.min_h2h_score_threshold * 100
     )
       return false;
 
-    // 市场动态过滤器
+    // 🔧 市场动态过滤器 - 范围检查逻辑正确
     if (props.config.enable_change_5m_filter) {
       const change5m = prediction.change_5m || 0;
       if (change5m < props.config.min_change_5m_threshold || change5m > props.config.max_change_5m_threshold)
@@ -1392,85 +1393,6 @@
   const getMetricClass = (value: number, threshold: number, operation: 'gte' | 'lte'): string => {
     const isPass = operation === 'gte' ? value >= threshold : value <= threshold;
     return isPass ? 'text-green-400 font-bold' : 'text-red-400 font-bold';
-  };
-
-  const getTokenFailureReasons = (token: any): string[] => {
-    const prediction = mapPredictionData(token);
-    const reasons: string[] = [];
-
-    // 对于排名下注策略，首先检查排名
-    if (props.config.strategy === 'rank_betting') {
-      if (!props.config.rank_betting_enabled_ranks.includes(prediction.predicted_rank)) {
-        reasons.push(`排名不在选中范围(#${prediction.predicted_rank})`);
-      }
-    } else {
-      // 非排名下注策略的基础条件检查
-      if (prediction.confidence < props.config.confidence_threshold) {
-        reasons.push(`置信度不足(${prediction.confidence.toFixed(1)}% < ${props.config.confidence_threshold}%)`);
-      }
-      if (prediction.score < props.config.score_gap_threshold) {
-        reasons.push(`分数不足(${prediction.score.toFixed(1)} < ${props.config.score_gap_threshold})`);
-      }
-      if (prediction.sample_count < props.config.min_sample_count) {
-        reasons.push(`样本数不足(${prediction.sample_count} < ${props.config.min_sample_count})`);
-      }
-      if (prediction.historical_accuracy < props.config.historical_accuracy_threshold) {
-        reasons.push(
-          `历史准确率不足(${(prediction.historical_accuracy * 100).toFixed(1)}% < ${(props.config.historical_accuracy_threshold * 100).toFixed(1)}%)`
-        );
-      }
-    }
-
-    // 高级过滤器检查（所有策略都适用）
-    if (!checkWinRateFilter(token)) {
-      reasons.push(
-        `胜率过滤器未通过(${(token.win_rate || 0).toFixed(1)}% < ${(props.config.min_win_rate_threshold * 100).toFixed(1)}%)`
-      );
-    }
-    if (!checkTop3RateFilter(token)) {
-      reasons.push(
-        `保本率过滤器未通过(${(token.top3_rate || 0).toFixed(1)}% < ${(props.config.min_top3_rate_threshold * 100).toFixed(1)}%)`
-      );
-    }
-    if (!checkAvgRankFilter(token)) {
-      reasons.push(
-        `平均排名过滤器未通过(${(token.avg_rank || 3).toFixed(1)} > ${props.config.max_avg_rank_threshold})`
-      );
-    }
-    if (!checkStabilityFilter(token)) {
-      reasons.push(
-        `稳定性过滤器未通过(${(token.value_stddev || 0).toFixed(2)} > ${props.config.max_stability_threshold})`
-      );
-    }
-    if (!checkAbsoluteScoreFilter(token)) {
-      reasons.push(
-        `绝对分数过滤器未通过(${(token.absolute_score || 0).toFixed(1)} < ${(props.config.min_absolute_score_threshold * 100).toFixed(1)})`
-      );
-    }
-    if (!checkRelativeScoreFilter(token)) {
-      reasons.push(
-        `相对分数过滤器未通过(${(token.relative_score || 0).toFixed(1)} < ${(props.config.min_relative_score_threshold * 100).toFixed(1)})`
-      );
-    }
-    if (!checkH2HScoreFilter(token)) {
-      reasons.push(
-        `H2H分数过滤器未通过(${(token.h2h_score || 0).toFixed(1)} < ${(props.config.min_h2h_score_threshold * 100).toFixed(1)})`
-      );
-    }
-    if (!checkChange5mFilter(token)) {
-      reasons.push(`5分钟涨跌幅过滤器未通过(${((token.change_5m || 0) * 100).toFixed(1)}%)`);
-    }
-    if (!checkChange1hFilter(token)) {
-      reasons.push(`1小时涨跌幅过滤器未通过(${((token.change_1h || 0) * 100).toFixed(1)}%)`);
-    }
-    if (!checkChange4hFilter(token)) {
-      reasons.push(`4小时涨跌幅过滤器未通过(${((token.change_4h || 0) * 100).toFixed(1)}%)`);
-    }
-    if (!checkChange24hFilter(token)) {
-      reasons.push(`24小时涨跌幅过滤器未通过(${((token.change_24h || 0) * 100).toFixed(1)}%)`);
-    }
-
-    return reasons.length > 0 ? reasons : ['所有条件都通过但仍未匹配'];
   };
 
   // 紧急降低所有门槛

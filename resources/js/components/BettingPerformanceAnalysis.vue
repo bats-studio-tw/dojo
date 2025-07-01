@@ -1,9 +1,8 @@
 <template>
-  <div class="betting-performance-analysis">
-    <!-- 分析控制面板 -->
-    <div class="mb-6 border border-white/20 rounded-lg bg-white/10 p-4 shadow-2xl backdrop-blur-lg">
-      <div class="mb-4 flex items-center justify-between">
-        <h3 class="text-lg text-white font-semibold">📊 投注表现分析</h3>
+  <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="📊 投注表现分析" size="large">
+    <div class="space-y-4">
+      <!-- 分析控制面板 -->
+      <div class="flex items-center justify-between">
         <div class="flex items-center space-x-3">
           <div class="flex items-center space-x-2">
             <label class="text-sm text-gray-300">分析周期:</label>
@@ -55,66 +54,72 @@
           <div class="text-xs text-amber-200/70">第四名及以后</div>
         </div>
       </div>
-    </div>
 
-    <!-- 筛选和控制 -->
-    <div v-if="bettingRecords.length > 0" class="mb-4 flex items-center justify-between">
-      <div class="flex items-center space-x-4">
-        <n-select
-          v-model:value="recordFilter"
-          :options="[
-            { label: '全部记录', value: 'all' },
-            { label: '成功记录', value: 'success' },
-            { label: '失败记录', value: 'failed' }
-          ]"
-          style="width: 150px"
+      <!-- 筛选和控制 -->
+      <div v-if="bettingRecords.length > 0" class="flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+          <n-select
+            v-model:value="recordFilter"
+            :options="[
+              { label: '全部记录', value: 'all' },
+              { label: '成功记录', value: 'success' },
+              { label: '失败记录', value: 'failed' }
+            ]"
+            style="width: 150px"
+            size="small"
+          />
+          <n-input
+            v-model:value="searchKeyword"
+            placeholder="搜索代币..."
+            clearable
+            size="small"
+            style="width: 200px"
+          />
+        </div>
+        <div class="flex items-center space-x-2">
+          <n-button @click="exportBettingRecords" type="info" size="small">
+            <template #icon>
+              <span>📥</span>
+            </template>
+            导出数据
+          </n-button>
+        </div>
+      </div>
+
+      <!-- 投注记录表格 -->
+      <div v-if="bettingRecords.length > 0" class="rounded-lg bg-black/30 p-4">
+        <n-data-table
+          :columns="recordColumns"
+          :data="filteredBettingRecords"
+          :loading="loading"
+          :pagination="pagination"
+          :scroll-x="600"
           size="small"
+          class="betting-records-table"
         />
-        <n-input v-model:value="searchKeyword" placeholder="搜索代币..." clearable size="small" style="width: 200px" />
       </div>
-      <div class="flex items-center space-x-2">
-        <n-button @click="exportBettingRecords" type="info" size="small">
-          <template #icon>
-            <span>📥</span>
-          </template>
-          导出数据
-        </n-button>
+
+      <!-- 加载状态 -->
+      <div v-if="loading" class="flex items-center justify-center py-8">
+        <div class="flex items-center text-cyan-400 space-x-2">
+          <div class="h-4 w-4 animate-spin border-2 border-cyan-400 border-t-transparent rounded-full"></div>
+          <span class="text-sm">正在分析投注表现...</span>
+        </div>
       </div>
-    </div>
 
-    <!-- 投注记录表格 -->
-    <div v-if="bettingRecords.length > 0" class="rounded-lg bg-black/30 p-4">
-      <n-data-table
-        :columns="recordColumns"
-        :data="filteredBettingRecords"
-        :loading="loading"
-        :pagination="pagination"
-        :scroll-x="600"
-        size="small"
-        class="betting-records-table"
-      />
-    </div>
-
-    <!-- 加载状态 -->
-    <div v-if="loading" class="flex items-center justify-center py-8">
-      <div class="flex items-center text-cyan-400 space-x-2">
-        <div class="h-4 w-4 animate-spin border-2 border-cyan-400 border-t-transparent rounded-full"></div>
-        <span class="text-sm">正在分析投注表现...</span>
+      <!-- 无数据状态 -->
+      <div v-if="!loading && bettingRecords.length === 0" class="py-8 text-center text-gray-400">
+        <div class="mb-2 text-2xl">📊</div>
+        <div class="text-sm">暂无投注记录</div>
+        <div class="mt-1 text-xs text-gray-500">开始自动下注后，数据将在此显示</div>
       </div>
     </div>
-
-    <!-- 无数据状态 -->
-    <div v-if="!loading && bettingRecords.length === 0" class="py-8 text-center text-gray-400">
-      <div class="mb-2 text-2xl">📊</div>
-      <div class="text-sm">暂无投注记录</div>
-      <div class="mt-1 text-xs text-gray-500">开始自动下注后，数据将在此显示</div>
-    </div>
-  </div>
+  </NCard>
 </template>
 
 <script setup lang="ts">
   import { ref, onMounted, computed } from 'vue';
-  import { NSelect, NButton, NDataTable, NInput } from 'naive-ui';
+  import { NSelect, NButton, NDataTable, NInput, NCard } from 'naive-ui';
   import { bettingAnalysisApi } from '@/utils/api';
   import { handleError } from '@/utils/errorHandler';
 

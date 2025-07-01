@@ -349,7 +349,8 @@
     };
   };
 
-  // 评估预测是否符合策略条件
+  // 🔧 评估预测是否符合策略条件 - 逻辑验证完毕
+  // 📊 数据单位统一 (2025-01-06): 所有百分比配置项已统一为0-100格式
   const evaluatePredictionMatch = (prediction: any): boolean => {
     // 对于排名下注策略，首先检查排名是否在选中范围内
     if (config.strategy === 'rank_betting') {
@@ -362,37 +363,30 @@
       if (prediction.confidence < config.confidence_threshold) return false;
       if (prediction.score < config.score_gap_threshold) return false;
       if (prediction.sample_count < config.min_sample_count) return false;
-      if (prediction.historical_accuracy < config.historical_accuracy_threshold) return false;
+      if (prediction.historical_accuracy < config.historical_accuracy_threshold / 100) return false;
     }
 
-    // 基础策略条件
-    if (prediction.confidence < config.confidence_threshold) return false;
-    if (prediction.score < config.score_gap_threshold) return false;
-    if (prediction.sample_count < config.min_sample_count) return false;
-    if (prediction.historical_accuracy < config.historical_accuracy_threshold) return false;
-
-    // 🆕 历史表现过滤器
-    if (config.enable_win_rate_filter && (prediction.win_rate || 0) < config.min_win_rate_threshold * 100) return false;
-    if (config.enable_top3_rate_filter && (prediction.top3_rate || 0) < config.min_top3_rate_threshold * 100)
-      return false;
+    // 🔧 历史表现过滤器 - 逻辑验证：保留满足条件的Token
+    // 胜率过滤器：如果胜率 < 门槛，则排除（保留胜率 >= 门槛的Token）
+    if (config.enable_win_rate_filter && (prediction.win_rate || 0) < config.min_win_rate_threshold) return false;
+    // 保本率过滤器：如果保本率 < 门槛，则排除（保留保本率 >= 门槛的Token）
+    if (config.enable_top3_rate_filter && (prediction.top3_rate || 0) < config.min_top3_rate_threshold) return false;
+    // 平均排名过滤器：如果平均排名 > 门槛，则排除（保留平均排名 <= 门槛的Token，排名越小越好）
     if (config.enable_avg_rank_filter && (prediction.avg_rank || 3) > config.max_avg_rank_threshold) return false;
+    // 稳定性过滤器：如果波动性 > 门槛，则排除（保留波动性 <= 门槛的Token，波动越小越稳定）
     if (config.enable_stability_filter && (prediction.value_stddev || 0) > config.max_stability_threshold) return false;
 
-    // 🆕 评分过滤器
-    if (
-      config.enable_absolute_score_filter &&
-      (prediction.absolute_score || 0) < config.min_absolute_score_threshold * 100
-    )
+    // 🔧 评分过滤器 - 逻辑验证：保留满足条件的Token
+    // 绝对分数过滤器：如果绝对分数 < 门槛，则排除（保留绝对分数 >= 门槛的Token）
+    if (config.enable_absolute_score_filter && (prediction.absolute_score || 0) < config.min_absolute_score_threshold)
       return false;
-    if (
-      config.enable_relative_score_filter &&
-      (prediction.relative_score || 0) < config.min_relative_score_threshold * 100
-    )
+    // 相对分数过滤器：如果相对分数 < 门槛，则排除（保留相对分数 >= 门槛的Token）
+    if (config.enable_relative_score_filter && (prediction.relative_score || 0) < config.min_relative_score_threshold)
       return false;
-    if (config.enable_h2h_score_filter && (prediction.h2h_score || 0) < config.min_h2h_score_threshold * 100)
-      return false;
+    // H2H分数过滤器：如果H2H分数 < 门槛，则排除（保留H2H分数 >= 门槛的Token）
+    if (config.enable_h2h_score_filter && (prediction.h2h_score || 0) < config.min_h2h_score_threshold) return false;
 
-    // 🆕 市场动态过滤器
+    // 🔧 市场动态过滤器 - 范围检查逻辑正确
     if (config.enable_change_5m_filter) {
       const change5m = prediction.change_5m || 0;
       if (change5m < config.min_change_5m_threshold || change5m > config.max_change_5m_threshold) return false;

@@ -291,16 +291,12 @@ class AutoBettingController extends Controller
                 ], 422);
             }
 
-            // 检查触发条件
-            $trigger = $this->checkBettingTriggers($currentAnalysis, $config);
-
+            // 根据"前端决策，后端代理"架构，决策逻辑已移至前端
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'trigger_met' => $trigger['met'],
-                    'trigger_details' => $trigger['details'],
                     'current_analysis' => $currentAnalysis,
-                    'recommended_bets' => $trigger['met'] ? $this->calculateBetAmounts($currentAnalysis, $config) : []
+                    'message' => '决策逻辑已移至前端，请在前端进行触发条件检查和下注金额计算'
                 ]
             ]);
         } catch (\Exception $e) {
@@ -311,163 +307,7 @@ class AutoBettingController extends Controller
         }
     }
 
-    /**
-     * 检查下注触发条件
-     */
-    private function checkBettingTriggers(array $analysisData, array $config): array
-    {
-        $details = [];
-        $strategy = $config['strategy'] ?? 'single_bet';
 
-        if (empty($analysisData)) {
-            return [
-                'met' => false,
-                'details' => ['no_data' => '无分析数据']
-            ];
-        }
-
-        // 如果是指定排名下注策略，使用简化的检查逻辑
-        if ($strategy === 'rank_betting') {
-            $enabledRanks = $config['rank_betting_enabled_ranks'] ?? [1, 2, 3];
-            $hasEnabledRanks = false;
-
-            // 检查是否有符合启用排名的预测数据
-            foreach ($analysisData as $token) {
-                $predictedRank = $token['predicted_rank'] ?? 999;
-                if (in_array($predictedRank, $enabledRanks)) {
-                    $hasEnabledRanks = true;
-                    break;
-                }
-            }
-
-            $details['rank_betting_check'] = [
-                'enabled_ranks' => $enabledRanks,
-                'has_matching_ranks' => $hasEnabledRanks,
-                'met' => $hasEnabledRanks
-            ];
-
-            return [
-                'met' => $hasEnabledRanks,
-                'details' => $details
-            ];
-        }
-
-        // 传统策略的复杂条件检查
-        $allConditionsMet = true;
-        $topToken = $analysisData[0] ?? null;
-        $secondToken = $analysisData[1] ?? null;
-
-        // 条件1: 高度信赖分数
-        $confidence = $topToken['rank_confidence'] ?? 0;
-        $confidenceThreshold = $config['confidence_threshold'] ?? 88;
-        $confidenceMet = $confidence >= $confidenceThreshold;
-        $details['confidence'] = [
-            'value' => $confidence,
-            'threshold' => $confidenceThreshold,
-            'met' => $confidenceMet
-        ];
-        if (!$confidenceMet) $allConditionsMet = false;
-
-        // 条件2: 显著分数差距
-        $topScore = $topToken['risk_adjusted_score'] ?? $topToken['final_prediction_score'] ?? 0;
-        $secondScore = $secondToken['risk_adjusted_score'] ?? $secondToken['final_prediction_score'] ?? 0;
-        $scoreGap = $topScore - $secondScore;
-        $scoreGapThreshold = $config['score_gap_threshold'] ?? 6.0;
-        $scoreGapMet = $scoreGap >= $scoreGapThreshold;
-        $details['score_gap'] = [
-            'value' => $scoreGap,
-            'threshold' => $scoreGapThreshold,
-            'met' => $scoreGapMet
-        ];
-        if (!$scoreGapMet) $allConditionsMet = false;
-
-        // 条件3: 充足的历史数据
-        $totalGames = $topToken['total_games'] ?? 0;
-        $minGamesThreshold = $config['min_total_games'] ?? 25;
-        $totalGamesMet = $totalGames >= $minGamesThreshold;
-        $details['total_games'] = [
-            'value' => $totalGames,
-            'threshold' => $minGamesThreshold,
-            'met' => $totalGamesMet
-        ];
-        if (!$totalGamesMet) $allConditionsMet = false;
-
-        return [
-            'met' => $allConditionsMet,
-            'details' => $details
-        ];
-    }
-
-    /**
-     * 计算下注金额
-     */
-    private function calculateBetAmounts(array $analysisData, array $config): array
-    {
-        $betAmount = $config['bet_amount'] ?? 200;
-        $strategy = $config['strategy'] ?? 'single_bet';
-
-        $bets = [];
-
-        if ($strategy === 'single_bet') {
-            // 单点突破策略：只下注预测第一名
-            $topToken = $analysisData[0] ?? null;
-            if ($topToken) {
-                $confidence = $topToken['rank_confidence'] ?? 0;
-
-                $bets[] = [
-                    'symbol' => $topToken['symbol'],
-                    'predicted_rank' => 1,
-                    'bet_amount' => $betAmount,
-                    'confidence' => $confidence
-                ];
-            }
-        } elseif ($strategy === 'rank_betting') {
-            // 指定排名下注策略：按配置的排名进行下注
-            $enabledRanks = $config['rank_betting_enabled_ranks'] ?? [1, 2, 3];
-            $differentAmounts = $config['rank_betting_different_amounts'] ?? false;
-            $amountPerRank = $config['rank_betting_amount_per_rank'] ?? 200;
-
-            // 按预测排名排序
-            usort($analysisData, function($a, $b) {
-                return ($a['predicted_rank'] ?? 999) - ($b['predicted_rank'] ?? 999);
-            });
-
-            foreach ($analysisData as $token) {
-                $predictedRank = $token['predicted_rank'] ?? 999;
-
-                // 只有在启用的排名列表中才下注
-                if (in_array($predictedRank, $enabledRanks)) {
-                    // 计算该排名的下注金额
-                    $rankBetAmount = $amountPerRank;
-                    if ($differentAmounts) {
-                        switch ($predictedRank) {
-                            case 1:
-                                $rankBetAmount = $config['rank_betting_rank1_amount'] ?? 200;
-                                break;
-                            case 2:
-                                $rankBetAmount = $config['rank_betting_rank2_amount'] ?? 200;
-                                break;
-                            case 3:
-                                $rankBetAmount = $config['rank_betting_rank3_amount'] ?? 200;
-                                break;
-                            default:
-                                $rankBetAmount = $amountPerRank;
-                                break;
-                        }
-                    }
-
-                    $bets[] = [
-                        'symbol' => $token['symbol'],
-                        'predicted_rank' => $predictedRank,
-                        'bet_amount' => $rankBetAmount,
-                        'confidence' => $token['rank_confidence'] ?? 0
-                    ];
-                }
-            }
-        }
-
-        return $bets;
-    }
 
     /**
      * 获取当前轮次ID
@@ -532,24 +372,8 @@ class AutoBettingController extends Controller
                 ], 422);
             }
 
-            // 检查触发条件
-            $trigger = $this->checkBettingTriggers($currentAnalysis, $config);
-            if (!$trigger['met']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => '当前条件不满足下注要求',
-                    'trigger_details' => $trigger['details']
-                ], 422);
-            }
-
-            // 计算推荐下注
-            $recommendedBets = $this->calculateBetAmounts($currentAnalysis, $config);
-            if (empty($recommendedBets)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => '无推荐下注方案'
-                ], 422);
-            }
+            // 根据"前端决策，后端代理"架构，决策逻辑已移至前端
+            // 后端不再进行触发条件检查和下注金额计算
 
             // 获取当前轮次ID
             $currentRoundId = $this->getCurrentRoundId();
@@ -560,13 +384,12 @@ class AutoBettingController extends Controller
                 ], 422);
             }
 
-            // 返回下注建议给前端，让前端直接调用API
+            // 返回当前分析数据给前端，让前端进行决策和执行
             return response()->json([
                 'success' => true,
-                'message' => '自动下注条件满足，返回下注建议',
+                'message' => '返回当前分析数据，请在前端进行决策和下注执行',
                 'data' => [
-                    'trigger_details' => $trigger['details'],
-                    'recommended_bets' => $recommendedBets,
+                    'current_analysis' => $currentAnalysis,
                     'round_id' => $currentRoundId,
                     'jwt_token' => $config['jwt_token'],
                     'uid' => $uid

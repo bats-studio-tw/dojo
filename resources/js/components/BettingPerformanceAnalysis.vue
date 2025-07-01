@@ -206,18 +206,7 @@
       width: 100,
       render: (row: any) => row.actual_rank || '⏳'
     },
-    {
-      title: '盈亏',
-      key: 'actual_profit',
-      width: 100,
-      render: (row: any) => {
-        if (row.actual_profit === undefined || row.actual_profit === null) return '-';
-        const profit = Number(row.actual_profit);
-        const color = profit > 0 ? 'text-green-400' : profit < 0 ? 'text-red-400' : 'text-gray-400';
-        const prefix = profit > 0 ? '+' : '';
-        return `<span class="${color}">${prefix}$${profit.toFixed(2)}</span>`;
-      }
-    },
+
     {
       title: '状态',
       key: 'status',
@@ -250,9 +239,7 @@
           (stats.betting_distribution?.winning_bets || 0) + (stats.betting_distribution?.break_even_bets || 0), // 盈利+保本的下注
         failedBets: stats.betting_distribution?.losing_bets || 0, // 亏损的下注
         successRate: stats.win_rate_percentage || 0, // 后端计算的胜率（前三名比例）
-        settledBets: stats.settled_bets || 0, // 有实际结果的下注数
-        totalAmount: stats.total_amount_invested || 0, // 总投资金额
-        actualProfitLoss: stats.actual_profit_loss || 0 // 实际盈亏
+        settledBets: stats.settled_bets || 0 // 有实际结果的下注数
       };
     }
 
@@ -268,9 +255,7 @@
       successfulBets,
       failedBets,
       successRate,
-      settledBets: settledRecords.length,
-      totalAmount: 0,
-      actualProfitLoss: 0
+      settledBets: settledRecords.length
     };
   });
 
@@ -340,7 +325,6 @@
           actual_rank: record.actual_rank,
           success: record.success,
           bet_amount: record.bet_amount,
-          actual_profit: record.actual_profit,
           is_top3: record.actual_rank ? record.actual_rank <= 3 : null
         }));
 

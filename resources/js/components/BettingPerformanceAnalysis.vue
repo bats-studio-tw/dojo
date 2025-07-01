@@ -24,7 +24,7 @@
       </div>
 
       <!-- 统计卡片 -->
-      <div v-if="bettingRecords.length > 0" class="grid grid-cols-2 gap-4 md:grid-cols-6">
+      <div v-if="bettingRecords.length > 0" class="grid grid-cols-2 gap-4 md:grid-cols-5">
         <div
           class="border border-cyan-500/30 rounded-lg from-cyan-500/10 to-blue-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-cyan-400/50 hover:shadow-cyan-500/20"
         >
@@ -44,7 +44,7 @@
         >
           <div class="text-xs text-emerald-300">盈利次数</div>
           <div class="text-xl text-emerald-400 font-bold">{{ bettingStats.successfulBets }}</div>
-          <div class="text-xs text-emerald-200/70">前三名或保本</div>
+          <div class="text-xs text-emerald-200/70">前三名</div>
         </div>
         <div
           class="border border-red-500/30 rounded-lg from-red-500/10 to-pink-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-red-400/50 hover:shadow-red-500/20"
@@ -58,14 +58,7 @@
         >
           <div class="text-xs text-violet-300">胜率</div>
           <div class="text-xl text-violet-400 font-bold">{{ bettingStats.successRate.toFixed(1) }}%</div>
-          <div class="text-xs text-violet-200/70">已结算基准</div>
-        </div>
-        <div
-          class="border border-amber-500/30 rounded-lg from-amber-500/10 to-orange-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-amber-400/50 hover:shadow-amber-500/20"
-        >
-          <div class="text-xs text-amber-300">保本率</div>
-          <div class="text-xl text-amber-400 font-bold">{{ bettingStats.breakEvenRate.toFixed(1) }}%</div>
-          <div class="text-xs text-amber-200/70">投资回报</div>
+          <div class="text-xs text-violet-200/70">前三名比例</div>
         </div>
       </div>
 
@@ -134,7 +127,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, computed, h } from 'vue';
+  import { ref, onMounted, computed } from 'vue';
   import { NSelect, NButton, NDataTable, NInput, NCard } from 'naive-ui';
   import { bettingAnalysisApi } from '@/utils/api';
   import { handleError } from '@/utils/errorHandler';
@@ -214,6 +207,18 @@
       render: (row: any) => row.actual_rank || '⏳'
     },
     {
+      title: '盈亏',
+      key: 'actual_profit',
+      width: 100,
+      render: (row: any) => {
+        if (row.actual_profit === undefined || row.actual_profit === null) return '-';
+        const profit = Number(row.actual_profit);
+        const color = profit > 0 ? 'text-green-400' : profit < 0 ? 'text-red-400' : 'text-gray-400';
+        const prefix = profit > 0 ? '+' : '';
+        return `<span class="${color}">${prefix}$${profit.toFixed(2)}</span>`;
+      }
+    },
+    {
       title: '状态',
       key: 'status',
       width: 80,
@@ -234,7 +239,7 @@
     pageSizes: [10, 20, 50, 100]
   };
 
-  // 🔧 修复：使用后端返回的正确统计数据
+  // 计算投注统计数据
   const bettingStats = computed(() => {
     // 优先使用后端统计数据
     if (backendStats.value && Object.keys(backendStats.value).length > 0) {
@@ -244,11 +249,10 @@
         successfulBets:
           (stats.betting_distribution?.winning_bets || 0) + (stats.betting_distribution?.break_even_bets || 0), // 盈利+保本的下注
         failedBets: stats.betting_distribution?.losing_bets || 0, // 亏损的下注
-        successRate: stats.win_rate_percentage || 0, // 后端计算的胜率
+        successRate: stats.win_rate_percentage || 0, // 后端计算的胜率（前三名比例）
         settledBets: stats.settled_bets || 0, // 有实际结果的下注数
         totalAmount: stats.total_amount_invested || 0, // 总投资金额
-        actualProfitLoss: stats.actual_profit_loss || 0, // 实际盈亏
-        breakEvenRate: stats.break_even_rate || 0 // 保本率
+        actualProfitLoss: stats.actual_profit_loss || 0 // 实际盈亏
       };
     }
 
@@ -266,8 +270,7 @@
       successRate,
       settledBets: settledRecords.length,
       totalAmount: 0,
-      actualProfitLoss: 0,
-      breakEvenRate: 0
+      actualProfitLoss: 0
     };
   });
 

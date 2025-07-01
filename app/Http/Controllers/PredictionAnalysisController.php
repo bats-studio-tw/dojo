@@ -234,13 +234,10 @@ class PredictionAnalysisController extends Controller
             $betsByRank[$actualRank]['total_profit'] += $profit;
         }
 
-        // 计算实际保本率和各种统计
+                // 计算各种统计数据
         $actualROI = $totalAmount > 0 ? ($actualProfitLoss / $totalAmount) * 100 : 0;
         $winRate = $settledBets > 0 ? ($winningBets / $settledBets) * 100 : 0;
         $avgProfitPerBet = $settledBets > 0 ? $actualProfitLoss / $settledBets : 0;
-
-        // 🔧 修复保本率计算：保本率 = 前三名次数 / 已结算次数 * 100%
-        $breakEvenRate = $settledBets > 0 ? ($winningBets / $settledBets) * 100 : 0;
 
         return [
             'total_bets' => $totalBets,
@@ -249,8 +246,7 @@ class PredictionAnalysisController extends Controller
             'total_amount_invested' => round($totalAmount, 2),
             'actual_profit_loss' => round($actualProfitLoss, 2),
             'actual_roi_percentage' => round($actualROI, 2), // 实际投资回报率
-            'break_even_rate' => round($breakEvenRate, 2), // 🔧 修复：保本率 = 前三名比例
-            'win_rate_percentage' => round($winRate, 2),
+            'win_rate_percentage' => round($winRate, 2), // 胜率（前三名比例）
             'average_profit_per_bet' => round($avgProfitPerBet, 2),
             'betting_distribution' => [
                 'winning_bets' => $winningBets,

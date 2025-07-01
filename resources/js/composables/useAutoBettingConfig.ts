@@ -12,6 +12,15 @@ import { autoBettingApi } from '@/utils/api';
  * - max_volatility_threshold: 0-1 → 0-100 (如 0.8 → 80)
  *
  * 在实际计算中使用时，需要除以100转换为小数进行数学运算。
+ *
+ * 🚫 市场动态过滤器修正 (2025-01-06)
+ *
+ * 修正了策略模板中不合理的市场动态过滤器参数：
+ * - 5分钟涨跌幅：合理范围 -3% 到 +5%（之前错误设置100%）
+ * - 1小时涨跌幅：合理范围 -8% 到 +15%（之前错误设置100%）
+ * - 24小时涨跌幅：合理范围 -30% 到 +50%（之前错误要求最少涨100%）
+ *
+ * 加密货币市场虽然波动大，但100%的日涨幅要求完全不现实。
  */
 
 export interface AutoBettingConfig {
@@ -141,19 +150,19 @@ export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token'> = {
   enable_h2h_score_filter: false, // 默认关闭
   min_h2h_score_threshold: 52.0,
 
-  // 📈 市场动态过滤器 - 基于实际波动范围
+  // 📈 市场动态过滤器 - 基于实际波动范围（合理的默认值）
   enable_change_5m_filter: false, // 默认关闭，数据经常缺失
-  min_change_5m_threshold: -1.0, // 适应实际波动
-  max_change_5m_threshold: 1.0,
+  min_change_5m_threshold: -2.0, // 5分钟跌幅容忍度
+  max_change_5m_threshold: 3.0, // 5分钟涨幅预期
   enable_change_1h_filter: false, // 默认关闭，变化范围很大
-  min_change_1h_threshold: -3.0, // 参考实际数据
-  max_change_1h_threshold: 4.0,
+  min_change_1h_threshold: -5.0, // 1小时跌幅容忍度
+  max_change_1h_threshold: 8.0, // 1小时涨幅预期
   enable_change_4h_filter: false, // 默认关闭
-  min_change_4h_threshold: -8.0,
-  max_change_4h_threshold: 10,
+  min_change_4h_threshold: -12.0, // 4小时跌幅容忍度
+  max_change_4h_threshold: 15.0, // 4小时涨幅预期
   enable_change_24h_filter: false, // 默认关闭，变化范围很大
-  min_change_24h_threshold: -12.0, // 适应VANA +16.81%等情况
-  max_change_24h_threshold: 18.0
+  min_change_24h_threshold: -20.0, // 24小时跌幅容忍度
+  max_change_24h_threshold: 25.0 // 24小时涨幅预期（合理范围）
 };
 
 /**
@@ -322,12 +331,12 @@ export const strategyTemplates = {
     // 分數雙閥
     enable_absolute_score_filter: true,
     min_absolute_score_threshold: 97,
-    // 波動 & 動能
+    // 波動 & 動能 - 🔧 修正为合理的市场波动范围
     enable_stability_filter: true,
     max_stability_threshold: 0.03, // 0.03 (标准差小数格式)
     enable_change_24h_filter: true,
-    min_change_24h_threshold: 2.0,
-    max_change_24h_threshold: 100, // 設定上限值
+    min_change_24h_threshold: 2.0, // 24小时最少涨2%（保持精准要求）
+    max_change_24h_threshold: 30.0, // 24小时最多涨30%（合理范围，不是100%）
     // 風控
     enable_kelly_criterion: true,
     kelly_fraction: 50, // 50% (统一为0-100)
@@ -389,16 +398,16 @@ export const strategyTemplates = {
     min_total_games: 5,
     historical_accuracy_threshold: 30, // 30% (统一为0-100)
     min_sample_count: 3,
-    // 動能濾器
+    // 動能濾器 - 🔧 修正为合理的市场波动范围
     enable_change_5m_filter: true,
-    min_change_5m_threshold: 5, // 5% (统一为0-100)
-    max_change_5m_threshold: 100, // 設定上限值
+    min_change_5m_threshold: 0.5, // 5分钟最少涨0.5%
+    max_change_5m_threshold: 5.0, // 5分钟最多涨5%（合理范围）
     enable_change_1h_filter: true,
-    min_change_1h_threshold: 20, // 20% (统一为0-100)
-    max_change_1h_threshold: 100, // 設定上限值
+    min_change_1h_threshold: 2.0, // 1小时最少涨2%
+    max_change_1h_threshold: 15.0, // 1小时最多涨15%（合理范围）
     enable_change_24h_filter: true,
-    min_change_24h_threshold: 50, // 50% (统一为0-100)
-    max_change_24h_threshold: 100, // 設定上限值
+    min_change_24h_threshold: 5.0, // 24小时最少涨5%
+    max_change_24h_threshold: 50.0, // 24小时最多涨50%（合理范围）
     // 波動
     enable_stability_filter: true,
     max_stability_threshold: 1.2, // 1.2 (标准差小数格式)
@@ -465,13 +474,13 @@ export const strategyTemplates = {
     // 波動
     enable_stability_filter: true,
     max_stability_threshold: 0.14, // 0.14 (标准差小数格式)
-    // 動能
+    // 動能 - 🔧 修正为合理的市场波动范围
     enable_change_1h_filter: true,
-    min_change_1h_threshold: 5, // 5% (统一为0-100)
-    max_change_1h_threshold: 100, // 設定上限值
+    min_change_1h_threshold: 1.0, // 1小时最少涨1%
+    max_change_1h_threshold: 12.0, // 1小时最多涨12%（合理范围）
     enable_change_24h_filter: true,
-    min_change_24h_threshold: 100, // 100% (统一为0-100)
-    max_change_24h_threshold: 100, // 設定上限值
+    min_change_24h_threshold: 3.0, // 24小时最少涨3%（修正：原来是100%！）
+    max_change_24h_threshold: 40.0, // 24小时最多涨40%（合理范围）
     // 風控
     enable_kelly_criterion: true,
     kelly_fraction: 60, // 60% (统一为0-100)

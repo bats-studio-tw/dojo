@@ -214,18 +214,6 @@
       render: (row: any) => row.actual_rank || '⏳'
     },
     {
-      title: '盈亏',
-      key: 'actual_profit',
-      width: 100,
-      render: (row: any) => {
-        if (row.actual_profit === undefined || row.actual_profit === null) return '-';
-        const profit = Number(row.actual_profit);
-        const color = profit > 0 ? 'text-green-400' : profit < 0 ? 'text-red-400' : 'text-gray-400';
-        const prefix = profit > 0 ? '+' : '';
-        return h('span', { class: color }, [prefix, `$${profit.toFixed(2)}`]);
-      }
-    },
-    {
       title: '状态',
       key: 'status',
       width: 80,

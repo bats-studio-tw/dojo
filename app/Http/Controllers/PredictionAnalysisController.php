@@ -79,7 +79,7 @@ class PredictionAnalysisController extends Controller
 
             // 额外验证days参数：只允许-1或大于0的值
             if ($request->has('days')) {
-                $days = $request->input('days');
+                $days = (int) $request->input('days');
                 if ($days !== -1 && $days <= 0) {
                     return response()->json([
                         'success' => false,
@@ -98,8 +98,8 @@ class PredictionAnalysisController extends Controller
             }
 
             $uid = $request->input('uid');
-            $days = $request->input('days', 30); // 默认30天
-            $limit = $request->input('limit', 1000); // 默认1000条记录，避免数据截断
+            $days = (int) $request->input('days', 30); // 默认30天
+            $limit = (int) $request->input('limit', 1000); // 默认1000条记录，避免数据截断
 
             // 获取用户的下注记录（包含实际结果）
             $bettingAnalysis = $this->calculateBettingPerformance($uid, $days, $limit);
@@ -491,7 +491,7 @@ class PredictionAnalysisController extends Controller
 
             // 额外验证days参数：只允许-1或大于0的值
             if ($request->has('days')) {
-                $days = $request->input('days');
+                $days = (int) $request->input('days');
                 if ($days !== -1 && $days <= 0) {
                     return response()->json([
                         'success' => false,
@@ -510,7 +510,7 @@ class PredictionAnalysisController extends Controller
             }
 
             $uid = $request->input('uid');
-            $days = $request->input('days', 30);
+            $days = (int) $request->input('days', 30);
 
             // 按代币统计表现
             $query = DB::table('auto_betting_records as abr')

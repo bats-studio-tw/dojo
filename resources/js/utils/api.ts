@@ -157,15 +157,31 @@ export const autoBettingApi = {
 export const bettingAnalysisApi = {
   // 获取用户投注表现分析（包含实际保本率）
   getPerformanceAnalysis: (uid: string, days?: number, limit?: number) => {
+    // 🔧 修复：确保参数正确传递，避免undefined导致的问题
+    const params: any = { uid };
+    if (days !== undefined && days !== null) {
+      params.days = days;
+    }
+    if (limit !== undefined && limit !== null) {
+      params.limit = limit;
+    }
+
+    console.log('🔧 API实际发送的参数:', params);
+
     return api.get('/betting-analysis/performance', {
-      params: { uid, days, limit }
+      params
     });
   },
 
   // 获取代币表现统计
   getTokenStats: (uid: string, days?: number) => {
+    const params: any = { uid };
+    if (days !== undefined && days !== null) {
+      params.days = days;
+    }
+
     return api.get('/betting-analysis/token-stats', {
-      params: { uid, days }
+      params
     });
   }
 };

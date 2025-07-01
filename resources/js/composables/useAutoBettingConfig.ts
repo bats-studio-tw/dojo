@@ -89,11 +89,11 @@ export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token'> = {
   // 🎯 基础交易参数 - 基于实际数据优化
   bet_amount: 200,
   daily_stop_loss_percentage: 15,
-  confidence_threshold: 85, // 基于实际数据，选择NEAR 85%级别
-  score_gap_threshold: 65.0, // 选择中等质量机会，如NXPC 64.4级别
-  min_total_games: 4, // 适应样本不足现实
-  historical_accuracy_threshold: 12, // 12%，适应实际情况 (统一为0-100)
-  min_sample_count: 6, // 适中样本数要求
+  confidence_threshold: 80, // 降低至80%，适应NEAR 82%的情况
+  score_gap_threshold: 60.0, // 降低至60，更宽松的分数要求
+  min_total_games: 1, // 降低至1，适应样本不足现实
+  historical_accuracy_threshold: 10, // 10%，更宽松的历史准确率要求 (统一为0-100)
+  min_sample_count: 1, // 降低至1，适应样本不足现实
   max_bet_percentage: 15,
   strategy: 'single_bet' as const,
 
@@ -126,7 +126,7 @@ export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token'> = {
   // 📊 历史表现过滤器 - 基于实际数据优化
   enable_win_rate_filter: false, // 默认关闭，胜率数据经常不足
   min_win_rate_threshold: 12, // 12%，适应实际数据 (统一为0-100)
-  enable_top3_rate_filter: true, // 默认开启，重要指标
+  enable_top3_rate_filter: false, // 🔧 修复：默认关闭，避免过度过滤
   min_top3_rate_threshold: 58, // 58%，参考ETH 58.8% (统一为0-100)
   enable_avg_rank_filter: false, // 默认关闭
   max_avg_rank_threshold: 4.0,
@@ -134,7 +134,7 @@ export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token'> = {
   max_stability_threshold: 2.5,
 
   // 🎯 评分过滤器 - 基于实际分数范围
-  enable_absolute_score_filter: true, // 默认开启，核心过滤器
+  enable_absolute_score_filter: false, // 🔧 修复：默认关闭，避免过度过滤
   min_absolute_score_threshold: 58.0, // 58，参考NXPC 59.2级别
   enable_relative_score_filter: false, // 默认关闭
   min_relative_score_threshold: 52.0, // 52，参考NXPC 53.2级别

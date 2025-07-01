@@ -243,25 +243,25 @@
                 <div v-if="config.enable_change_5m_filter" class="flex justify-between">
                   <span class="text-gray-400">5分钟涨跌:</span>
                   <span :class="checkChange5mFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ ((token.change_5m || 0) * 100).toFixed(1) }}%
+                    {{ formatPriceChange(token.change_5m) }}
                   </span>
                 </div>
                 <div v-if="config.enable_change_1h_filter" class="flex justify-between">
                   <span class="text-gray-400">1小时涨跌:</span>
                   <span :class="checkChange1hFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ ((token.change_1h || 0) * 100).toFixed(1) }}%
+                    {{ formatPriceChange(token.change_1h) }}
                   </span>
                 </div>
                 <div v-if="config.enable_change_4h_filter" class="flex justify-between">
                   <span class="text-gray-400">4小时涨跌:</span>
                   <span :class="checkChange4hFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ ((token.change_4h || 0) * 100).toFixed(1) }}%
+                    {{ formatPriceChange(token.change_4h) }}
                   </span>
                 </div>
                 <div v-if="config.enable_change_24h_filter" class="flex justify-between">
                   <span class="text-gray-400">24小时涨跌:</span>
                   <span :class="checkChange24hFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ ((token.change_24h || 0) * 100).toFixed(1) }}%
+                    {{ formatPriceChange(token.change_24h) }}
                   </span>
                 </div>
               </div>
@@ -1073,13 +1073,11 @@
 
   // 🔍 各个过滤器的检查函数
   const checkWinRateFilter = (token: any): boolean => {
-    return !props.config.enable_win_rate_filter || (token.win_rate || 0) >= props.config.min_win_rate_threshold * 100;
+    return !props.config.enable_win_rate_filter || (token.win_rate || 0) >= props.config.min_win_rate_threshold;
   };
 
   const checkTop3RateFilter = (token: any): boolean => {
-    return (
-      !props.config.enable_top3_rate_filter || (token.top3_rate || 0) >= props.config.min_top3_rate_threshold * 100
-    );
+    return !props.config.enable_top3_rate_filter || (token.top3_rate || 0) >= props.config.min_top3_rate_threshold;
   };
 
   const checkAvgRankFilter = (token: any): boolean => {
@@ -1093,21 +1091,19 @@
   const checkAbsoluteScoreFilter = (token: any): boolean => {
     return (
       !props.config.enable_absolute_score_filter ||
-      (token.absolute_score || 0) >= props.config.min_absolute_score_threshold * 100
+      (token.absolute_score || 0) >= props.config.min_absolute_score_threshold
     );
   };
 
   const checkRelativeScoreFilter = (token: any): boolean => {
     return (
       !props.config.enable_relative_score_filter ||
-      (token.relative_score || 0) >= props.config.min_relative_score_threshold * 100
+      (token.relative_score || 0) >= props.config.min_relative_score_threshold
     );
   };
 
   const checkH2HScoreFilter = (token: any): boolean => {
-    return (
-      !props.config.enable_h2h_score_filter || (token.h2h_score || 0) >= props.config.min_h2h_score_threshold * 100
-    );
+    return !props.config.enable_h2h_score_filter || (token.h2h_score || 0) >= props.config.min_h2h_score_threshold;
   };
 
   const checkChange5mFilter = (token: any): boolean => {
@@ -1293,49 +1289,44 @@
       if (!props.config.rank_betting_enabled_ranks.includes(prediction.predicted_rank)) {
         return false;
       }
+      // 即使是排名下注，也可以应用额外的过滤条件进行精细筛选
     } else {
       // 非排名下注策略的基础条件检查
       if (prediction.confidence < props.config.confidence_threshold) return false;
       if (prediction.score < props.config.score_gap_threshold) return false;
       if (prediction.sample_count < props.config.min_sample_count) return false;
-      if (prediction.historical_accuracy < props.config.historical_accuracy_threshold) return false;
+      if (prediction.historical_accuracy < props.config.historical_accuracy_threshold / 100) return false;
     }
 
-    // 🔧 历史表现过滤器 - 修复比较运算符逻辑错误
-    // 胜率过滤器：要求胜率大于等于门槛值
-    if (props.config.enable_win_rate_filter && (prediction.win_rate || 0) < props.config.min_win_rate_threshold * 100)
+    // 🔧 历史表现过滤器 - 修复数据单位统一问题
+    // 胜率过滤器：如果胜率 < 门槛，则排除（保留胜率 >= 门槛的Token）
+    if (props.config.enable_win_rate_filter && (prediction.win_rate || 0) < props.config.min_win_rate_threshold)
       return false;
-    // 保本率过滤器：要求保本率大于等于门槛值
-    if (
-      props.config.enable_top3_rate_filter &&
-      (prediction.top3_rate || 0) < props.config.min_top3_rate_threshold * 100
-    )
+    // 保本率过滤器：如果保本率 < 门槛，则排除（保留保本率 >= 门槛的Token）
+    if (props.config.enable_top3_rate_filter && (prediction.top3_rate || 0) < props.config.min_top3_rate_threshold)
       return false;
-    // 平均排名过滤器：要求平均排名小于等于门槛值（排名越小越好）
+    // 平均排名过滤器：如果平均排名 > 门槛，则排除（保留平均排名 <= 门槛的Token，排名越小越好）
     if (props.config.enable_avg_rank_filter && (prediction.avg_rank || 3) > props.config.max_avg_rank_threshold)
       return false;
-    // 稳定性过滤器：要求波动性小于等于门槛值（波动越小越稳定）
+    // 稳定性过滤器：如果波动性 > 门槛，则排除（保留波动性 <= 门槛的Token，波动越小越稳定）
     if (props.config.enable_stability_filter && (prediction.value_stddev || 0) > props.config.max_stability_threshold)
       return false;
 
-    // 🔧 评分过滤器 - 修复比较运算符逻辑错误
-    // 绝对分数过滤器：要求绝对分数大于等于门槛值
+    // 🔧 评分过滤器 - 修复数据单位统一问题
+    // 绝对分数过滤器：如果绝对分数 < 门槛，则排除（保留绝对分数 >= 门槛的Token）
     if (
       props.config.enable_absolute_score_filter &&
-      (prediction.absolute_score || 0) < props.config.min_absolute_score_threshold * 100
+      (prediction.absolute_score || 0) < props.config.min_absolute_score_threshold
     )
       return false;
-    // 相对分数过滤器：要求相对分数大于等于门槛值
+    // 相对分数过滤器：如果相对分数 < 门槛，则排除（保留相对分数 >= 门槛的Token）
     if (
       props.config.enable_relative_score_filter &&
-      (prediction.relative_score || 0) < props.config.min_relative_score_threshold * 100
+      (prediction.relative_score || 0) < props.config.min_relative_score_threshold
     )
       return false;
-    // H2H分数过滤器：要求H2H分数大于等于门槛值
-    if (
-      props.config.enable_h2h_score_filter &&
-      (prediction.h2h_score || 0) < props.config.min_h2h_score_threshold * 100
-    )
+    // H2H分数过滤器：如果H2H分数 < 门槛，则排除（保留H2H分数 >= 门槛的Token）
+    if (props.config.enable_h2h_score_filter && (prediction.h2h_score || 0) < props.config.min_h2h_score_threshold)
       return false;
 
     // 🔧 市场动态过滤器 - 范围检查逻辑正确
@@ -1425,6 +1416,14 @@
         window.$message?.success('🚨 已将所有门槛设置为极低水平，请检查匹配结果');
       }
     });
+  };
+
+  // 格式化价格变化显示
+  const formatPriceChange = (change: number | null | undefined): string => {
+    if (change === null || change === undefined) return '-';
+
+    const prefix = change > 0 ? '+' : '';
+    return `${prefix}${change.toFixed(2)}%`;
   };
 
   // Methods

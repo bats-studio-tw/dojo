@@ -75,19 +75,9 @@ class PredictionAnalysisController extends Controller
                 'uid' => 'required|string',
                 'days' => 'integer|min:-1|max:365', // 允许-1表示全部历史
                 'limit' => 'integer|min:1|max:1000',
+                'limit_rounds' => 'integer|min:1|max:10000', // 新增：按局数筛选
+                'filter_type' => 'string|in:days,rounds', // 新增：筛选类型
             ]);
-
-            // 额外验证days参数：只允许-1或大于0的值
-            if ($request->has('days')) {
-                $days = (int) $request->input('days');
-                if ($days !== -1 && $days <= 0) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => '参数验证失败',
-                        'errors' => ['days' => ['days参数必须为-1（全部历史）或大于0的天数']]
-                    ], 422);
-                }
-            }
 
             if ($validator->fails()) {
                 return response()->json([
@@ -98,26 +88,54 @@ class PredictionAnalysisController extends Controller
             }
 
             $uid = $request->input('uid');
-            $days = (int) $request->input('days', 30); // 默认30天
+            $filterType = $request->input('filter_type', 'days'); // 默认按天数筛选
+            $days = $request->input('days');
+            $limitRounds = $request->input('limit_rounds');
             $limit = (int) $request->input('limit', 1000); // 默认1000条记录，避免数据截断
 
+            // 根据筛选类型验证参数
+            if ($filterType === 'days') {
+                $days = (int) ($days ?? 30); // 默认30天
+                // 验证days参数：只允许-1或大于0的值
+                if ($days !== -1 && $days <= 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => '参数验证失败',
+                        'errors' => ['days' => ['days参数必须为-1（全部历史）或大于0的天数']]
+                    ], 422);
+                }
+                $limitRounds = null;
+            } else if ($filterType === 'rounds') {
+                if (!$limitRounds || $limitRounds <= 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => '参数验证失败',
+                        'errors' => ['limit_rounds' => ['按局数筛选时，limit_rounds参数必须大于0']]
+                    ], 422);
+                }
+                $limitRounds = (int) $limitRounds;
+                $days = null;
+            }
+
             // 获取用户的下注记录（包含实际结果）
-            $bettingAnalysis = $this->calculateBettingPerformance($uid, $days, $limit);
+            $bettingAnalysis = $this->calculateBettingPerformance($uid, $days, $limit, $limitRounds);
 
             // 获取预测准确度分析
-            $predictionAnalysis = $this->calculatePredictionAccuracy($uid, $days);
+            $predictionAnalysis = $this->calculatePredictionAccuracy($uid, $days, $limitRounds);
 
             // 获取策略表现分析
-            $strategyAnalysis = $this->calculateStrategyPerformance($uid, $days);
+            $strategyAnalysis = $this->calculateStrategyPerformance($uid, $days, $limitRounds);
 
             // 获取详细的投注记录
-            $detailedRecords = $this->getDetailedBettingRecords($uid, $limit);
+            $detailedRecords = $this->getDetailedBettingRecords($uid, $limit, $limitRounds);
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'summary' => [
+                        'filter_type' => $filterType,
                         'analysis_period_days' => $days,
+                        'limit_rounds' => $limitRounds,
                         'uid' => $uid,
                         'generated_at' => now()->toISOString(),
                     ],
@@ -145,19 +163,29 @@ class PredictionAnalysisController extends Controller
     /**
      * 计算投注表现（实际保本率）
      */
-    private function calculateBettingPerformance(string $uid, int $days, int $limit): array
+    private function calculateBettingPerformance(string $uid, ?int $days, int $limit, ?int $limitRounds = null): array
     {
-        // 获取指定天数内的下注记录 (-1表示全部历史)
+        // 获取下注记录的基础查询
         $query = AutoBettingRecord::where('uid', $uid)
             ->with(['gameRound.roundResults'])
             ->orderBy('created_at', 'desc');
 
-        // 🔧 支持全部历史查询：-1表示不限制日期
-        if ($days > 0) {
-            $query->where('created_at', '>=', now()->subDays($days));
+        // 根据筛选类型应用不同的条件
+        if ($limitRounds !== null) {
+            // 按局数筛选：获取最新的N局记录
+            $query->limit($limitRounds);
+        } else if ($days !== null) {
+            // 按天数筛选：-1表示全部历史
+            if ($days > 0) {
+                $query->where('created_at', '>=', now()->subDays($days));
+            }
+            $query->limit($limit);
+        } else {
+            // 默认情况：应用limit限制
+            $query->limit($limit);
         }
 
-        $records = $query->limit($limit)->get();
+        $records = $query->get();
 
         if ($records->isEmpty()) {
             return [
@@ -256,9 +284,9 @@ class PredictionAnalysisController extends Controller
             'rank_distribution' => $rankDistribution,
             'performance_by_rank' => $betsByRank,
             'daily_average' => [
-                'bets_per_day' => round($totalBets / max($days, 1), 2),
-                'amount_per_day' => round($totalAmount / max($days, 1), 2),
-                'profit_per_day' => round($actualProfitLoss / max($days, 1), 2),
+                'bets_per_day' => $days && $days > 0 ? round($totalBets / $days, 2) : null,
+                'amount_per_day' => $days && $days > 0 ? round($totalAmount / $days, 2) : null,
+                'profit_per_day' => $days && $days > 0 ? round($actualProfitLoss / $days, 2) : null,
             ]
         ];
     }
@@ -266,14 +294,22 @@ class PredictionAnalysisController extends Controller
     /**
      * 计算预测准确度
      */
-    private function calculatePredictionAccuracy(string $uid, int $days): array
+    private function calculatePredictionAccuracy(string $uid, ?int $days, ?int $limitRounds = null): array
     {
         // 获取用户下注对应的预测准确度
-        $query = AutoBettingRecord::where('uid', $uid)->where('success', true);
+        $query = AutoBettingRecord::where('uid', $uid)
+            ->where('success', true)
+            ->orderBy('created_at', 'desc');
 
-        // 🔧 支持全部历史查询：-1表示不限制日期
-        if ($days > 0) {
-            $query->where('created_at', '>=', now()->subDays($days));
+        // 根据筛选类型应用不同的条件
+        if ($limitRounds !== null) {
+            // 按局数筛选：获取最新的N局记录
+            $query->limit($limitRounds);
+        } else if ($days !== null) {
+            // 按天数筛选：-1表示全部历史
+            if ($days > 0) {
+                $query->where('created_at', '>=', now()->subDays($days));
+            }
         }
 
         $records = $query->get();
@@ -328,14 +364,22 @@ class PredictionAnalysisController extends Controller
     /**
      * 计算策略表现分析
      */
-    private function calculateStrategyPerformance(string $uid, int $days): array
+    private function calculateStrategyPerformance(string $uid, ?int $days, ?int $limitRounds = null): array
     {
         // 从prediction_data中提取策略信息进行分析
-        $query = AutoBettingRecord::where('uid', $uid)->where('success', true);
+        $query = AutoBettingRecord::where('uid', $uid)
+            ->where('success', true)
+            ->orderBy('created_at', 'desc');
 
-        // 🔧 支持全部历史查询：-1表示不限制日期
-        if ($days > 0) {
-            $query->where('created_at', '>=', now()->subDays($days));
+        // 根据筛选类型应用不同的条件
+        if ($limitRounds !== null) {
+            // 按局数筛选：获取最新的N局记录
+            $query->limit($limitRounds);
+        } else if ($days !== null) {
+            // 按天数筛选：-1表示全部历史
+            if ($days > 0) {
+                $query->where('created_at', '>=', now()->subDays($days));
+            }
         }
 
         $records = $query->get();
@@ -395,12 +439,19 @@ class PredictionAnalysisController extends Controller
     /**
      * 获取详细的投注记录
      */
-    private function getDetailedBettingRecords(string $uid, int $limit): array
+    private function getDetailedBettingRecords(string $uid, int $limit, ?int $limitRounds = null): array
     {
-        $records = AutoBettingRecord::where('uid', $uid)
-            ->orderBy('created_at', 'desc')
-            ->limit($limit)
-            ->get();
+        $query = AutoBettingRecord::where('uid', $uid)
+            ->orderBy('created_at', 'desc');
+
+        // 如果指定了按局数筛选，使用局数限制，否则使用默认limit
+        if ($limitRounds !== null) {
+            $query->limit($limitRounds);
+        } else {
+            $query->limit($limit);
+        }
+
+        $records = $query->get();
 
         $detailedRecords = [];
 

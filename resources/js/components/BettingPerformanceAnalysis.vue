@@ -5,13 +5,33 @@
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-3">
           <div class="flex items-center space-x-2">
+            <label class="text-sm text-gray-300">筛选方式:</label>
+            <n-select
+              v-model:value="filterType"
+              :options="filterTypeOptions"
+              size="small"
+              class="w-24"
+              @update:value="onFilterTypeChange"
+            />
+          </div>
+          <div v-if="filterType === 'days'" class="flex items-center space-x-2">
             <label class="text-sm text-gray-300">分析周期:</label>
             <n-select
               v-model:value="selectedDays"
               :options="dayOptions"
               size="small"
               class="w-32"
-              @update:value="refreshOnDaysChange"
+              @update:value="refreshOnFilterChange"
+            />
+          </div>
+          <div v-if="filterType === 'rounds'" class="flex items-center space-x-2">
+            <label class="text-sm text-gray-300">最新局数:</label>
+            <n-select
+              v-model:value="selectedRounds"
+              :options="roundOptions"
+              size="small"
+              class="w-32"
+              @update:value="refreshOnFilterChange"
             />
           </div>
           <n-button @click="refreshAnalysis" :loading="loading" type="primary" size="small">
@@ -21,6 +41,16 @@
             刷新分析
           </n-button>
         </div>
+      </div>
+
+      <!-- 当前筛选条件显示 -->
+      <div v-if="bettingRecords.length > 0" class="rounded bg-white/5 p-2 text-xs text-gray-400">
+        <span class="mr-2">📊 当前分析范围:</span>
+        <span v-if="filterType === 'days'">
+          {{ selectedDays === -1 ? '全部历史' : `最近${selectedDays}天` }}
+        </span>
+        <span v-else>最新{{ selectedRounds }}局</span>
+        <span class="ml-2 text-gray-500">共{{ bettingRecords.length }}条记录</span>
       </div>
 
       <!-- 统计卡片 -->
@@ -142,10 +172,18 @@
   // 响应式数据
   const loading = ref(false);
   const bettingRecords = ref<any[]>([]);
+  const filterType = ref<'days' | 'rounds'>('days'); // 筛选方式：按天数或按局数
   const selectedDays = ref(-1); // 默认显示全部历史，与自动下注状态保持一致
+  const selectedRounds = ref(100); // 默认显示最新100局
   const recordFilter = ref('all');
   const searchKeyword = ref('');
   const backendStats = ref<any>({});
+
+  // 筛选方式选项
+  const filterTypeOptions = [
+    { label: '按时间', value: 'days' },
+    { label: '按局数', value: 'rounds' }
+  ];
 
   // 天数选项 - 确保所有值都符合后端验证要求（-1或大于0的天数）
   const dayOptions = [
@@ -155,6 +193,15 @@
     { label: '180天', value: 180 },
     { label: '365天', value: 365 },
     { label: '全部历史', value: -1 }
+  ];
+
+  // 局数选项
+  const roundOptions = [
+    { label: '最新50局', value: 50 },
+    { label: '最新100局', value: 100 },
+    { label: '最新200局', value: 200 },
+    { label: '最新500局', value: 500 },
+    { label: '最新1000局', value: 1000 }
   ];
 
   // 格式化日期
@@ -294,20 +341,37 @@
 
     loading.value = true;
     try {
-      // 🔧 修复：确保days参数符合后端验证要求（-1或大于0的天数）
-      let daysParam = selectedDays.value;
+      // 根据筛选方式验证参数
+      let daysParam: number | undefined;
 
-      // 验证并修正参数
-      if (daysParam === null || daysParam === undefined || daysParam === 0) {
-        daysParam = -1; // 默认使用全部历史
-      } else if (daysParam > 0) {
-        daysParam = Math.max(1, Math.floor(daysParam)); // 确保是大于0的整数
-      } else if (daysParam !== -1) {
-        daysParam = -1; // 其他无效值都改为全部历史
+      if (filterType.value === 'days') {
+        // 🔧 修复：确保days参数符合后端验证要求（-1或大于0的天数）
+        daysParam = selectedDays.value;
+
+        // 验证并修正参数
+        if (daysParam === null || daysParam === undefined || daysParam === 0) {
+          daysParam = -1; // 默认使用全部历史
+        } else if (daysParam > 0) {
+          daysParam = Math.max(1, Math.floor(daysParam)); // 确保是大于0的整数
+        } else if (daysParam !== -1) {
+          daysParam = -1; // 其他无效值都改为全部历史
+        }
       }
 
-      console.log('📊 发送API请求，days参数:', daysParam);
-      const response = await bettingAnalysisApi.getPerformanceAnalysis(props.uid, daysParam);
+      console.log(
+        '📊 发送API请求，筛选方式:',
+        filterType.value,
+        '参数:',
+        filterType.value === 'days' ? daysParam : selectedRounds.value
+      );
+
+      // 根据筛选方式准备API参数
+      const apiOptions = {
+        filterType: filterType.value,
+        ...(filterType.value === 'days' ? { days: daysParam } : { limitRounds: selectedRounds.value })
+      };
+
+      const response = await bettingAnalysisApi.getPerformanceAnalysis(props.uid, apiOptions);
 
       if (response.data.success) {
         const data = response.data.data;
@@ -344,10 +408,24 @@
     }
   };
 
-  // 监听天数变化并重新获取数据
-  const refreshOnDaysChange = async () => {
+  // 筛选方式变化处理
+  const onFilterTypeChange = () => {
+    console.log('📊 筛选方式变化:', filterType.value);
+    // 切换筛选方式时自动刷新数据
     if (props.uid) {
-      console.log('📊 天数选择变化，当前值:', selectedDays.value);
+      refreshAnalysis();
+    }
+  };
+
+  // 监听筛选条件变化并重新获取数据
+  const refreshOnFilterChange = async () => {
+    if (props.uid) {
+      console.log(
+        '📊 筛选条件变化，当前筛选方式:',
+        filterType.value,
+        '参数:',
+        filterType.value === 'days' ? selectedDays.value : selectedRounds.value
+      );
       await refreshAnalysis();
     }
   };

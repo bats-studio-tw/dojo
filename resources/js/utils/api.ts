@@ -156,14 +156,32 @@ export const autoBettingApi = {
 // 投注表现分析API
 export const bettingAnalysisApi = {
   // 获取用户投注表现分析（包含实际保本率）
-  getPerformanceAnalysis: (uid: string, days?: number, limit?: number) => {
-    // 🔧 修复：确保参数正确传递，避免undefined导致的问题
-    const params: any = { uid };
-    if (days !== undefined && days !== null) {
-      params.days = days;
+  getPerformanceAnalysis: (
+    uid: string,
+    options?: {
+      days?: number;
+      limit?: number;
+      limitRounds?: number;
+      filterType?: 'days' | 'rounds';
     }
-    if (limit !== undefined && limit !== null) {
-      params.limit = limit;
+  ) => {
+    // 🔧 修复：确保参数正确传递，支持按局数和按天数两种筛选方式
+    const params: any = { uid };
+
+    if (options?.filterType) {
+      params.filter_type = options.filterType;
+    }
+
+    if (options?.days !== undefined && options?.days !== null) {
+      params.days = options.days;
+    }
+
+    if (options?.limit !== undefined && options?.limit !== null) {
+      params.limit = options.limit;
+    }
+
+    if (options?.limitRounds !== undefined && options?.limitRounds !== null) {
+      params.limit_rounds = options.limitRounds;
     }
 
     console.log('🔧 API实际发送的参数:', params);

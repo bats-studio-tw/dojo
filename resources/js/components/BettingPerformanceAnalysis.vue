@@ -26,25 +26,33 @@
 
       <!-- 统计卡片 -->
       <div v-if="bettingRecords.length > 0" class="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <div class="border border-blue-500/30 rounded-lg bg-blue-500/10 p-3 text-center">
-          <div class="text-sm text-blue-400">总下注次数</div>
-          <div class="text-xl text-white font-bold">{{ bettingStats.totalBets }}</div>
-          <div class="text-xs text-gray-400">{{ selectedDays }}天内</div>
+        <div
+          class="border border-cyan-500/30 rounded-lg from-cyan-500/10 to-blue-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-cyan-400/50 hover:shadow-cyan-500/20"
+        >
+          <div class="text-sm text-cyan-300">总下注次数</div>
+          <div class="text-xl text-cyan-400 font-bold">{{ bettingStats.totalBets }}</div>
+          <div class="text-xs text-cyan-200/70">{{ selectedDays }}天内</div>
         </div>
-        <div class="border border-green-500/30 rounded-lg bg-green-500/10 p-3 text-center">
-          <div class="text-sm text-green-400">成功率</div>
-          <div class="text-xl text-white font-bold">{{ bettingStats.successRate.toFixed(1) }}%</div>
-          <div class="text-xs text-gray-400">前三名率</div>
+        <div
+          class="border border-emerald-500/30 rounded-lg from-emerald-500/10 to-green-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-emerald-400/50 hover:shadow-emerald-500/20"
+        >
+          <div class="text-sm text-emerald-300">成功率</div>
+          <div class="text-xl text-emerald-400 font-bold">{{ bettingStats.successRate.toFixed(1) }}%</div>
+          <div class="text-xs text-emerald-200/70">前三名率</div>
         </div>
-        <div class="border border-purple-500/30 rounded-lg bg-purple-500/10 p-3 text-center">
-          <div class="text-sm text-purple-400">成功次数</div>
-          <div class="text-xl text-green-400 font-bold">{{ bettingStats.successfulBets }}</div>
-          <div class="text-xs text-gray-400">前三名</div>
+        <div
+          class="border border-violet-500/30 rounded-lg from-violet-500/10 to-purple-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-violet-400/50 hover:shadow-violet-500/20"
+        >
+          <div class="text-sm text-violet-300">成功次数</div>
+          <div class="text-xl text-violet-400 font-bold">{{ bettingStats.successfulBets }}</div>
+          <div class="text-xs text-violet-200/70">前三名</div>
         </div>
-        <div class="border border-orange-500/30 rounded-lg bg-orange-500/10 p-3 text-center">
-          <div class="text-sm text-orange-400">失败次数</div>
+        <div
+          class="border border-amber-500/30 rounded-lg from-amber-500/10 to-orange-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-amber-400/50 hover:shadow-amber-500/20"
+        >
+          <div class="text-sm text-amber-300">失败次数</div>
           <div class="text-xl text-red-400 font-bold">{{ bettingStats.failedBets }}</div>
-          <div class="text-xs text-gray-400">第四名及以后</div>
+          <div class="text-xs text-amber-200/70">第四名及以后</div>
         </div>
       </div>
     </div>
@@ -89,8 +97,8 @@
 
     <!-- 加载状态 -->
     <div v-if="loading" class="flex items-center justify-center py-8">
-      <div class="flex items-center text-blue-400 space-x-2">
-        <div class="h-4 w-4 animate-spin border-2 border-blue-400 border-t-transparent rounded-full"></div>
+      <div class="flex items-center text-cyan-400 space-x-2">
+        <div class="h-4 w-4 animate-spin border-2 border-cyan-400 border-t-transparent rounded-full"></div>
         <span class="text-sm">正在分析投注表现...</span>
       </div>
     </div>

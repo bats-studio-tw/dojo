@@ -62,37 +62,45 @@
           </div>
         </div>
 
-        <!-- 下注记录统计卡片 -->
+        <!-- 下注记录统计卡片 - 参考其他组件配色 -->
         <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div class="border border-blue-500/30 rounded-lg bg-blue-500/10 p-3 text-center">
-            <div class="text-sm text-blue-400">总下注次数</div>
-            <div class="text-xl text-white font-bold">{{ bettingStats.totalBets }}</div>
-            <div class="text-xs text-gray-400">历史累计</div>
+          <div
+            class="border border-cyan-500/30 rounded-lg from-cyan-500/10 to-blue-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-cyan-400/50 hover:shadow-cyan-500/20"
+          >
+            <div class="text-sm text-cyan-300">总下注次数</div>
+            <div class="text-xl text-cyan-400 font-bold">{{ bettingStats.totalBets }}</div>
+            <div class="text-xs text-cyan-200/70">历史累计</div>
           </div>
-          <div class="border border-green-500/30 rounded-lg bg-green-500/10 p-3 text-center">
-            <div class="text-sm text-green-400">成功率</div>
-            <div class="text-xl text-white font-bold">{{ bettingStats.successRate.toFixed(1) }}%</div>
-            <div class="text-xs text-gray-400">成功/总计</div>
+          <div
+            class="border border-emerald-500/30 rounded-lg from-emerald-500/10 to-green-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-emerald-400/50 hover:shadow-emerald-500/20"
+          >
+            <div class="text-sm text-emerald-300">成功率</div>
+            <div class="text-xl text-emerald-400 font-bold">{{ bettingStats.successRate.toFixed(1) }}%</div>
+            <div class="text-xs text-emerald-200/70">成功/总计</div>
           </div>
-          <div class="border border-purple-500/30 rounded-lg bg-purple-500/10 p-3 text-center">
-            <div class="text-sm text-purple-400">总盈亏</div>
+          <div
+            class="border border-violet-500/30 rounded-lg from-violet-500/10 to-purple-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-violet-400/50 hover:shadow-violet-500/20"
+          >
+            <div class="text-sm text-violet-300">总盈亏</div>
             <div
               class="text-xl font-bold"
-              :class="bettingStats.totalProfitLoss >= 0 ? 'text-green-400' : 'text-red-400'"
+              :class="bettingStats.totalProfitLoss >= 0 ? 'text-emerald-400' : 'text-red-400'"
             >
               ${{ bettingStats.totalProfitLoss.toFixed(2) }}
             </div>
-            <div class="text-xs text-gray-400">累计收益</div>
+            <div class="text-xs text-violet-200/70">累计收益</div>
           </div>
-          <div class="border border-orange-500/30 rounded-lg bg-orange-500/10 p-3 text-center">
-            <div class="text-sm text-orange-400">平均收益</div>
+          <div
+            class="border border-amber-500/30 rounded-lg from-amber-500/10 to-orange-600/5 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-amber-400/50 hover:shadow-amber-500/20"
+          >
+            <div class="text-sm text-amber-300">平均收益</div>
             <div
               class="text-xl font-bold"
-              :class="bettingStats.avgProfitPerBet >= 0 ? 'text-green-400' : 'text-red-400'"
+              :class="bettingStats.avgProfitPerBet >= 0 ? 'text-emerald-400' : 'text-red-400'"
             >
               ${{ bettingStats.avgProfitPerBet.toFixed(2) }}
             </div>
-            <div class="text-xs text-gray-400">每次下注</div>
+            <div class="text-xs text-amber-200/70">每次下注</div>
           </div>
         </div>
 
@@ -122,9 +130,8 @@
 
 <script setup lang="ts">
   import { ref, computed, onMounted } from 'vue';
-  import { NDataTable, NTabs, NTabPane } from 'naive-ui';
+  import { NDataTable } from 'naive-ui';
   import PredictionStats from './PredictionStats.vue';
-  import PredictionHistoryTable from './PredictionHistoryTable.vue';
   import BettingPerformanceAnalysis from './BettingPerformanceAnalysis.vue';
   import { autoBettingApi } from '@/utils/api';
 
@@ -151,7 +158,6 @@
   }>();
 
   // 响应式数据
-  const activeAnalysisTab = ref('prediction');
   const recordFilter = ref('all');
   const searchKeyword = ref('');
   const recordsLoading = ref(false);
@@ -336,20 +342,5 @@
 
   :deep(.betting-records-table .n-data-table-tr:hover .n-data-table-td) {
     background: rgba(255, 255, 255, 0.05);
-  }
-
-  :deep(.history-analysis-tabs .n-tabs-nav) {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-  }
-
-  :deep(.history-analysis-tabs .n-tabs-tab) {
-    border-radius: 6px;
-    margin: 2px;
-  }
-
-  :deep(.history-analysis-tabs .n-tabs-tab.n-tabs-tab--active) {
-    background: rgba(59, 130, 246, 0.2);
-    color: rgb(96, 165, 250);
   }
 </style>

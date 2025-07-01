@@ -77,9 +77,6 @@ class ExportPredictionAnalysis extends Command
 
             // H2H相关 (重要的算法特色)
             'h2h_score', 'h2h_data_available',
-
-            // 算法版本信息
-            'algorithm_version'
         ];
         fputcsv($fileHandle, $headers);
 
@@ -151,8 +148,6 @@ class ExportPredictionAnalysis extends Command
                             $predictionData['h2h_score'] ?? null,
                             $h2hDataAvailable,
 
-                            // 算法版本
-                            $version
                         ];
                         fputcsv($fileHandle, $rowData);
                         $processedPredictions++;

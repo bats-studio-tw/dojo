@@ -26,13 +26,18 @@
           </div>
           <div v-if="filterType === 'rounds'" class="flex items-center space-x-2">
             <label class="text-sm text-gray-300">最新局数:</label>
-            <n-select
+            <n-input-number
               v-model:value="selectedRounds"
-              :options="roundOptions"
+              :min="1"
+              :max="10000"
+              :step="1"
               size="small"
               class="w-32"
-              @update:value="refreshOnFilterChange"
+              placeholder="输入局数"
+              @blur="refreshOnFilterChange"
+              @keyup.enter="refreshOnFilterChange"
             />
+            <span class="text-xs text-gray-500">1-10000局</span>
           </div>
           <n-button @click="refreshAnalysis" :loading="loading" type="primary" size="small">
             <template #icon>
@@ -158,7 +163,7 @@
 
 <script setup lang="ts">
   import { ref, onMounted, computed } from 'vue';
-  import { NSelect, NButton, NDataTable, NInput, NCard } from 'naive-ui';
+  import { NSelect, NButton, NDataTable, NInput, NCard, NInputNumber } from 'naive-ui';
   import { bettingAnalysisApi } from '@/utils/api';
   import { handleError } from '@/utils/errorHandler';
 
@@ -193,15 +198,6 @@
     { label: '180天', value: 180 },
     { label: '365天', value: 365 },
     { label: '全部历史', value: -1 }
-  ];
-
-  // 局数选项
-  const roundOptions = [
-    { label: '最新50局', value: 50 },
-    { label: '最新100局', value: 100 },
-    { label: '最新200局', value: 200 },
-    { label: '最新500局', value: 500 },
-    { label: '最新1000局', value: 1000 }
   ];
 
   // 格式化日期

@@ -1223,11 +1223,11 @@
 
   // ==================== 调试面板状态和函数 ====================
 
-  // 历史准确率百分比计算属性（用于快速配置区块的显示和编辑）
+  // 历史准确率百分比计算属性（已统一为0-100格式，无需转换）
   const historyAccuracyPercent = computed({
-    get: () => Math.round((props.config.historical_accuracy_threshold || 0) * 100),
+    get: () => Math.round(props.config.historical_accuracy_threshold || 0),
     set: (value: number) => {
-      props.config.historical_accuracy_threshold = value / 100;
+      props.config.historical_accuracy_threshold = value;
     }
   });
 
@@ -1257,7 +1257,7 @@
       if (prediction.confidence < props.config.confidence_threshold) return false;
       if (prediction.score < props.config.score_gap_threshold) return false;
       if (prediction.sample_count < props.config.min_sample_count) return false;
-      if (prediction.historical_accuracy < props.config.historical_accuracy_threshold / 100) return false;
+      if (prediction.historical_accuracy * 100 < props.config.historical_accuracy_threshold) return false;
     }
 
     // 🔧 历史表现过滤器 - 修复数据单位统一问题
@@ -1360,7 +1360,7 @@
         props.config.confidence_threshold = 10; // 从70%降到10%
         props.config.score_gap_threshold = 0.1; // 极低分数要求
         props.config.min_sample_count = 1; // 最少样本数
-        props.config.historical_accuracy_threshold = 0.1; // 极低历史准确率
+        props.config.historical_accuracy_threshold = 1; // 极低历史准确率 1%
 
         // 关闭所有高级过滤器
         props.config.enable_win_rate_filter = false;

@@ -363,7 +363,7 @@
       if (prediction.confidence < config.confidence_threshold) return false;
       if (prediction.score < config.score_gap_threshold) return false;
       if (prediction.sample_count < config.min_sample_count) return false;
-      if (prediction.historical_accuracy < config.historical_accuracy_threshold / 100) return false;
+      if (prediction.historical_accuracy * 100 < config.historical_accuracy_threshold) return false;
     }
 
     // 🔧 历史表现过滤器 - 逻辑验证：保留满足条件的Token

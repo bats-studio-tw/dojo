@@ -31,8 +31,8 @@ class AutoBettingConfig extends Model
             'min_total_games' => 25,
             'strategy' => 'single_bet',
 
-            // 高级策略参数
-            'historical_accuracy_threshold' => 0.7,
+            // 高级策略参数 - 统一使用0-100格式
+            'historical_accuracy_threshold' => 70,
             'min_sample_count' => 40,
             'max_bet_percentage' => 15,
             'enable_trend_analysis' => true,

@@ -149,7 +149,7 @@
   // 响应式数据
   const loading = ref(false);
   const bettingRecords = ref<any[]>([]);
-  const selectedDays = ref(30);
+  const selectedDays = ref(-1); // 默认显示全部历史，与自动下注状态保持一致
   const recordFilter = ref('all');
   const searchKeyword = ref('');
   const backendStats = ref<any>({});
@@ -160,7 +160,8 @@
     { label: '30天', value: 30 },
     { label: '90天', value: 90 },
     { label: '180天', value: 180 },
-    { label: '365天', value: 365 }
+    { label: '365天', value: 365 },
+    { label: '全部历史', value: -1 }
   ];
 
   // 格式化日期
@@ -231,6 +232,8 @@
       render: (row: any) => {
         if (!row.success) return '❌ 下注失败';
         if (!row.actual_rank) return '⏳ 待结算';
+
+        // 🎯 以排名为主要成功标准：只有前三名才算盈利
         return row.actual_rank <= 3 ? '✅ 盈利' : '📉 亏损';
       }
     }
@@ -315,7 +318,7 @@
 
     loading.value = true;
     try {
-      const response = await bettingAnalysisApi.getPerformanceAnalysis(props.uid, selectedDays.value, 200);
+      const response = await bettingAnalysisApi.getPerformanceAnalysis(props.uid, selectedDays.value);
 
       if (response.data.success) {
         const data = response.data.data;

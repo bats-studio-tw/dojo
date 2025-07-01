@@ -87,7 +87,7 @@ class PredictionAnalysisController extends Controller
 
             $uid = $request->input('uid');
             $days = $request->input('days', 30); // 默认30天
-            $limit = $request->input('limit', 100); // 默认100条记录
+            $limit = $request->input('limit', 1000); // 默认1000条记录，避免数据截断
 
             // 获取用户的下注记录（包含实际结果）
             $bettingAnalysis = $this->calculateBettingPerformance($uid, $days, $limit);
@@ -135,13 +135,17 @@ class PredictionAnalysisController extends Controller
      */
     private function calculateBettingPerformance(string $uid, int $days, int $limit): array
     {
-        // 获取指定天数内的下注记录
-        $records = AutoBettingRecord::where('uid', $uid)
-            ->where('created_at', '>=', now()->subDays($days))
+        // 获取指定天数内的下注记录 (-1表示全部历史)
+        $query = AutoBettingRecord::where('uid', $uid)
             ->with(['gameRound.roundResults'])
-            ->orderBy('created_at', 'desc')
-            ->limit($limit)
-            ->get();
+            ->orderBy('created_at', 'desc');
+
+        // 🔧 支持全部历史查询：-1表示不限制日期
+        if ($days > 0) {
+            $query->where('created_at', '>=', now()->subDays($days));
+        }
+
+        $records = $query->limit($limit)->get();
 
         if ($records->isEmpty()) {
             return [
@@ -193,13 +197,17 @@ class PredictionAnalysisController extends Controller
             $profit = $payout - $betAmount;
             $actualProfitLoss += $profit;
 
-            if ($profit > 0) {
+            // 🎯 业务逻辑：以排名为主要成功标准，只有前三名才算盈利
+            if ($actualRank <= 3) {
                 $winningBets++;
-            } elseif ($profit < 0) {
-                $losingBets++;
             } else {
-                $breakEvenBets++;
+                $losingBets++;
             }
+
+            // 保本下注暂时不单独统计，归入盈利或亏损类别
+            // if ($profit == 0) {
+            //     $breakEvenBets++;
+            // }
 
             // 按排名统计下注表现
             if (!isset($betsByRank[$actualRank])) {
@@ -250,10 +258,14 @@ class PredictionAnalysisController extends Controller
     private function calculatePredictionAccuracy(string $uid, int $days): array
     {
         // 获取用户下注对应的预测准确度
-        $records = AutoBettingRecord::where('uid', $uid)
-            ->where('created_at', '>=', now()->subDays($days))
-            ->where('success', true)
-            ->get();
+        $query = AutoBettingRecord::where('uid', $uid)->where('success', true);
+
+        // 🔧 支持全部历史查询：-1表示不限制日期
+        if ($days > 0) {
+            $query->where('created_at', '>=', now()->subDays($days));
+        }
+
+        $records = $query->get();
 
         if ($records->isEmpty()) {
             return ['message' => '没有找到预测数据'];
@@ -308,10 +320,14 @@ class PredictionAnalysisController extends Controller
     private function calculateStrategyPerformance(string $uid, int $days): array
     {
         // 从prediction_data中提取策略信息进行分析
-        $records = AutoBettingRecord::where('uid', $uid)
-            ->where('created_at', '>=', now()->subDays($days))
-            ->where('success', true)
-            ->get();
+        $query = AutoBettingRecord::where('uid', $uid)->where('success', true);
+
+        // 🔧 支持全部历史查询：-1表示不限制日期
+        if ($days > 0) {
+            $query->where('created_at', '>=', now()->subDays($days));
+        }
+
+        $records = $query->get();
 
         $strategyStats = [];
 
@@ -344,7 +360,8 @@ class PredictionAnalysisController extends Controller
                     $profit = $payout - (float) $record->bet_amount;
                     $strategyStats[$strategy]['total_profit'] += $profit;
 
-                    if ($profit > 0) {
+                    // 🎯 保持一致：以排名为主要成功标准，只有前三名才算盈利
+                    if ($actualResult->rank <= 3) {
                         $strategyStats[$strategy]['winning_bets']++;
                     }
                 }
@@ -472,15 +489,21 @@ class PredictionAnalysisController extends Controller
             $days = $request->input('days', 30);
 
             // 按代币统计表现
-            $tokenStats = DB::table('auto_betting_records as abr')
+            $query = DB::table('auto_betting_records as abr')
                 ->leftJoin('game_rounds as gr', 'abr.round_id', '=', 'gr.round_id')
                 ->leftJoin('round_results as rr', function($join) {
                     $join->on('gr.id', '=', 'rr.game_round_id')
                          ->on(DB::raw('UPPER(abr.token_symbol)'), '=', DB::raw('UPPER(rr.token_symbol)'));
                 })
                 ->where('abr.uid', $uid)
-                ->where('abr.success', true)
-                ->where('abr.created_at', '>=', now()->subDays($days))
+                ->where('abr.success', true);
+
+            // 🔧 支持全部历史查询：-1表示不限制日期
+            if ($days > 0) {
+                $query->where('abr.created_at', '>=', now()->subDays($days));
+            }
+
+            $tokenStats = $query
                 ->select([
                     'abr.token_symbol',
                     DB::raw('COUNT(*) as bet_count'),
@@ -499,11 +522,16 @@ class PredictionAnalysisController extends Controller
                 $totalProfit = 0;
 
                 // 重新计算实际收益
-                $records = AutoBettingRecord::where('uid', $uid)
+                $query = AutoBettingRecord::where('uid', $uid)
                     ->where('token_symbol', $stat->token_symbol)
-                    ->where('success', true)
-                    ->where('created_at', '>=', now()->subDays($days))
-                    ->get();
+                    ->where('success', true);
+
+                // 🔧 支持全部历史查询：-1表示不限制日期
+                if ($days > 0) {
+                    $query->where('created_at', '>=', now()->subDays($days));
+                }
+
+                $records = $query->get();
 
                 foreach ($records as $record) {
                     $gameRound = GameRound::where('round_id', $record->round_id)->first();

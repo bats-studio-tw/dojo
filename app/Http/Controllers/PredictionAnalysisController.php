@@ -73,9 +73,21 @@ class PredictionAnalysisController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'uid' => 'required|string',
-                'days' => 'integer|min:1|max:365',
+                'days' => 'integer|min:-1|max:365', // 允许-1表示全部历史
                 'limit' => 'integer|min:1|max:1000',
             ]);
+
+            // 额外验证days参数：只允许-1或大于0的值
+            if ($request->has('days')) {
+                $days = $request->input('days');
+                if ($days !== -1 && $days <= 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => '参数验证失败',
+                        'errors' => ['days' => ['days参数必须为-1（全部历史）或大于0的天数']]
+                    ], 422);
+                }
+            }
 
             if ($validator->fails()) {
                 return response()->json([
@@ -474,8 +486,20 @@ class PredictionAnalysisController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'uid' => 'required|string',
-                'days' => 'integer|min:1|max:365',
+                'days' => 'integer|min:-1|max:365', // 允许-1表示全部历史
             ]);
+
+            // 额外验证days参数：只允许-1或大于0的值
+            if ($request->has('days')) {
+                $days = $request->input('days');
+                if ($days !== -1 && $days <= 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => '参数验证失败',
+                        'errors' => ['days' => ['days参数必须为-1（全部历史）或大于0的天数']]
+                    ], 422);
+                }
+            }
 
             if ($validator->fails()) {
                 return response()->json([

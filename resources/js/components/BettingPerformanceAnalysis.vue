@@ -134,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, computed } from 'vue';
+  import { ref, onMounted, computed, h } from 'vue';
   import { NSelect, NButton, NDataTable, NInput, NCard } from 'naive-ui';
   import { bettingAnalysisApi } from '@/utils/api';
   import { handleError } from '@/utils/errorHandler';
@@ -222,7 +222,7 @@
         const profit = Number(row.actual_profit);
         const color = profit > 0 ? 'text-green-400' : profit < 0 ? 'text-red-400' : 'text-gray-400';
         const prefix = profit > 0 ? '+' : '';
-        return `<span class="${color}">${prefix}$${profit.toFixed(2)}</span>`;
+        return h('span', { class: color }, [prefix, `$${profit.toFixed(2)}`]);
       }
     },
     {

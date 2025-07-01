@@ -1001,6 +1001,7 @@
   import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
   import type { AutoBettingStatus, DebugInfo } from '@/composables/useAutoBettingControl';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
+  import { optimizedDefaultConfig } from '@/composables/useAutoBettingConfig';
   import api from '@/utils/api';
 
   // Props
@@ -1155,52 +1156,13 @@
       positiveText: '确认重置',
       negativeText: '取消',
       onPositiveClick: () => {
-        // 重置所有过滤器为默认值（关闭状态）
-        // 历史表现过滤器
-        props.config.enable_win_rate_filter = false;
-        props.config.min_win_rate_threshold = 0.65;
-        props.config.enable_top3_rate_filter = false;
-        props.config.min_top3_rate_threshold = 0.6;
-        props.config.enable_avg_rank_filter = false;
-        props.config.max_avg_rank_threshold = 2.8;
-        props.config.enable_stability_filter = false;
-        props.config.max_stability_threshold = 0.7;
+        // 使用 optimizedDefaultConfig 重置所有配置
+        Object.assign(props.config, {
+          jwt_token: props.config.jwt_token, // 保留JWT令牌
+          ...optimizedDefaultConfig
+        });
 
-        // 评分过滤器
-        props.config.enable_absolute_score_filter = false;
-        props.config.min_absolute_score_threshold = 0.7;
-        props.config.enable_relative_score_filter = false;
-        props.config.min_relative_score_threshold = 0.65;
-        props.config.enable_h2h_score_filter = false;
-        props.config.min_h2h_score_threshold = 0.65;
-
-        // 市场动态过滤器
-        props.config.enable_change_5m_filter = false;
-        props.config.min_change_5m_threshold = -0.01;
-        props.config.max_change_5m_threshold = 0.07;
-        props.config.enable_change_1h_filter = false;
-        props.config.min_change_1h_threshold = -0.03;
-        props.config.max_change_1h_threshold = 0.1;
-        props.config.enable_change_4h_filter = false;
-        props.config.min_change_4h_threshold = -0.05;
-        props.config.max_change_4h_threshold = 0.15;
-        props.config.enable_change_24h_filter = false;
-        props.config.min_change_24h_threshold = 0.0;
-        props.config.max_change_24h_threshold = 0.0;
-
-        // 基础参数重置为合理默认值
-        props.config.confidence_threshold = 88;
-        props.config.score_gap_threshold = 6.0;
-        props.config.min_total_games = 25;
-        props.config.historical_accuracy_threshold = 0.7;
-        props.config.min_sample_count = 40;
-        props.config.strategy = 'single_bet';
-        props.config.bet_amount = 200;
-
-        // 重置排名下注设置
-        props.config.rank_betting_enabled_ranks = [1, 2, 3];
-
-        window.$message?.success('🔄 已重置为默认配置，所有参数恢复初始状态');
+        window.$message?.success('🔄 已重置为优化后的默认配置，所有参数恢复初始状态');
       }
     });
   };

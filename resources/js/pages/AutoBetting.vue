@@ -5,134 +5,183 @@
     <!-- 身份验证模态框 -->
     <WalletSetup :visible="!isTokenValidated" @validated="handleTokenValidated" />
 
-    <div
-      v-if="isTokenValidated"
-      class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br p-3 sm:p-6"
-    >
-      <div class="mx-auto max-w-7xl">
-        <!-- 导航栏 -->
-        <div class="mb-6 flex items-center justify-between">
-          <div class="flex items-center space-x-3">
-            <!-- WebSocket状态指示器 -->
-            <div class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2" :class="getWebSocketStatusClass()">
-              <span>{{ getWebSocketStatusIcon() }}</span>
-              <span>{{ websocketStatus.message }}</span>
-              <button v-if="!isConnected" @click="reconnectWebSocket()" class="text-xs underline">重连</button>
-            </div>
-          </div>
+    <div v-if="isTokenValidated" class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br">
+      <!-- 顶部状态栏 -->
+      <div class="status-bar">
+        <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <!-- 左侧：标题和配置状态 -->
+            <div class="flex-1">
+              <div class="flex items-center gap-3">
+                <div class="icon-container float-animation h-10 w-10 flex items-center justify-center rounded-lg">
+                  <span class="text-xl">🤖</span>
+                </div>
+                <div>
+                  <h1 class="gradient-text text-xl font-bold sm:text-2xl">自动下注控制中心</h1>
+                  <p class="text-sm text-gray-400">基于AI预测的智能下注系统</p>
+                </div>
+              </div>
 
-          <div class="flex-1 text-center">
-            <h1 class="text-2xl text-white font-bold">🤖 自动下注控制中心</h1>
-            <p class="text-gray-300">基于AI预测的智能下注系统</p>
-            <!-- 配置同步状态提示 -->
-            <div v-if="currentUID" class="mt-2">
-              <span
-                class="inline-flex items-center border border-green-500/30 rounded-full bg-green-500/20 px-2.5 py-0.5 text-xs text-green-400 font-medium"
-              >
-                ☁️ 配置已云端同步 (UID: {{ currentUID.slice(0, 8) }}...)
-              </span>
-            </div>
-            <div v-else class="mt-2">
-              <span
-                class="inline-flex items-center border border-yellow-500/30 rounded-full bg-yellow-500/20 px-2.5 py-0.5 text-xs text-yellow-400 font-medium"
-              >
-                💾 配置本地存储 - 完成Token验证后可云端同步
-              </span>
-            </div>
-          </div>
-
-          <div class="flex items-center space-x-3">
-            <!-- 用户信息 -->
-            <div v-if="userInfo" class="text-right">
-              <div class="text-xs text-gray-400">用户ID</div>
-              <div class="flex items-center space-x-2">
-                <div class="text-xs text-blue-400 font-mono">{{ userInfo.uid.slice(0, 8) }}...</div>
-                <n-button
-                  @click="reconnectToken"
-                  :disabled="autoBettingStatus.is_running"
-                  type="tertiary"
-                  size="tiny"
-                  class="text-xs"
+              <!-- 配置同步状态 -->
+              <div class="mt-3">
+                <div
+                  v-if="currentUID"
+                  class="status-indicator inline-flex items-center gap-2 border border-green-500/20 rounded-full bg-green-500/10 px-3 py-1.5"
                 >
-                  重新验证
-                </n-button>
+                  <div class="pulse-dot h-2 w-2 rounded-full bg-green-400"></div>
+                  <span class="text-xs text-green-400 font-medium">
+                    配置已云端同步 ({{ currentUID.slice(0, 8) }}...)
+                  </span>
+                </div>
+                <div
+                  v-else
+                  class="status-indicator inline-flex items-center gap-2 border border-yellow-500/20 rounded-full bg-yellow-500/10 px-3 py-1.5"
+                >
+                  <div class="pulse-dot h-2 w-2 rounded-full bg-yellow-400"></div>
+                  <span class="text-xs text-yellow-400 font-medium">配置本地存储 - 完成验证后可云端同步</span>
+                </div>
               </div>
             </div>
 
-            <!-- 当前策略显示 -->
-            <div class="text-right">
-              <div class="text-xs text-gray-400">当前策略</div>
-              <div class="text-sm text-white font-medium">{{ currentStrategyName }}</div>
-            </div>
+            <!-- 右侧：状态指示器 -->
+            <div class="flex flex-wrap gap-3 lg:flex-nowrap">
+              <!-- WebSocket状态 -->
+              <div
+                class="status-indicator flex items-center gap-2 border rounded-lg px-3 py-2 text-sm transition-all duration-300"
+                :class="getWebSocketStatusClass()"
+              >
+                <span>{{ getWebSocketStatusIcon() }}</span>
+                <span>{{ websocketStatus.message }}</span>
+                <button
+                  v-if="!isConnected"
+                  @click="reconnectWebSocket()"
+                  class="text-xs underline opacity-80 transition-opacity hover:opacity-100"
+                >
+                  重连
+                </button>
+              </div>
 
-            <!-- 自动下注状态 -->
-            <div class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2" :class="getAutoBettingStatusClass()">
-              <span>{{ getAutoBettingStatusIcon() }}</span>
-              <span>{{ autoBettingStatus.is_running ? '运行中' : '已停止' }}</span>
+              <!-- 自动下注状态 -->
+              <div
+                class="status-indicator flex items-center gap-2 border rounded-lg px-3 py-2 text-sm transition-all duration-300"
+                :class="getAutoBettingStatusClass()"
+              >
+                <span>{{ getAutoBettingStatusIcon() }}</span>
+                <span>{{ autoBettingStatus.is_running ? '运行中' : '已停止' }}</span>
+              </div>
+
+              <!-- 当前策略 -->
+              <div
+                class="status-indicator border border-blue-500/30 rounded-lg bg-blue-500/10 px-3 py-2 transition-all duration-300 hover:bg-blue-500/15"
+              >
+                <div class="text-xs text-blue-400">当前策略</div>
+                <div class="text-sm text-blue-300 font-medium">{{ currentStrategyName }}</div>
+              </div>
+
+              <!-- 用户信息 -->
+              <div
+                v-if="userInfo"
+                class="status-indicator border border-purple-500/30 rounded-lg bg-purple-500/10 px-3 py-2 transition-all duration-300 hover:bg-purple-500/15"
+              >
+                <div class="text-xs text-purple-400">用户ID</div>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm text-purple-300 font-mono">{{ userInfo.uid.slice(0, 8) }}...</span>
+                  <n-button
+                    @click="reconnectToken"
+                    :disabled="autoBettingStatus.is_running"
+                    type="tertiary"
+                    size="tiny"
+                    class="transition-all duration-200 !h-5 !text-xs"
+                  >
+                    重新验证
+                  </n-button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- 原先的🤖 自动下注状态和🔮 AI预测排名已整合到智能控制中心标签页中 -->
-
+      <!-- 主要内容区域 -->
+      <div class="mx-auto max-w-7xl p-4 sm:p-6">
         <!-- 标签页导航 -->
-        <NTabs v-model:value="activeTab" type="card" size="large" class="auto-betting-tabs">
-          <!-- 智能控制中心标签页 -->
-          <NTabPane name="control" tab="🎛️ 智能控制中心">
-            <SmartControlCenter
-              :auto-betting-status="autoBettingStatus"
-              :current-analysis="currentAnalysis"
-              :analysis-meta="analysisMeta"
-              :current-round-id="currentRoundId"
-              :current-game-status="currentGameStatus"
-              :current-game-tokens-with-ranks="currentGameTokensWithRanks"
-              :debug-info="debugInfo"
-              :toggle-loading="toggleLoading"
-              :execute-loading="executeLoading"
-              :analysis-loading="analysisLoading"
-              :diagnostics-loading="diagnosticsLoading"
-              :strategy-name="currentStrategyName"
-              :confidence-threshold="config.confidence_threshold"
-              :config="config"
-              :selected-template="selectedTemplate"
-              :custom-strategy-mode="customStrategyMode"
-              :config-saving="configSaving"
-              :config-sync-status="configSyncStatus"
-              :strategy-templates="strategyTemplates"
-              :strategy-templates-with-custom="getStrategyTemplatesWithCustom()"
-              :strategy-validation="strategyValidation"
-              :is-running="autoBettingStatus.is_running"
-              :has-u-i-d="!!currentUID"
-              @start-auto-betting="startAutoBetting"
-              @stop-auto-betting="stopAutoBetting"
-              @execute-manual-betting="executeManualBetting"
-              @clear-bet-results="clearBetResults"
-              @apply-strategy-template="applyStrategyTemplate"
-              @switch-to-custom-mode="switchToCustomMode"
-              @reset-to-template-mode="resetToTemplateMode"
-              @execute-strategy-betting="executeStrategyBetting"
-              @manual-save-config="manualSaveConfig"
-              @run-api-diagnostics="runApiDiagnostics"
-              @refresh-analysis="refreshAnalysis"
-            />
-          </NTabPane>
+        <div class="mb-6">
+          <NTabs v-model:value="activeTab" type="line" size="large" class="modern-tabs">
+            <!-- 智能控制中心标签页 -->
+            <NTabPane name="control">
+              <template #tab>
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">🎛️</span>
+                  <span>智能控制中心</span>
+                </div>
+              </template>
 
-          <!-- 历史与分析标签页 -->
-          <NTabPane name="history" tab="📊 历史与分析">
-            <HistoryAnalysisTab
-              :exact-rate="predictionStats.calculateRoundBasedStats.value.exactRate"
-              :total-rounds="predictionStats.calculatePortfolioStats.value.totalRounds"
-              :all-stats="predictionStats.calculateRankBasedStats.value"
-              :recent-stats="predictionStats.calculateRecentRankBasedStats.value"
-              :recent-rounds-count="recentRoundsCount"
-              :max-rounds="predictionHistory.length"
-              :history-loading="predictionStore.historyLoading"
-              :prediction-comparison-data="predictionStats.getPredictionComparisonData.value"
-              @refresh-prediction-history="refreshPredictionHistory"
-              @update:recent-rounds-count="updateRecentRoundsCount"
-            />
-          </NTabPane>
-        </NTabs>
+              <div class="border border-white/10 rounded-xl bg-black/20 p-6 backdrop-blur-md">
+                <SmartControlCenter
+                  :auto-betting-status="autoBettingStatus"
+                  :current-analysis="currentAnalysis"
+                  :analysis-meta="analysisMeta"
+                  :current-round-id="currentRoundId"
+                  :current-game-status="currentGameStatus"
+                  :current-game-tokens-with-ranks="currentGameTokensWithRanks"
+                  :debug-info="debugInfo"
+                  :toggle-loading="toggleLoading"
+                  :execute-loading="executeLoading"
+                  :analysis-loading="analysisLoading"
+                  :diagnostics-loading="diagnosticsLoading"
+                  :strategy-name="currentStrategyName"
+                  :confidence-threshold="config.confidence_threshold"
+                  :config="config"
+                  :selected-template="selectedTemplate"
+                  :custom-strategy-mode="customStrategyMode"
+                  :config-saving="configSaving"
+                  :config-sync-status="configSyncStatus"
+                  :strategy-templates="strategyTemplates"
+                  :strategy-templates-with-custom="getStrategyTemplatesWithCustom()"
+                  :strategy-validation="strategyValidation"
+                  :is-running="autoBettingStatus.is_running"
+                  :has-u-i-d="!!currentUID"
+                  @start-auto-betting="startAutoBetting"
+                  @stop-auto-betting="stopAutoBetting"
+                  @execute-manual-betting="executeManualBetting"
+                  @clear-bet-results="clearBetResults"
+                  @apply-strategy-template="applyStrategyTemplate"
+                  @switch-to-custom-mode="switchToCustomMode"
+                  @reset-to-template-mode="resetToTemplateMode"
+                  @execute-strategy-betting="executeStrategyBetting"
+                  @manual-save-config="manualSaveConfig"
+                  @run-api-diagnostics="runApiDiagnostics"
+                  @refresh-analysis="refreshAnalysis"
+                />
+              </div>
+            </NTabPane>
+
+            <!-- 历史与分析标签页 -->
+            <NTabPane name="history">
+              <template #tab>
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">📊</span>
+                  <span>历史与分析</span>
+                </div>
+              </template>
+
+              <div class="border border-white/10 rounded-xl bg-black/20 p-6 backdrop-blur-md">
+                <HistoryAnalysisTab
+                  :exact-rate="predictionStats.calculateRoundBasedStats.value.exactRate"
+                  :total-rounds="predictionStats.calculatePortfolioStats.value.totalRounds"
+                  :all-stats="predictionStats.calculateRankBasedStats.value"
+                  :recent-stats="predictionStats.calculateRecentRankBasedStats.value"
+                  :recent-rounds-count="recentRoundsCount"
+                  :max-rounds="predictionHistory.length"
+                  :history-loading="predictionStore.historyLoading"
+                  :prediction-comparison-data="predictionStats.getPredictionComparisonData.value"
+                  @refresh-prediction-history="refreshPredictionHistory"
+                  @update:recent-rounds-count="updateRecentRoundsCount"
+                />
+              </div>
+            </NTabPane>
+          </NTabs>
+        </div>
       </div>
     </div>
   </DefaultLayout>
@@ -864,46 +913,161 @@
 </script>
 
 <style scoped>
-  .prediction-stat-card {
-    @apply relative overflow-hidden border rounded-xl p-4 transition-all duration-300 hover:shadow-lg sm:p-6;
+  /* 现代化标签页样式 */
+  :deep(.modern-tabs .n-tabs-nav) {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 4px;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
-  .stat-icon {
-    @apply absolute right-2 top-2 text-xl opacity-20 sm:text-2xl;
-  }
-
-  .stat-content {
-    @apply relative;
-  }
-
-  .stat-label {
-    @apply text-xs font-medium sm:text-sm;
-  }
-
-  .stat-value {
-    @apply mt-2 text-2xl font-bold sm:text-3xl;
-  }
-
-  .stat-value span {
-    @apply text-base sm:text-lg;
-  }
-
-  .stat-desc {
-    @apply mt-2 text-xs;
-  }
-
-  :deep(.auto-betting-tabs .n-tabs-nav) {
-    background: rgba(0, 0, 0, 0.2);
+  :deep(.modern-tabs .n-tabs-tab) {
     border-radius: 8px;
+    margin: 0 2px;
+    color: rgb(156, 163, 175);
+    transition: all 0.3s ease;
+    font-weight: 500;
   }
 
-  :deep(.auto-betting-tabs .n-tabs-tab) {
-    border-radius: 6px;
-    margin: 2px;
+  :deep(.modern-tabs .n-tabs-tab:hover) {
+    color: rgb(196, 181, 253);
+    background: rgba(139, 92, 246, 0.1);
   }
 
-  :deep(.auto-betting-tabs .n-tabs-tab.n-tabs-tab--active) {
-    background: rgba(59, 130, 246, 0.2);
-    color: rgb(96, 165, 250);
+  :deep(.modern-tabs .n-tabs-tab.n-tabs-tab--active) {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
+    color: rgb(147, 197, 253);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    box-shadow:
+      0 4px 6px -1px rgba(59, 130, 246, 0.1),
+      0 2px 4px -1px rgba(59, 130, 246, 0.06);
+  }
+
+  :deep(.modern-tabs .n-tabs-tab-pane) {
+    padding: 0;
+  }
+
+  /* 状态指示器动画效果 */
+  .status-indicator {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .status-indicator::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s;
+  }
+
+  .status-indicator:hover::before {
+    left: 100%;
+  }
+
+  /* 玻璃态效果增强 */
+  .glass-effect {
+    backdrop-filter: blur(16px) saturate(180%);
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.125);
+  }
+
+  /* 渐变文字效果 */
+  .gradient-text {
+    background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* 悬浮动画 */
+  .float-animation {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+
+  /* 脉冲动画 */
+  .pulse-dot {
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  /* 响应式网格布局优化 */
+  @media (max-width: 1024px) {
+    :deep(.modern-tabs .n-tabs-nav) {
+      padding: 3px;
+    }
+
+    :deep(.modern-tabs .n-tabs-tab) {
+      font-size: 14px;
+      padding: 8px 12px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    :deep(.modern-tabs .n-tabs-tab) {
+      font-size: 13px;
+      padding: 6px 10px;
+    }
+  }
+
+  /* 卡片容器增强 */
+  .content-card {
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .content-card:hover {
+    border-color: rgba(59, 130, 246, 0.3);
+    box-shadow:
+      0 10px 25px -5px rgba(0, 0, 0, 0.1),
+      0 10px 10px -5px rgba(59, 130, 246, 0.04);
+  }
+
+  /* 状态栏美化 */
+  .status-bar {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.1));
+    backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* 图标容器美化 */
+  .icon-container {
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    box-shadow:
+      0 4px 6px -1px rgba(59, 130, 246, 0.25),
+      0 2px 4px -1px rgba(59, 130, 246, 0.06);
+    transition: all 0.3s ease;
+  }
+
+  .icon-container:hover {
+    transform: scale(1.05);
+    box-shadow:
+      0 8px 25px -5px rgba(59, 130, 246, 0.25),
+      0 10px 10px -5px rgba(59, 130, 246, 0.04);
   }
 </style>

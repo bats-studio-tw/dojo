@@ -13,13 +13,6 @@
         <!-- 导航栏 -->
         <div class="mb-6 flex items-center justify-between">
           <div class="flex items-center space-x-3">
-            <router-link
-              to="/"
-              class="flex items-center rounded-lg bg-slate-600 px-4 py-2 text-white transition-colors duration-200 space-x-2 hover:bg-slate-700"
-            >
-              <span>📊</span>
-              <span>返回数据面板</span>
-            </router-link>
             <!-- WebSocket状态指示器 -->
             <div class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2" :class="getWebSocketStatusClass()">
               <span>{{ getWebSocketStatusIcon() }}</span>

@@ -101,7 +101,7 @@ export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token'> = {
   confidence_threshold: 80, // 降低至80%，适应NEAR 82%的情况
   score_gap_threshold: 60, // 降低至60，更宽松的分数要求
   min_total_games: 1, // 降低至1，适应样本不足现实
-  historical_accuracy_threshold: 10, // 10%，更宽松的历史准确率要求 (统一为0-100)
+  historical_accuracy_threshold: 10, // 10%，更宽松的胜率要求 (统一为0-100)
   min_sample_count: 1, // 降低至1，适应样本不足现实
   max_bet_percentage: 15,
   strategy: 'single_bet' as const,
@@ -533,7 +533,7 @@ export const strategyTemplates = {
     confidence_threshold: 0, // 排名下注不使用置信度
     score_gap_threshold: 0, // 排名下注不使用分数差距
     min_total_games: 1, // 最低要求
-    historical_accuracy_threshold: 0, // 排名下注不使用历史准确率 (统一为0-100)
+    historical_accuracy_threshold: 0, // 排名下注不使用胜率 (统一为0-100)
     min_sample_count: 1, // 最低要求
     max_bet_percentage: 25, // 适中的风险比例
     strategy: 'rank_betting' as const, // **核心：排名下注策略**

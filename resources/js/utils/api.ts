@@ -102,13 +102,6 @@ export const autoBettingApi = {
     });
   },
 
-  // 模拟下注
-  simulate: (config: any) => {
-    return api.post('/auto-betting/simulate', {
-      config
-    });
-  },
-
   // 执行自动下注
   execute: (uid: string, config: any) => {
     return api.post('/auto-betting/execute', {
@@ -187,18 +180,6 @@ export const bettingAnalysisApi = {
     console.log('🔧 API实际发送的参数:', params);
 
     return api.get('/betting-analysis/performance', {
-      params
-    });
-  },
-
-  // 获取代币表现统计
-  getTokenStats: (uid: string, days?: number) => {
-    const params: any = { uid };
-    if (days !== undefined && days !== null) {
-      params.days = days;
-    }
-
-    return api.get('/betting-analysis/token-stats', {
       params
     });
   }

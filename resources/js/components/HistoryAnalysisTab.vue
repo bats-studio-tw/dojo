@@ -1,7 +1,5 @@
 <template>
   <div class="space-y-6">
-    <BettingPerformanceAnalysis :uid="getCurrentUID()" />
-
     <!-- 预测统计分析 -->
     <PredictionStats
       class="mb-6"
@@ -15,6 +13,9 @@
       :loading="historyLoading"
       @refresh="$emit('refreshPredictionHistory')"
     />
+
+    <!-- 投注表现分析 -->
+    <BettingPerformanceAnalysis :uid="getCurrentUID()" />
   </div>
 </template>
 

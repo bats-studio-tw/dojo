@@ -308,17 +308,58 @@ class GameDataProcessorService
     private function dispatchEloUpdateJob(int $gameRoundId): void
     {
         try {
-            Log::channel('websocket')->info('🔄 派遣 Elo 更新任务', ['game_round_id' => $gameRoundId]);
+            Log::channel('websocket')->info('🔄 开始派遣 Elo 更新任务', [
+                'game_round_id' => $gameRoundId,
+                'timestamp' => now()->toISOString()
+            ]);
+
+            // 验证 game_round_id 是否有效
+            if ($gameRoundId <= 0) {
+                Log::channel('websocket')->error('❌ 无效的 game_round_id', [
+                    'game_round_id' => $gameRoundId
+                ]);
+                return;
+            }
+
+            // 检查是否已经派遣过该轮次的 Elo 更新任务
+            $cacheKey = "elo_update_dispatched:{$gameRoundId}";
+            if (Cache::has($cacheKey)) {
+                Log::channel('websocket')->warning('⚠️ Elo 更新任务已派遣过，跳过重复派遣', [
+                    'game_round_id' => $gameRoundId,
+                    'cache_key' => $cacheKey
+                ]);
+                return;
+            }
+
+            Log::channel('websocket')->info('📋 准备创建 EloUpdateJob', [
+                'game_round_id' => $gameRoundId,
+                'job_class' => 'App\Jobs\EloUpdateJob'
+            ]);
 
             // 派遣 EloUpdateJob
-            EloUpdateJob::dispatch($gameRoundId)->onQueue('elo_updates');
+            $job = EloUpdateJob::dispatch($gameRoundId)->onQueue('elo_updates');
 
-            Log::channel('websocket')->info('✅ Elo 更新任务已派遣', ['game_round_id' => $gameRoundId]);
+            Log::channel('websocket')->info('✅ Elo 更新任务已派遣', [
+                'game_round_id' => $gameRoundId,
+                'job_id' => $job->getJobId(),
+                'queue_name' => 'elo_updates',
+                'dispatch_time' => now()->toISOString()
+            ]);
+
+            // 标记该轮次已派遣 Elo 更新任务，避免重复派遣
+            Cache::put($cacheKey, true, now()->addMinutes(30));
+
+            Log::channel('websocket')->info('📝 已标记 Elo 更新任务派遣状态', [
+                'game_round_id' => $gameRoundId,
+                'cache_key' => $cacheKey,
+                'cache_ttl' => '30 minutes'
+            ]);
 
         } catch (\Exception $e) {
-            Log::channel('websocket')->error('派遣 Elo 更新任务失败', [
+            Log::channel('websocket')->error('❌ 派遣 Elo 更新任务失败', [
                 'game_round_id' => $gameRoundId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
         }
     }

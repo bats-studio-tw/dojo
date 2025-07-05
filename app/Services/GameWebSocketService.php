@@ -290,19 +290,73 @@ class GameWebSocketService
             $tokens = array_keys($gameData['token'] ?? []);
             $chainId = 'ethereum'; // 默认链ID，可以根据实际需要调整
 
+            Log::channel('websocket')->info('🎯 开始触发新轮次开始事件', [
+                'round_id' => $roundId,
+                'tokens_count' => count($tokens),
+                'tokens' => $tokens,
+                'chain_id' => $chainId,
+                'game_data_keys' => array_keys($gameData)
+            ]);
+
             if (empty($tokens)) {
+                Log::channel('websocket')->warning('⚠️ 没有代币信息，跳过新轮次事件触发', [
+                    'round_id' => $roundId,
+                    'game_data' => $gameData
+                ]);
                 $this->consoleOutput("⚠️ 没有代币信息，跳过新轮次事件触发");
                 return;
             }
 
+            // 验证代币数据格式
+            foreach ($tokens as $token) {
+                if (empty($token) || !is_string($token)) {
+                    Log::channel('websocket')->error('❌ 代币数据格式无效', [
+                        'round_id' => $roundId,
+                        'invalid_token' => $token,
+                        'token_type' => gettype($token)
+                    ]);
+                    return;
+                }
+            }
+
+            Log::channel('websocket')->info('✅ 代币数据验证通过，准备触发事件', [
+                'round_id' => $roundId,
+                'valid_tokens' => $tokens
+            ]);
+
             $this->consoleOutput("🎯 触发新轮次开始事件...");
 
             // 触发 NewRoundStarted 事件
-            event(new NewRoundStarted($roundId, $tokens, $chainId));
+            $event = new NewRoundStarted($roundId, $tokens, $chainId);
+
+            Log::channel('websocket')->info('📡 准备广播 NewRoundStarted 事件', [
+                'round_id' => $roundId,
+                'event_class' => get_class($event),
+                'event_data' => [
+                    'roundId' => $event->roundId,
+                    'symbols' => $event->symbols,
+                    'chainId' => $event->chainId
+                ]
+            ]);
+
+            event($event);
+
+            Log::channel('websocket')->info('✅ NewRoundStarted 事件已触发', [
+                'round_id' => $roundId,
+                'event_dispatched' => true,
+                'timestamp' => now()->toISOString()
+            ]);
 
             $this->consoleOutput("✅ 新轮次开始事件已触发");
 
         } catch (\Exception $e) {
+            Log::channel('websocket')->error('❌ 触发新轮次开始事件异常', [
+                'round_id' => $gameData['rdId'] ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'game_data' => $gameData
+            ]);
+
             $this->logError("触发新轮次开始事件异常", [
                 'error' => $e->getMessage(),
                 'rdId' => $gameData['rdId'] ?? 'unknown'

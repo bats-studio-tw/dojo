@@ -62,12 +62,11 @@ class PredictRoundJobDispatcher
             ]);
 
             // 派遣 PredictRoundJob
-            $job = PredictRoundJob::dispatch($event->roundId, $event->symbols, $event->chainId)
+            PredictRoundJob::dispatch($event->roundId, $event->symbols, $event->chainId)
                        ->onQueue('predictions'); // 建议使用独立的队列
 
             Log::info('🚀 PredictRoundJob 已派遣到队列', [
                 'round_id' => $event->roundId,
-                'job_id' => $job->getJobId(),
                 'queue_name' => 'predictions',
                 'dispatch_time' => now()->toISOString()
             ]);

@@ -93,9 +93,10 @@ class EloUpdateJob implements ShouldQueue
             ]);
 
             // 步骤3: 开始 Elo 评分更新
+            $totalCombinations = count($rankedSymbols) * (count($rankedSymbols) - 1) / 2;
             Log::info('🏆 步骤3: 开始 Elo 评分更新', [
                 'game_round_id' => $this->gameRoundId,
-                'total_combinations' => count($rankedSymbols) * (count($rankedSymbols) - 1) / 2
+                'total_combinations' => $totalCombinations
             ]);
 
             $updateCount = 0;
@@ -109,9 +110,10 @@ class EloUpdateJob implements ShouldQueue
                     $winnerSymbol = $rankedSymbols[$i];
                     $loserSymbol = $rankedSymbols[$j];
 
+                    $combinationNumber = $updateCount + 1;
                     Log::info('🔄 处理对战组合', [
                         'game_round_id' => $this->gameRoundId,
-                        'combination' => "{$updateCount + 1}",
+                        'combination' => "{$combinationNumber}",
                         'winner_rank' => $i,
                         'loser_rank' => $j,
                         'winner_symbol' => $winnerSymbol,
@@ -164,8 +166,9 @@ class EloUpdateJob implements ShouldQueue
                         ]);
 
                     } catch (\Exception $updateError) {
+                        $errorCombinationNumber = $updateCount + 1;
                         $errorInfo = [
-                            'combination' => "{$updateCount + 1}",
+                            'combination' => "{$errorCombinationNumber}",
                             'winner' => $winnerSymbol,
                             'loser' => $loserSymbol,
                             'error' => $updateError->getMessage()

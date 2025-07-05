@@ -70,15 +70,6 @@
               </span>
             </div>
           </div>
-
-          <!-- 預測方法標識 -->
-          <div class="mt-1 text-center">
-            <span
-              class="inline-flex items-center border border-blue-400/30 rounded-full from-blue-500/20 to-purple-500/20 bg-gradient-to-r px-2 py-1 text-xs text-blue-300 font-medium"
-            >
-              ⚡ Hybrid-Edge v1.0
-            </span>
-          </div>
         </div>
       </div>
     </div>

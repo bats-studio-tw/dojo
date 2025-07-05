@@ -69,15 +69,29 @@ class PredictRoundJob implements ShouldQueue
             // 步骤4: 计算动能分数
             $momScore = [];
             foreach ($this->symbols as $symbol) {
-                // 添加价格对比日志
-                Log::info('[PredictRoundJob] 价格对比', [
-                    'symbol' => $symbol,
-                    'price_p0' => $pricesP0[$symbol] ?? 'missing',
-                    'price_p1' => $pricesP1[$symbol] ?? 'missing',
-                    'price_change_percent' => isset($pricesP0[$symbol]) && isset($pricesP1[$symbol]) && $pricesP0[$symbol] > 0
-                        ? round((($pricesP1[$symbol] / $pricesP0[$symbol] - 1) * 100), 4) . '%'
-                        : 'N/A'
-                ]);
+                // 添加详细的价格对比日志
+                $priceP0 = $pricesP0[$symbol] ?? null;
+                $priceP1 = $pricesP1[$symbol] ?? null;
+
+                if ($priceP0 !== null && $priceP1 !== null && $priceP0 > 0) {
+                    $priceDiff = $priceP1 - $priceP0;
+                    $priceChangePercent = round((($priceP1 / $priceP0 - 1) * 100), 4);
+
+                    Log::info('[PredictRoundJob] 价格对比详情', [
+                        'symbol' => $symbol,
+                        'price_p0' => $priceP0,
+                        'price_p1' => $priceP1,
+                        'price_diff' => $priceDiff,
+                        'price_change_percent' => $priceChangePercent . '%',
+                        'price_change_ratio' => round($priceP1 / $priceP0, 6)
+                    ]);
+                } else {
+                    Log::warning('[PredictRoundJob] 价格数据缺失', [
+                        'symbol' => $symbol,
+                        'price_p0' => $priceP0,
+                        'price_p1' => $priceP1
+                    ]);
+                }
 
                 if (isset($pricesP0[$symbol]) && isset($pricesP1[$symbol]) && $pricesP0[$symbol] > 0) {
                     $momentum = ($pricesP1[$symbol] / $pricesP0[$symbol] - 1) * 1000;
@@ -99,6 +113,8 @@ class PredictRoundJob implements ShouldQueue
                         'symbol' => $symbol,
                         'price_p0' => $pricesP0[$symbol],
                         'price_p1' => $pricesP1[$symbol],
+                        'price_diff' => $pricesP1[$symbol] - $pricesP0[$symbol],
+                        'price_change_percent' => round((($pricesP1[$symbol] / $pricesP0[$symbol] - 1) * 100), 4) . '%',
                         'momentum' => $momentum,
                         'mom_score' => $momScore[$symbol],
                         'threshold' => $threshold,

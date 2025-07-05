@@ -143,14 +143,36 @@ class DexPriceClient
     {
         $targetSymbol = strtoupper($targetSymbol);
 
-        // 第一优先级：精确匹配代币符号
+        // 按流动性降序排序所有交易对，确保优先选择高流动性交易对
+        usort($pairs, function ($a, $b) {
+            $liquidityA = floatval($a['liquidity']['usd'] ?? 0);
+            $liquidityB = floatval($b['liquidity']['usd'] ?? 0);
+            return $liquidityB <=> $liquidityA;
+        });
+
+        // 记录排序后的前3个交易对的流动性信息（用于调试）
+        if (count($pairs) > 0) {
+            $topPairs = array_slice($pairs, 0, 3);
+            $liquidityInfo = [];
+            foreach ($topPairs as $index => $pair) {
+                $liquidityInfo[] = sprintf(
+                    "#%d: %s (%.2f USD)",
+                    $index + 1,
+                    $pair['baseToken']['symbol'] ?? 'Unknown',
+                    floatval($pair['liquidity']['usd'] ?? 0)
+                );
+            }
+            Log::info("Token matching for {$targetSymbol} - Top liquidity pairs: " . implode(', ', $liquidityInfo));
+        }
+
+        // 第一优先级：精确匹配代币符号（在已排序的高流动性交易对中查找）
         foreach ($pairs as $pair) {
             if (strtoupper($pair['baseToken']['symbol'] ?? '') === $targetSymbol) {
                 return $pair;
             }
         }
 
-        // 第二优先级：代币名称包含目标符号
+        // 第二优先级：代币名称包含目标符号（在已排序的高流动性交易对中查找）
         foreach ($pairs as $pair) {
             $tokenName = strtoupper($pair['baseToken']['name'] ?? '');
             if (strpos($tokenName, $targetSymbol) !== false) {
@@ -158,12 +180,12 @@ class DexPriceClient
             }
         }
 
-        // 第三优先级：选择流动性最高的交易对
-        return $this->selectHighestLiquidityPair($pairs);
+        // 第三优先级：直接返回流动性最高的交易对（已经是排序后的第一个）
+        return !empty($pairs) ? $pairs[0] : null;
     }
 
     /**
-     * 选择流动性最高的交易对
+     * 选择流动性最高的交易对（已优化，现在直接在 findBestTokenMatch 中处理）
      * @param array $pairs 交易对数组
      * @return array|null
      */
@@ -173,18 +195,14 @@ class DexPriceClient
             return null;
         }
 
-        $bestPair = null;
-        $highestLiquidity = 0;
+        // 按流动性降序排序
+        usort($pairs, function ($a, $b) {
+            $liquidityA = floatval($a['liquidity']['usd'] ?? 0);
+            $liquidityB = floatval($b['liquidity']['usd'] ?? 0);
+            return $liquidityB <=> $liquidityA;
+        });
 
-        foreach ($pairs as $pair) {
-            $liquidity = floatval($pair['liquidity']['usd'] ?? 0);
-            if ($liquidity > $highestLiquidity) {
-                $highestLiquidity = $liquidity;
-                $bestPair = $pair;
-            }
-        }
-
-        return $bestPair ?: $pairs[0]; // 如果没有流动性数据，返回第一个
+        return $pairs[0];
     }
 
     /**

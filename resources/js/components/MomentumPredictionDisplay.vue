@@ -178,7 +178,25 @@
 
   // 動能預測Token按排名排序
   const sortedMomentumPredictions = computed(() => {
-    return [...props.hybridPredictions].sort((a, b) => a.predicted_rank - b.predicted_rank);
+    if (!props.hybridPredictions || props.hybridPredictions.length === 0) {
+      return [];
+    }
+
+    // 数据去重：基于symbol去重，保留排名最高的记录
+    const uniquePredictions = new Map();
+
+    props.hybridPredictions.forEach((prediction) => {
+      const symbol = prediction.symbol?.toUpperCase();
+      if (!symbol) return;
+
+      if (!uniquePredictions.has(symbol) || prediction.predicted_rank < uniquePredictions.get(symbol).predicted_rank) {
+        uniquePredictions.set(symbol, prediction);
+      }
+    });
+
+    // 转换为数组并按排名排序
+    const deduplicatedArray = Array.from(uniquePredictions.values());
+    return deduplicatedArray.sort((a, b) => a.predicted_rank - b.predicted_rank);
   });
 
   // ==================== 工具函數 ====================

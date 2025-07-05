@@ -479,9 +479,40 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
             // 更新Hybrid预测数据
             if (predictionArray && Array.isArray(predictionArray) && predictionArray.length > 0) {
-              hybridPredictions.value = [...predictionArray];
-              hybridAnalysisMeta.value = metaInfo;
-              console.log(`⚡ 更新Hybrid预测数据: ${predictionArray.length} 个Token`);
+              // 数据验证和去重
+              const validatedPredictions = predictionArray.filter((prediction) => {
+                // 验证必要字段
+                return (
+                  prediction &&
+                  typeof prediction === 'object' &&
+                  prediction.symbol &&
+                  typeof prediction.symbol === 'string' &&
+                  typeof prediction.predicted_rank === 'number' &&
+                  prediction.predicted_rank > 0
+                );
+              });
+
+              // 基于symbol去重，保留排名最高的记录
+              const uniquePredictions = new Map();
+              validatedPredictions.forEach((prediction) => {
+                const symbol = prediction.symbol.toUpperCase();
+                if (
+                  !uniquePredictions.has(symbol) ||
+                  prediction.predicted_rank < uniquePredictions.get(symbol).predicted_rank
+                ) {
+                  uniquePredictions.set(symbol, prediction);
+                }
+              });
+
+              const finalPredictions = Array.from(uniquePredictions.values());
+
+              if (finalPredictions.length > 0) {
+                hybridPredictions.value = finalPredictions;
+                hybridAnalysisMeta.value = metaInfo;
+                console.log(`⚡ 更新Hybrid预测数据: ${finalPredictions.length} 个Token (去重后)`);
+              } else {
+                console.warn('⚠️ Hybrid预测数据验证失败，所有数据都被过滤');
+              }
             } else {
               console.warn('⚠️ Hybrid预测数据为空或格式不正确');
             }
@@ -614,9 +645,44 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     try {
       const response = await api.get('/game/hybrid-analysis');
       if (response.data.success) {
-        hybridPredictions.value = response.data.data || [];
-        hybridAnalysisMeta.value = response.data.meta || null;
-        console.log(`⚡ 成功获取Hybrid分析数据: ${hybridPredictions.value.length} 个Token`);
+        const rawData = response.data.data || [];
+
+        // 数据验证和去重
+        const validatedPredictions = rawData.filter((prediction) => {
+          // 验证必要字段
+          return (
+            prediction &&
+            typeof prediction === 'object' &&
+            prediction.symbol &&
+            typeof prediction.symbol === 'string' &&
+            typeof prediction.predicted_rank === 'number' &&
+            prediction.predicted_rank > 0
+          );
+        });
+
+        // 基于symbol去重，保留排名最高的记录
+        const uniquePredictions = new Map();
+        validatedPredictions.forEach((prediction) => {
+          const symbol = prediction.symbol.toUpperCase();
+          if (
+            !uniquePredictions.has(symbol) ||
+            prediction.predicted_rank < uniquePredictions.get(symbol).predicted_rank
+          ) {
+            uniquePredictions.set(symbol, prediction);
+          }
+        });
+
+        const finalPredictions = Array.from(uniquePredictions.values());
+
+        if (finalPredictions.length > 0) {
+          hybridPredictions.value = finalPredictions;
+          hybridAnalysisMeta.value = response.data.meta || null;
+          console.log(`⚡ 成功获取Hybrid分析数据: ${finalPredictions.length} 个Token (去重后)`);
+        } else {
+          console.warn('⚠️ Hybrid分析数据验证失败，所有数据都被过滤');
+          hybridPredictions.value = [];
+          hybridAnalysisMeta.value = null;
+        }
       } else {
         console.warn('⚠️ Hybrid分析数据获取失败:', response.data.message);
         hybridPredictions.value = [];

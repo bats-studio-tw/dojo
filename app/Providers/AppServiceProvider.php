@@ -20,6 +20,13 @@ class AppServiceProvider extends ServiceProvider
         // 注册游戏预测服务
         $this->app->singleton(\App\Services\GamePredictionService::class);
 
+        // 注册DexScreener价格客户端服务
+        $this->app->singleton(\App\Services\DexPriceClient::class);
+
+        // 注册Hybrid-Edge v1.0预测服务
+        $this->app->singleton(\App\Services\EloRatingEngine::class);
+        $this->app->singleton(\App\Services\ScoreMixer::class);
+
         // 注册WebSocket服务
         $this->app->singleton(\App\Services\GameWebSocketService::class, function ($app) {
             return new \App\Services\GameWebSocketService(

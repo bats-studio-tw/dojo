@@ -11,6 +11,17 @@
       @refresh-analysis="refreshAnalysis"
     />
 
+    <!-- ⚡ AI動能預測排名面板 (新增) -->
+    <MomentumPredictionDisplay
+      :hybrid-predictions="hybridPredictions || []"
+      :analysis-meta="analysisMeta"
+      :current-round-id="currentRoundId"
+      :current-game-status="currentGameStatus"
+      :analysis-loading="analysisLoading"
+      :config="config"
+      @refresh-analysis="refreshAnalysis"
+    />
+
     <!-- 🤖 自动下注状态面板 (整合自页面) -->
     <NCard
       class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
@@ -179,7 +190,7 @@
                 </span>
               </div>
               <div class="flex justify-between">
-                <span class="text-gray-400">历史准确率:</span>
+                <span class="text-gray-400">历史胜率:</span>
                 <span
                   :class="
                     getMetricClass(getTokenHistoricalAccuracy(token) * 100, config.historical_accuracy_threshold, 'gte')
@@ -999,6 +1010,7 @@
   import { onMounted, watch, computed } from 'vue';
   import { NEmpty, NTag, NCollapse, NCollapseItem, NSwitch, NInputNumber, NTooltip } from 'naive-ui';
   import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
+  import MomentumPredictionDisplay from '@/components/MomentumPredictionDisplay.vue';
   import type { AutoBettingStatus, DebugInfo } from '@/composables/useAutoBettingControl';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
   import { optimizedDefaultConfig } from '@/composables/useAutoBettingConfig';
@@ -1030,6 +1042,7 @@
 
     isRunning: boolean;
     hasUID: boolean;
+    hybridPredictions?: any[]; // 新增：Hybrid-Edge v1.0 動能預測數據
   }
 
   const props = defineProps<Props>();
@@ -1223,7 +1236,7 @@
 
   // ==================== 调试面板状态和函数 ====================
 
-  // 历史准确率百分比计算属性（已统一为0-100格式，无需转换）
+  // 历史胜率百分比计算属性（已统一为0-100格式，无需转换）
   const historyAccuracyPercent = computed({
     get: () => Math.round(props.config.historical_accuracy_threshold || 0),
     set: (value: number) => {

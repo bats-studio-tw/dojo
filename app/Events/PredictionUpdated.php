@@ -16,7 +16,8 @@ class PredictionUpdated implements ShouldBroadcastNow
     public function __construct(
         public array $predictionData,
         public string $roundId,
-        public string $type = 'prediction'
+        public string $type = 'prediction',
+        public string $source = 'original' // 添加预测源标识符
     ) {}
 
     /**
@@ -53,6 +54,7 @@ class PredictionUpdated implements ShouldBroadcastNow
             'type' => $this->type,
             'round_id' => $this->roundId,
             'data' => $this->predictionData,
+            'source' => $this->source, // 添加源标识
             'timestamp' => now()->toISOString(),
         ];
     }

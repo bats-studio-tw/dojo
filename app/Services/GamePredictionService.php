@@ -22,6 +22,10 @@ use Illuminate\Support\Facades\Cache;
  */
 class GamePredictionService
 {
+    public function __construct(
+        private DexPriceClient $dexPriceClient
+    ) {}
+
     //================== 核心參數配置 ==================
 
     // --- 基礎配置 ---
@@ -347,15 +351,30 @@ class GamePredictionService
      */
     private function enrichWithMarketData(array $tokenStats, float $h2hCoverageRatio): array
     {
+        // 批量获取市场数据，提高效率
+        $tokenSymbols = array_keys($tokenStats);
+        $batchPriceChanges = [];
+
+        try {
+            $batchMarketData = $this->dexPriceClient->batchMarketData($tokenSymbols);
+
+            // 转换为价格变化数据格式
+            foreach ($batchMarketData as $symbol => $data) {
+                $batchPriceChanges[$symbol] = [
+                    'change_5m' => $data['change_5m'] ?? null,
+                    'change_1h' => $data['change_1h'] ?? null,
+                    'change_4h' => $data['change_4h'] ?? null,
+                    'change_24h' => $data['change_24h'] ?? null,
+                ];
+            }
+        } catch (\Exception $e) {
+            Log::warning("批量獲取市場數據失敗，將使用預設值", ['error' => $e->getMessage()]);
+        }
+
         $analysisData = [];
         foreach ($tokenStats as $symbol => $stats) {
-            $marketData = [];
-            try {
-                $marketData = $this->getTokenMarketData($symbol);
-                usleep(self::API_DELAY_MICROSECONDS);
-            } catch (\Exception $e) {
-                Log::warning("獲取{$symbol}市場數據失敗，將使用預設值", ['error' => $e->getMessage()]);
-            }
+            $symbolUpper = strtoupper($symbol);
+            $marketData = $batchPriceChanges[$symbolUpper] ?? [];
 
             $mergedData = array_merge($stats, $marketData, ['symbol' => $symbol]);
             $analysisData[] = $this->calculateEnhancedPredictionScore($mergedData, $tokenStats, $h2hCoverageRatio);
@@ -506,33 +525,16 @@ class GamePredictionService
      */
     private function getTokenMarketData(string $symbol): array
     {
-        $response = Http::timeout(5)->get("https://api.dexscreener.com/latest/dex/search", ['q' => $symbol]);
-        if ($response->successful() && !empty($response->json()['pairs'])) {
-            $bestMatch = $this->findBestTokenMatch($response->json()['pairs'], $symbol);
-            if ($bestMatch) {
-                return [
-                    'change_5m' => $bestMatch['priceChange']['m5'] ?? null,
-                    'change_1h' => $bestMatch['priceChange']['h1'] ?? null,
-                    'change_4h' => $bestMatch['priceChange']['h4'] ?? null,
-                    'change_24h' => $bestMatch['priceChange']['h24'] ?? null,
-                ];
-            }
-        }
-        return [];
+        $priceChanges = $this->dexPriceClient->getTokenPriceChanges($symbol);
+        return [
+            'change_5m' => $priceChanges['change_5m'] ?? null,
+            'change_1h' => $priceChanges['change_1h'] ?? null,
+            'change_4h' => $priceChanges['change_4h'] ?? null,
+            'change_24h' => $priceChanges['change_24h'] ?? null,
+        ];
     }
 
-    /**
-     * 從多個交易對中找到最匹配的代幣
-     */
-    private function findBestTokenMatch(array $pairs, string $targetSymbol): ?array
-    {
-        $targetSymbol = strtoupper($targetSymbol);
-        foreach ($pairs as $pair) {
-            if (strtoupper($pair['baseToken']['symbol'] ?? '') === $targetSymbol) return $pair;
-        }
-        // 可以加入更多模糊匹配邏輯，但為保持簡潔，此處省略
-        return $pairs[0] ?? null; // 返回第一個作為備選
-    }
+
 
     /**
      * 計算排名置信度（基於穩定性和歷史數據質量）

@@ -211,6 +211,11 @@ export const gameApi = {
     return api.get('/game/current-analysis');
   },
 
+  // 获取 Hybrid-Edge 動能預測數據
+  getHybridPredictions: () => {
+    return api.get('/game/hybrid-predictions');
+  },
+
   // 获取下注ID
   getBetId: (roundId: string, jwtToken: string) => {
     return dojoGameApi.post(

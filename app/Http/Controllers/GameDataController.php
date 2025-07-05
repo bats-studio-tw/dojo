@@ -6,6 +6,7 @@ use App\Models\GameRound;
 use App\Models\RoundResult;
 use App\Models\RoundPredict;
 use App\Services\GamePredictionService;
+use App\Services\DexPriceClient;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -15,7 +16,8 @@ use Illuminate\Support\Facades\Cache;
 class GameDataController extends Controller
 {
     public function __construct(
-        private GamePredictionService $predictionService
+        private GamePredictionService $predictionService,
+        private DexPriceClient $dexPriceClient
     ) {}
     /**
      * 获取历史游戏数据（最近50局）
@@ -88,54 +90,26 @@ class GameDataController extends Controller
                 'token_count' => count($tokenSymbols)
             ]);
 
+            // 使用 DexPriceClient 批量获取市场数据
+            $batchMarketData = $this->dexPriceClient->batchMarketData($tokenSymbols);
+
             $marketData = [];
-
             foreach ($tokenSymbols as $symbol) {
-                try {
-                    // 调用DexScreener API获取代币市场数据
-                    $response = Http::timeout(10)->get("https://api.dexscreener.com/latest/dex/search", [
-                        'q' => $symbol
-                    ]);
+                $symbolUpper = strtoupper($symbol);
+                $data = $batchMarketData[$symbolUpper] ?? [];
 
-                    if ($response->successful()) {
-                        $data = $response->json();
-                        if (isset($data['pairs']) && count($data['pairs']) > 0) {
-                            $pair = $data['pairs'][0]; // 取第一个交易对
-
-                            $marketData[] = [
-                                'symbol' => strtoupper($symbol),
-                                'name' => $pair['baseToken']['name'] ?? $symbol,
-                                'price' => $pair['priceUsd'] ?? '0',
-                                'change_5m' => $pair['priceChange']['m5'] ?? null,
-                                'change_1h' => $pair['priceChange']['h1'] ?? null,
-                                'change_4h' => $pair['priceChange']['h4'] ?? null,
-                                'change_24h' => $pair['priceChange']['h24'] ?? null,
-                                'volume_24h' => $pair['volume']['h24'] ?? '0',
-                                'market_cap' => $pair['marketCap'] ?? null,
-                                'logo' => $pair['baseToken']['logoURI'] ?? null,
-                            ];
-                        }
-                    }
-
-                    // 延迟避免API限制
-                    usleep(200000); // 0.2秒
-
-                } catch (\Exception $e) {
-                    Log::warning("获取{$symbol}市场数据失败", ['error' => $e->getMessage()]);
-                    // 如果API失败，至少返回基本信息
-                    $marketData[] = [
-                        'symbol' => strtoupper($symbol),
-                        'name' => $symbol,
-                        'price' => '0',
-                        'change_5m' => null,
-                        'change_1h' => null,
-                        'change_4h' => null,
-                        'change_24h' => null,
-                        'volume_24h' => '0',
-                        'market_cap' => null,
-                        'logo' => null,
-                    ];
-                }
+                $marketData[] = [
+                    'symbol' => $symbolUpper,
+                    'name' => $data['name'] ?? $symbol,
+                    'price' => $data['price'] ?? '0',
+                    'change_5m' => $data['change_5m'] ?? null,
+                    'change_1h' => $data['change_1h'] ?? null,
+                    'change_4h' => $data['change_4h'] ?? null,
+                    'change_24h' => $data['change_24h'] ?? null,
+                    'volume_24h' => $data['volume_24h'] ?? '0',
+                    'market_cap' => $data['market_cap'] ?? null,
+                    'logo' => $data['logo'] ?? null,
+                ];
             }
 
             return response()->json([
@@ -176,51 +150,27 @@ class GameDataController extends Controller
             }
 
             $tokenSymbols = $latestRound->roundResults->pluck('token_symbol')->unique()->toArray();
+
+            // 使用 DexPriceClient 批量获取市场数据
+            $batchMarketData = $this->dexPriceClient->batchMarketData($tokenSymbols);
+
             $marketData = [];
-
             foreach ($tokenSymbols as $symbol) {
-                try {
-                    $response = Http::timeout(10)->get("https://api.dexscreener.com/latest/dex/search", [
-                        'q' => $symbol
-                    ]);
+                $symbolUpper = strtoupper($symbol);
+                $data = $batchMarketData[$symbolUpper] ?? [];
 
-                    if ($response->successful()) {
-                        $data = $response->json();
-                        if (isset($data['pairs']) && count($data['pairs']) > 0) {
-                            $pair = $data['pairs'][0];
-
-                            $marketData[] = [
-                                'symbol' => $symbol,
-                                'name' => $pair['baseToken']['name'] ?? $symbol,
-                                'price' => $pair['priceUsd'] ?? '0',
-                                'change_5m' => $pair['priceChange']['m5'] ?? null,
-                                'change_1h' => $pair['priceChange']['h1'] ?? null,
-                                'change_4h' => $pair['priceChange']['h4'] ?? null,
-                                'change_24h' => $pair['priceChange']['h24'] ?? null,
-                                'volume_24h' => $pair['volume']['h24'] ?? '0',
-                                'market_cap' => $pair['marketCap'] ?? null,
-                                'logo' => $pair['baseToken']['logoURI'] ?? null,
-                            ];
-                        }
-                    }
-
-                    usleep(200000);
-
-                } catch (\Exception $e) {
-                    Log::warning("获取{$symbol}市场数据失败", ['error' => $e->getMessage()]);
-                    $marketData[] = [
-                        'symbol' => $symbol,
-                        'name' => $symbol,
-                        'price' => '0',
-                        'change_5m' => null,
-                        'change_1h' => null,
-                        'change_4h' => null,
-                        'change_24h' => null,
-                        'volume_24h' => '0',
-                        'market_cap' => null,
-                        'logo' => null,
-                    ];
-                }
+                $marketData[] = [
+                    'symbol' => $symbol,
+                    'name' => $data['name'] ?? $symbol,
+                    'price' => $data['price'] ?? '0',
+                    'change_5m' => $data['change_5m'] ?? null,
+                    'change_1h' => $data['change_1h'] ?? null,
+                    'change_4h' => $data['change_4h'] ?? null,
+                    'change_24h' => $data['change_24h'] ?? null,
+                    'volume_24h' => $data['volume_24h'] ?? '0',
+                    'market_cap' => $data['market_cap'] ?? null,
+                    'logo' => $data['logo'] ?? null,
+                ];
             }
 
             return response()->json([
@@ -398,81 +348,37 @@ class GameDataController extends Controller
                 $stats['predicted_rank'] = $rank++;
             }
 
+            // 批量获取市场数据
+            $tokenSymbols = array_keys($tokenStats);
+            $batchMarketData = $this->dexPriceClient->batchMarketData($tokenSymbols);
+
             // 获取市场数据并计算增强预测评分
             $analysisData = [];
             foreach ($tokenStats as $symbol => $stats) {
-                try {
-                    // 调用DexScreener API获取市场数据
-                    $response = Http::timeout(10)->get("https://api.dexscreener.com/latest/dex/search", [
-                        'q' => $symbol
-                    ]);
+                $symbolUpper = strtoupper($symbol);
+                $marketData = $batchMarketData[$symbolUpper] ?? [];
 
-                    $marketData = [
-                        'price' => '0',
-                        'change_5m' => null,
-                        'change_1h' => null,
-                        'change_4h' => null,
-                        'change_24h' => null,
-                        'volume_24h' => '0',
-                        'market_cap' => null,
-                        'logo' => null,
-                        'name' => $symbol,
-                    ];
+                // 格式化市场数据
+                $formattedMarketData = [
+                    'price' => $marketData['price'] ?? '0',
+                    'change_5m' => $marketData['change_5m'] ?? null,
+                    'change_1h' => $marketData['change_1h'] ?? null,
+                    'change_4h' => $marketData['change_4h'] ?? null,
+                    'change_24h' => $marketData['change_24h'] ?? null,
+                    'volume_24h' => $marketData['volume_24h'] ?? '0',
+                    'market_cap' => $marketData['market_cap'] ?? null,
+                    'logo' => $marketData['logo'] ?? null,
+                    'name' => $marketData['name'] ?? $symbol,
+                ];
 
-                    if ($response->successful()) {
-                        $data = $response->json();
-                        if (isset($data['pairs']) && count($data['pairs']) > 0) {
-                            // 使用智能匹配找到最适合的代币
-                            $bestMatch = $this->findBestTokenMatch($data['pairs'], $symbol);
-                            if ($bestMatch) {
-                                $marketData = [
-                                    'price' => $bestMatch['priceUsd'] ?? '0',
-                                    'change_5m' => $bestMatch['priceChange']['m5'] ?? null,
-                                    'change_1h' => $bestMatch['priceChange']['h1'] ?? null,
-                                    'change_4h' => $bestMatch['priceChange']['h4'] ?? null,
-                                    'change_24h' => $bestMatch['priceChange']['h24'] ?? null,
-                                    'volume_24h' => $bestMatch['volume']['h24'] ?? '0',
-                                    'market_cap' => $bestMatch['marketCap'] ?? null,
-                                    'logo' => $bestMatch['baseToken']['logoURI'] ?? null,
-                                    'name' => $bestMatch['baseToken']['name'] ?? $symbol,
-                                ];
-                            }
-                        }
-                    }
+                // 合并预测数据和市场数据，确保symbol不被覆盖
+                $mergedData = array_merge($stats, $formattedMarketData);
+                $mergedData['symbol'] = $symbol; // 强制保持原始symbol
 
-                    // 合并预测数据和市场数据，确保symbol不被覆盖
-                    $mergedData = array_merge($stats, $marketData);
-                    $mergedData['symbol'] = $symbol; // 强制保持原始symbol
+                // 计算市场动量评分和最终预测评分
+                $mergedData = $this->calculateEnhancedPredictionScore($mergedData);
 
-                    // 计算市场动量评分和最终预测评分
-                    $mergedData = $this->calculateEnhancedPredictionScore($mergedData);
-
-                    $analysisData[] = $mergedData;
-
-                    // 延迟避免API限制
-                    usleep(200000); // 0.2秒
-
-                } catch (\Exception $e) {
-                    Log::warning("获取{$symbol}市场数据失败", ['error' => $e->getMessage()]);
-
-                    // 如果API失败，至少返回预测数据
-                    $fallbackData = array_merge($stats, [
-                        'price' => '0',
-                        'change_5m' => null,
-                        'change_1h' => null,
-                        'change_4h' => null,
-                        'change_24h' => null,
-                        'volume_24h' => '0',
-                        'market_cap' => null,
-                        'logo' => null,
-                        'name' => $symbol,
-                    ]);
-                    $fallbackData['symbol'] = $symbol; // 确保symbol正确
-
-                    // 对fallback数据也计算增强评分
-                    $fallbackData = $this->calculateEnhancedPredictionScore($fallbackData);
-                    $analysisData[] = $fallbackData;
-                }
+                $analysisData[] = $mergedData;
             }
 
             // 重新排序基于最终预测评分
@@ -509,6 +415,87 @@ class GameDataController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => '获取预测数据失败',
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取当前局的 Hybrid-Edge v1.0 動能預測數據
+     */
+    public function getHybridPredictions(): JsonResponse
+    {
+        try {
+            // 获取当前轮次信息
+            $roundInfo = Cache::get('game:current_round');
+            $roundId = $roundInfo['round_id'] ?? null;
+
+            if (!$roundId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '当前没有活跃的游戏轮次',
+                    'data' => []
+                ]);
+            }
+
+            // 从缓存获取 Hybrid-Edge 预测数据
+            $cachedPredictions = Cache::get("hybrid_prediction:{$roundId}");
+
+            if ($cachedPredictions) {
+                return response()->json([
+                    'success' => true,
+                    'data' => $cachedPredictions,
+                    'meta' => [
+                        'round_id' => $roundId,
+                        'status' => $roundInfo['status'] ?? 'unknown',
+                        'prediction_method' => 'hybrid_edge_v1',
+                        'timestamp' => $roundInfo['timestamp'] ?? null,
+                        'source' => 'cached_hybrid_prediction'
+                    ]
+                ]);
+            }
+
+            // 如果缓存中没有，从数据库获取最新的 Hybrid-Edge 预测
+            $hybridPredictions = \App\Models\HybridRoundPredict::where('game_round_id', $roundId)
+                ->orderBy('predicted_rank')
+                ->get()
+                ->map(function ($prediction) {
+                    return [
+                        'symbol' => $prediction->token_symbol,
+                        'predicted_rank' => $prediction->predicted_rank,
+                        'final_score' => $prediction->final_score,
+                        'elo_prob' => $prediction->elo_prob,
+                        'mom_score' => $prediction->mom_score,
+                        'confidence' => $prediction->confidence,
+                    ];
+                })
+                ->toArray();
+
+            if (empty($hybridPredictions)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '暂无 Hybrid-Edge 预测数据',
+                    'data' => []
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $hybridPredictions,
+                'meta' => [
+                    'round_id' => $roundId,
+                    'status' => $roundInfo['status'] ?? 'unknown',
+                    'prediction_method' => 'hybrid_edge_v1',
+                    'timestamp' => $roundInfo['timestamp'] ?? null,
+                    'source' => 'database_hybrid_prediction'
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取 Hybrid-Edge 预测数据失败', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => '获取 Hybrid-Edge 预测数据失败',
+                'data' => []
             ], 500);
         }
     }
@@ -647,112 +634,7 @@ class GameDataController extends Controller
         return max(30, min(100, $score));
     }
 
-    /**
-     * 从多个交易对中找到最匹配的代币 (与GamePredictionService保持一致)
-     * 在匹配的候选中选择流动性最高的
-     */
-    private function findBestTokenMatch(array $pairs, string $targetSymbol): ?array
-    {
-        $targetSymbol = strtoupper($targetSymbol);
 
-        // 优先级1: 精确匹配 baseToken symbol，选择流动性最高的
-        $exactMatches = [];
-        foreach ($pairs as $pair) {
-            $baseSymbol = strtoupper($pair['baseToken']['symbol'] ?? '');
-            if ($baseSymbol === $targetSymbol) {
-                $exactMatches[] = $pair;
-            }
-        }
-
-        if (!empty($exactMatches)) {
-            $bestMatch = $this->selectHighestLiquidityPair($exactMatches);
-            Log::info("Controller: 找到精确匹配的代币，选择流动性最高的", [
-                'target' => $targetSymbol,
-                'matched' => $bestMatch['baseToken']['symbol'] ?? 'unknown',
-                'name' => $bestMatch['baseToken']['name'] ?? 'unknown',
-                'liquidity_usd' => $bestMatch['liquidity']['usd'] ?? 0
-            ]);
-            return $bestMatch;
-        }
-
-        // 优先级2: 部分匹配 baseToken symbol (前缀匹配)，选择流动性最高的
-        $partialMatches = [];
-        foreach ($pairs as $pair) {
-            $baseSymbol = strtoupper($pair['baseToken']['symbol'] ?? '');
-            if (str_starts_with($baseSymbol, $targetSymbol) || str_starts_with($targetSymbol, $baseSymbol)) {
-                $partialMatches[] = $pair;
-            }
-        }
-
-        if (!empty($partialMatches)) {
-            $bestMatch = $this->selectHighestLiquidityPair($partialMatches);
-            Log::info("Controller: 找到部分匹配的代币，选择流动性最高的", [
-                'target' => $targetSymbol,
-                'matched' => $bestMatch['baseToken']['symbol'] ?? 'unknown',
-                'name' => $bestMatch['baseToken']['name'] ?? 'unknown',
-                'liquidity_usd' => $bestMatch['liquidity']['usd'] ?? 0
-            ]);
-            return $bestMatch;
-        }
-
-        // 优先级3: 检查代币名称中是否包含目标符号，选择流动性最高的
-        $nameMatches = [];
-        foreach ($pairs as $pair) {
-            $tokenName = strtoupper($pair['baseToken']['name'] ?? '');
-            if (str_contains($tokenName, $targetSymbol)) {
-                $nameMatches[] = $pair;
-            }
-        }
-
-        if (!empty($nameMatches)) {
-            $bestMatch = $this->selectHighestLiquidityPair($nameMatches);
-            Log::info("Controller: 通过名称匹配找到代币，选择流动性最高的", [
-                'target' => $targetSymbol,
-                'matched_name' => $bestMatch['baseToken']['name'] ?? 'unknown',
-                'symbol' => $bestMatch['baseToken']['symbol'] ?? 'unknown',
-                'liquidity_usd' => $bestMatch['liquidity']['usd'] ?? 0
-            ]);
-            return $bestMatch;
-        }
-
-        // 优先级4: 返回流动性最高的结果（替代原有的第一个）
-        if (!empty($pairs)) {
-            $bestMatch = $this->selectHighestLiquidityPair($pairs);
-            Log::warning("Controller: 使用流动性最高的搜索结果作为备选", [
-                'target' => $targetSymbol,
-                'fallback_symbol' => $bestMatch['baseToken']['symbol'] ?? 'unknown',
-                'fallback_name' => $bestMatch['baseToken']['name'] ?? 'unknown',
-                'liquidity_usd' => $bestMatch['liquidity']['usd'] ?? 0
-            ]);
-            return $bestMatch;
-        }
-
-        return null;
-    }
-
-    /**
-     * 从交易对数组中选择流动性最高的
-     */
-    private function selectHighestLiquidityPair(array $pairs): ?array
-    {
-        if (empty($pairs)) {
-            return null;
-        }
-
-        $bestPair = null;
-        $highestLiquidity = 0;
-
-        foreach ($pairs as $pair) {
-            $liquidityUsd = floatval($pair['liquidity']['usd'] ?? 0);
-
-            if ($liquidityUsd > $highestLiquidity) {
-                $highestLiquidity = $liquidityUsd;
-                $bestPair = $pair;
-            }
-        }
-
-        return $bestPair ?? $pairs[0]; // 如果都没有流动性数据，返回第一个
-    }
 
     /**
      * 获取预测历史数据（最近50局）

@@ -184,10 +184,10 @@ export const strategyTemplates = {
     max_bet_percentage: 10,
     // ---- AI 門檻 ----
     confidence_threshold: 85,
-    score_gap_threshold: 65,
+    score_gap_threshold: 67,
     min_total_games: 1,
-    historical_accuracy_threshold: 10, // 10% (统一为0-100)
-    min_sample_count: 10,
+    historical_accuracy_threshold: 25, // 10% (统一为0-100)
+    min_sample_count: 12,
     // ---- 風控 ----
     stop_loss_consecutive: 6,
     // ---- 遺漏參數設為默認值 ----

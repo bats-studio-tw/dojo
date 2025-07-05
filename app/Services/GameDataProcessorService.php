@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Events\GameDataUpdated;
+use App\Jobs\EloUpdateJob;
 use App\Models\GameRound;
 use App\Models\RoundResult;
 use App\Models\RoundPredict;
@@ -89,6 +90,9 @@ class GameDataProcessorService
             });
 
             Log::channel('websocket')->info('✅ 結算資料成功儲存到資料庫', ['rdId' => $roundId]);
+
+            // 派遣 EloUpdateJob 来更新 Elo 评分
+            $this->dispatchEloUpdateJob($roundId);
 
             // 广播游戏数据更新事件到WebSocket客户端
             try {
@@ -292,6 +296,27 @@ class GameDataProcessorService
             Log::channel('websocket')->error('保存预测数据到数据库失败', [
                 'round_id' => $roundId,
                 'game_round_id' => $gameRound->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * 派遣 Elo 更新任务
+     */
+    private function dispatchEloUpdateJob(string $roundId): void
+    {
+        try {
+            Log::channel('websocket')->info('🔄 派遣 Elo 更新任务', ['round_id' => $roundId]);
+
+            // 派遣 EloUpdateJob
+            EloUpdateJob::dispatch($roundId)->onQueue('elo_updates');
+
+            Log::channel('websocket')->info('✅ Elo 更新任务已派遣', ['round_id' => $roundId]);
+
+        } catch (\Exception $e) {
+            Log::channel('websocket')->error('派遣 Elo 更新任务失败', [
+                'round_id' => $roundId,
                 'error' => $e->getMessage()
             ]);
         }

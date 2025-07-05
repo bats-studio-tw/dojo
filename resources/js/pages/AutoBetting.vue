@@ -110,6 +110,7 @@
               :strategy-validation="strategyValidation"
               :is-running="autoBettingStatus.is_running"
               :has-u-i-d="!!currentUID"
+              :hybrid-predictions="hybridPredictions"
               @start-auto-betting="startAutoBetting"
               @stop-auto-betting="stopAutoBetting"
               @execute-manual-betting="executeManualBetting"
@@ -198,6 +199,10 @@
     isConnected,
     analysisLoading
   } = storeToRefs(predictionStore);
+
+  // 新增：Hybrid-Edge 動能預測數據
+  const hybridPredictions = ref<any[]>([]);
+  const hybridPredictionsLoading = ref(false);
 
   // 从store中获取方法
   // const { reconnectWebSocket } = predictionStore; // 已在下面定义
@@ -586,6 +591,27 @@
     recentRoundsCount.value = value;
   };
 
+  // 获取 Hybrid-Edge 動能預測數據
+  const fetchHybridPredictions = async () => {
+    console.log('⚡ AutoBetting: 获取 Hybrid-Edge 動能預測數據');
+    hybridPredictionsLoading.value = true;
+    try {
+      const response = await gameApi.getHybridPredictions();
+      if (response.data.success) {
+        hybridPredictions.value = response.data.data || [];
+        console.log(`✅ 成功获取 Hybrid-Edge 預測數據: ${hybridPredictions.value.length} 个Token`);
+      } else {
+        console.warn('⚠️ 获取 Hybrid-Edge 預測數據失败:', response.data.message);
+        hybridPredictions.value = [];
+      }
+    } catch (error) {
+      console.error('❌ 获取 Hybrid-Edge 預測數據失败:', error);
+      hybridPredictions.value = [];
+    } finally {
+      hybridPredictionsLoading.value = false;
+    }
+  };
+
   // 刷新分析数据
   const refreshAnalysis = async () => {
     console.log('🔄 AutoBetting: 刷新分析数据');
@@ -595,6 +621,9 @@
         currentAnalysis.value = response.data.data || [];
         analysisMeta.value = response.data.meta || null;
         console.log(`✅ 成功刷新预测数据: ${currentAnalysis.value.length} 个Token`);
+
+        // 同时刷新 Hybrid-Edge 預測數據
+        await fetchHybridPredictions();
 
         // 刷新后重新验证策略
         validateCurrentStrategy();
@@ -868,6 +897,9 @@
 
     // 获取预测历史数据，用于历史分析标签页
     await predictionStore.fetchPredictionHistory();
+
+    // 获取 Hybrid-Edge 動能預測數據
+    await fetchHybridPredictions();
 
     console.log('🤖 自动下注页面已加载，包含初始数据获取和WebSocket实时数据模式');
   });

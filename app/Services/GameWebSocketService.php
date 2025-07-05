@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\GameRound; // 雖然這裡不用，但你的舊版有，我先保留
 use App\Events\GameDataUpdated;
+use App\Events\NewRoundStarted;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Ratchet\Client\Connector;
@@ -223,7 +224,10 @@ class GameWebSocketService
                     $this->processedRounds[] = $rdId;
                     $this->consoleOutput("🚀 新局开始: {$rdId} (状态: {$status})");
 
-                    // 异步触发预测分析计算
+                    // 触发 NewRoundStarted 事件
+                    $this->triggerNewRoundStarted($gameData);
+
+                    // 异步触发预测分析计算（保持原有逻辑作为备用）
                     $this->triggerPredictionCalculation($gameData);
 
                     // 广播新轮次开始的游戏数据到前端
@@ -272,6 +276,36 @@ class GameWebSocketService
             $this->logError("❌ 處理 WebSocket 訊息時發生錯誤", [
                 'error' => $e->getMessage(),
                 'payload' => substr($payload, 0, 200) . '...' // 只记录前200字符避免日志过长
+            ]);
+        }
+    }
+
+    /**
+     * 触发新轮次开始事件
+     */
+    private function triggerNewRoundStarted(array $gameData): void
+    {
+        try {
+            $roundId = $gameData['rdId'] ?? 'unknown';
+            $tokens = array_keys($gameData['token'] ?? []);
+            $chainId = 'ethereum'; // 默认链ID，可以根据实际需要调整
+
+            if (empty($tokens)) {
+                $this->consoleOutput("⚠️ 没有代币信息，跳过新轮次事件触发");
+                return;
+            }
+
+            $this->consoleOutput("🎯 触发新轮次开始事件...");
+
+            // 触发 NewRoundStarted 事件
+            event(new NewRoundStarted($roundId, $tokens, $chainId));
+
+            $this->consoleOutput("✅ 新轮次开始事件已触发");
+
+        } catch (\Exception $e) {
+            $this->logError("触发新轮次开始事件异常", [
+                'error' => $e->getMessage(),
+                'rdId' => $gameData['rdId'] ?? 'unknown'
             ]);
         }
     }

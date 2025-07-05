@@ -337,11 +337,12 @@ class GameDataProcessorService
             ]);
 
             // 派遣 EloUpdateJob
-            $job = EloUpdateJob::dispatch($gameRoundId)->onQueue('elo_updates');
+            $job = EloUpdateJob::dispatch($gameRoundId);
+            // ->onQueue('elo_updates');
 
             Log::channel('websocket')->info('✅ Elo 更新任务已派遣', [
                 'game_round_id' => $gameRoundId,
-                'queue_name' => 'elo_updates',
+                'queue_name' => 'default',
                 'dispatch_time' => now()->toISOString()
             ]);
 

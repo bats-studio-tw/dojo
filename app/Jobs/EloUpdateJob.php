@@ -27,8 +27,8 @@ class EloUpdateJob implements ShouldQueue
     {
         $this->gameRoundId = $gameRoundId;
 
-        // 设置为低优先级队列
-        $this->onQueue('low');
+        // 使用默认队列
+        // $this->onQueue('low');
     }
 
     /**

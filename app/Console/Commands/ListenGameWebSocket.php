@@ -156,7 +156,7 @@ class ListenGameWebSocket extends Command
         $this->info('🔍 检查队列中的任务详情');
 
         // 检查各个队列的任务
-        $queues = ['default', 'predictions', 'elo_updates', 'low'];
+        $queues = ['default'];
 
         foreach ($queues as $queue) {
             $jobs = DB::table('jobs')

@@ -73,6 +73,10 @@ export const getUserInfo = async (jwtToken: string): Promise<GetUserInfoResponse
     });
     console.log(res.data);
 
+    if (res.data.success === false) {
+      throw new Error(res.data.message);
+    }
+
     const response = await dojoQuestApi.get('/customer/me?businessType=ojo,asset', {
       headers: {
         jwt_token: jwtToken
@@ -81,6 +85,17 @@ export const getUserInfo = async (jwtToken: string): Promise<GetUserInfoResponse
     return response.data;
   } catch (error) {
     console.error('获取用户信息失败:', error);
+
+    // 🔧 重要修复：当获取用户信息失败时，清除验证状态并触发重新验证
+    localStorage.removeItem('tokenValidated');
+    localStorage.removeItem('currentUID');
+    localStorage.removeItem('tokenSetupData');
+    localStorage.removeItem('userInfo');
+
+    // 触发页面重新加载以显示JWT输入界面
+    window.location.reload();
+
+    // 抛出错误，让调用方知道验证失败
     throw error;
   }
 };

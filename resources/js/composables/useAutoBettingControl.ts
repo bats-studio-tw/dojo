@@ -197,6 +197,79 @@ export const useAutoBettingControl = () => {
     }
   };
 
+  // 执行单次下注
+  const executeSingleBet = async (
+    roundId: string,
+    tokenSymbol: string,
+    amount: number,
+    jwtToken: string
+  ): Promise<boolean> => {
+    try {
+      const betIdResponse = await gameApi.getBetId(roundId, jwtToken);
+      if (!betIdResponse.data.success) {
+        console.error('获取betId失败:', betIdResponse.data);
+        return false;
+      }
+
+      const betId = betIdResponse.data.data;
+      const betResponse = await gameApi.placeBet(roundId, betId, tokenSymbol, amount, jwtToken);
+
+      if (betResponse.data.success) {
+        await autoBettingApi.recordResult({
+          uid: currentUID.value,
+          round_id: roundId,
+          token_symbol: tokenSymbol,
+          amount,
+          bet_id: betId,
+          success: true,
+          result_data: betResponse.data.data
+        });
+
+        try {
+          const userInfoResponse = await getUserInfo(jwtToken);
+          if (userInfoResponse.success && userInfoResponse.obj) {
+            userInfo.value = userInfoResponse.obj;
+            localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
+          }
+        } catch (error) {
+          console.warn('下注后更新用户信息失败，JWT Token可能已过期:', error);
+          // 🔧 重要修复：当下注后更新用户信息失败时，清除验证状态并触发重新验证
+          localStorage.removeItem('tokenValidated');
+          localStorage.removeItem('currentUID');
+          localStorage.removeItem('tokenSetupData');
+          localStorage.removeItem('userInfo');
+
+          isTokenValidated.value = false;
+          currentUID.value = '';
+          userInfo.value = null;
+
+          // 显示提示信息
+          window.$message?.warning('JWT Token已过期，请重新验证');
+
+          // 触发页面重新加载以显示JWT输入界面
+          window.location.reload();
+        }
+
+        return true;
+      } else {
+        console.error('下注失败:', betResponse.data);
+        await autoBettingApi.recordResult({
+          uid: currentUID.value,
+          round_id: roundId,
+          token_symbol: tokenSymbol,
+          amount,
+          bet_id: betId,
+          success: false,
+          result_data: betResponse.data
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error('下注过程出错:', error);
+      return false;
+    }
+  };
+
   // 执行一次自动下注
   const executeAutoBetting = async (config: any) => {
     executeLoading.value = true;
@@ -246,64 +319,6 @@ export const useAutoBettingControl = () => {
       window.$message?.error('执行自动下注失败');
     } finally {
       executeLoading.value = false;
-    }
-  };
-
-  // 执行单次下注
-  const executeSingleBet = async (
-    roundId: string,
-    tokenSymbol: string,
-    amount: number,
-    jwtToken: string
-  ): Promise<boolean> => {
-    try {
-      const betIdResponse = await gameApi.getBetId(roundId, jwtToken);
-      if (!betIdResponse.data.success) {
-        console.error('获取betId失败:', betIdResponse.data);
-        return false;
-      }
-
-      const betId = betIdResponse.data.data;
-      const betResponse = await gameApi.placeBet(roundId, betId, tokenSymbol, amount, jwtToken);
-
-      if (betResponse.data.success) {
-        await autoBettingApi.recordResult({
-          uid: currentUID.value,
-          round_id: roundId,
-          token_symbol: tokenSymbol,
-          amount,
-          bet_id: betId,
-          success: true,
-          result_data: betResponse.data.data
-        });
-
-        try {
-          const userInfoResponse = await getUserInfo(jwtToken);
-          if (userInfoResponse.success && userInfoResponse.obj) {
-            userInfo.value = userInfoResponse.obj;
-            localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
-          }
-        } catch (error) {
-          console.warn('下注后更新用户信息失败:', error);
-        }
-
-        return true;
-      } else {
-        console.error('下注失败:', betResponse.data);
-        await autoBettingApi.recordResult({
-          uid: currentUID.value,
-          round_id: roundId,
-          token_symbol: tokenSymbol,
-          amount,
-          bet_id: betId,
-          success: false,
-          result_data: betResponse.data
-        });
-        return false;
-      }
-    } catch (error) {
-      console.error('下注过程出错:', error);
-      return false;
     }
   };
 
@@ -417,7 +432,22 @@ export const useAutoBettingControl = () => {
             userInfo.value = userInfoResponse.obj || userInfoResponse;
             localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
           } catch (error) {
-            console.warn('获取最新用户信息失败:', error);
+            console.warn('获取最新用户信息失败，JWT Token可能已过期:', error);
+            // 🔧 重要修复：当JWT Token验证失败时，清除所有验证状态
+            localStorage.removeItem('tokenValidated');
+            localStorage.removeItem('currentUID');
+            localStorage.removeItem('tokenSetupData');
+            localStorage.removeItem('userInfo');
+
+            isTokenValidated.value = false;
+            currentUID.value = '';
+            userInfo.value = null;
+
+            // 显示提示信息
+            window.$message?.warning('JWT Token已过期，请重新验证');
+
+            // 抛出错误，让调用方知道验证失败
+            throw error;
           }
         }
 

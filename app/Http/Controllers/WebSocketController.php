@@ -77,7 +77,7 @@ class WebSocketController extends Controller
             $type = $validated['type'] ?? 'prediction';
 
             // 广播事件
-            broadcast(new PredictionUpdated($predictionData, $roundId, $type));
+            broadcast(new PredictionUpdated($predictionData, $roundId, $type, 'websocket'));
 
             // 缓存最新的预测数据
             Cache::put("websocket:prediction:{$roundId}", [

@@ -135,7 +135,7 @@ class GamePredictionService
                 ];
 
                 // 使用PredictionUpdated事件广播完整的数据结构
-                broadcast(new PredictionUpdated($broadcastData, $roundId, 'current_analysis'));
+                broadcast(new PredictionUpdated($broadcastData, $roundId, 'current_analysis', 'game_prediction_service'));
                 Log::info('📡 预测数据已广播到WebSocket客户端（与API结构一致）', [
                     'round_id' => $roundId,
                     'tokens_count' => count($analysisData),

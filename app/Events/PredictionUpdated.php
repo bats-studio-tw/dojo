@@ -17,7 +17,7 @@ class PredictionUpdated implements ShouldBroadcastNow
         public array $predictionData,
         public string $roundId,
         public string $type = 'prediction',
-        public string $source = 'original' // 添加预测源标识符
+        public ?string $source = 'original' // 添加预测源标识符，允许为null以兼容旧队列任务
     ) {}
 
     /**
@@ -54,7 +54,7 @@ class PredictionUpdated implements ShouldBroadcastNow
             'type' => $this->type,
             'round_id' => $this->roundId,
             'data' => $this->predictionData,
-            'source' => $this->source, // 添加源标识
+            'source' => $this->source ?? 'unknown', // 添加源标识，提供fallback值
             'timestamp' => now()->toISOString(),
         ];
     }

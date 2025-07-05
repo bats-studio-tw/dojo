@@ -34,8 +34,6 @@ class PredictRoundJob implements ShouldQueue
         $this->roundId = $roundId;
         $this->symbols = array_map('strtoupper', $symbols);
         $this->chainId = $chainId;
-
-        $this->onQueue('high');
     }
 
     /**
@@ -125,12 +123,20 @@ class PredictRoundJob implements ShouldQueue
 
             Cache::put("hybrid_prediction:{$this->roundId}", $predictions, 30);
 
-            event(new HybridPredictionUpdated($predictions, $this->roundId, 'hybrid_prediction', 'hybrid_edge_v1'));
-
-            Log::info('Hybrid-Edge v1.0 预测完成', [
-                'round_id' => $this->roundId,
-                'top_prediction' => $predictions[0] ?? null
-            ]);
+            // 尝试广播事件，但不让广播失败影响任务执行
+            try {
+                event(new HybridPredictionUpdated($predictions, $this->roundId, 'hybrid_prediction', 'hybrid_edge_v1'));
+                Log::info('Hybrid-Edge v1.0 预测完成，事件广播成功', [
+                    'round_id' => $this->roundId,
+                    'top_prediction' => $predictions[0] ?? null
+                ]);
+            } catch (\Exception $broadcastError) {
+                Log::warning('Hybrid-Edge v1.0 预测完成，但事件广播失败', [
+                    'round_id' => $this->roundId,
+                    'top_prediction' => $predictions[0] ?? null,
+                    'broadcast_error' => $broadcastError->getMessage()
+                ]);
+            }
 
         } catch (\Exception $e) {
             Log::error('Hybrid-Edge v1.0 预测失败', [

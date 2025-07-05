@@ -74,9 +74,9 @@ class EloUpdateJob implements ShouldQueue
                         $winnerRating = TokenRating::firstOrCreate(['symbol' => strtoupper($winnerSymbol)]);
                         $loserRating = TokenRating::firstOrCreate(['symbol' => strtoupper($loserSymbol)]);
 
-                        // 計算衰減後的 K 值
-                        $winnerKFactor = $this->calculateKFactor($winnerRating->games);
-                        $loserKFactor = $this->calculateKFactor($loserRating->games);
+                        // 計算衰減後的 K 值 - 确保 games 不为 null
+                        $winnerKFactor = $this->calculateKFactor($winnerRating->games ?? 0);
+                        $loserKFactor = $this->calculateKFactor($loserRating->games ?? 0);
 
                         // 使用平均 K 值进行更新
                         $averageKFactor = ($winnerKFactor + $loserKFactor) / 2;

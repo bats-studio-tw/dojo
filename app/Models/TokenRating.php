@@ -18,4 +18,28 @@ class TokenRating extends Model
         'elo',
         'games',
     ];
+
+    /**
+     * 属性类型转换
+     */
+    protected $casts = [
+        'elo' => 'float',
+        'games' => 'integer',
+    ];
+
+    /**
+     * 模型属性默认值
+     */
+    protected $attributes = [
+        'elo' => 1500,
+        'games' => 0,
+    ];
+
+    /**
+     * 获取 games 属性，确保不为 null
+     */
+    public function getGamesAttribute($value): int
+    {
+        return $value ?? 0;
+    }
 }

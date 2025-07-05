@@ -97,10 +97,20 @@ class PredictRoundJob implements ShouldQueue
             $gameRound = GameRound::where('round_id', $this->roundId)->first();
 
             if (!$gameRound) {
-                Log::error('[PredictRoundJob] 找不到对应的 game_rounds 记录，无法保存预测', [
+                // 如果找不到对应的 GameRound 记录，自动创建一个
+                Log::info('[PredictRoundJob] 找不到对应的 game_rounds 记录，自动创建新记录', [
                     'round_id_string' => $this->roundId
                 ]);
-                return;
+
+                $gameRound = GameRound::create([
+                    'round_id' => $this->roundId,
+                    // 不设置 settled_at，因为这是预测阶段，游戏还未结算
+                ]);
+
+                Log::info('[PredictRoundJob] 已创建新的 GameRound 记录', [
+                    'round_id' => $this->roundId,
+                    'game_round_id' => $gameRound->id
+                ]);
             }
 
             $gameRoundNumericId = $gameRound->id; // 这是我们需要的数字 ID

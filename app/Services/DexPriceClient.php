@@ -149,45 +149,189 @@ class DexPriceClient
     {
         $targetSymbol = strtoupper($targetSymbol);
 
-        // 按流动性降序排序所有交易对，确保优先选择高流动性交易对
-        usort($pairs, function ($a, $b) {
-            $liquidityA = floatval($a['liquidity']['usd'] ?? 0);
-            $liquidityB = floatval($b['liquidity']['usd'] ?? 0);
-            return $liquidityB <=> $liquidityA;
-        });
-
-        // 记录排序后的前3个交易对的流动性信息（用于调试）
-        if (count($pairs) > 0) {
-            $topPairs = array_slice($pairs, 0, 3);
-            $liquidityInfo = [];
-            foreach ($topPairs as $index => $pair) {
-                $liquidityInfo[] = sprintf(
-                    "#%d: %s (%.2f USD)",
-                    $index + 1,
-                    $pair['baseToken']['symbol'] ?? 'Unknown',
-                    floatval($pair['liquidity']['usd'] ?? 0)
-                );
+        try {
+            // 验证输入数据
+            if (!is_array($pairs)) {
+                Log::error("findBestTokenMatch: pairs 参数不是数组", [
+                    'target_symbol' => $targetSymbol,
+                    'pairs_type' => gettype($pairs)
+                ]);
+                return null;
             }
-            Log::info("Token matching for {$targetSymbol} - Top liquidity pairs: " . implode(', ', $liquidityInfo));
-        }
 
-        // 第一优先级：精确匹配代币符号（在已排序的高流动性交易对中查找）
-        foreach ($pairs as $pair) {
-            if (strtoupper($pair['baseToken']['symbol'] ?? '') === $targetSymbol) {
-                return $pair;
+            if (empty($pairs)) {
+                Log::warning("findBestTokenMatch: pairs 数组为空", [
+                    'target_symbol' => $targetSymbol
+                ]);
+                return null;
             }
-        }
 
-        // 第二优先级：代币名称包含目标符号（在已排序的高流动性交易对中查找）
-        foreach ($pairs as $pair) {
-            $tokenName = strtoupper($pair['baseToken']['name'] ?? '');
-            if (strpos($tokenName, $targetSymbol) !== false) {
-                return $pair;
+            // 过滤和验证有效的交易对
+            $validPairs = [];
+            foreach ($pairs as $index => $pair) {
+                if (!$this->isValidPair($pair, $index)) {
+                    continue;
+                }
+                $validPairs[] = $pair;
             }
-        }
 
-        // 第三优先级：直接返回流动性最高的交易对（已经是排序后的第一个）
-        return !empty($pairs) ? $pairs[0] : null;
+            if (empty($validPairs)) {
+                Log::warning("findBestTokenMatch: 没有有效的交易对", [
+                    'target_symbol' => $targetSymbol,
+                    'total_pairs' => count($pairs),
+                    'valid_pairs' => 0
+                ]);
+                return null;
+            }
+
+            // 按流动性降序排序所有交易对，确保优先选择高流动性交易对
+            usort($validPairs, function ($a, $b) {
+                $liquidityA = floatval($a['liquidity']['usd'] ?? 0);
+                $liquidityB = floatval($b['liquidity']['usd'] ?? 0);
+                return $liquidityB <=> $liquidityA;
+            });
+
+            // 记录排序后的前3个交易对的流动性信息（用于调试）
+            if (count($validPairs) > 0) {
+                $topPairs = array_slice($validPairs, 0, 3);
+                $liquidityInfo = [];
+                foreach ($topPairs as $index => $pair) {
+                    $liquidityInfo[] = sprintf(
+                        "#%d: %s (%.2f USD)",
+                        $index + 1,
+                        $pair['baseToken']['symbol'] ?? 'Unknown',
+                        floatval($pair['liquidity']['usd'] ?? 0)
+                    );
+                }
+                Log::info("Token matching for {$targetSymbol} - Top liquidity pairs: " . implode(', ', $liquidityInfo));
+            }
+
+            // 第一优先级：精确匹配代币符号（在已排序的高流动性交易对中查找）
+            foreach ($validPairs as $pair) {
+                $pairSymbol = strtoupper($pair['baseToken']['symbol'] ?? '');
+                if ($pairSymbol === $targetSymbol) {
+                    Log::info("findBestTokenMatch: 找到精确匹配", [
+                        'target_symbol' => $targetSymbol,
+                        'matched_symbol' => $pairSymbol,
+                        'liquidity' => $pair['liquidity']['usd'] ?? 0
+                    ]);
+                    return $pair;
+                }
+            }
+
+            // 第二优先级：代币名称包含目标符号（在已排序的高流动性交易对中查找）
+            foreach ($validPairs as $pair) {
+                $tokenName = strtoupper($pair['baseToken']['name'] ?? '');
+                if (strpos($tokenName, $targetSymbol) !== false) {
+                    Log::info("findBestTokenMatch: 找到名称匹配", [
+                        'target_symbol' => $targetSymbol,
+                        'matched_name' => $tokenName,
+                        'liquidity' => $pair['liquidity']['usd'] ?? 0
+                    ]);
+                    return $pair;
+                }
+            }
+
+            // 第三优先级：直接返回流动性最高的交易对（已经是排序后的第一个）
+            $bestPair = $validPairs[0];
+            Log::info("findBestTokenMatch: 使用最高流动性交易对", [
+                'target_symbol' => $targetSymbol,
+                'selected_symbol' => $bestPair['baseToken']['symbol'] ?? 'Unknown',
+                'liquidity' => $bestPair['liquidity']['usd'] ?? 0
+            ]);
+            return $bestPair;
+
+        } catch (\Throwable $e) {
+            Log::error("findBestTokenMatch: 发生未预期的错误", [
+                'target_symbol' => $targetSymbol,
+                'pairs_count' => count($pairs),
+                'error_message' => $e->getMessage(),
+                'error_trace' => $e->getTraceAsString()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * 验证交易对数据是否有效
+     * @param mixed $pair 交易对数据
+     * @param int $index 索引（用于日志）
+     * @return bool
+     */
+    private function isValidPair($pair, int $index): bool
+    {
+        try {
+            // 检查是否为数组
+            if (!is_array($pair)) {
+                Log::warning("findBestTokenMatch: 交易对不是数组", [
+                    'index' => $index,
+                    'type' => gettype($pair)
+                ]);
+                return false;
+            }
+
+            // 检查必需字段
+            $requiredFields = ['baseToken', 'priceUsd', 'liquidity'];
+            foreach ($requiredFields as $field) {
+                if (!isset($pair[$field])) {
+                    Log::warning("findBestTokenMatch: 交易对缺少必需字段", [
+                        'index' => $index,
+                        'missing_field' => $field,
+                        'available_fields' => array_keys($pair)
+                    ]);
+                    return false;
+                }
+            }
+
+            // 检查 baseToken 是否为数组
+            if (!is_array($pair['baseToken'])) {
+                Log::warning("findBestTokenMatch: baseToken 不是数组", [
+                    'index' => $index,
+                    'baseToken_type' => gettype($pair['baseToken'])
+                ]);
+                return false;
+            }
+
+            // 检查 liquidity 是否为数组
+            if (!is_array($pair['liquidity'])) {
+                Log::warning("findBestTokenMatch: liquidity 不是数组", [
+                    'index' => $index,
+                    'liquidity_type' => gettype($pair['liquidity'])
+                ]);
+                return false;
+            }
+
+            // 检查价格是否有效
+            $price = floatval($pair['priceUsd'] ?? 0);
+            if ($price <= 0) {
+                Log::warning("findBestTokenMatch: 价格无效", [
+                    'index' => $index,
+                    'price' => $pair['priceUsd'],
+                    'symbol' => $pair['baseToken']['symbol'] ?? 'Unknown'
+                ]);
+                return false;
+            }
+
+            // 检查流动性是否有效
+            $liquidity = floatval($pair['liquidity']['usd'] ?? 0);
+            if ($liquidity <= 0) {
+                Log::warning("findBestTokenMatch: 流动性无效", [
+                    'index' => $index,
+                    'liquidity' => $pair['liquidity']['usd'],
+                    'symbol' => $pair['baseToken']['symbol'] ?? 'Unknown'
+                ]);
+                return false;
+            }
+
+            return true;
+
+        } catch (\Throwable $e) {
+            Log::error("findBestTokenMatch: 验证交易对时发生错误", [
+                'index' => $index,
+                'error_message' => $e->getMessage()
+            ]);
+            return false;
+        }
     }
 
     /**

@@ -193,8 +193,8 @@ export const gameApi = {
   },
 
   // 获取 Hybrid-Edge 動能預測數據
-  getHybridPredictions: () => {
-    return api.get('/game/hybrid-predictions');
+  getHybridAnalysis: () => {
+    return api.get('/game/hybrid-analysis');
   },
 
   // 获取下注ID

@@ -659,7 +659,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         const rawData = response.data.data || [];
 
         // 数据验证和去重
-        const validatedPredictions = rawData.filter((prediction) => {
+        const validatedPredictions = rawData.filter((prediction: any) => {
           // 验证必要字段
           return (
             prediction &&

@@ -176,6 +176,17 @@ export interface WebSocketStatus {
   lastConnectedAt: string | null;
 }
 
+// Hybrid预测数据接口
+export interface HybridPrediction {
+  symbol: string;
+  predicted_rank: number;
+  mom_score?: number;
+  elo_prob?: number;
+  final_score?: number;
+  confidence?: number;
+  [key: string]: any; // 允许其他字段
+}
+
 export const useGamePredictionStore = defineStore('gamePrediction', () => {
   // ==================== 状态管理 ====================
   const websocketStatus = ref<WebSocketStatus>({
@@ -492,17 +503,17 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
                 );
               });
 
-              // 基于symbol去重，保留排名最高的记录
-              const uniquePredictions = new Map();
-              validatedPredictions.forEach((prediction) => {
-                const symbol = prediction.symbol.toUpperCase();
-                if (
-                  !uniquePredictions.has(symbol) ||
-                  prediction.predicted_rank < uniquePredictions.get(symbol).predicted_rank
-                ) {
-                  uniquePredictions.set(symbol, prediction);
-                }
-              });
+                      // 基于symbol去重，保留排名最高的记录
+        const uniquePredictions = new Map<string, HybridPrediction>();
+        validatedPredictions.forEach((prediction: HybridPrediction) => {
+          const symbol = prediction.symbol.toUpperCase();
+          if (
+            !uniquePredictions.has(symbol) ||
+            prediction.predicted_rank < uniquePredictions.get(symbol)!.predicted_rank
+          ) {
+            uniquePredictions.set(symbol, prediction);
+          }
+        });
 
               const finalPredictions = Array.from(uniquePredictions.values());
 
@@ -661,12 +672,12 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         });
 
         // 基于symbol去重，保留排名最高的记录
-        const uniquePredictions = new Map();
-        validatedPredictions.forEach((prediction) => {
+        const uniquePredictions = new Map<string, HybridPrediction>();
+        validatedPredictions.forEach((prediction: HybridPrediction) => {
           const symbol = prediction.symbol.toUpperCase();
           if (
             !uniquePredictions.has(symbol) ||
-            prediction.predicted_rank < uniquePredictions.get(symbol).predicted_rank
+            prediction.predicted_rank < uniquePredictions.get(symbol)!.predicted_rank
           ) {
             uniquePredictions.set(symbol, prediction);
           }

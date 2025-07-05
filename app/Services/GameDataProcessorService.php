@@ -341,7 +341,6 @@ class GameDataProcessorService
 
             Log::channel('websocket')->info('✅ Elo 更新任务已派遣', [
                 'game_round_id' => $gameRoundId,
-                // 'job_id' => $job->getJobId(), // 不能同步获取 job id，注释掉
                 'queue_name' => 'elo_updates',
                 'dispatch_time' => now()->toISOString()
             ]);

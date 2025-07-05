@@ -58,7 +58,6 @@ class PredictRoundJob implements ShouldQueue
             'round_id' => $this->roundId,
             'symbols' => $this->symbols,
             'chain_id' => $this->chainId,
-            'job_id' => $this->getJobId(),
             'queue_name' => $this->queue,
             'start_time' => now()->toISOString()
         ]);
@@ -268,7 +267,6 @@ class PredictRoundJob implements ShouldQueue
             'round_id' => $this->roundId,
             'symbols' => $this->symbols,
             'chain_id' => $this->chainId,
-            'job_id' => $this->getJobId(),
             'exception' => $exception->getMessage(),
             'trace' => $exception->getTraceAsString()
         ]);

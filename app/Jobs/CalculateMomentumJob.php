@@ -93,6 +93,12 @@ class CalculateMomentumJob implements ShouldQueue
             // 计算动能分数
             $momScore = $this->calculateMomentumScores($pricesP0, $pricesP1);
 
+            // 新增：详细输出动能分数日志
+            Log::info('[CalculateMomentumJob] 动能分数详情', [
+                'round_id' => $this->roundId,
+                'mom_score' => $momScore
+            ]);
+
             // 计算 Elo 机率
             $eloProb = $eloRatingEngine->probabilities($this->symbols);
 

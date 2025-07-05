@@ -148,6 +148,11 @@ class GamePredictionService
                 ]);
             }
 
+            // 记录分析结果（Service分析）
+            Log::info('[GamePredictionService] Service分析分数', [
+                'analysis_data' => $analysisData
+            ]);
+
             return true;
         } catch (\Exception $e) {
             Log::error('生成預測分析數據時發生嚴重錯誤', [
@@ -393,6 +398,11 @@ class GamePredictionService
             $data['rank_confidence'] = $this->calculateRankConfidence($data);
         }
 
+        // 记录分析结果（Service分析）
+        Log::info('[GamePredictionService] Service分析分数', [
+            'analysis_data' => $analysisData
+        ]);
+
         return $analysisData;
     }
 
@@ -533,8 +543,6 @@ class GamePredictionService
             'change_24h' => $priceChanges['change_24h'] ?? null,
         ];
     }
-
-
 
     /**
      * 計算排名置信度（基於穩定性和歷史數據質量）

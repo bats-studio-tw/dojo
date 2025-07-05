@@ -84,12 +84,12 @@ class QueueMonitor extends Command
             ->groupBy('queue')
             ->get();
 
-        if ($queueStats->isEmpty()) {
+                if ($queueStats->isEmpty()) {
             $this->warn('  ⚠️ 所有队列都为空');
         } else {
             foreach ($queueStats as $stat) {
-                $oldestTime = $stat->oldest_job ? now()->diffForHumans($stat->oldest_job) : 'N/A';
-                $newestTime = $stat->newest_job ? now()->diffForHumans($stat->newest_job) : 'N/A';
+                $oldestTime = $stat->oldest_job && is_string($stat->oldest_job) ? now()->diffForHumans($stat->oldest_job) : 'N/A';
+                $newestTime = $stat->newest_job && is_string($stat->newest_job) ? now()->diffForHumans($stat->newest_job) : 'N/A';
 
                 $this->line("  📦 {$stat->queue}: {$stat->count} 个任务");
                 $this->line("     最早: {$oldestTime} | 最新: {$newestTime}");
@@ -180,7 +180,7 @@ class QueueMonitor extends Command
             foreach ($recentJobs as $job) {
                 $payload = json_decode($job->payload, true);
                 $jobClass = $payload['displayName'] ?? 'Unknown';
-                $createdTime = now()->diffForHumans($job->created_at);
+                $createdTime = $job->created_at && is_string($job->created_at) ? now()->diffForHumans($job->created_at) : 'N/A';
 
                 $this->line("  📝 {$job->queue}: {$jobClass}");
                 $this->line("     ID: {$job->id} | 创建: {$createdTime}");

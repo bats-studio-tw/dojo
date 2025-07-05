@@ -51,16 +51,6 @@ class ListenGameWebSocket extends Command
 
         $this->setupSignalHandlers();
 
-        $maxRuntime = (int) $this->option('max-runtime');
-        $startTime = time();
-
-        // 使用 Laravel 的定時任務或 Supervisor 來管理重啟，而不是 Command 內的 while 迴圈
-        // 這裡我們添加一個定時器來處理最大運行時間
-        \React\EventLoop\Loop::addTimer($maxRuntime, function() {
-            $this->info("⏰ 达到最大运行时间，停止监听器。");
-            $this->gracefulShutdown();
-        });
-
         // 设置控制台输出回调
         $this->webSocketService->setConsoleOutput(function($message, $level = 'info') {
             match($level) {
@@ -71,7 +61,7 @@ class ListenGameWebSocket extends Command
         });
 
         try {
-            Log::info("游戏WebSocket监听器启动", ['pid' => getmypid(), 'max_runtime' => $maxRuntime]);
+            Log::info("游戏WebSocket监听器启动", ['pid' => getmypid()]);
 
             // 直接启动服务，服务内部会处理循环和重连
             $this->webSocketService->startListening();

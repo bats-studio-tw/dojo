@@ -82,21 +82,6 @@
         </div>
       </div>
     </div>
-
-    <!-- 動能預測說明 -->
-    <div class="mt-4 border border-blue-400/20 rounded-lg from-blue-500/10 to-purple-500/10 bg-gradient-to-r p-3">
-      <div class="flex items-start space-x-3">
-        <div class="text-2xl">⚡</div>
-        <div class="flex-1">
-          <h4 class="mb-1 text-sm text-blue-300 font-semibold">AI 動能預測說明</h4>
-          <p class="text-xs text-gray-300 leading-relaxed">
-            基於 Hybrid-Edge v1.0 演算法，結合 Elo 歷史評分 ({{ (config?.w_elo || 0.65) * 100 }}%) 與 10 秒動能變化 ({{
-              (1 - (config?.w_elo || 0.65)) * 100
-            }}%) 進行智能預測。 動能分數反映代幣在遊戲開始後 10 秒內的價格變化趨勢，數值越高表示短期動能越強。
-          </p>
-        </div>
-      </div>
-    </div>
   </NCard>
 
   <!-- 換回合時的加載狀態 -->
@@ -252,10 +237,10 @@
 
   // 獲取動能圖標
   const getMomentumIcon = (index: number) => {
-    if (index === 0) return '⚡';
-    if (index === 1) return '🚀';
-    if (index === 2) return '📈';
-    return '💫';
+    if (index === 0) return '🥇';
+    if (index === 1) return '🥈';
+    if (index === 2) return '🥉';
+    return '🏅';
   };
 
   // 獲取動能狀態文本

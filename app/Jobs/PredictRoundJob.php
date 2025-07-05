@@ -2,18 +2,19 @@
 
 namespace App\Jobs;
 
+use App\Models\GameRound;
+use App\Services\ScoreMixer;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use App\Services\DexPriceClient;
 use App\Services\EloRatingEngine;
-use App\Services\ScoreMixer;
 use App\Models\HybridRoundPredict;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Queue\SerializesModels;
 use App\Events\HybridPredictionUpdated;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
 
 class PredictRoundJob implements ShouldQueue
 {
@@ -110,19 +111,11 @@ class PredictRoundJob implements ShouldQueue
             ]);
 
             foreach ($predictions as $predictionData) {
-                // 查找对应的 GameRound 记录
-                $gameRound = \App\Models\GameRound::where('round_id', $this->roundId)->first();
-
-                if (!$gameRound) {
-                    Log::warning('找不到对应的 GameRound 记录', [
-                        'round_id' => $this->roundId,
-                        'symbol' => $predictionData['symbol']
-                    ]);
-                    continue;
-                }
+                // 查找或创建对应的 GameRound 记录
+                $gameRound = GameRound::firstOrCreate(['round_id' => $this->roundId]);
 
                 HybridRoundPredict::create(array_merge($predictionData, [
-                    'game_round_id' => $gameRound->id, // 使用 GameRound 的 id 而不是 round_id
+                    'game_round_id' => $gameRound->id, // 使用 GameRound 的 id
                     'token_symbol' => $predictionData['symbol'],
                 ]));
             }

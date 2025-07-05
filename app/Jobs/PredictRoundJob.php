@@ -57,23 +57,39 @@ class PredictRoundJob implements ShouldQueue
             // 步骤2: 等待5秒获取价格变化
             sleep(10);
 
-            // 步骤3: 获取后续价格 P1
+            // 步骤3: 清除缓存并获取后续价格 P1
+            // 强制清除缓存以确保获取到不同的价格数据
+            $symbols = array_unique(array_map('strtoupper', $this->symbols));
+            sort($symbols);
+            $cacheKey = "dex_price_batch:" . md5(json_encode($symbols));
+            Cache::forget($cacheKey);
+
             $pricesP1 = $dexPriceClient->batchPrice($this->symbols);
 
             // 步骤4: 计算动能分数
             $momScore = [];
             foreach ($this->symbols as $symbol) {
+                // 添加价格对比日志
+                Log::info('[PredictRoundJob] 价格对比', [
+                    'symbol' => $symbol,
+                    'price_p0' => $pricesP0[$symbol] ?? 'missing',
+                    'price_p1' => $pricesP1[$symbol] ?? 'missing',
+                    'price_change_percent' => isset($pricesP0[$symbol]) && isset($pricesP1[$symbol]) && $pricesP0[$symbol] > 0
+                        ? round((($pricesP1[$symbol] / $pricesP0[$symbol] - 1) * 100), 4) . '%'
+                        : 'N/A'
+                ]);
+
                 if (isset($pricesP0[$symbol]) && isset($pricesP1[$symbol]) && $pricesP0[$symbol] > 0) {
                     $momentum = ($pricesP1[$symbol] / $pricesP0[$symbol] - 1) * 1000;
 
                     // 改进的动能计算：更敏感的參數調整
                     // 使用更小的阈值来捕捉微小的价格变化
-                    $threshold = 0.05; // 0.05% 的变化阈值
-                    $sensitivity = 2.0; // 增加敏感度
+                    $threshold = 0.01; // 降低到0.01% 的变化阈值，更敏感
+                    $sensitivity = 5.0; // 增加敏感度到5.0
 
                     if (abs($momentum) < $threshold) {
-                        // 价格变化很小，给予轻微偏向
-                        $momScore[$symbol] = $momentum > 0 ? 52 : 48;
+                        // 价格变化很小，给予更明显的偏向
+                        $momScore[$symbol] = $momentum > 0 ? 55 : 45;
                     } else {
                         // 价格有明显变化，使用更敏感的计算
                         $momScore[$symbol] = min(100, max(0, 50 + ($momentum * $sensitivity)));
@@ -84,7 +100,9 @@ class PredictRoundJob implements ShouldQueue
                         'price_p0' => $pricesP0[$symbol],
                         'price_p1' => $pricesP1[$symbol],
                         'momentum' => $momentum,
-                        'mom_score' => $momScore[$symbol]
+                        'mom_score' => $momScore[$symbol],
+                        'threshold' => $threshold,
+                        'sensitivity' => $sensitivity
                     ]);
                 } else {
                     $momScore[$symbol] = 50; // 改为50而不是null，避免在ScoreMixer中被替换

@@ -12,7 +12,7 @@ class DexPriceClient
     private const API_BASE_URL = 'https://api.dexscreener.com/latest/dex/search';
     private const API_TIMEOUT = 10;
     private const API_DELAY_MICROSECONDS = 200000; // 0.2秒延迟
-    private const CACHE_DURATION = 2; // 2秒缓存
+    private const CACHE_DURATION = 1; // 减少到1秒缓存，确保能获取到价格变化
 
     /**
      * 批量获取代币价格数据

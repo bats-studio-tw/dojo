@@ -208,12 +208,15 @@ class CalculateMomentumJob implements ShouldQueue
     private function calculateMomentumScores(array $pricesP0, array $pricesP1): array
     {
         $momScore = [];
+        $validPriceCount = 0;
+        $invalidPriceCount = 0;
 
         foreach ($this->symbols as $symbol) {
             $priceP0 = $pricesP0[$symbol] ?? null;
             $priceP1 = $pricesP1[$symbol] ?? null;
 
-            if ($priceP0 !== null && $priceP1 !== null && $priceP0 > 0) {
+            // 改进的价格验证逻辑
+            if ($this->isValidPriceData($priceP0, $priceP1)) {
                 $priceDiff = $priceP1 - $priceP0;
                 $priceChangePercent = round((($priceP1 / $priceP0 - 1) * 100), 4);
 
@@ -251,17 +254,115 @@ class CalculateMomentumJob implements ShouldQueue
                     'threshold' => $threshold,
                     'sensitivity' => $sensitivity
                 ]);
+
+                $validPriceCount++;
             } else {
-                $momScore[$symbol] = 50; // 改为50而不是null，避免在ScoreMixer中被替换
-                Log::warning('[CalculateMomentumJob] 无法计算动能分数，使用默认值', [
+                // 使用智能默认值策略
+                $momScore[$symbol] = $this->calculateDefaultMomentumScore($symbol, $priceP0, $priceP1);
+                $invalidPriceCount++;
+
+                Log::warning('[CalculateMomentumJob] 使用智能默认动能分数', [
                     'symbol' => $symbol,
                     'price_p0' => $priceP0,
-                    'price_p1' => $priceP1
+                    'price_p1' => $priceP1,
+                    'default_mom_score' => $momScore[$symbol],
+                    'reason' => $this->getInvalidPriceReason($priceP0, $priceP1)
                 ]);
             }
         }
 
+        // 记录整体统计
+        Log::info('[CalculateMomentumJob] 动能计算统计', [
+            'round_id' => $this->roundId,
+            'total_symbols' => count($this->symbols),
+            'valid_price_count' => $validPriceCount,
+            'invalid_price_count' => $invalidPriceCount,
+            'success_rate' => round(($validPriceCount / count($this->symbols)) * 100, 1) . '%'
+        ]);
+
         return $momScore;
+    }
+
+    /**
+     * 验证价格数据是否有效
+     * @param mixed $priceP0 初始价格
+     * @param mixed $priceP1 后续价格
+     * @return bool
+     */
+    private function isValidPriceData($priceP0, $priceP1): bool
+    {
+        // 检查价格是否为数值
+        if (!is_numeric($priceP0) || !is_numeric($priceP1)) {
+            return false;
+        }
+
+        // 检查价格是否为正数
+        if ($priceP0 <= 0 || $priceP1 <= 0) {
+            return false;
+        }
+
+        // 检查价格变化是否合理（避免极端变化）
+        $priceRatio = $priceP1 / $priceP0;
+        if ($priceRatio < 0.01 || $priceRatio > 100) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * 计算智能默认动能分数
+     * @param string $symbol 代币符号
+     * @param mixed $priceP0 初始价格
+     * @param mixed $priceP1 后续价格
+     * @return float
+     */
+    private function calculateDefaultMomentumScore(string $symbol, $priceP0, $priceP1): float
+    {
+        // 如果两个价格都无效，使用中性分数
+        if (!is_numeric($priceP0) && !is_numeric($priceP1)) {
+            return 50.0;
+        }
+
+        // 如果只有一个价格有效，基于该价格估算
+        if (is_numeric($priceP0) && $priceP0 > 0 && (!is_numeric($priceP1) || $priceP1 <= 0)) {
+            // 基于初始价格估算（价格越高，可能越稳定）
+            $normalizedPrice = min($priceP0, 1.0); // 标准化到0-1
+            return 45.0 + ($normalizedPrice * 10.0); // 45-55分范围
+        }
+
+        if (is_numeric($priceP1) && $priceP1 > 0 && (!is_numeric($priceP0) || $priceP0 <= 0)) {
+            // 基于后续价格估算
+            $normalizedPrice = min($priceP1, 1.0);
+            return 45.0 + ($normalizedPrice * 10.0);
+        }
+
+        // 如果价格变化不合理，使用保守的中性分数
+        return 50.0;
+    }
+
+    /**
+     * 获取价格无效的原因
+     * @param mixed $priceP0 初始价格
+     * @param mixed $priceP1 后续价格
+     * @return string
+     */
+    private function getInvalidPriceReason($priceP0, $priceP1): string
+    {
+        if (!is_numeric($priceP0) || !is_numeric($priceP1)) {
+            return '价格数据非数值';
+        }
+
+        if ($priceP0 <= 0 || $priceP1 <= 0) {
+            return '价格为零或负数';
+        }
+
+        $priceRatio = $priceP1 / $priceP0;
+        if ($priceRatio < 0.01 || $priceRatio > 100) {
+            return '价格变化过于极端';
+        }
+
+        return '未知原因';
     }
 
     /**

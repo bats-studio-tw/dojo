@@ -190,7 +190,7 @@
                 </span>
               </div>
               <div class="flex justify-between">
-                <span class="text-gray-400">历史胜率:</span>
+                <span class="text-gray-400">胜率:</span>
                 <span
                   :class="
                     getMetricClass(getTokenHistoricalAccuracy(token) * 100, config.historical_accuracy_threshold, 'gte')
@@ -493,7 +493,7 @@
                 <NTooltip trigger="hover" placement="top">
                   <template #trigger>
                     <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
-                      <span>历史准确率(%)</span>
+                      <span>胜率(%)</span>
                       <span class="text-blue-400">ℹ️</span>
                     </label>
                   </template>
@@ -1236,7 +1236,7 @@
 
   // ==================== 调试面板状态和函数 ====================
 
-  // 历史胜率百分比计算属性（已统一为0-100格式，无需转换）
+  // 胜率百分比计算属性（已统一为0-100格式，无需转换）
   const historyAccuracyPercent = computed({
     get: () => Math.round(props.config.historical_accuracy_threshold || 0),
     set: (value: number) => {
@@ -1373,7 +1373,7 @@
         props.config.confidence_threshold = 10; // 从70%降到10%
         props.config.score_gap_threshold = 1; // 极低分数要求
         props.config.min_sample_count = 1; // 最少样本数
-        props.config.historical_accuracy_threshold = 1; // 极低历史准确率 1%
+        props.config.historical_accuracy_threshold = 1; // 极低胜率 1%
 
         // 关闭所有高级过滤器
         props.config.enable_win_rate_filter = false;

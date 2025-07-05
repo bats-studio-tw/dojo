@@ -80,9 +80,10 @@ class EloUpdateJob implements ShouldQueue
                     $winnerKFactor = $this->calculateKFactor($winnerRating->games);
                     $loserKFactor = $this->calculateKFactor($loserRating->games);
 
-                    // 使用平均 K 值进行更新
+                    // 使用平均 K 值进行更新，直接传递计算好的 K 值
                     $averageKFactor = ($winnerKFactor + $loserKFactor) / 2;
 
+                    // 传递计算好的平均 K 值
                     $eloRatingEngine->updateElo($winnerSymbol, $loserSymbol, $averageKFactor);
 
                     $updateCount++;

@@ -4,12 +4,10 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class HybridPredictionUpdated implements ShouldBroadcastNow
+class HybridPredictionUpdated
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -25,7 +23,7 @@ class HybridPredictionUpdated implements ShouldBroadcastNow
     }
 
     /**
-     * 获取事件应该广播到的频道
+     * 获取事件应该广播到的频道（可选广播）
      */
     public function broadcastOn(): array
     {

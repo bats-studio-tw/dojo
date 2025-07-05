@@ -17,15 +17,21 @@ class DexPriceClient
     /**
      * 批量获取代币价格数据
      * @param array $symbols 代币符号数组
+     * @param bool $forceFresh 是否强制刷新缓存
      * @return array [symbol => priceUsd]
      */
-    public function batchPrice(array $symbols): array
+    public function batchPrice(array $symbols, bool $forceFresh = false): array
     {
         $symbols = array_unique(array_map('strtoupper', $symbols));
 
         // 稳定缓存 key
         sort($symbols);
         $cacheKey = "dex_price_batch:" . md5(json_encode($symbols));
+
+        // 如果强制刷新，先清除缓存
+        if ($forceFresh) {
+            Cache::forget($cacheKey);
+        }
 
         return Cache::remember($cacheKey, self::CACHE_DURATION, function () use ($symbols) {
             $priceData = [];

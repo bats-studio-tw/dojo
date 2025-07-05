@@ -13,7 +13,7 @@ use App\Services\ScoreMixer;
 use App\Models\HybridRoundPredict;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use App\Events\PredictionUpdated;
+use App\Events\HybridPredictionUpdated;
 
 class PredictRoundJob implements ShouldQueue
 {
@@ -125,7 +125,7 @@ class PredictRoundJob implements ShouldQueue
 
             Cache::put("hybrid_prediction:{$this->roundId}", $predictions, 30);
 
-            event(new PredictionUpdated($predictions, $this->roundId, 'prediction', 'hybrid'));
+            event(new HybridPredictionUpdated($predictions, $this->roundId, 'hybrid_prediction', 'hybrid_edge_v1'));
 
             Log::info('Hybrid-Edge v1.0 预测完成', [
                 'round_id' => $this->roundId,

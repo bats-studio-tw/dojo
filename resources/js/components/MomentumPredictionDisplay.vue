@@ -15,7 +15,7 @@
             {{ getStatusText(currentGameStatus) }}
           </NTag>
         </div>
-        <n-button :loading="analysisLoading" @click="$emit('refresh-analysis')" type="primary" size="small">
+        <n-button :loading="analysisLoading" @click="refreshAnalysis" type="primary" size="small">
           🔄 刷新分析
         </n-button>
       </div>
@@ -117,6 +117,7 @@
     title?: string;
     showCard?: boolean;
     config?: any;
+    refreshAnalysis?: () => void;
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -125,7 +126,20 @@
   });
 
   // Emits
-  defineEmits<{
+  // defineEmits<{
+  //   'refresh-analysis': [];
+  // }>();
+
+  // 刷新分析方法
+  const refreshAnalysis = () => {
+    if (props.refreshAnalysis) {
+      props.refreshAnalysis();
+    } else {
+      emit('refresh-analysis');
+    }
+  };
+
+  const emit = defineEmits<{
     'refresh-analysis': [];
   }>();
 

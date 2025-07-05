@@ -14,12 +14,12 @@
     <!-- ⚡ AI動能預測排名面板 (新增) -->
     <MomentumPredictionDisplay
       :hybrid-predictions="hybridPredictions || []"
-      :analysis-meta="analysisMeta"
+      :analysis-meta="hybridAnalysisMeta"
       :current-round-id="currentRoundId"
       :current-game-status="currentGameStatus"
-      :analysis-loading="analysisLoading"
+      :analysis-loading="hybridAnalysisLoading"
       :config="config"
-      @refresh-analysis="refreshAnalysis"
+      :refresh-analysis="refreshHybridAnalysis"
     />
 
     <!-- 🤖 自动下注状态面板 (整合自页面) -->
@@ -1043,9 +1043,14 @@
     isRunning: boolean;
     hasUID: boolean;
     hybridPredictions?: any[]; // 新增：Hybrid-Edge v1.0 動能預測數據
+    hybridAnalysisMeta?: any; // 新增：Hybrid预测元数据
+    hybridAnalysisLoading?: boolean; // 新增：Hybrid预测加载状态
+    refreshHybridAnalysis?: () => void; // 新增：刷新Hybrid预测方法
   }
 
-  const props = defineProps<Props>();
+  const props = withDefaults(defineProps<Props>(), {
+    hybridAnalysisLoading: false
+  });
 
   // Emits
   const emit = defineEmits<{

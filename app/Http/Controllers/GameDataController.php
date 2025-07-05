@@ -634,8 +634,6 @@ class GameDataController extends Controller
         return max(30, min(100, $score));
     }
 
-
-
     /**
      * 获取预测历史数据（最近50局）
      */
@@ -762,5 +760,62 @@ class GameDataController extends Controller
             'avg_rank_difference' => round($avgRankDifference, 2),
             'details' => $details
         ];
+    }
+
+    /**
+     * 获取Hybrid预测分析数据
+     */
+    public function getHybridAnalysis(): JsonResponse
+    {
+        try {
+            // 从缓存获取最新的Hybrid预测数据
+            $latestGameData = Cache::get('websocket:latest_game_data');
+            $roundId = $latestGameData['data']['rdId'] ?? 'unknown';
+
+            // 获取Hybrid预测数据
+            $hybridPredictions = Cache::get("hybrid_prediction:{$roundId}");
+
+            if (!$hybridPredictions || !is_array($hybridPredictions)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '暂无Hybrid预测数据',
+                    'data' => [],
+                    'meta' => null
+                ]);
+            }
+
+            // 构造meta信息
+            $meta = [
+                'round_id' => $roundId,
+                'status' => $latestGameData['data']['status'] ?? 'unknown',
+                'updated_at' => now()->toISOString(),
+                'prediction_algorithm' => 'Hybrid-Edge v1.0',
+                'source' => 'hybrid_edge_v1',
+                'algorithm_description' => '结合Elo历史评分与5秒动能变化的智能预测算法'
+            ];
+
+            Log::info('获取Hybrid预测分析数据成功', [
+                'round_id' => $roundId,
+                'predictions_count' => count($hybridPredictions)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => '获取Hybrid预测分析数据成功',
+                'data' => $hybridPredictions,
+                'meta' => $meta
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取Hybrid预测分析数据失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取Hybrid预测分析数据失败: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

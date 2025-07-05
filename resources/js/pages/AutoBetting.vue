@@ -142,6 +142,9 @@
                   :is-running="autoBettingStatus.is_running"
                   :has-u-i-d="!!currentUID"
                   :hybrid-predictions="hybridPredictions"
+                  :hybrid-analysis-meta="hybridAnalysisMeta"
+                  :hybrid-analysis-loading="hybridAnalysisLoading"
+                  :refresh-hybrid-analysis="fetchHybridAnalysis"
                   @start-auto-betting="startAutoBetting"
                   @stop-auto-betting="stopAutoBetting"
                   @execute-manual-betting="executeManualBetting"
@@ -224,12 +227,14 @@
     currentGameTokensWithRanks,
     websocketStatus,
     isConnected,
-    analysisLoading
+    analysisLoading,
+    hybridPredictions,
+    hybridAnalysisMeta,
+    hybridAnalysisLoading
   } = storeToRefs(predictionStore);
 
-  // 新增：Hybrid-Edge 動能預測數據
-  const hybridPredictions = ref<any[]>([]);
-  const hybridPredictionsLoading = ref(false);
+  // 从store中获取方法
+  const { fetchHybridAnalysis } = predictionStore;
 
   // 从store中获取方法
   // const { reconnectWebSocket } = predictionStore; // 已在下面定义
@@ -620,21 +625,11 @@
   // 获取 Hybrid-Edge 動能預測數據
   const fetchHybridPredictions = async () => {
     console.log('⚡ AutoBetting: 获取 Hybrid-Edge 動能預測數據');
-    hybridPredictionsLoading.value = true;
     try {
-      const response = await gameApi.getHybridPredictions();
-      if (response.data.success) {
-        hybridPredictions.value = response.data.data || [];
-        console.log(`✅ 成功获取 Hybrid-Edge 預測數據: ${hybridPredictions.value.length} 个Token`);
-      } else {
-        console.warn('⚠️ 获取 Hybrid-Edge 預測數據失败:', response.data.message);
-        hybridPredictions.value = [];
-      }
+      await fetchHybridAnalysis();
+      console.log(`✅ 成功获取 Hybrid-Edge 預測數據: ${hybridPredictions.value.length} 个Token`);
     } catch (error) {
       console.error('❌ 获取 Hybrid-Edge 預測數據失败:', error);
-      hybridPredictions.value = [];
-    } finally {
-      hybridPredictionsLoading.value = false;
     }
   };
 

@@ -38,7 +38,8 @@ class GameDataProcessorService
 
         try {
             // 使用資料庫交易確保資料一致性
-            DB::transaction(function () use ($gameData, $roundId, $status) {
+            $round = null;
+            DB::transaction(function () use ($gameData, $roundId, $status, &$round) {
 
                 // 步驟一：找到或建立 GameRound 紀錄，並使用游戏提供的正确结算时间
                 $round = GameRound::firstOrCreate(['round_id' => $roundId]);
@@ -92,7 +93,7 @@ class GameDataProcessorService
             Log::channel('websocket')->info('✅ 結算資料成功儲存到資料庫', ['rdId' => $roundId]);
 
             // 派遣 EloUpdateJob 来更新 Elo 评分
-            $this->dispatchEloUpdateJob($roundId);
+            $this->dispatchEloUpdateJob($round->id);
 
             // 广播游戏数据更新事件到WebSocket客户端
             try {
@@ -304,19 +305,19 @@ class GameDataProcessorService
     /**
      * 派遣 Elo 更新任务
      */
-    private function dispatchEloUpdateJob(string $roundId): void
+    private function dispatchEloUpdateJob(int $gameRoundId): void
     {
         try {
-            Log::channel('websocket')->info('🔄 派遣 Elo 更新任务', ['round_id' => $roundId]);
+            Log::channel('websocket')->info('🔄 派遣 Elo 更新任务', ['game_round_id' => $gameRoundId]);
 
             // 派遣 EloUpdateJob
-            EloUpdateJob::dispatch($roundId)->onQueue('elo_updates');
+            EloUpdateJob::dispatch($gameRoundId)->onQueue('elo_updates');
 
-            Log::channel('websocket')->info('✅ Elo 更新任务已派遣', ['round_id' => $roundId]);
+            Log::channel('websocket')->info('✅ Elo 更新任务已派遣', ['game_round_id' => $gameRoundId]);
 
         } catch (\Exception $e) {
             Log::channel('websocket')->error('派遣 Elo 更新任务失败', [
-                'round_id' => $roundId,
+                'game_round_id' => $gameRoundId,
                 'error' => $e->getMessage()
             ]);
         }

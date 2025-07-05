@@ -110,19 +110,8 @@ class PredictRoundJob implements ShouldQueue
             ]);
 
             foreach ($predictions as $predictionData) {
-                // 查找对应的 GameRound 记录
-                $gameRound = \App\Models\GameRound::where('round_id', $this->roundId)->first();
-
-                if (!$gameRound) {
-                    Log::warning('找不到对应的 GameRound 记录', [
-                        'round_id' => $this->roundId,
-                        'symbol' => $predictionData['symbol']
-                    ]);
-                    continue;
-                }
-
                 HybridRoundPredict::create(array_merge($predictionData, [
-                    'game_round_id' => $gameRound->id, // 使用 GameRound 的 id 而不是 round_id
+                    'game_round_id' => $this->roundId,
                     'token_symbol' => $predictionData['symbol'],
                 ]));
             }
@@ -136,8 +125,7 @@ class PredictRoundJob implements ShouldQueue
 
             // 尝试广播事件，但不让广播失败影响任务执行
             try {
-                // 使用 dispatch 而不是 event，避免广播失败导致任务失败
-                \App\Events\HybridPredictionUpdated::dispatch($predictions, $this->roundId, 'hybrid_prediction', 'hybrid_edge_v1');
+                event(new HybridPredictionUpdated($predictions, $this->roundId, 'hybrid_prediction', 'hybrid_edge_v1'));
                 Log::info('Hybrid-Edge v1.0 预测完成，事件广播成功', [
                     'round_id' => $this->roundId,
                     'top_prediction' => $predictions[0] ?? null
@@ -148,7 +136,6 @@ class PredictRoundJob implements ShouldQueue
                     'top_prediction' => $predictions[0] ?? null,
                     'broadcast_error' => $broadcastError->getMessage()
                 ]);
-                // 广播失败不应该影响任务的成功状态
             }
 
         } catch (\Exception $e) {

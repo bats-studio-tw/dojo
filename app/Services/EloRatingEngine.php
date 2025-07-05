@@ -47,8 +47,7 @@ class EloRatingEngine
                     $loserKFactor = $this->calculateKFactor($loserRating->games ?? 0);
                     $effectiveKFactor = ($winnerKFactor + $loserKFactor) / 2;
                 } else {
-                    // 如果传入的不是 1.0，直接使用传入的值作为 effectiveKFactor
-                    $effectiveKFactor = $kf;
+                    $effectiveKFactor = self::K_BASE * $kf;
                 }
 
                 $delta = $effectiveKFactor * (1 - $Ea); // Elo 變化值

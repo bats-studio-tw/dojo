@@ -44,9 +44,10 @@ class EloUpdateJob implements ShouldQueue
     {
         $startTime = microtime(true);
 
+        $jobId = property_exists($this, 'job') && $this->job && method_exists($this->job, 'getJobId') ? $this->job->getJobId() : null;
         Log::info('🚀 EloUpdateJob 开始执行', [
             'game_round_id' => $this->gameRoundId,
-            'job_id' => $this->getJobId(),
+            'job_id' => $jobId,
             'queue_name' => $this->queue,
             'start_time' => now()->toISOString()
         ]);

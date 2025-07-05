@@ -54,8 +54,8 @@ class EloUpdateJob implements ShouldQueue
             }
 
             // 步骤2: 整理排名结果
-            // 將結果按排名整理成 [rank => symbol]
-            $rankedSymbols = $results->pluck('token_symbol', 'rank')->toArray();
+            // 将结果转换为数组，使用索引而不是rank值作为键
+            $rankedSymbols = $results->pluck('token_symbol')->toArray();
 
             // 步骤3: 开始 Elo 评分更新
             $updateCount = 0;
@@ -64,8 +64,8 @@ class EloUpdateJob implements ShouldQueue
 
             // 5x4/2 組對戰 → EloRatingEngine::updateElo(win, lose)
             // 遍歷所有可能的勝負對
-            for ($i = 1; $i <= count($rankedSymbols); $i++) {
-                for ($j = $i + 1; $j <= count($rankedSymbols); $j++) {
+            for ($i = 0; $i < count($rankedSymbols); $i++) {
+                for ($j = $i + 1; $j < count($rankedSymbols); $j++) {
                     $winnerSymbol = $rankedSymbols[$i];
                     $loserSymbol = $rankedSymbols[$j];
 
@@ -116,18 +116,18 @@ class EloUpdateJob implements ShouldQueue
 
             // 步骤4: 记录更新后的评分状态
             $finalRatings = [];
-            foreach ($rankedSymbols as $rank => $symbol) {
+            foreach ($rankedSymbols as $index => $symbol) {
                 $rating = TokenRating::where('symbol', strtoupper($symbol))->first();
                 if ($rating) {
                     $finalRatings[$symbol] = [
-                        'rank' => $rank,
+                        'rank' => $index + 1, // 使用索引+1作为显示排名
                         'elo' => round($rating->elo, 2),
                         'games' => $rating->games
                     ];
                 } else {
                     Log::warning('[EloUpdateJob] 未找到代币评分记录', [
                         'symbol' => $symbol,
-                        'rank' => $rank
+                        'index' => $index
                     ]);
                 }
             }

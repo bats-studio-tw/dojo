@@ -455,7 +455,18 @@ class GameDataController extends Controller
             }
 
             // 如果缓存中没有，从数据库获取最新的 Hybrid-Edge 预测
-            $hybridPredictions = \App\Models\HybridRoundPredict::where('game_round_id', $roundId)
+            // 首先通过 round_id 找到对应的 GameRound 记录
+            $gameRound = \App\Models\GameRound::where('round_id', $roundId)->first();
+
+            if (!$gameRound) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '找不到对应的游戏轮次',
+                    'data' => []
+                ]);
+            }
+
+            $hybridPredictions = \App\Models\HybridRoundPredict::where('game_round_id', $gameRound->id)
                 ->orderBy('predicted_rank')
                 ->get()
                 ->map(function ($prediction) {
@@ -768,14 +779,45 @@ class GameDataController extends Controller
     public function getHybridAnalysis(): JsonResponse
     {
         try {
-            // 从缓存获取最新的Hybrid预测数据
-            $latestGameData = Cache::get('websocket:latest_game_data');
-            $roundId = $latestGameData['data']['rdId'] ?? 'unknown';
+            // 获取当前轮次信息
+            $roundInfo = Cache::get('game:current_round');
+            $roundId = $roundInfo['round_id'] ?? null;
 
-            // 获取Hybrid预测数据
+            if (!$roundId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '当前没有活跃的游戏轮次',
+                    'data' => [],
+                    'meta' => null
+                ]);
+            }
+
+            // 从缓存获取 Hybrid-Edge 预测数据
             $hybridPredictions = Cache::get("hybrid_prediction:{$roundId}");
 
             if (!$hybridPredictions || !is_array($hybridPredictions)) {
+                // 如果缓存中没有，尝试从数据库获取
+                $gameRound = \App\Models\GameRound::where('round_id', $roundId)->first();
+
+                if ($gameRound) {
+                    $hybridPredictions = \App\Models\HybridRoundPredict::where('game_round_id', $gameRound->id)
+                        ->orderBy('predicted_rank')
+                        ->get()
+                        ->map(function ($prediction) {
+                            return [
+                                'symbol' => $prediction->token_symbol,
+                                'predicted_rank' => $prediction->predicted_rank,
+                                'final_score' => $prediction->final_score,
+                                'elo_prob' => $prediction->elo_prob,
+                                'mom_score' => $prediction->mom_score,
+                                'confidence' => $prediction->confidence,
+                            ];
+                        })
+                        ->toArray();
+                }
+            }
+
+            if (!$hybridPredictions || !is_array($hybridPredictions) || empty($hybridPredictions)) {
                 return response()->json([
                     'success' => false,
                     'message' => '暂无Hybrid预测数据',
@@ -787,7 +829,7 @@ class GameDataController extends Controller
             // 构造meta信息
             $meta = [
                 'round_id' => $roundId,
-                'status' => $latestGameData['data']['status'] ?? 'unknown',
+                'status' => $roundInfo['status'] ?? 'unknown',
                 'updated_at' => now()->toISOString(),
                 'prediction_algorithm' => 'Hybrid-Edge v1.0',
                 'source' => 'hybrid_edge_v1',

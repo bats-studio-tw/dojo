@@ -27,6 +27,7 @@ Route::prefix('websocket')->name('websocket.')->group(function () {
 Route::prefix('game')->name('game.')->group(function () {
     Route::get('/current-analysis', [GameDataController::class, 'getCurrentAnalysis'])->name('current-analysis');
     Route::get('/prediction-history', [GameDataController::class, 'getPredictionHistory'])->name('prediction-history');
+    Route::get('/hybrid-analysis', [GameDataController::class, 'getHybridAnalysis'])->name('hybrid-analysis');
 });
 
 require __DIR__.'/auth.php';

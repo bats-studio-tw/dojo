@@ -15,9 +15,7 @@
             {{ getStatusText(currentGameStatus) }}
           </NTag>
         </div>
-        <n-button :loading="analysisLoading" @click="refreshAnalysis" type="primary" size="small">
-          🔄 刷新分析
-        </n-button>
+        <n-button :loading="analysisLoading" @click="refreshAnalysis" type="primary" size="small">🔄 刷新分析</n-button>
       </div>
     </template>
 
@@ -50,17 +48,17 @@
         </div>
 
         <!-- 詳細動能數據 -->
-        <div class="space-y-1 text-xs">
+        <div class="text-xs space-y-1">
           <!-- Elo 機率 -->
           <div class="flex justify-between">
             <span class="text-gray-400">Elo 機率:</span>
-            <span class="font-bold text-blue-400">{{ (token.elo_prob || 0).toFixed(1) }}%</span>
+            <span class="text-blue-400 font-bold">{{ (token.elo_prob || 0).toFixed(1) }}%</span>
           </div>
 
           <!-- 最終混合分數 -->
           <div class="flex justify-between">
             <span class="text-gray-400">混合分數:</span>
-            <span class="font-bold text-purple-400">{{ (token.final_score || 0).toFixed(1) }}</span>
+            <span class="text-purple-400 font-bold">{{ (token.final_score || 0).toFixed(1) }}</span>
           </div>
 
           <!-- 動能變化指示器 -->
@@ -76,7 +74,7 @@
           <!-- 預測方法標識 -->
           <div class="mt-1 text-center">
             <span
-              class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 border border-blue-400/30"
+              class="inline-flex items-center border border-blue-400/30 rounded-full from-blue-500/20 to-purple-500/20 bg-gradient-to-r px-2 py-1 text-xs text-blue-300 font-medium"
             >
               ⚡ Hybrid-Edge v1.0
             </span>
@@ -86,26 +84,41 @@
     </div>
 
     <!-- 動能預測說明 -->
-    <div class="mt-4 p-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg border border-blue-400/20">
+    <div class="mt-4 border border-blue-400/20 rounded-lg from-blue-500/10 to-purple-500/10 bg-gradient-to-r p-3">
       <div class="flex items-start space-x-3">
         <div class="text-2xl">⚡</div>
         <div class="flex-1">
-          <h4 class="text-sm font-semibold text-blue-300 mb-1">AI 動能預測說明</h4>
+          <h4 class="mb-1 text-sm text-blue-300 font-semibold">AI 動能預測說明</h4>
           <p class="text-xs text-gray-300 leading-relaxed">
-            基於 Hybrid-Edge v1.0 演算法，結合 Elo 歷史評分 ({{ (config?.w_elo || 0.65) * 100 }}%) 與 5 秒動能變化 ({{
+            基於 Hybrid-Edge v1.0 演算法，結合 Elo 歷史評分 ({{ (config?.w_elo || 0.65) * 100 }}%) 與 10 秒動能變化 ({{
               (1 - (config?.w_elo || 0.65)) * 100
-            }}%) 進行智能預測。 動能分數反映代幣在遊戲開始後 5 秒內的價格變化趨勢，數值越高表示短期動能越強。
+            }}%) 進行智能預測。 動能分數反映代幣在遊戲開始後 10 秒內的價格變化趨勢，數值越高表示短期動能越強。
           </p>
         </div>
       </div>
     </div>
   </NCard>
-  <NEmpty v-else-if="showCard" description="暂无AI動能預測数据" class="py-8" />
+
+  <!-- 換回合時的加載狀態 -->
+  <NCard
+    v-else-if="showCard && isRoundChanging"
+    class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+    :title="title"
+    size="large"
+  >
+    <div class="flex flex-col items-center justify-center py-12">
+      <NSpin size="large" />
+      <div class="mt-4 text-center">
+        <div class="mb-2 text-lg text-blue-300 font-semibold">正在計算新回合預測...</div>
+        <div class="text-sm text-gray-400">AI 正在分析新回合的動能數據</div>
+      </div>
+    </div>
+  </NCard>
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue';
-  import { NCard, NTag, NEmpty } from 'naive-ui';
+  import { computed, ref, watch } from 'vue';
+  import { NCard, NTag, NSpin } from 'naive-ui';
 
   // Props
   interface Props {
@@ -126,9 +139,29 @@
   });
 
   // Emits
-  // defineEmits<{
-  //   'refresh-analysis': [];
-  // }>();
+  const emit = defineEmits<{
+    'refresh-analysis': [];
+  }>();
+
+  // 換回合狀態
+  const isRoundChanging = ref(false);
+  const previousRoundId = ref<string | null>(null);
+
+  // 監聽回合變化
+  watch(
+    () => props.currentRoundId,
+    (newRoundId, oldRoundId) => {
+      if (newRoundId && oldRoundId && newRoundId !== oldRoundId) {
+        isRoundChanging.value = true;
+        previousRoundId.value = oldRoundId;
+
+        // 3秒後自動關閉加載狀態
+        setTimeout(() => {
+          isRoundChanging.value = false;
+        }, 3000);
+      }
+    }
+  );
 
   // 刷新分析方法
   const refreshAnalysis = () => {
@@ -138,10 +171,6 @@
       emit('refresh-analysis');
     }
   };
-
-  const emit = defineEmits<{
-    'refresh-analysis': [];
-  }>();
 
   // ==================== 計算屬性 ====================
 

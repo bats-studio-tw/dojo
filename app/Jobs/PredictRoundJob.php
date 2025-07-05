@@ -55,7 +55,7 @@ class PredictRoundJob implements ShouldQueue
             $pricesP0 = $dexPriceClient->batchPrice($this->symbols);
 
             // 步骤2: 等待5秒获取价格变化
-            sleep(5);
+            sleep(10);
 
             // 步骤3: 获取后续价格 P1
             $pricesP1 = $dexPriceClient->batchPrice($this->symbols);
@@ -65,11 +65,30 @@ class PredictRoundJob implements ShouldQueue
             foreach ($this->symbols as $symbol) {
                 if (isset($pricesP0[$symbol]) && isset($pricesP1[$symbol]) && $pricesP0[$symbol] > 0) {
                     $momentum = ($pricesP1[$symbol] / $pricesP0[$symbol] - 1) * 1000;
-                    // 5秒間隔的動能計算：更敏感的參數調整
-                    $momScore[$symbol] = min(100, max(0, 50 + ($momentum / 0.1)));
+
+                    // 改进的动能计算：更敏感的參數調整
+                    // 使用更小的阈值来捕捉微小的价格变化
+                    $threshold = 0.05; // 0.05% 的变化阈值
+                    $sensitivity = 2.0; // 增加敏感度
+
+                    if (abs($momentum) < $threshold) {
+                        // 价格变化很小，给予轻微偏向
+                        $momScore[$symbol] = $momentum > 0 ? 52 : 48;
+                    } else {
+                        // 价格有明显变化，使用更敏感的计算
+                        $momScore[$symbol] = min(100, max(0, 50 + ($momentum * $sensitivity)));
+                    }
+
+                    Log::info('[PredictRoundJob] 动能分数计算', [
+                        'symbol' => $symbol,
+                        'price_p0' => $pricesP0[$symbol],
+                        'price_p1' => $pricesP1[$symbol],
+                        'momentum' => $momentum,
+                        'mom_score' => $momScore[$symbol]
+                    ]);
                 } else {
-                    $momScore[$symbol] = null;
-                    Log::warning('[PredictRoundJob] 无法计算动能分数', [
+                    $momScore[$symbol] = 50; // 改为50而不是null，避免在ScoreMixer中被替换
+                    Log::warning('[PredictRoundJob] 无法计算动能分数，使用默认值', [
                         'symbol' => $symbol,
                         'price_p0' => $pricesP0[$symbol] ?? 'missing',
                         'price_p1' => $pricesP1[$symbol] ?? 'missing'

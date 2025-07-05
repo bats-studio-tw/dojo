@@ -43,8 +43,24 @@ class ScoreMixer
                 $eloScore = is_numeric($p) ? max(0, min(1, $p)) : 0;
                 $momScore_value = is_numeric($mom) ? max(0, min(100, $mom)) : 50;
 
-                // 計算最終得分 (0-100 範圍)
-                $scores[$s] = $wElo * ($eloScore * 100) + $wMom * $momScore_value;
+                // 改进的混合计算：即使动能分数相同，也要保持Elo差异的影响
+                $baseScore = $wElo * ($eloScore * 100) + $wMom * $momScore_value;
+
+                // 添加微小的随机因子来打破完全相同的分数
+                $randomFactor = (rand(0, 100) - 50) * 0.01; // ±0.5的随机因子
+                $scores[$s] = $baseScore + $randomFactor;
+
+                Log::info('分数混合计算', [
+                    'symbol' => $s,
+                    'elo_prob' => $p,
+                    'elo_score' => $eloScore * 100,
+                    'mom_score' => $momScore_value,
+                    'weight_elo' => $wElo,
+                    'weight_mom' => $wMom,
+                    'base_score' => $baseScore,
+                    'random_factor' => $randomFactor,
+                    'final_score' => $scores[$s]
+                ]);
             }
 
             // 根據分數降序排序

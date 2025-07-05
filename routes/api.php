@@ -26,6 +26,7 @@ Route::prefix('game')->group(function () {
     Route::get('/prediction-history', [GameDataController::class, 'getPredictionHistory'])->name('api.game.prediction-history');
     Route::get('/current-analysis', [GameDataController::class, 'getCurrentRoundAnalysis'])->name('api.game.current-analysis');
     Route::get('/hybrid-predictions', [GameDataController::class, 'getHybridPredictions'])->name('api.game.hybrid-predictions');
+    Route::get('/hybrid-analysis', [GameDataController::class, 'getHybridAnalysis'])->name('api.game.hybrid-analysis');
     // 保留旧API以防兼容性问题
     Route::get('/market-data', [GameDataController::class, 'getTokenMarketData'])->name('api.game.market-data');
     Route::get('/prediction', [GameDataController::class, 'getCurrentRoundAnalysis'])->name('api.game.prediction');

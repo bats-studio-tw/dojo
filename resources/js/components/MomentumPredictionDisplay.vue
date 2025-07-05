@@ -114,11 +114,28 @@
       </div>
     </div>
   </NCard>
+
+  <!-- 無數據狀態 -->
+  <NCard
+    v-else-if="showCard && !analysisLoading && (!hybridPredictions || hybridPredictions.length === 0)"
+    class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+    :title="title"
+    size="large"
+  >
+    <div class="flex flex-col items-center justify-center py-12">
+      <div class="mb-4 text-4xl">⚡</div>
+      <div class="text-center">
+        <div class="mb-2 text-lg text-blue-300 font-semibold">暫無動能預測數據</div>
+        <div class="mb-4 text-sm text-gray-400">當前輪次尚未生成 Hybrid-Edge 預測數據</div>
+        <n-button :loading="analysisLoading" @click="refreshAnalysis" type="primary" size="small">🔄 刷新分析</n-button>
+      </div>
+    </div>
+  </NCard>
 </template>
 
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue';
-  import { NCard, NTag, NSpin } from 'naive-ui';
+  import { NCard, NTag, NSpin, NButton } from 'naive-ui';
 
   // Props
   interface Props {

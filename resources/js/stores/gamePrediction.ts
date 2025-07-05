@@ -618,12 +618,16 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         hybridAnalysisMeta.value = response.data.meta || null;
         console.log(`⚡ 成功获取Hybrid分析数据: ${hybridPredictions.value.length} 个Token`);
       } else {
-        throw new Error(response.data.message || '获取Hybrid分析数据失败');
+        console.warn('⚠️ Hybrid分析数据获取失败:', response.data.message);
+        hybridPredictions.value = [];
+        hybridAnalysisMeta.value = null;
       }
     } catch (error) {
       console.error('❌ 获取Hybrid分析数据失败:', error);
       hybridAnalysisError.value = error instanceof Error ? error.message : String(error);
-      throw error;
+      hybridPredictions.value = [];
+      hybridAnalysisMeta.value = null;
+      // 不抛出错误，让调用者可以继续运行
     } finally {
       hybridAnalysisLoading.value = false;
     }

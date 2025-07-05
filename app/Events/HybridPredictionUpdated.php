@@ -13,16 +13,12 @@ class HybridPredictionUpdated implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public string $source = 'hybrid_edge_v1';
-
     public function __construct(
         public array $predictionData,
         public string $roundId,
         public string $type = 'hybrid_prediction',
-        string $source = 'hybrid_edge_v1'
-    ) {
-        $this->source = $source;
-    }
+        public string $source = 'hybrid_edge_v1'
+    ) {}
 
     /**
      * 获取事件应该广播到的频道

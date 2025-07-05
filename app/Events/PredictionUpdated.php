@@ -13,12 +13,16 @@ class PredictionUpdated implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
+    public string $source = 'original'; // 显式默认值，防止未初始化
+
     public function __construct(
         public array $predictionData,
         public string $roundId,
         public string $type = 'prediction',
-        public string $source = 'original' // 添加预测源标识符
-    ) {}
+        string $source = 'original' // 构造参数
+    ) {
+        $this->source = $source;
+    }
 
     /**
      * 获取事件应该广播到的频道

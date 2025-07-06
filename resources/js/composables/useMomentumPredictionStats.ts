@@ -84,7 +84,12 @@ export function useMomentumPredictionStats(
       const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
 
       top3Predictions.forEach((prediction) => {
-        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        let actualResult = undefined;
+        if (Array.isArray(round.results)) {
+          actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        } else {
+          console.warn(`⚠️ 轮次 ${round.round_id} 的 results 不是数组:`, round.results);
+        }
         if (actualResult) {
           totalPredictions++;
           const analysis = getMomentumPredictionAnalysis(prediction.predicted_rank, actualResult.actual_rank);
@@ -174,7 +179,12 @@ export function useMomentumPredictionStats(
         const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
 
         predictions.forEach((prediction) => {
-          const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          let actualResult = undefined;
+          if (Array.isArray(round.results)) {
+            actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          } else {
+            console.warn(`⚠️ 轮次 ${round.round_id} 的 results 不是数组:`, round.results);
+          }
           if (actualResult) {
             const key = `rank${predictedRank}` as keyof AllMomentumRankStats;
             rankStats[key].total++;
@@ -238,7 +248,12 @@ export function useMomentumPredictionStats(
         const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
 
         predictions.forEach((prediction) => {
-          const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          let actualResult = undefined;
+          if (Array.isArray(round.results)) {
+            actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          } else {
+            console.warn(`⚠️ 轮次 ${round.round_id} 的 results 不是数组:`, round.results);
+          }
           if (actualResult) {
             const key = `rank${predictedRank}` as keyof AllMomentumRankStats;
             rankStats[key].total++;

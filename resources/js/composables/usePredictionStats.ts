@@ -71,7 +71,12 @@ export function usePredictionStats(
       const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
 
       top3Predictions.forEach((prediction) => {
-        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        let actualResult = undefined;
+        if (Array.isArray(round.results)) {
+          actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        } else {
+          console.warn(`⚠️ 轮次 ${round.round_id} 的 results 不是数组:`, round.results);
+        }
         if (actualResult) {
           totalPredictions++;
           const analysis = getTokenPredictionAnalysis(prediction.predicted_rank, actualResult.actual_rank);
@@ -110,7 +115,12 @@ export function usePredictionStats(
         const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
 
         predictions.forEach((prediction) => {
-          const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          let actualResult = undefined;
+          if (Array.isArray(round.results)) {
+            actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          } else {
+            console.warn(`⚠️ 轮次 ${round.round_id} 的 results 不是数组:`, round.results);
+          }
           if (actualResult) {
             const key = `rank${predictedRank}` as keyof AllRankStats;
             rankStats[key].total++;
@@ -173,7 +183,12 @@ export function usePredictionStats(
         const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
 
         predictions.forEach((prediction) => {
-          const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          let actualResult = undefined;
+          if (Array.isArray(round.results)) {
+            actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          } else {
+            console.warn(`⚠️ 轮次 ${round.round_id} 的 results 不是数组:`, round.results);
+          }
           if (actualResult) {
             const key = `rank${predictedRank}` as keyof AllRankStats;
             rankStats[key].total++;
@@ -229,7 +244,12 @@ export function usePredictionStats(
       const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
 
       top3Predictions.forEach((prediction) => {
-        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        let actualResult = undefined;
+        if (Array.isArray(round.results)) {
+          actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        } else {
+          console.warn(`⚠️ 轮次 ${round.round_id} 的 results 不是数组:`, round.results);
+        }
         if (actualResult) {
           const rankDifference = Math.abs(prediction.predicted_rank - actualResult.actual_rank);
 

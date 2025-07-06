@@ -667,7 +667,7 @@ class GameDataController extends Controller
                             'prediction_score' => $predict->prediction_score,
                             'predicted_at' => $predict->predicted_at?->format('Y-m-d H:i:s'),
                         ];
-                    })->values()->toArray();
+                    })->values()->toArray(); // 🔧 确保返回数组
 
                     // 构建实际结果数据
                     $results = $round->roundResults->sortBy('rank')->map(function ($result) {
@@ -676,7 +676,7 @@ class GameDataController extends Controller
                             'actual_rank' => $result->rank,
                             'value' => $result->value,
                         ];
-                    })->values()->toArray();
+                    })->values()->toArray(); // 🔧 确保返回数组
 
                     // 计算预测准确度
                     $accuracy = $this->calculatePredictionAccuracy($predictions, $results);
@@ -889,7 +889,7 @@ class GameDataController extends Controller
                             'final_score' => $predict->final_score,
                             'elo_prob' => $predict->elo_prob,
                         ];
-                    })->values()->toArray();
+                    })->values()->toArray(); // 🔧 确保返回数组
 
                     // 构建实际结果数据
                     $results = $round->roundResults->sortBy('rank')->map(function ($result) {
@@ -898,7 +898,7 @@ class GameDataController extends Controller
                             'actual_rank' => $result->rank,
                             'value' => $result->value,
                         ];
-                    })->values()->toArray();
+                    })->values()->toArray(); // 🔧 确保返回数组
 
                     return [
                         'id' => $round->id,
@@ -1015,6 +1015,7 @@ class GameDataController extends Controller
                             'confidence' => $prediction->confidence
                         ];
                     })
+                    ->values() // 🔧 修复：确保返回数组而不是对象
                     ->toArray();
 
                 // 使用预加载的数据，避免额外查询
@@ -1026,15 +1027,24 @@ class GameDataController extends Controller
                             'actual_rank' => $result->rank
                         ];
                     })
+                    ->values() // 🔧 修复：确保返回数组而不是对象
                     ->toArray();
 
-                if (!empty($predictions) && !empty($results)) {
+                // 🔧 修复：确保 predictions 和 results 都是数组，且不为空
+                if (is_array($predictions) && is_array($results) && !empty($predictions) && !empty($results)) {
                     $historyData[] = [
                         'round_id' => $round->round_id,
                         'settled_at' => $round->settled_at?->toISOString(),
                         'predictions' => $predictions,
                         'results' => $results
                     ];
+                } else {
+                    // 记录数据不完整的轮次
+                    Log::warning('轮次数据不完整，跳过', [
+                        'round_id' => $round->round_id,
+                        'predictions_count' => is_array($predictions) ? count($predictions) : 'not_array',
+                        'results_count' => is_array($results) ? count($results) : 'not_array'
+                    ]);
                 }
             }
 

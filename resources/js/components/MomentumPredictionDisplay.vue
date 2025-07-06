@@ -195,6 +195,11 @@
       return [];
     }
 
+    // 檢查數據是否屬於當前回合，如果不是則清空
+    if (props.analysisMeta && props.currentRoundId && props.analysisMeta.round_id !== props.currentRoundId) {
+      return [];
+    }
+
     // 数据去重：基于symbol去重，保留排名最高的记录
     const uniquePredictions = new Map();
 

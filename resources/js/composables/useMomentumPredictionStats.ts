@@ -75,6 +75,12 @@ export function useMomentumPredictionStats(
     let totalPredictions = 0;
 
     momentumPredictionHistory.value.forEach((round) => {
+      // 🔧 修复：确保 predictions 是数组
+      if (!Array.isArray(round.predictions)) {
+        console.warn(`⚠️ 轮次 ${round.round_id} 的 predictions 不是数组:`, round.predictions);
+        return;
+      }
+
       const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
 
       top3Predictions.forEach((prediction) => {
@@ -103,6 +109,12 @@ export function useMomentumPredictionStats(
     let totalPredictions = 0;
 
     momentumPredictionHistory.value.forEach((round) => {
+      // 🔧 修复：确保 predictions 是数组
+      if (!Array.isArray(round.predictions)) {
+        console.warn(`⚠️ 轮次 ${round.round_id} 的 predictions 不是数组:`, round.predictions);
+        return;
+      }
+
       const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
       top3Predictions.forEach((prediction) => {
         totalScore += prediction.momentum_score;
@@ -123,6 +135,12 @@ export function useMomentumPredictionStats(
     let totalPredictions = 0;
 
     momentumPredictionHistory.value.forEach((round) => {
+      // 🔧 修复：确保 predictions 是数组
+      if (!Array.isArray(round.predictions)) {
+        console.warn(`⚠️ 轮次 ${round.round_id} 的 predictions 不是数组:`, round.predictions);
+        return;
+      }
+
       const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
       top3Predictions.forEach((prediction) => {
         totalConfidence += prediction.confidence;
@@ -146,6 +164,12 @@ export function useMomentumPredictionStats(
     }
 
     momentumPredictionHistory.value.forEach((round) => {
+      // 🔧 修复：确保 predictions 是数组
+      if (!Array.isArray(round.predictions)) {
+        console.warn(`⚠️ 轮次 ${round.round_id} 的 predictions 不是数组:`, round.predictions);
+        return;
+      }
+
       [1, 2, 3].forEach((predictedRank) => {
         const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
 
@@ -204,6 +228,12 @@ export function useMomentumPredictionStats(
       .slice(0, recentRoundsCount.value);
 
     recentRounds.forEach((round) => {
+      // 🔧 修复：确保 predictions 是数组
+      if (!Array.isArray(round.predictions)) {
+        console.warn(`⚠️ 轮次 ${round.round_id} 的 predictions 不是数组:`, round.predictions);
+        return;
+      }
+
       [1, 2, 3].forEach((predictedRank) => {
         const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
 

@@ -477,6 +477,12 @@
     let totalPredictions = 0;
 
     predictionHistoryData.value.forEach((round) => {
+      // 🔧 修复：确保 predictions 是数组
+      if (!Array.isArray(round.predictions)) {
+        console.warn(`⚠️ 轮次 ${round.round_id} 的 predictions 不是数组:`, round.predictions);
+        return;
+      }
+
       const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
 
       top3Predictions.forEach((prediction) => {
@@ -508,6 +514,12 @@
     }
 
     predictionHistoryData.value.forEach((round) => {
+      // 🔧 修复：确保 predictions 是数组
+      if (!Array.isArray(round.predictions)) {
+        console.warn(`⚠️ 轮次 ${round.round_id} 的 predictions 不是数组:`, round.predictions);
+        return;
+      }
+
       [1, 2, 3].forEach((predictedRank) => {
         const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
 
@@ -581,6 +593,12 @@
       .slice(0, recentRoundsCount.value);
 
     recentRounds.forEach((round) => {
+      // 🔧 修复：确保 predictions 是数组
+      if (!Array.isArray(round.predictions)) {
+        console.warn(`⚠️ 轮次 ${round.round_id} 的 predictions 不是数组:`, round.predictions);
+        return;
+      }
+
       [1, 2, 3].forEach((predictedRank) => {
         const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
 
@@ -661,6 +679,12 @@
     const detailedData: PredictionComparisonRow[] = [];
 
     predictionHistoryData.value.forEach((round) => {
+      // 🔧 修复：确保 predictions 是数组
+      if (!Array.isArray(round.predictions)) {
+        console.warn(`⚠️ 轮次 ${round.round_id} 的 predictions 不是数组:`, round.predictions);
+        return;
+      }
+
       const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
 
       top3Predictions.forEach((prediction) => {

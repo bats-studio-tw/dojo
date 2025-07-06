@@ -984,33 +984,40 @@
 <style scoped>
   /* 现代化标签页样式 */
   :deep(.modern-tabs .n-tabs-nav) {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 12px;
-    padding: 4px;
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(40, 20, 60, 0.5);
+    border-radius: 16px;
+    padding: 6px;
+    backdrop-filter: blur(18px) saturate(180%);
+    border: 1.5px solid rgba(120, 80, 255, 0.15);
+    box-shadow: 0 4px 24px 0 rgba(80, 40, 180, 0.08);
   }
 
   :deep(.modern-tabs .n-tabs-tab) {
-    border-radius: 8px;
-    margin: 0 2px;
-    color: rgb(156, 163, 175);
-    transition: all 0.3s ease;
-    font-weight: 500;
+    border-radius: 10px;
+    margin: 0 4px;
+    color: #bdbdfc;
+    font-weight: 600;
+    font-size: 17px;
+    padding: 10px 28px;
+    transition: all 0.25s cubic-bezier(0.4, 2, 0.6, 1);
+    background: rgba(120, 80, 255, 0.08);
+    box-shadow: none;
+    border: none;
   }
 
   :deep(.modern-tabs .n-tabs-tab:hover) {
-    color: rgb(196, 181, 253);
-    background: rgba(139, 92, 246, 0.1);
+    color: #fff;
+    background: rgba(120, 80, 255, 0.18);
+    box-shadow: 0 2px 8px 0 rgba(120, 80, 255, 0.08);
   }
 
   :deep(.modern-tabs .n-tabs-tab.n-tabs-tab--active) {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
-    color: rgb(147, 197, 253);
-    border: 1px solid rgba(59, 130, 246, 0.3);
-    box-shadow:
-      0 4px 6px -1px rgba(59, 130, 246, 0.1),
-      0 2px 4px -1px rgba(59, 130, 246, 0.06);
+    background: linear-gradient(90deg, #6366f1 0%, #a78bfa 100%);
+    color: #fff;
+    border-bottom: 3px solid #f472b6;
+    box-shadow: 0 6px 24px 0 rgba(120, 80, 255, 0.18);
+    font-size: 18px;
+    font-weight: 700;
   }
 
   :deep(.modern-tabs .n-tabs-tab-pane) {

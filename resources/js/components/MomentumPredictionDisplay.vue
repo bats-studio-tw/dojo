@@ -1,6 +1,6 @@
 <template>
   <NCard
-    v-if="showCard && hybridPredictions && hybridPredictions.length > 0"
+    v-if="showCard && shouldShowPredictions"
     class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
     :title="title"
     size="large"
@@ -22,7 +22,7 @@
     <!-- 動能預測排名展示 -->
     <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5">
       <div
-        v-for="(token, index) in sortedMomentumPredictions"
+        v-for="(token, index) in displayPredictions"
         :key="`momentum-${index}-${token.symbol}`"
         class="relative overflow-hidden border rounded-lg p-3 transition-all duration-300 hover:shadow-lg"
         :class="getMomentumCardClass(index)"
@@ -77,7 +77,7 @@
 
   <!-- 換回合時的加載狀態 -->
   <NCard
-    v-else-if="showCard && isRoundChanging"
+    v-else-if="showCard && isRoundTransitioning"
     class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
     :title="title"
     size="large"
@@ -86,10 +86,10 @@
       <NSpin size="large" />
       <div class="mt-4 text-center">
         <div class="mb-2 text-lg text-blue-300 font-semibold">
-          {{ previousGameStatus === 'settled' ? '正在準備新回合預測...' : '正在計算新回合預測...' }}
+          {{ transitionMessage }}
         </div>
         <div class="text-sm text-gray-400">
-          {{ previousGameStatus === 'settled' ? '清空上一回合數據，等待新回合開始' : 'AI 正在分析新回合的動能數據' }}
+          {{ transitionDescription }}
         </div>
       </div>
     </div>
@@ -97,7 +97,9 @@
 
   <!-- 無數據狀態 -->
   <NCard
-    v-else-if="showCard && !analysisLoading && (!hybridPredictions || hybridPredictions.length === 0)"
+    v-else-if="
+      showCard && !analysisLoading && !isRoundTransitioning && (!hybridPredictions || hybridPredictions.length === 0)
+    "
     class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
     :title="title"
     size="large"
@@ -140,10 +142,23 @@
     'refresh-analysis': [];
   }>();
 
-  // 換回合狀態
-  const isRoundChanging = ref(false);
-  const previousRoundId = ref<string | null>(null);
-  const previousGameStatus = ref<string | null>(null);
+  // 狀態管理
+  const isRoundTransitioning = ref(false);
+  const currentDisplayRoundId = ref<string | null>(null);
+  const transitionMessage = ref('');
+  const transitionDescription = ref('');
+
+  // 開始回合過渡
+  const startRoundTransition = (message: string, description: string) => {
+    isRoundTransitioning.value = true;
+    transitionMessage.value = message;
+    transitionDescription.value = description;
+  };
+
+  // 結束回合過渡
+  const endRoundTransition = () => {
+    isRoundTransitioning.value = false;
+  };
 
   // 監聽回合變化和遊戲狀態變化
   watch(
@@ -151,26 +166,25 @@
     ([newRoundId, newGameStatus], [oldRoundId, oldGameStatus]) => {
       // 回合變化
       if (newRoundId && oldRoundId && newRoundId !== oldRoundId) {
-        isRoundChanging.value = true;
-        previousRoundId.value = oldRoundId;
-
-        // 3秒後自動關閉加載狀態
-        setTimeout(() => {
-          isRoundChanging.value = false;
-        }, 3000);
+        startRoundTransition('正在準備新回合預測...', '清空上一回合數據，等待新回合開始');
+        currentDisplayRoundId.value = null;
       }
 
       // 遊戲狀態從結算變成投注中
       if (oldGameStatus === 'settled' && newGameStatus === 'bet') {
-        isRoundChanging.value = true;
-        previousGameStatus.value = oldGameStatus;
-
-        // 清空上一回合數據，等待新回合預測
-        setTimeout(() => {
-          isRoundChanging.value = false;
-        }, 2000);
+        startRoundTransition('正在計算新回合預測...', 'AI 正在分析新回合的動能數據');
+        currentDisplayRoundId.value = null;
       }
-    }
+
+      // 當有新的預測數據且當前輪次匹配時，結束過渡狀態
+      if (newRoundId && props.hybridPredictions && props.hybridPredictions.length > 0) {
+        if (currentDisplayRoundId.value !== newRoundId) {
+          currentDisplayRoundId.value = newRoundId;
+          endRoundTransition();
+        }
+      }
+    },
+    { immediate: true }
   );
 
   // 刷新分析方法
@@ -184,14 +198,19 @@
 
   // ==================== 計算屬性 ====================
 
-  // 動能預測Token按排名排序
-  const sortedMomentumPredictions = computed(() => {
-    // 如果正在換回合，返回空數組
-    if (isRoundChanging.value) {
-      return [];
-    }
+  // 是否應該顯示預測數據
+  const shouldShowPredictions = computed(() => {
+    return (
+      !isRoundTransitioning.value &&
+      props.hybridPredictions &&
+      props.hybridPredictions.length > 0 &&
+      currentDisplayRoundId.value === props.currentRoundId
+    );
+  });
 
-    if (!props.hybridPredictions || props.hybridPredictions.length === 0) {
+  // 顯示的預測數據（去重並排序）
+  const displayPredictions = computed(() => {
+    if (!shouldShowPredictions.value) {
       return [];
     }
 

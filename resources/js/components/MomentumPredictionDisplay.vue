@@ -186,7 +186,7 @@
 
   // 動能預測Token按排名排序
   const sortedMomentumPredictions = computed(() => {
-    // 如果正在換回合或從結算變成投注中，清空數據
+    // 如果正在換回合，返回空數組
     if (isRoundChanging.value) {
       return [];
     }

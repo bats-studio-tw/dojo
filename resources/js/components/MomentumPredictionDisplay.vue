@@ -1,6 +1,6 @@
 <template>
   <NCard
-    v-if="showCard && hybridPredictions && hybridPredictions.length > 0"
+    v-if="showCard && !isRoundChanging && hybridPredictions && hybridPredictions.length > 0"
     class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
     :title="title"
     size="large"
@@ -97,7 +97,9 @@
 
   <!-- 無數據狀態 -->
   <NCard
-    v-else-if="showCard && !analysisLoading && (!hybridPredictions || hybridPredictions.length === 0)"
+    v-else-if="
+      showCard && !isRoundChanging && !analysisLoading && (!hybridPredictions || hybridPredictions.length === 0)
+    "
     class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
     :title="title"
     size="large"
@@ -160,17 +162,33 @@
         }, 3000);
       }
 
-      // 遊戲狀態從結算變成投注中
+      // 遊戲狀態從結算變成投注中 - 立即清空數據並顯示加載狀態
       if (oldGameStatus === 'settled' && newGameStatus === 'bet') {
         isRoundChanging.value = true;
         previousGameStatus.value = oldGameStatus;
 
-        // 清空上一回合數據，等待新回合預測
+        // 立即清空數據，等待新回合預測
         setTimeout(() => {
           isRoundChanging.value = false;
         }, 2000);
       }
-    }
+
+      // 遊戲狀態從投注中變成鎖定 - 保持數據顯示
+      if (oldGameStatus === 'bet' && newGameStatus === 'lock') {
+        // 保持當前數據，不顯示加載狀態
+      }
+
+      // 遊戲狀態從鎖定變成結算中 - 保持數據顯示
+      if (oldGameStatus === 'lock' && newGameStatus === 'settling') {
+        // 保持當前數據，不顯示加載狀態
+      }
+
+      // 遊戲狀態從結算中變成已結算 - 保持數據顯示
+      if (oldGameStatus === 'settling' && newGameStatus === 'settled') {
+        // 保持當前數據，不顯示加載狀態
+      }
+    },
+    { immediate: true } // 立即執行一次，確保初始狀態正確
   );
 
   // 刷新分析方法
@@ -188,6 +206,11 @@
   const sortedMomentumPredictions = computed(() => {
     // 如果正在換回合，返回空數組
     if (isRoundChanging.value) {
+      return [];
+    }
+
+    // 如果遊戲狀態從結算變成投注中，立即清空數據
+    if (props.currentGameStatus === 'bet' && previousGameStatus.value === 'settled') {
       return [];
     }
 

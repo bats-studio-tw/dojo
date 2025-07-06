@@ -153,6 +153,8 @@
     isRoundTransitioning.value = true;
     transitionMessage.value = message;
     transitionDescription.value = description;
+    // 立即清空當前顯示的輪次ID，確保舊數據不會顯示
+    currentDisplayRoundId.value = null;
   };
 
   // 結束回合過渡
@@ -167,13 +169,13 @@
       // 回合變化
       if (newRoundId && oldRoundId && newRoundId !== oldRoundId) {
         startRoundTransition('正在準備新回合預測...', '清空上一回合數據，等待新回合開始');
-        currentDisplayRoundId.value = null;
+        return;
       }
 
       // 遊戲狀態從結算變成投注中
       if (oldGameStatus === 'settled' && newGameStatus === 'bet') {
         startRoundTransition('正在計算新回合預測...', 'AI 正在分析新回合的動能數據');
-        currentDisplayRoundId.value = null;
+        return;
       }
 
       // 當有新的預測數據且當前輪次匹配時，結束過渡狀態
@@ -185,6 +187,18 @@
       }
     },
     { immediate: true }
+  );
+
+  // 額外監聽 hybridPredictions 變化，確保數據清空
+  watch(
+    () => props.hybridPredictions,
+    () => {
+      // 如果正在過渡狀態，且數據發生變化，確保清空顯示
+      if (isRoundTransitioning.value) {
+        currentDisplayRoundId.value = null;
+      }
+    },
+    { deep: true }
   );
 
   // 刷新分析方法
@@ -200,12 +214,27 @@
 
   // 是否應該顯示預測數據
   const shouldShowPredictions = computed(() => {
-    return (
-      !isRoundTransitioning.value &&
-      props.hybridPredictions &&
-      props.hybridPredictions.length > 0 &&
-      currentDisplayRoundId.value === props.currentRoundId
-    );
+    // 如果正在過渡狀態，絕對不顯示數據
+    if (isRoundTransitioning.value) {
+      return false;
+    }
+
+    // 如果沒有數據，不顯示
+    if (!props.hybridPredictions || props.hybridPredictions.length === 0) {
+      return false;
+    }
+
+    // 如果當前顯示的輪次ID與當前輪次不匹配，不顯示
+    if (currentDisplayRoundId.value !== props.currentRoundId) {
+      return false;
+    }
+
+    // 如果遊戲狀態不是投注中，不顯示（可選，根據需求調整）
+    if (props.currentGameStatus !== 'bet') {
+      return false;
+    }
+
+    return true;
   });
 
   // 顯示的預測數據（去重並排序）

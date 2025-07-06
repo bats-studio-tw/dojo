@@ -42,7 +42,7 @@
         </div>
 
         <!-- 动能预测准确度总结 -->
-        <div class="grid grid-cols-1 gap-3 lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5 sm:gap-4">
+        <div class="grid grid-cols-1 gap-3 lg:grid-cols-5 md:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5 sm:gap-4">
           <!-- 动能预测准确率 -->
           <div :class="getCombinedCardClass(getAccuracyCardClass())">
             <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">⚡</div>
@@ -68,48 +68,6 @@
             </div>
           </div>
 
-          <!-- 平均动能分数 -->
-          <div :class="getCombinedCardClass(getMomentumScoreCardClass())">
-            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">📈</div>
-            <div class="relative">
-              <div class="text-xs font-medium sm:text-sm" :class="getMomentumScoreCardClass().textColor">
-                平均动能分数
-              </div>
-              <div class="mt-2 text-2xl font-bold sm:text-3xl" :class="getMomentumScoreCardClass().valueColor">
-                {{ (averageMomentumScore || 0).toFixed(1) }}
-              </div>
-              <div class="mt-2 text-xs" :class="getMomentumScoreCardClass().textColor + '/70'">动能模型评分</div>
-            </div>
-          </div>
-
-          <!-- 平均置信度 -->
-          <div :class="getCombinedCardClass(getConfidenceCardClass())">
-            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🎯</div>
-            <div class="relative">
-              <div class="text-xs font-medium sm:text-sm" :class="getConfidenceCardClass().textColor">平均置信度</div>
-              <div class="mt-2 text-2xl font-bold sm:text-3xl" :class="getConfidenceCardClass().valueColor">
-                {{ (averageConfidence || 0).toFixed(1) }}
-                <span class="text-base sm:text-lg">%</span>
-              </div>
-              <div class="mt-2 text-xs" :class="getConfidenceCardClass().textColor + '/70'">模型预测信心</div>
-            </div>
-          </div>
-
-          <!-- 算法版本 -->
-          <div :class="getCombinedCardClass(getAlgorithmCardClass())">
-            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🤖</div>
-            <div class="relative">
-              <div class="text-xs font-medium sm:text-sm" :class="getAlgorithmCardClass().textColor">算法版本</div>
-              <div class="mt-2 text-lg font-bold sm:text-xl" :class="getAlgorithmCardClass().valueColor">
-                Hybrid-Edge v1.0
-              </div>
-              <div class="mt-2 text-xs" :class="getAlgorithmCardClass().textColor + '/70'">Elo + 动能混合算法</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 动能预测排名统计 -->
-        <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 md:grid-cols-2 sm:grid-cols-1 xl:grid-cols-3 sm:gap-4">
           <!-- 动能预测第一名 -->
           <div :class="getCombinedCardClass(getRankStatsCardClass(1))">
             <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥇</div>
@@ -236,47 +194,6 @@
             </div>
           </div>
         </div>
-
-        <!-- 动能预测算法详情 -->
-        <div class="mt-6 p-4 border border-blue-400/20 rounded-lg bg-gradient-to-br from-blue-500/5 to-cyan-600/5">
-          <div class="mb-3 text-sm text-blue-300 font-semibold">🔬 Hybrid-Edge v1.0 算法详情</div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-300">
-            <div>
-              <div class="mb-2 font-medium text-blue-200">算法组成</div>
-              <div class="space-y-1">
-                <div class="flex justify-between">
-                  <span>Elo历史评分权重:</span>
-                  <span class="text-blue-400 font-bold">65%</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>5秒动能变化权重:</span>
-                  <span class="text-cyan-400 font-bold">35%</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>信心度计算:</span>
-                  <span class="text-purple-400 font-bold">多因子综合</span>
-                </div>
-              </div>
-            </div>
-            <div>
-              <div class="mb-2 font-medium text-blue-200">动能计算</div>
-              <div class="space-y-1">
-                <div class="flex justify-between">
-                  <span>价格变化检测:</span>
-                  <span class="text-green-400 font-bold">实时5秒</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>历史表现权重:</span>
-                  <span class="text-yellow-400 font-bold">差异化评分</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>数据可靠性:</span>
-                  <span class="text-orange-400 font-bold">自动降级</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
       <NEmpty v-else description="暂无动能预测统计数据" class="py-8" />
     </NSpin>
@@ -300,8 +217,6 @@
     loading?: boolean;
     showRecentSelector?: boolean;
     showRecentStats?: boolean;
-    averageMomentumScore: number;
-    averageConfidence: number;
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -322,36 +237,6 @@
 
   // 计算属性
   const hasData = computed(() => props.totalRounds > 0);
-
-  // 动能分数卡片样式
-  const getMomentumScoreCardClass = () => ({
-    border: 'border-purple-500/30',
-    background: 'from-purple-500/10 to-pink-600/5',
-    hover: 'hover:border-purple-400/50 hover:shadow-purple-500/20',
-    icon: '📈',
-    textColor: 'text-purple-300',
-    valueColor: 'text-purple-400'
-  });
-
-  // 置信度卡片样式
-  const getConfidenceCardClass = () => ({
-    border: 'border-blue-500/30',
-    background: 'from-blue-500/10 to-cyan-600/5',
-    hover: 'hover:border-blue-400/50 hover:shadow-blue-500/20',
-    icon: '🎯',
-    textColor: 'text-blue-300',
-    valueColor: 'text-blue-400'
-  });
-
-  // 算法卡片样式
-  const getAlgorithmCardClass = () => ({
-    border: 'border-green-500/30',
-    background: 'from-green-500/10 to-emerald-600/5',
-    hover: 'hover:border-green-400/50 hover:shadow-green-500/20',
-    icon: '🤖',
-    textColor: 'text-green-300',
-    valueColor: 'text-green-400'
-  });
 </script>
 
 <style scoped>

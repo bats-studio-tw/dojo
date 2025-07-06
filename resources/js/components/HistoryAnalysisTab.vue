@@ -21,9 +21,9 @@
       :total-rounds="momentumStats.totalRounds"
       :all-stats="momentumStats.allStats"
       :recent-stats="momentumStats.recentStats"
-      :recent-rounds-count="momentumRecentRoundsCount"
+      :recent-rounds-count="props.momentumRecentRoundsCount"
       @update:recent-rounds-count="updateMomentumRecentRoundsCount"
-      :max-rounds="momentumMaxRounds"
+      :max-rounds="props.momentumMaxRounds"
       :loading="momentumLoading"
       :average-momentum-score="momentumStats.averageMomentumScore"
       :average-confidence="momentumStats.averageConfidence"
@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref } from 'vue';
+  import {} from 'vue';
   import PredictionStats from './PredictionStats.vue';
   import MomentumPredictionStats from './MomentumPredictionStats.vue';
   import BettingPerformanceAnalysis from './BettingPerformanceAnalysis.vue';
@@ -54,28 +54,28 @@
     predictionComparisonData: any[];
     momentumStats: MomentumStats;
     momentumLoading?: boolean;
+    momentumRecentRoundsCount?: number;
+    momentumMaxRounds?: number;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const props = withDefaults(defineProps<Props>(), {
-    momentumLoading: false
+    momentumLoading: false,
+    momentumRecentRoundsCount: 50,
+    momentumMaxRounds: 300
   });
 
   // Emits
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const emit = defineEmits<{
     refreshPredictionHistory: [];
     refreshMomentumHistory: [];
     'update:recent-rounds-count': [value: number];
+    'update:momentum-recent-rounds-count': [value: number];
   }>();
-
-  // 动能预测相关状态
-  const momentumRecentRoundsCount = ref(50);
-  const momentumMaxRounds = ref(300);
 
   // 更新动能预测最近局数
   const updateMomentumRecentRoundsCount = (count: number) => {
-    momentumRecentRoundsCount.value = count;
+    emit('update:momentum-recent-rounds-count', count);
   };
 
   // 获取当前用户UID

@@ -231,11 +231,14 @@ export function useMomentumPredictionStats(
       return rankStats;
     }
 
+    // 🔧 修复：确保依赖recentRoundsCount的变化
+    const currentRecentRoundsCount = recentRoundsCount.value;
+
     // 获取最新N局数据（按轮次ID倒序排列后取前N个）
     const recentRounds = momentumPredictionHistory.value
       .slice()
       .sort((a, b) => b.round_id.localeCompare(a.round_id))
-      .slice(0, recentRoundsCount.value);
+      .slice(0, currentRecentRoundsCount);
 
     recentRounds.forEach((round) => {
       // 🔧 修复：确保 predictions 是数组

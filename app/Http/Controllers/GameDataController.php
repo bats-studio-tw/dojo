@@ -988,9 +988,10 @@ class GameDataController extends Controller
         try {
             // 获取所有已结算的回合，预加载关联数据
             $rounds = \App\Models\GameRound::with(['hybridRoundPredicts', 'roundResults'])
+                ->whereHas('hybridRoundPredicts') // 只获取有动能预测数据的轮次
                 ->whereNotNull('settled_at')
                 ->orderBy('settled_at', 'desc')
-                ->limit(100) // 限制返回最近100轮
+                ->limit(300) // 增加限制到300轮，与统计数据保持一致
                 ->get();
 
             if ($rounds->isEmpty()) {

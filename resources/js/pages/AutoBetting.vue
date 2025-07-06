@@ -181,9 +181,12 @@
                   :prediction-comparison-data="predictionStats.getPredictionComparisonData.value"
                   :momentum-stats="momentumStats.stats.value"
                   :momentum-loading="momentumHistoryLoading"
+                  :momentum-recent-rounds-count="momentumRecentRoundsCount"
+                  :momentum-max-rounds="momentumPredictionHistory.length"
                   @refresh-prediction-history="refreshPredictionHistory"
                   @refresh-momentum-history="refreshMomentumHistory"
                   @update:recent-rounds-count="updateRecentRoundsCount"
+                  @update:momentum-recent-rounds-count="updateMomentumRecentRoundsCount"
                 />
               </div>
             </NTabPane>
@@ -631,6 +634,11 @@
   // 更新最近轮次数量
   const updateRecentRoundsCount = (value: number) => {
     recentRoundsCount.value = value;
+  };
+
+  // 更新动能预测最近局数
+  const updateMomentumRecentRoundsCount = (value: number) => {
+    momentumRecentRoundsCount.value = value;
   };
 
   // 获取 Hybrid-Edge 動能預測數據

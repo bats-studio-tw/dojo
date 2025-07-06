@@ -1187,4 +1187,8 @@
       0 8px 25px -5px rgba(59, 130, 246, 0.25),
       0 10px 10px -5px rgba(59, 130, 246, 0.04);
   }
+
+  :deep(.modern-tabs .n-tabs-bar) {
+    display: none !important;
+  }
 </style>

@@ -5,13 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\GameRound;
 use App\Models\RoundResult;
 use App\Models\RoundPredict;
-use App\Services\GamePredictionService;
-use App\Services\DexPriceClient;
 use Illuminate\Http\Request;
+use App\Services\DexPriceClient;
 use Illuminate\Http\JsonResponse;
+use App\Models\HybridRoundPredict;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use App\Services\GamePredictionService;
 
 class GameDataController extends Controller
 {
@@ -456,7 +457,7 @@ class GameDataController extends Controller
 
             // 如果缓存中没有，从数据库获取最新的 Hybrid-Edge 预测
             // 首先通过 round_id 找到对应的 GameRound 记录
-            $gameRound = \App\Models\GameRound::where('round_id', $roundId)->first();
+            $gameRound = GameRound::where('round_id', $roundId)->first();
 
             if (!$gameRound) {
                 return response()->json([
@@ -466,7 +467,7 @@ class GameDataController extends Controller
                 ]);
             }
 
-            $hybridPredictions = \App\Models\HybridRoundPredict::where('game_round_id', $gameRound->id)
+            $hybridPredictions = HybridRoundPredict::where('game_round_id', $gameRound->id)
                 ->orderBy('predicted_rank')
                 ->get()
                 ->map(function ($prediction) {
@@ -870,40 +871,41 @@ class GameDataController extends Controller
             $recentRounds = $request->get('recent_rounds', 50);
             $recentRounds = min(max($recentRounds, 1), 300); // 限制在1-300之间
 
-            // 获取所有已结算的回合
-            $allRounds = \App\Models\GameRound::whereNotNull('settled_at')
+            // 获取所有已结算的回合，预加载关联数据
+            $allRounds = \App\Models\GameRound::with(['hybridRoundPredicts', 'roundResults'])
+                ->whereNotNull('settled_at')
                 ->orderBy('settled_at', 'desc')
                 ->get();
 
             if ($allRounds->isEmpty()) {
-                            return response()->json([
-                'success' => false,
-                'message' => '暂无已结算的回合数据',
-                'data' => [
-                    'momentum_accuracy' => 0,
-                    'total_rounds' => 0,
-                    'average_momentum_score' => 50,
-                    'average_confidence' => 50,
-                    'all_stats' => [
-                        'rank1' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
-                        'rank2' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
-                        'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0]
+                return response()->json([
+                    'success' => false,
+                    'message' => '暂无已结算的回合数据',
+                    'data' => [
+                        'momentum_accuracy' => 0,
+                        'total_rounds' => 0,
+                        'average_momentum_score' => 50,
+                        'average_confidence' => 50,
+                        'all_stats' => [
+                            'rank1' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
+                            'rank2' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
+                            'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0]
+                        ],
+                        'recent_stats' => [
+                            'rank1' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
+                            'rank2' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
+                            'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0]
+                        ]
                     ],
-                    'recent_stats' => [
-                        'rank1' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
-                        'rank2' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
-                        'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0]
-                    ]
-                ],
-                'max_rounds' => 0
-            ]);
+                    'max_rounds' => 0
+                ]);
             }
 
             // 获取最近N局
             $recentRoundsData = $allRounds->take($recentRounds);
 
             // 计算动能预测统计数据
-            $stats = $this->calculateMomentumPredictionStats($allRounds, $recentRoundsData);
+            $stats = $this->calculateMomentumPredictionStatsOptimized($allRounds, $recentRoundsData);
 
             Log::info('获取动能预测统计数据成功', [
                 'total_rounds' => $stats['total_rounds'],
@@ -932,9 +934,9 @@ class GameDataController extends Controller
     }
 
     /**
-     * 计算动能预测统计数据
+     * 优化后的动能预测统计数据计算
      */
-    private function calculateMomentumPredictionStats($allRounds, $recentRounds): array
+    private function calculateMomentumPredictionStatsOptimized($allRounds, $recentRounds): array
     {
         $totalAccuracy = 0;
         $totalMomentumScore = 0;
@@ -951,7 +953,7 @@ class GameDataController extends Controller
 
         // 处理所有回合
         foreach ($allRounds as $round) {
-            $roundStats = $this->calculateRoundMomentumStats($round);
+            $roundStats = $this->calculateRoundMomentumStatsOptimized($round);
             if ($roundStats) {
                 $totalAccuracy += $roundStats['accuracy'];
                 $totalMomentumScore += $roundStats['avg_momentum_score'];
@@ -971,7 +973,7 @@ class GameDataController extends Controller
 
         // 处理最近回合
         foreach ($recentRounds as $round) {
-            $roundStats = $this->calculateRoundMomentumStats($round);
+            $roundStats = $this->calculateRoundMomentumStatsOptimized($round);
             if ($roundStats) {
                 foreach (['rank1', 'rank2', 'rank3'] as $rank) {
                     if ($roundStats['rank_stats'][$rank]['count'] > 0) {
@@ -1055,22 +1057,15 @@ class GameDataController extends Controller
     }
 
     /**
-     * 计算单个回合的动能预测统计
+     * 优化后的单个回合动能预测统计计算
      */
-    private function calculateRoundMomentumStats($round): ?array
+    private function calculateRoundMomentumStatsOptimized($round): ?array
     {
-        // 获取该回合的Hybrid预测数据
-        $predictions = \App\Models\HybridRoundPredict::where('game_round_id', $round->id)
-            ->orderBy('predicted_rank')
-            ->get();
-
-        if ($predictions->isEmpty()) {
-            return null;
-        }
-
-        // 获取该回合的实际结果
+        // 使用预加载的数据，避免额外查询
+        $predictions = $round->hybridRoundPredicts;
         $results = $round->roundResults;
-        if ($results->isEmpty()) {
+
+        if ($predictions->isEmpty() || $results->isEmpty()) {
             return null;
         }
 
@@ -1187,8 +1182,9 @@ class GameDataController extends Controller
     public function getMomentumPredictionHistory(): JsonResponse
     {
         try {
-            // 获取所有已结算的回合，包含动能预测数据
-            $rounds = \App\Models\GameRound::whereNotNull('settled_at')
+            // 获取所有已结算的回合，预加载关联数据
+            $rounds = \App\Models\GameRound::with(['hybridRoundPredicts', 'roundResults'])
+                ->whereNotNull('settled_at')
                 ->orderBy('settled_at', 'desc')
                 ->limit(100) // 限制返回最近100轮
                 ->get();
@@ -1204,10 +1200,9 @@ class GameDataController extends Controller
             $historyData = [];
 
             foreach ($rounds as $round) {
-                // 获取动能预测数据
-                $predictions = \App\Models\HybridRoundPredict::where('game_round_id', $round->id)
-                    ->orderBy('predicted_rank')
-                    ->get()
+                // 使用预加载的数据，避免额外查询
+                $predictions = $round->hybridRoundPredicts
+                    ->sortBy('predicted_rank')
                     ->map(function ($prediction) {
                         return [
                             'symbol' => $prediction->token_symbol,
@@ -1218,10 +1213,9 @@ class GameDataController extends Controller
                     })
                     ->toArray();
 
-                // 获取实际结果
-                $results = \App\Models\RoundResult::where('game_round_id', $round->id)
-                    ->orderBy('rank')
-                    ->get()
+                // 使用预加载的数据，避免额外查询
+                $results = $round->roundResults
+                    ->sortBy('rank')
                     ->map(function ($result) {
                         return [
                             'symbol' => $result->token_symbol,

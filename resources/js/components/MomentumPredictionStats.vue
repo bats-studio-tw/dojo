@@ -317,12 +317,8 @@
   }>();
 
   // 使用预测显示工具
-  const {
-    getCombinedCardClass,
-    getRankStatsCardClass,
-    getAccuracyCardClass,
-    getTotalRoundsCardClass
-  } = usePredictionDisplay();
+  const { getCombinedCardClass, getRankStatsCardClass, getAccuracyCardClass, getTotalRoundsCardClass } =
+    usePredictionDisplay();
 
   // 计算属性
   const hasData = computed(() => props.totalRounds > 0);
@@ -345,6 +341,16 @@
     icon: '🎯',
     textColor: 'text-blue-300',
     valueColor: 'text-blue-400'
+  });
+
+  // 算法卡片样式
+  const getAlgorithmCardClass = () => ({
+    border: 'border-green-500/30',
+    background: 'from-green-500/10 to-emerald-600/5',
+    hover: 'hover:border-green-400/50 hover:shadow-green-500/20',
+    icon: '🤖',
+    textColor: 'text-green-300',
+    valueColor: 'text-green-400'
   });
 </script>
 

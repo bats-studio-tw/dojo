@@ -85,8 +85,12 @@
     <div class="flex flex-col items-center justify-center py-12">
       <NSpin size="large" />
       <div class="mt-4 text-center">
-        <div class="mb-2 text-lg text-blue-300 font-semibold">正在計算新回合預測...</div>
-        <div class="text-sm text-gray-400">AI 正在分析新回合的動能數據</div>
+        <div class="mb-2 text-lg text-blue-300 font-semibold">
+          {{ previousGameStatus === 'settled' ? '正在準備新回合預測...' : '正在計算新回合預測...' }}
+        </div>
+        <div class="text-sm text-gray-400">
+          {{ previousGameStatus === 'settled' ? '清空上一回合數據，等待新回合開始' : 'AI 正在分析新回合的動能數據' }}
+        </div>
       </div>
     </div>
   </NCard>
@@ -139,11 +143,13 @@
   // 換回合狀態
   const isRoundChanging = ref(false);
   const previousRoundId = ref<string | null>(null);
+  const previousGameStatus = ref<string | null>(null);
 
-  // 監聽回合變化
+  // 監聽回合變化和遊戲狀態變化
   watch(
-    () => props.currentRoundId,
-    (newRoundId, oldRoundId) => {
+    [() => props.currentRoundId, () => props.currentGameStatus],
+    ([newRoundId, newGameStatus], [oldRoundId, oldGameStatus]) => {
+      // 回合變化
       if (newRoundId && oldRoundId && newRoundId !== oldRoundId) {
         isRoundChanging.value = true;
         previousRoundId.value = oldRoundId;
@@ -152,6 +158,17 @@
         setTimeout(() => {
           isRoundChanging.value = false;
         }, 3000);
+      }
+
+      // 遊戲狀態從結算變成投注中
+      if (oldGameStatus === 'settled' && newGameStatus === 'bet') {
+        isRoundChanging.value = true;
+        previousGameStatus.value = oldGameStatus;
+
+        // 清空上一回合數據，等待新回合預測
+        setTimeout(() => {
+          isRoundChanging.value = false;
+        }, 2000);
       }
     }
   );
@@ -169,6 +186,11 @@
 
   // 動能預測Token按排名排序
   const sortedMomentumPredictions = computed(() => {
+    // 如果正在換回合或從結算變成投注中，清空數據
+    if (isRoundChanging.value) {
+      return [];
+    }
+
     if (!props.hybridPredictions || props.hybridPredictions.length === 0) {
       return [];
     }

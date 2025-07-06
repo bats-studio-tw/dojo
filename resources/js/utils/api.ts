@@ -212,6 +212,13 @@ export const gameApi = {
     return api.get('/game/hybrid-predictions');
   },
 
+  // 获取动能预测统计数据
+  getMomentumPredictionStats: (recentRounds?: number) => {
+    return api.get('/game/momentum-prediction-stats', {
+      params: { recent_rounds: recentRounds }
+    });
+  },
+
   // 获取下注ID
   getBetId: (roundId: string, jwtToken: string) => {
     return dojoGameApi.post(

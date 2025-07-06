@@ -338,26 +338,46 @@
 
   // 动能预测专用样式类
   const getAccuracyCardClass = () => ({
+    border: 'border-blue-500/30',
+    background: 'from-blue-500/10 to-cyan-600/5',
+    hover: 'hover:border-blue-400/50 hover:shadow-blue-500/20',
+    icon: '⚡',
     textColor: 'text-blue-300',
     valueColor: 'text-blue-400'
   });
 
   const getTotalRoundsCardClass = () => ({
+    border: 'border-cyan-500/30',
+    background: 'from-cyan-500/10 to-blue-600/5',
+    hover: 'hover:border-cyan-400/50 hover:shadow-cyan-500/20',
+    icon: '📊',
     textColor: 'text-cyan-300',
     valueColor: 'text-cyan-400'
   });
 
   const getMomentumScoreCardClass = () => ({
+    border: 'border-purple-500/30',
+    background: 'from-purple-500/10 to-pink-600/5',
+    hover: 'hover:border-purple-400/50 hover:shadow-purple-500/20',
+    icon: '🎯',
     textColor: 'text-purple-300',
     valueColor: 'text-purple-400'
   });
 
   const getConfidenceCardClass = () => ({
+    border: 'border-emerald-500/30',
+    background: 'from-emerald-500/10 to-green-600/5',
+    hover: 'hover:border-emerald-400/50 hover:shadow-emerald-500/20',
+    icon: '💎',
     textColor: 'text-emerald-300',
     valueColor: 'text-emerald-400'
   });
 
   const getAlgorithmCardClass = () => ({
+    border: 'border-indigo-500/30',
+    background: 'from-indigo-500/10 to-purple-600/5',
+    hover: 'hover:border-indigo-400/50 hover:shadow-indigo-500/20',
+    icon: '🤖',
     textColor: 'text-indigo-300',
     valueColor: 'text-indigo-400'
   });

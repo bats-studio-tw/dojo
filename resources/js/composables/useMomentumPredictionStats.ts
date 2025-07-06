@@ -1,10 +1,14 @@
 import { ref, computed, readonly } from 'vue';
-import { api } from '@/utils/api';
+import { gameApi } from '@/utils/api';
 
 // 动能预测统计数据接口
 export interface MomentumRankStats {
   total: number;
+  breakeven: number;
+  loss: number;
+  firstPlace: number;
   breakevenRate: number;
+  lossRate: number;
   firstPlaceRate: number;
 }
 
@@ -31,14 +35,14 @@ export const useMomentumPredictionStats = () => {
     averageMomentumScore: 50,
     averageConfidence: 50,
     allStats: {
-      rank1: { total: 0, breakevenRate: 0, firstPlaceRate: 0 },
-      rank2: { total: 0, breakevenRate: 0, firstPlaceRate: 0 },
-      rank3: { total: 0, breakevenRate: 0, firstPlaceRate: 0 }
+      rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
     },
     recentStats: {
-      rank1: { total: 0, breakevenRate: 0, firstPlaceRate: 0 },
-      rank2: { total: 0, breakevenRate: 0, firstPlaceRate: 0 },
-      rank3: { total: 0, breakevenRate: 0, firstPlaceRate: 0 }
+      rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
     }
   });
 
@@ -57,9 +61,7 @@ export const useMomentumPredictionStats = () => {
 
     try {
       const count = roundsCount || recentRoundsCount.value;
-      const response = await api.get('/game/momentum-prediction-stats', {
-        params: { recent_rounds: count }
-      });
+      const response = await gameApi.getMomentumPredictionStats(count);
 
       if (response.data.success) {
         const data = response.data.data;
@@ -70,14 +72,62 @@ export const useMomentumPredictionStats = () => {
           averageMomentumScore: data.average_momentum_score || 50,
           averageConfidence: data.average_confidence || 50,
           allStats: {
-            rank1: data.all_stats?.rank1 || { total: 0, breakevenRate: 0, firstPlaceRate: 0 },
-            rank2: data.all_stats?.rank2 || { total: 0, breakevenRate: 0, firstPlaceRate: 0 },
-            rank3: data.all_stats?.rank3 || { total: 0, breakevenRate: 0, firstPlaceRate: 0 }
+            rank1: data.all_stats?.rank1 || {
+              total: 0,
+              breakeven: 0,
+              loss: 0,
+              firstPlace: 0,
+              breakevenRate: 0,
+              lossRate: 0,
+              firstPlaceRate: 0
+            },
+            rank2: data.all_stats?.rank2 || {
+              total: 0,
+              breakeven: 0,
+              loss: 0,
+              firstPlace: 0,
+              breakevenRate: 0,
+              lossRate: 0,
+              firstPlaceRate: 0
+            },
+            rank3: data.all_stats?.rank3 || {
+              total: 0,
+              breakeven: 0,
+              loss: 0,
+              firstPlace: 0,
+              breakevenRate: 0,
+              lossRate: 0,
+              firstPlaceRate: 0
+            }
           },
           recentStats: {
-            rank1: data.recent_stats?.rank1 || { total: 0, breakevenRate: 0, firstPlaceRate: 0 },
-            rank2: data.recent_stats?.rank2 || { total: 0, breakevenRate: 0, firstPlaceRate: 0 },
-            rank3: data.recent_stats?.rank3 || { total: 0, breakevenRate: 0, firstPlaceRate: 0 }
+            rank1: data.recent_stats?.rank1 || {
+              total: 0,
+              breakeven: 0,
+              loss: 0,
+              firstPlace: 0,
+              breakevenRate: 0,
+              lossRate: 0,
+              firstPlaceRate: 0
+            },
+            rank2: data.recent_stats?.rank2 || {
+              total: 0,
+              breakeven: 0,
+              loss: 0,
+              firstPlace: 0,
+              breakevenRate: 0,
+              lossRate: 0,
+              firstPlaceRate: 0
+            },
+            rank3: data.recent_stats?.rank3 || {
+              total: 0,
+              breakeven: 0,
+              loss: 0,
+              firstPlace: 0,
+              breakevenRate: 0,
+              lossRate: 0,
+              firstPlaceRate: 0
+            }
           }
         };
 

@@ -876,27 +876,27 @@ class GameDataController extends Controller
                 ->get();
 
             if ($allRounds->isEmpty()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => '暂无已结算的回合数据',
-                    'data' => [
-                        'momentum_accuracy' => 0,
-                        'total_rounds' => 0,
-                        'average_momentum_score' => 50,
-                        'average_confidence' => 50,
-                        'all_stats' => [
-                            'rank1' => ['total' => 0, 'breakeven_rate' => 0, 'first_place_rate' => 0],
-                            'rank2' => ['total' => 0, 'breakeven_rate' => 0, 'first_place_rate' => 0],
-                            'rank3' => ['total' => 0, 'breakeven_rate' => 0, 'first_place_rate' => 0]
-                        ],
-                        'recent_stats' => [
-                            'rank1' => ['total' => 0, 'breakeven_rate' => 0, 'first_place_rate' => 0],
-                            'rank2' => ['total' => 0, 'breakeven_rate' => 0, 'first_place_rate' => 0],
-                            'rank3' => ['total' => 0, 'breakeven_rate' => 0, 'first_place_rate' => 0]
-                        ]
+                            return response()->json([
+                'success' => false,
+                'message' => '暂无已结算的回合数据',
+                'data' => [
+                    'momentum_accuracy' => 0,
+                    'total_rounds' => 0,
+                    'average_momentum_score' => 50,
+                    'average_confidence' => 50,
+                    'all_stats' => [
+                        'rank1' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
+                        'rank2' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
+                        'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0]
                     ],
-                    'max_rounds' => 0
-                ]);
+                    'recent_stats' => [
+                        'rank1' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
+                        'rank2' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
+                        'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0]
+                    ]
+                ],
+                'max_rounds' => 0
+            ]);
             }
 
             // 获取最近N局
@@ -996,34 +996,58 @@ class GameDataController extends Controller
             'all_stats' => [
                 'rank1' => [
                     'total' => $allRankStats['rank1'],
+                    'breakeven' => $allBreakevenStats['rank1'],
+                    'loss' => $allRankStats['rank1'] - $allBreakevenStats['rank1'],
+                    'first_place' => $allFirstPlaceStats['rank1'],
                     'breakeven_rate' => $allRankStats['rank1'] > 0 ? round(($allBreakevenStats['rank1'] / $allRankStats['rank1']) * 100, 1) : 0,
+                    'loss_rate' => $allRankStats['rank1'] > 0 ? round((($allRankStats['rank1'] - $allBreakevenStats['rank1']) / $allRankStats['rank1']) * 100, 1) : 0,
                     'first_place_rate' => $allRankStats['rank1'] > 0 ? round(($allFirstPlaceStats['rank1'] / $allRankStats['rank1']) * 100, 1) : 0
                 ],
                 'rank2' => [
                     'total' => $allRankStats['rank2'],
+                    'breakeven' => $allBreakevenStats['rank2'],
+                    'loss' => $allRankStats['rank2'] - $allBreakevenStats['rank2'],
+                    'first_place' => $allFirstPlaceStats['rank2'],
                     'breakeven_rate' => $allRankStats['rank2'] > 0 ? round(($allBreakevenStats['rank2'] / $allRankStats['rank2']) * 100, 1) : 0,
+                    'loss_rate' => $allRankStats['rank2'] > 0 ? round((($allRankStats['rank2'] - $allBreakevenStats['rank2']) / $allRankStats['rank2']) * 100, 1) : 0,
                     'first_place_rate' => $allRankStats['rank2'] > 0 ? round(($allFirstPlaceStats['rank2'] / $allRankStats['rank2']) * 100, 1) : 0
                 ],
                 'rank3' => [
                     'total' => $allRankStats['rank3'],
+                    'breakeven' => $allBreakevenStats['rank3'],
+                    'loss' => $allRankStats['rank3'] - $allBreakevenStats['rank3'],
+                    'first_place' => $allFirstPlaceStats['rank3'],
                     'breakeven_rate' => $allRankStats['rank3'] > 0 ? round(($allBreakevenStats['rank3'] / $allRankStats['rank3']) * 100, 1) : 0,
+                    'loss_rate' => $allRankStats['rank3'] > 0 ? round((($allRankStats['rank3'] - $allBreakevenStats['rank3']) / $allRankStats['rank3']) * 100, 1) : 0,
                     'first_place_rate' => $allRankStats['rank3'] > 0 ? round(($allFirstPlaceStats['rank3'] / $allRankStats['rank3']) * 100, 1) : 0
                 ]
             ],
             'recent_stats' => [
                 'rank1' => [
                     'total' => $recentRankStats['rank1'],
+                    'breakeven' => $recentBreakevenStats['rank1'],
+                    'loss' => $recentRankStats['rank1'] - $recentBreakevenStats['rank1'],
+                    'first_place' => $recentFirstPlaceStats['rank1'],
                     'breakeven_rate' => $recentRankStats['rank1'] > 0 ? round(($recentBreakevenStats['rank1'] / $recentRankStats['rank1']) * 100, 1) : 0,
+                    'loss_rate' => $recentRankStats['rank1'] > 0 ? round((($recentRankStats['rank1'] - $recentBreakevenStats['rank1']) / $recentRankStats['rank1']) * 100, 1) : 0,
                     'first_place_rate' => $recentRankStats['rank1'] > 0 ? round(($recentFirstPlaceStats['rank1'] / $recentRankStats['rank1']) * 100, 1) : 0
                 ],
                 'rank2' => [
                     'total' => $recentRankStats['rank2'],
+                    'breakeven' => $recentBreakevenStats['rank2'],
+                    'loss' => $recentRankStats['rank2'] - $recentBreakevenStats['rank2'],
+                    'first_place' => $recentFirstPlaceStats['rank2'],
                     'breakeven_rate' => $recentRankStats['rank2'] > 0 ? round(($recentBreakevenStats['rank2'] / $recentRankStats['rank2']) * 100, 1) : 0,
+                    'loss_rate' => $recentRankStats['rank2'] > 0 ? round((($recentRankStats['rank2'] - $recentBreakevenStats['rank2']) / $recentRankStats['rank2']) * 100, 1) : 0,
                     'first_place_rate' => $recentRankStats['rank2'] > 0 ? round(($recentFirstPlaceStats['rank2'] / $recentRankStats['rank2']) * 100, 1) : 0
                 ],
                 'rank3' => [
                     'total' => $recentRankStats['rank3'],
+                    'breakeven' => $recentBreakevenStats['rank3'],
+                    'loss' => $recentRankStats['rank3'] - $recentBreakevenStats['rank3'],
+                    'first_place' => $recentFirstPlaceStats['rank3'],
                     'breakeven_rate' => $recentRankStats['rank3'] > 0 ? round(($recentBreakevenStats['rank3'] / $recentRankStats['rank3']) * 100, 1) : 0,
+                    'loss_rate' => $recentRankStats['rank3'] > 0 ? round((($recentRankStats['rank3'] - $recentBreakevenStats['rank3']) / $recentRankStats['rank3']) * 100, 1) : 0,
                     'first_place_rate' => $recentRankStats['rank3'] > 0 ? round(($recentFirstPlaceStats['rank3'] / $recentRankStats['rank3']) * 100, 1) : 0
                 ]
             ]

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed, watch } from 'vue';
+import { ref, computed } from 'vue';
 import api from '@/utils/api';
 
 // ==================== WebSocket游戏数据类型定义 ====================
@@ -210,9 +210,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   const historyLoading = ref(false);
   const hybridAnalysisLoading = ref(false);
 
-  // 记录上一个游戏状态，用于检测状态变化
-  const previousGameStatus = ref<GameStatus | 'unknown'>('unknown');
-
   // 错误状态（空实现）
   const analysisError = ref<string | null>(null);
   const historyError = ref<string | null>(null);
@@ -244,21 +241,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
   const currentGameStatus = computed((): GameStatus | 'unknown' => {
     return latestGameData.value?.status || 'unknown';
-  });
-
-  // 监听游戏状态变化，在从结算变为投注中时清空预测数据
-  watch(currentGameStatus, (newStatus, oldStatus) => {
-    // 如果状态从已结算变为投注中，清空预测数据
-    if (oldStatus === 'settled' && newStatus === 'bet') {
-      console.log('🔄 游戏状态从已结算变为投注中，清空预测数据');
-      hybridPredictions.value = [];
-      hybridAnalysisMeta.value = null;
-      currentAnalysis.value = [];
-      analysisMeta.value = null;
-    }
-
-    // 更新上一个状态
-    previousGameStatus.value = oldStatus;
   });
 
   const currentGameTokens = computed((): string[] => {
@@ -521,17 +503,17 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
                 );
               });
 
-              // 基于symbol去重，保留排名最高的记录
-              const uniquePredictions = new Map<string, HybridPrediction>();
-              validatedPredictions.forEach((prediction: HybridPrediction) => {
-                const symbol = prediction.symbol.toUpperCase();
-                if (
-                  !uniquePredictions.has(symbol) ||
-                  prediction.predicted_rank < uniquePredictions.get(symbol)!.predicted_rank
-                ) {
-                  uniquePredictions.set(symbol, prediction);
-                }
-              });
+                      // 基于symbol去重，保留排名最高的记录
+        const uniquePredictions = new Map<string, HybridPrediction>();
+        validatedPredictions.forEach((prediction: HybridPrediction) => {
+          const symbol = prediction.symbol.toUpperCase();
+          if (
+            !uniquePredictions.has(symbol) ||
+            prediction.predicted_rank < uniquePredictions.get(symbol)!.predicted_rank
+          ) {
+            uniquePredictions.set(symbol, prediction);
+          }
+        });
 
               const finalPredictions = Array.from(uniquePredictions.values());
 

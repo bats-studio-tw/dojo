@@ -860,4 +860,300 @@ class GameDataController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * 获取动能预测统计数据
+     */
+    public function getMomentumPredictionStats(Request $request): JsonResponse
+    {
+        try {
+            $recentRounds = $request->get('recent_rounds', 50);
+            $recentRounds = min(max($recentRounds, 1), 300); // 限制在1-300之间
+
+            // 获取所有已结算的回合
+            $allRounds = \App\Models\GameRound::whereNotNull('settled_at')
+                ->orderBy('settled_at', 'desc')
+                ->get();
+
+            if ($allRounds->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '暂无已结算的回合数据',
+                    'data' => [
+                        'momentum_accuracy' => 0,
+                        'total_rounds' => 0,
+                        'average_momentum_score' => 50,
+                        'average_confidence' => 50,
+                        'all_stats' => [
+                            'rank1' => ['total' => 0, 'breakeven_rate' => 0, 'first_place_rate' => 0],
+                            'rank2' => ['total' => 0, 'breakeven_rate' => 0, 'first_place_rate' => 0],
+                            'rank3' => ['total' => 0, 'breakeven_rate' => 0, 'first_place_rate' => 0]
+                        ],
+                        'recent_stats' => [
+                            'rank1' => ['total' => 0, 'breakeven_rate' => 0, 'first_place_rate' => 0],
+                            'rank2' => ['total' => 0, 'breakeven_rate' => 0, 'first_place_rate' => 0],
+                            'rank3' => ['total' => 0, 'breakeven_rate' => 0, 'first_place_rate' => 0]
+                        ]
+                    ],
+                    'max_rounds' => 0
+                ]);
+            }
+
+            // 获取最近N局
+            $recentRoundsData = $allRounds->take($recentRounds);
+
+            // 计算动能预测统计数据
+            $stats = $this->calculateMomentumPredictionStats($allRounds, $recentRoundsData);
+
+            Log::info('获取动能预测统计数据成功', [
+                'total_rounds' => $stats['total_rounds'],
+                'recent_rounds' => $recentRounds,
+                'momentum_accuracy' => $stats['momentum_accuracy']
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => '获取动能预测统计数据成功',
+                'data' => $stats,
+                'max_rounds' => $allRounds->count()
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取动能预测统计数据失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取动能预测统计数据失败: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 计算动能预测统计数据
+     */
+    private function calculateMomentumPredictionStats($allRounds, $recentRounds): array
+    {
+        $totalAccuracy = 0;
+        $totalMomentumScore = 0;
+        $totalConfidence = 0;
+        $validRounds = 0;
+
+        // 统计排名数据
+        $allRankStats = ['rank1' => 0, 'rank2' => 0, 'rank3' => 0];
+        $recentRankStats = ['rank1' => 0, 'rank2' => 0, 'rank3' => 0];
+        $allBreakevenStats = ['rank1' => 0, 'rank2' => 0, 'rank3' => 0];
+        $recentBreakevenStats = ['rank1' => 0, 'rank2' => 0, 'rank3' => 0];
+        $allFirstPlaceStats = ['rank1' => 0, 'rank2' => 0, 'rank3' => 0];
+        $recentFirstPlaceStats = ['rank1' => 0, 'rank2' => 0, 'rank3' => 0];
+
+        // 处理所有回合
+        foreach ($allRounds as $round) {
+            $roundStats = $this->calculateRoundMomentumStats($round);
+            if ($roundStats) {
+                $totalAccuracy += $roundStats['accuracy'];
+                $totalMomentumScore += $roundStats['avg_momentum_score'];
+                $totalConfidence += $roundStats['avg_confidence'];
+                $validRounds++;
+
+                // 统计排名数据
+                foreach (['rank1', 'rank2', 'rank3'] as $rank) {
+                    if ($roundStats['rank_stats'][$rank]['count'] > 0) {
+                        $allRankStats[$rank]++;
+                        $allBreakevenStats[$rank] += $roundStats['rank_stats'][$rank]['breakeven_count'];
+                        $allFirstPlaceStats[$rank] += $roundStats['rank_stats'][$rank]['first_place_count'];
+                    }
+                }
+            }
+        }
+
+        // 处理最近回合
+        foreach ($recentRounds as $round) {
+            $roundStats = $this->calculateRoundMomentumStats($round);
+            if ($roundStats) {
+                foreach (['rank1', 'rank2', 'rank3'] as $rank) {
+                    if ($roundStats['rank_stats'][$rank]['count'] > 0) {
+                        $recentRankStats[$rank]++;
+                        $recentBreakevenStats[$rank] += $roundStats['rank_stats'][$rank]['breakeven_count'];
+                        $recentFirstPlaceStats[$rank] += $roundStats['rank_stats'][$rank]['first_place_count'];
+                    }
+                }
+            }
+        }
+
+        // 计算平均值
+        $avgAccuracy = $validRounds > 0 ? $totalAccuracy / $validRounds : 0;
+        $avgMomentumScore = $validRounds > 0 ? $totalMomentumScore / $validRounds : 50;
+        $avgConfidence = $validRounds > 0 ? $totalConfidence / $validRounds : 50;
+
+        return [
+            'momentum_accuracy' => round($avgAccuracy, 1),
+            'total_rounds' => $validRounds,
+            'average_momentum_score' => round($avgMomentumScore, 1),
+            'average_confidence' => round($avgConfidence, 1),
+            'all_stats' => [
+                'rank1' => [
+                    'total' => $allRankStats['rank1'],
+                    'breakeven_rate' => $allRankStats['rank1'] > 0 ? round(($allBreakevenStats['rank1'] / $allRankStats['rank1']) * 100, 1) : 0,
+                    'first_place_rate' => $allRankStats['rank1'] > 0 ? round(($allFirstPlaceStats['rank1'] / $allRankStats['rank1']) * 100, 1) : 0
+                ],
+                'rank2' => [
+                    'total' => $allRankStats['rank2'],
+                    'breakeven_rate' => $allRankStats['rank2'] > 0 ? round(($allBreakevenStats['rank2'] / $allRankStats['rank2']) * 100, 1) : 0,
+                    'first_place_rate' => $allRankStats['rank2'] > 0 ? round(($allFirstPlaceStats['rank2'] / $allRankStats['rank2']) * 100, 1) : 0
+                ],
+                'rank3' => [
+                    'total' => $allRankStats['rank3'],
+                    'breakeven_rate' => $allRankStats['rank3'] > 0 ? round(($allBreakevenStats['rank3'] / $allRankStats['rank3']) * 100, 1) : 0,
+                    'first_place_rate' => $allRankStats['rank3'] > 0 ? round(($allFirstPlaceStats['rank3'] / $allRankStats['rank3']) * 100, 1) : 0
+                ]
+            ],
+            'recent_stats' => [
+                'rank1' => [
+                    'total' => $recentRankStats['rank1'],
+                    'breakeven_rate' => $recentRankStats['rank1'] > 0 ? round(($recentBreakevenStats['rank1'] / $recentRankStats['rank1']) * 100, 1) : 0,
+                    'first_place_rate' => $recentRankStats['rank1'] > 0 ? round(($recentFirstPlaceStats['rank1'] / $recentRankStats['rank1']) * 100, 1) : 0
+                ],
+                'rank2' => [
+                    'total' => $recentRankStats['rank2'],
+                    'breakeven_rate' => $recentRankStats['rank2'] > 0 ? round(($recentBreakevenStats['rank2'] / $recentRankStats['rank2']) * 100, 1) : 0,
+                    'first_place_rate' => $recentRankStats['rank2'] > 0 ? round(($recentFirstPlaceStats['rank2'] / $recentRankStats['rank2']) * 100, 1) : 0
+                ],
+                'rank3' => [
+                    'total' => $recentRankStats['rank3'],
+                    'breakeven_rate' => $recentRankStats['rank3'] > 0 ? round(($recentBreakevenStats['rank3'] / $recentRankStats['rank3']) * 100, 1) : 0,
+                    'first_place_rate' => $recentRankStats['rank3'] > 0 ? round(($recentFirstPlaceStats['rank3'] / $recentRankStats['rank3']) * 100, 1) : 0
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * 计算单个回合的动能预测统计
+     */
+    private function calculateRoundMomentumStats($round): ?array
+    {
+        // 获取该回合的Hybrid预测数据
+        $predictions = \App\Models\HybridRoundPredict::where('game_round_id', $round->id)
+            ->orderBy('predicted_rank')
+            ->get();
+
+        if ($predictions->isEmpty()) {
+            return null;
+        }
+
+        // 获取该回合的实际结果
+        $results = $round->roundResults;
+        if ($results->isEmpty()) {
+            return null;
+        }
+
+        // 计算预测准确度
+        $accuracy = $this->calculateMomentumPredictionAccuracy($predictions, $results);
+
+        // 计算平均动能分数和信心度
+        $totalMomentumScore = 0;
+        $totalConfidence = 0;
+        $validPredictions = 0;
+
+        foreach ($predictions as $prediction) {
+            if ($prediction->mom_score !== null) {
+                $totalMomentumScore += $prediction->mom_score;
+                $validPredictions++;
+            }
+            if ($prediction->confidence !== null) {
+                $totalConfidence += $prediction->confidence;
+            }
+        }
+
+        $avgMomentumScore = $validPredictions > 0 ? $totalMomentumScore / $validPredictions : 50;
+        $avgConfidence = $predictions->count() > 0 ? $totalConfidence / $predictions->count() : 50;
+
+        // 统计排名表现
+        $rankStats = $this->calculateRankPerformanceStats($predictions, $results);
+
+        return [
+            'accuracy' => $accuracy,
+            'avg_momentum_score' => $avgMomentumScore,
+            'avg_confidence' => $avgConfidence,
+            'rank_stats' => $rankStats
+        ];
+    }
+
+    /**
+     * 计算动能预测准确度
+     */
+    private function calculateMomentumPredictionAccuracy($predictions, $results): float
+    {
+        $exactMatches = 0;
+        $totalPredictions = 0;
+
+        // 创建结果映射
+        $resultMap = [];
+        foreach ($results as $result) {
+            $resultMap[$result->token_symbol] = $result->rank;
+        }
+
+        foreach ($predictions as $prediction) {
+            $symbol = $prediction->token_symbol;
+            $predictedRank = $prediction->predicted_rank;
+
+            if (isset($resultMap[$symbol])) {
+                $actualRank = $resultMap[$symbol];
+                $totalPredictions++;
+
+                if ($predictedRank === $actualRank) {
+                    $exactMatches++;
+                }
+            }
+        }
+
+        return $totalPredictions > 0 ? ($exactMatches / $totalPredictions) * 100 : 0;
+    }
+
+    /**
+     * 计算排名表现统计
+     */
+    private function calculateRankPerformanceStats($predictions, $results): array
+    {
+        $rankStats = [
+            'rank1' => ['count' => 0, 'breakeven_count' => 0, 'first_place_count' => 0],
+            'rank2' => ['count' => 0, 'breakeven_count' => 0, 'first_place_count' => 0],
+            'rank3' => ['count' => 0, 'breakeven_count' => 0, 'first_place_count' => 0]
+        ];
+
+        // 创建结果映射
+        $resultMap = [];
+        foreach ($results as $result) {
+            $resultMap[$result->token_symbol] = $result->rank;
+        }
+
+        foreach ($predictions as $prediction) {
+            $symbol = $prediction->token_symbol;
+            $predictedRank = $prediction->predicted_rank;
+
+            if (isset($resultMap[$symbol])) {
+                $actualRank = $resultMap[$symbol];
+                $rankKey = "rank{$predictedRank}";
+
+                if (isset($rankStats[$rankKey])) {
+                    $rankStats[$rankKey]['count']++;
+
+                    // 保本率：实际排名 <= 3
+                    if ($actualRank <= 3) {
+                        $rankStats[$rankKey]['breakeven_count']++;
+                    }
+
+                    // 第一名率：实际排名 = 1
+                    if ($actualRank === 1) {
+                        $rankStats[$rankKey]['first_place_count']++;
+                    }
+                }
+            }
+        }
+
+        return $rankStats;
+    }
 }

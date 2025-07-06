@@ -982,105 +982,71 @@
 </script>
 
 <style scoped>
-  /* 现代化标签页样式 - 全新设计 */
+  /* 极简线条风格标签页 */
   :deep(.modern-tabs .n-tabs-nav) {
-    background: rgba(15, 23, 42, 0.8);
-    border-radius: 20px;
-    padding: 8px;
-    backdrop-filter: blur(20px) saturate(200%);
-    border: 1px solid rgba(148, 163, 184, 0.1);
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    background: transparent;
+    border-radius: 8px;
+    padding: 0 4px;
+    border: none;
+    box-shadow: none;
     position: relative;
-    overflow: hidden;
-  }
-
-  :deep(.modern-tabs .n-tabs-nav::before) {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
-    border-radius: 20px;
-    pointer-events: none;
+    overflow: visible;
+    min-height: 44px;
   }
 
   :deep(.modern-tabs .n-tabs-tab) {
-    border-radius: 16px;
-    margin: 0 6px;
-    color: #94a3b8;
-    font-weight: 500;
-    font-size: 15px;
-    padding: 12px 24px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     background: transparent;
-    box-shadow: none;
-    border: 1px solid transparent;
+    border: none;
+    border-radius: 6px 6px 0 0;
+    margin: 0 8px;
+    color: #64748b;
+    font-weight: 500;
+    font-size: 16px;
+    padding: 10px 20px 8px 20px;
+    transition:
+      color 0.2s,
+      font-weight 0.2s;
     position: relative;
-    overflow: hidden;
-    min-width: 140px;
-    text-align: center;
-  }
-
-  :deep(.modern-tabs .n-tabs-tab::before) {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(147, 51, 234, 0.05));
-    border-radius: 16px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
+    min-width: 100px;
+    box-shadow: none;
+    outline: none;
+    cursor: pointer;
   }
 
   :deep(.modern-tabs .n-tabs-tab:hover) {
-    color: #e2e8f0;
-    background: rgba(59, 130, 246, 0.1);
-    border-color: rgba(59, 130, 246, 0.2);
-    transform: translateY(-1px);
-    box-shadow:
-      0 4px 12px rgba(59, 130, 246, 0.15),
-      0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  :deep(.modern-tabs .n-tabs-tab:hover::before) {
-    opacity: 1;
+    color: #2563eb;
   }
 
   :deep(.modern-tabs .n-tabs-tab.n-tabs-tab--active) {
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-    color: #ffffff;
-    border-color: rgba(59, 130, 246, 0.3);
-    font-weight: 600;
-    font-size: 16px;
-    transform: translateY(-2px);
-    box-shadow:
-      0 8px 25px rgba(59, 130, 246, 0.25),
-      0 4px 10px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    position: relative;
+    color: #2563eb;
+    font-weight: 700;
+  }
+
+  :deep(.modern-tabs .n-tabs-tab::after) {
+    content: '';
+    display: block;
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%) scaleX(0);
+    width: 60%;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #2563eb 0%, #a78bfa 100%);
+    transition:
+      transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.2s;
+    opacity: 0;
+    z-index: 1;
+  }
+
+  :deep(.modern-tabs .n-tabs-tab:hover::after) {
+    transform: translateX(-50%) scaleX(1);
+    opacity: 0.5;
   }
 
   :deep(.modern-tabs .n-tabs-tab.n-tabs-tab--active::after) {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 60%;
-    height: 3px;
-    background: linear-gradient(90deg, #f472b6, #ec4899);
-    border-radius: 2px;
-    box-shadow: 0 2px 8px rgba(244, 114, 182, 0.4);
-  }
-
-  :deep(.modern-tabs .n-tabs-tab.n-tabs-tab--active::before) {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+    transform: translateX(-50%) scaleX(1);
     opacity: 1;
   }
 
@@ -1088,9 +1054,34 @@
     padding: 0;
   }
 
-  /* 标签页内容区域美化 */
   :deep(.modern-tabs .n-tabs-content) {
     margin-top: 8px;
+  }
+
+  /* 响应式优化 */
+  @media (max-width: 1024px) {
+    :deep(.modern-tabs .n-tabs-tab) {
+      font-size: 15px;
+      padding: 8px 12px 6px 12px;
+      min-width: 80px;
+      margin: 0 4px;
+    }
+  }
+  @media (max-width: 768px) {
+    :deep(.modern-tabs .n-tabs-tab) {
+      font-size: 14px;
+      padding: 6px 8px 4px 8px;
+      min-width: 60px;
+      margin: 0 2px;
+    }
+  }
+  @media (max-width: 480px) {
+    :deep(.modern-tabs .n-tabs-tab) {
+      font-size: 13px;
+      padding: 4px 4px 2px 4px;
+      min-width: 40px;
+      margin: 0 1px;
+    }
   }
 
   /* 状态指示器动画效果 */
@@ -1156,75 +1147,6 @@
     }
     50% {
       opacity: 0.5;
-    }
-  }
-
-  /* 响应式标签页优化 */
-  @media (max-width: 1024px) {
-    :deep(.modern-tabs .n-tabs-nav) {
-      padding: 6px;
-      border-radius: 16px;
-    }
-
-    :deep(.modern-tabs .n-tabs-tab) {
-      font-size: 14px;
-      padding: 10px 18px;
-      min-width: 120px;
-      margin: 0 4px;
-    }
-
-    :deep(.modern-tabs .n-tabs-tab.n-tabs-tab--active) {
-      font-size: 15px;
-      transform: translateY(-1px);
-    }
-  }
-
-  @media (max-width: 768px) {
-    :deep(.modern-tabs .n-tabs-nav) {
-      padding: 4px;
-      border-radius: 14px;
-    }
-
-    :deep(.modern-tabs .n-tabs-tab) {
-      font-size: 13px;
-      padding: 8px 14px;
-      min-width: 100px;
-      margin: 0 2px;
-      border-radius: 12px;
-    }
-
-    :deep(.modern-tabs .n-tabs-tab.n-tabs-tab--active) {
-      font-size: 14px;
-      transform: translateY(-1px);
-    }
-
-    :deep(.modern-tabs .n-tabs-tab.n-tabs-tab--active::after) {
-      width: 50%;
-      height: 2px;
-    }
-  }
-
-  @media (max-width: 480px) {
-    :deep(.modern-tabs .n-tabs-nav) {
-      padding: 3px;
-      border-radius: 12px;
-    }
-
-    :deep(.modern-tabs .n-tabs-tab) {
-      font-size: 12px;
-      padding: 6px 10px;
-      min-width: 80px;
-      margin: 0 1px;
-      border-radius: 10px;
-    }
-
-    :deep(.modern-tabs .n-tabs-tab.n-tabs-tab--active) {
-      font-size: 13px;
-      transform: none;
-    }
-
-    :deep(.modern-tabs .n-tabs-tab.n-tabs-tab--active::after) {
-      display: none;
     }
   }
 

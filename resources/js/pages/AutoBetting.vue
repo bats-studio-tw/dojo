@@ -179,7 +179,10 @@
                   :max-rounds="predictionHistory.length"
                   :history-loading="predictionStore.historyLoading"
                   :prediction-comparison-data="predictionStats.getPredictionComparisonData.value"
+                  :momentum-stats="momentumStats.stats.value"
+                  :momentum-loading="momentumHistoryLoading"
                   @refresh-prediction-history="refreshPredictionHistory"
+                  @refresh-momentum-history="refreshMomentumHistory"
                   @update:recent-rounds-count="updateRecentRoundsCount"
                 />
               </div>
@@ -206,8 +209,10 @@
   import { useAutoBettingControl } from '@/composables/useAutoBettingControl';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import { usePredictionStats } from '@/composables/usePredictionStats';
+  import { useMomentumPredictionStats } from '@/composables/useMomentumPredictionStats';
   import type { StrategyValidation } from '@/types/autoBetting';
   import type { UserInfo } from '@/types';
+  import type { MomentumPredictionHistoryRound } from '@/composables/useMomentumPredictionStats';
   import { handleError, createConfirmDialog, handleAsyncOperation } from '@/utils/errorHandler';
   import { autoBettingApi, gameApi } from '@/utils/api';
   import { canBet } from '@/utils/statusUtils';
@@ -307,6 +312,12 @@
   // 预测统计相关
   const recentRoundsCount = ref(50);
   const predictionStats = usePredictionStats(predictionHistory, recentRoundsCount);
+
+  // 动能预测历史数据
+  const momentumPredictionHistory = ref<MomentumPredictionHistoryRound[]>([]);
+  const momentumHistoryLoading = ref(false);
+  const momentumRecentRoundsCount = ref(50);
+  const momentumStats = useMomentumPredictionStats(momentumPredictionHistory, momentumRecentRoundsCount);
 
   // 策略验证状态
   const strategyValidation = ref<StrategyValidation | null>(null);
@@ -664,6 +675,26 @@
     await predictionStore.fetchPredictionHistory();
   };
 
+  // 刷新动能预测历史数据
+  const refreshMomentumHistory = async () => {
+    console.log('🔄 AutoBetting: 刷新动能预测历史数据');
+    momentumHistoryLoading.value = true;
+    try {
+      const response = await gameApi.getMomentumPredictionHistory();
+      if (response.data.success) {
+        momentumPredictionHistory.value = response.data.data || [];
+        console.log(`✅ 成功获取动能预测历史数据: ${momentumPredictionHistory.value.length} 轮`);
+      } else {
+        window.$message?.error(response.data.message || '获取动能预测历史数据失败');
+      }
+    } catch (error) {
+      console.error('❌ 获取动能预测历史数据失败:', error);
+      window.$message?.error('获取动能预测历史数据失败');
+    } finally {
+      momentumHistoryLoading.value = false;
+    }
+  };
+
   // ==================== 响应式自动下注逻辑 ====================
 
   // 记录已处理的轮次，避免重复下注
@@ -918,6 +949,9 @@
 
     // 获取预测历史数据，用于历史分析标签页
     await predictionStore.fetchPredictionHistory();
+
+    // 获取动能预测历史数据
+    await refreshMomentumHistory();
 
     // 获取 Hybrid-Edge 動能預測數據
     await fetchHybridPredictions();

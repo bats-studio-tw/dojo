@@ -18,7 +18,7 @@
           class="mb-3 border border-white/20 rounded-lg from-gray-500/10 to-slate-600/5 bg-gradient-to-br px-3 py-2"
         >
           <div class="mb-1 flex items-center justify-between">
-            <div class="py-1 text-sm text-white font-medium">📊 最新N局动能分析设置</div>
+            <div class="py-1 text-sm text-white font-medium">📊 最新N局分析设置</div>
             <div class="text-xs text-gray-300">
               当前:
               <span class="text-cyan-400 font-bold">{{ recentRoundsCount }}</span>
@@ -52,7 +52,7 @@
                 {{ (momentumAccuracy || 0).toFixed(1) }}
                 <span class="text-base sm:text-lg">%</span>
               </div>
-              <div class="mt-2 text-xs" :class="getAccuracyCardClass().textColor + '/70'">Hybrid-Edge预测准确率</div>
+              <div class="mt-2 text-xs" :class="getAccuracyCardClass().textColor + '/70'">预测与实际完全相同</div>
             </div>
           </div>
 
@@ -60,44 +60,38 @@
           <div :class="getCombinedCardClass(getTotalRoundsCardClass())">
             <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">📊</div>
             <div class="relative">
-              <div class="text-xs font-medium sm:text-sm" :class="getTotalRoundsCardClass().textColor">
-                动能预测总局数
-              </div>
+              <div class="text-xs font-medium sm:text-sm" :class="getTotalRoundsCardClass().textColor">预测总局数</div>
               <div class="mt-2 text-2xl font-bold sm:text-3xl" :class="getTotalRoundsCardClass().valueColor">
                 {{ totalRounds }}
               </div>
-              <div class="mt-2 text-xs" :class="getTotalRoundsCardClass().textColor + '/70'">
-                Hybrid-Edge模型运行总局数
-              </div>
+              <div class="mt-2 text-xs" :class="getTotalRoundsCardClass().textColor + '/70'">模型运行总局数</div>
             </div>
           </div>
 
           <!-- 平均动能分数 -->
           <div :class="getCombinedCardClass(getMomentumScoreCardClass())">
-            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🎯</div>
+            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">📈</div>
             <div class="relative">
               <div class="text-xs font-medium sm:text-sm" :class="getMomentumScoreCardClass().textColor">
                 平均动能分数
               </div>
               <div class="mt-2 text-2xl font-bold sm:text-3xl" :class="getMomentumScoreCardClass().valueColor">
-                {{ (averageMomentumScore || 50).toFixed(1) }}
+                {{ (averageMomentumScore || 0).toFixed(1) }}
               </div>
-              <div class="mt-2 text-xs" :class="getMomentumScoreCardClass().textColor + '/70'">
-                所有Token平均动能评分
-              </div>
+              <div class="mt-2 text-xs" :class="getMomentumScoreCardClass().textColor + '/70'">动能模型评分</div>
             </div>
           </div>
 
-          <!-- 平均信心度 -->
+          <!-- 平均置信度 -->
           <div :class="getCombinedCardClass(getConfidenceCardClass())">
-            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">💎</div>
+            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🎯</div>
             <div class="relative">
-              <div class="text-xs font-medium sm:text-sm" :class="getConfidenceCardClass().textColor">平均信心度</div>
+              <div class="text-xs font-medium sm:text-sm" :class="getConfidenceCardClass().textColor">平均置信度</div>
               <div class="mt-2 text-2xl font-bold sm:text-3xl" :class="getConfidenceCardClass().valueColor">
-                {{ (averageConfidence || 50).toFixed(1) }}
+                {{ (averageConfidence || 0).toFixed(1) }}
                 <span class="text-base sm:text-lg">%</span>
               </div>
-              <div class="mt-2 text-xs" :class="getConfidenceCardClass().textColor + '/70'">模型预测信心度</div>
+              <div class="mt-2 text-xs" :class="getConfidenceCardClass().textColor + '/70'">模型预测信心</div>
             </div>
           </div>
 
@@ -120,9 +114,7 @@
           <div :class="getCombinedCardClass(getRankStatsCardClass(1))">
             <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥇</div>
             <div class="relative">
-              <div class="text-xs font-medium sm:text-sm" :class="getRankStatsCardClass(1).textColor">
-                动能预测第一名
-              </div>
+              <div class="text-xs font-medium sm:text-sm" :class="getRankStatsCardClass(1).textColor">预测第一名</div>
               <div class="mt-2 space-y-1">
                 <!-- 全部历史数据 -->
                 <div class="border-b border-yellow-400/20 pb-2">
@@ -164,9 +156,7 @@
           <div :class="getCombinedCardClass(getRankStatsCardClass(2))">
             <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥈</div>
             <div class="relative">
-              <div class="text-xs font-medium sm:text-sm" :class="getRankStatsCardClass(2).textColor">
-                动能预测第二名
-              </div>
+              <div class="text-xs font-medium sm:text-sm" :class="getRankStatsCardClass(2).textColor">预测第二名</div>
               <div class="mt-2 space-y-1">
                 <!-- 全部历史数据 -->
                 <div class="border-b border-slate-400/20 pb-2">
@@ -208,9 +198,7 @@
           <div :class="getCombinedCardClass(getRankStatsCardClass(3))">
             <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥉</div>
             <div class="relative">
-              <div class="text-xs font-medium sm:text-sm" :class="getRankStatsCardClass(3).textColor">
-                动能预测第三名
-              </div>
+              <div class="text-xs font-medium sm:text-sm" :class="getRankStatsCardClass(3).textColor">预测第三名</div>
               <div class="mt-2 space-y-1">
                 <!-- 全部历史数据 -->
                 <div class="border-b border-orange-400/20 pb-2">
@@ -298,27 +286,25 @@
 <script setup lang="ts">
   import { computed } from 'vue';
   import { NEmpty, NSpin } from 'naive-ui';
-  import type { AllRankStats } from '@/composables/usePredictionStats';
+  import type { AllMomentumRankStats } from '@/composables/useMomentumPredictionStats';
   import { usePredictionDisplay } from '@/composables/usePredictionDisplay';
 
   // Props
   interface Props {
     momentumAccuracy: number;
     totalRounds: number;
-    allStats: AllRankStats;
-    recentStats: AllRankStats;
+    allStats: AllMomentumRankStats;
+    recentStats: AllMomentumRankStats;
     recentRoundsCount: number;
     maxRounds: number;
-    averageMomentumScore?: number;
-    averageConfidence?: number;
     loading?: boolean;
     showRecentSelector?: boolean;
     showRecentStats?: boolean;
+    averageMomentumScore: number;
+    averageConfidence: number;
   }
 
   const props = withDefaults(defineProps<Props>(), {
-    averageMomentumScore: 50,
-    averageConfidence: 50,
     loading: false,
     showRecentSelector: true,
     showRecentStats: true
@@ -331,55 +317,34 @@
   }>();
 
   // 使用预测显示工具
-  const { getCombinedCardClass, getRankStatsCardClass } = usePredictionDisplay();
+  const {
+    getCombinedCardClass,
+    getRankStatsCardClass,
+    getAccuracyCardClass,
+    getTotalRoundsCardClass
+  } = usePredictionDisplay();
 
   // 计算属性
   const hasData = computed(() => props.totalRounds > 0);
 
-  // 动能预测专用样式类
-  const getAccuracyCardClass = () => ({
-    border: 'border-blue-500/30',
-    background: 'from-blue-500/10 to-cyan-600/5',
-    hover: 'hover:border-blue-400/50 hover:shadow-blue-500/20',
-    icon: '⚡',
-    textColor: 'text-blue-300',
-    valueColor: 'text-blue-400'
-  });
-
-  const getTotalRoundsCardClass = () => ({
-    border: 'border-cyan-500/30',
-    background: 'from-cyan-500/10 to-blue-600/5',
-    hover: 'hover:border-cyan-400/50 hover:shadow-cyan-500/20',
-    icon: '📊',
-    textColor: 'text-cyan-300',
-    valueColor: 'text-cyan-400'
-  });
-
+  // 动能分数卡片样式
   const getMomentumScoreCardClass = () => ({
     border: 'border-purple-500/30',
     background: 'from-purple-500/10 to-pink-600/5',
     hover: 'hover:border-purple-400/50 hover:shadow-purple-500/20',
-    icon: '🎯',
+    icon: '📈',
     textColor: 'text-purple-300',
     valueColor: 'text-purple-400'
   });
 
+  // 置信度卡片样式
   const getConfidenceCardClass = () => ({
-    border: 'border-emerald-500/30',
-    background: 'from-emerald-500/10 to-green-600/5',
-    hover: 'hover:border-emerald-400/50 hover:shadow-emerald-500/20',
-    icon: '💎',
-    textColor: 'text-emerald-300',
-    valueColor: 'text-emerald-400'
-  });
-
-  const getAlgorithmCardClass = () => ({
-    border: 'border-indigo-500/30',
-    background: 'from-indigo-500/10 to-purple-600/5',
-    hover: 'hover:border-indigo-400/50 hover:shadow-indigo-500/20',
-    icon: '🤖',
-    textColor: 'text-indigo-300',
-    valueColor: 'text-indigo-400'
+    border: 'border-blue-500/30',
+    background: 'from-blue-500/10 to-cyan-600/5',
+    hover: 'hover:border-blue-400/50 hover:shadow-blue-500/20',
+    icon: '🎯',
+    textColor: 'text-blue-300',
+    valueColor: 'text-blue-400'
   });
 </script>
 

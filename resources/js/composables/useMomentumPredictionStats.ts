@@ -1,7 +1,14 @@
-import { ref, computed, readonly } from 'vue';
-import { gameApi } from '@/utils/api';
+import { computed, ref, Ref } from 'vue';
+import { analyzePredictionResult } from '@/utils/statusUtils';
 
-// 动能预测统计数据接口
+export interface MomentumPredictionAnalysis {
+  status: 'exact' | 'breakeven' | 'loss';
+  text: string;
+  icon: string;
+  color: string;
+  bgColor: string;
+}
+
 export interface MomentumRankStats {
   total: number;
   breakeven: number;
@@ -18,164 +25,254 @@ export interface AllMomentumRankStats {
   rank3: MomentumRankStats;
 }
 
-export interface MomentumPredictionStats {
-  momentumAccuracy: number;
-  totalRounds: number;
-  averageMomentumScore: number;
-  averageConfidence: number;
-  allStats: AllMomentumRankStats;
-  recentStats: AllMomentumRankStats;
+export interface MomentumPredictionHistoryRound {
+  round_id: string;
+  settled_at?: string;
+  predictions: Array<{
+    symbol: string;
+    predicted_rank: number;
+    momentum_score: number;
+    confidence: number;
+  }>;
+  results: Array<{
+    symbol: string;
+    actual_rank: number;
+  }>;
 }
 
-export const useMomentumPredictionStats = () => {
-  // 状态
-  const stats = ref<MomentumPredictionStats>({
-    momentumAccuracy: 0,
-    totalRounds: 0,
-    averageMomentumScore: 50,
-    averageConfidence: 50,
-    allStats: {
-      rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
-      rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
-      rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
-    },
-    recentStats: {
-      rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
-      rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
-      rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
+export interface MomentumStats {
+  momentumAccuracy: number;
+  totalRounds: number;
+  allStats: AllMomentumRankStats;
+  recentStats: AllMomentumRankStats;
+  averageMomentumScore: number;
+  averageConfidence: number;
+}
+
+export function useMomentumPredictionStats(
+  momentumPredictionHistory: Ref<MomentumPredictionHistoryRound[]>,
+  recentRoundsCount: Ref<number> = ref(50)
+) {
+  // 获取单个代币的动能预测分析结果
+  const getMomentumPredictionAnalysis = (predictedRank: number, actualRank: number): MomentumPredictionAnalysis => {
+    const result = analyzePredictionResult(predictedRank, actualRank);
+    return {
+      status: result.label === '精准预测' ? 'exact' : result.label === '保本' ? 'breakeven' : 'loss',
+      text: result.label,
+      icon: result.icon,
+      color: result.color,
+      bgColor: result.bgColor
+    };
+  };
+
+  // 计算动能预测准确率
+  const calculateMomentumAccuracy = computed(() => {
+    if (momentumPredictionHistory.value.length === 0) {
+      return 0;
     }
+
+    let exactPredictions = 0;
+    let totalPredictions = 0;
+
+    momentumPredictionHistory.value.forEach((round) => {
+      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
+
+      top3Predictions.forEach((prediction) => {
+        const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+        if (actualResult) {
+          totalPredictions++;
+          const analysis = getMomentumPredictionAnalysis(prediction.predicted_rank, actualResult.actual_rank);
+
+          if (analysis.status === 'exact') {
+            exactPredictions++;
+          }
+        }
+      });
+    });
+
+    return totalPredictions > 0 ? (exactPredictions / totalPredictions) * 100 : 0;
   });
 
-  const loading = ref(false);
-  const error = ref<string | null>(null);
-  const recentRoundsCount = ref(50);
-  const maxRounds = ref(300);
+  // 计算平均动能分数
+  const calculateAverageMomentumScore = computed(() => {
+    if (momentumPredictionHistory.value.length === 0) {
+      return 0;
+    }
 
-  // 计算属性
-  const hasData = computed(() => stats.value.totalRounds > 0);
+    let totalScore = 0;
+    let totalPredictions = 0;
 
-  // 获取动能预测统计数据
-  const fetchMomentumPredictionStats = async (roundsCount?: number) => {
-    loading.value = true;
-    error.value = null;
+    momentumPredictionHistory.value.forEach((round) => {
+      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
+      top3Predictions.forEach((prediction) => {
+        totalScore += prediction.momentum_score;
+        totalPredictions++;
+      });
+    });
 
-    try {
-      const count = roundsCount || recentRoundsCount.value;
-      const response = await gameApi.getMomentumPredictionStats(count);
+    return totalPredictions > 0 ? totalScore / totalPredictions : 0;
+  });
 
-      if (response.data.success) {
-        const data = response.data.data;
+  // 计算平均置信度
+  const calculateAverageConfidence = computed(() => {
+    if (momentumPredictionHistory.value.length === 0) {
+      return 0;
+    }
 
-        stats.value = {
-          momentumAccuracy: data.momentum_accuracy || 0,
-          totalRounds: data.total_rounds || 0,
-          averageMomentumScore: data.average_momentum_score || 50,
-          averageConfidence: data.average_confidence || 50,
-          allStats: {
-            rank1: data.all_stats?.rank1 || {
-              total: 0,
-              breakeven: 0,
-              loss: 0,
-              firstPlace: 0,
-              breakevenRate: 0,
-              lossRate: 0,
-              firstPlaceRate: 0
-            },
-            rank2: data.all_stats?.rank2 || {
-              total: 0,
-              breakeven: 0,
-              loss: 0,
-              firstPlace: 0,
-              breakevenRate: 0,
-              lossRate: 0,
-              firstPlaceRate: 0
-            },
-            rank3: data.all_stats?.rank3 || {
-              total: 0,
-              breakeven: 0,
-              loss: 0,
-              firstPlace: 0,
-              breakevenRate: 0,
-              lossRate: 0,
-              firstPlaceRate: 0
+    let totalConfidence = 0;
+    let totalPredictions = 0;
+
+    momentumPredictionHistory.value.forEach((round) => {
+      const top3Predictions = round.predictions.filter((p) => p.predicted_rank <= 3);
+      top3Predictions.forEach((prediction) => {
+        totalConfidence += prediction.confidence;
+        totalPredictions++;
+      });
+    });
+
+    return totalPredictions > 0 ? totalConfidence / totalPredictions : 0;
+  });
+
+  // 按预测排名分别统计保本/亏本率和第一名率（全部历史）
+  const calculateAllRankBasedStats = computed((): AllMomentumRankStats => {
+    const rankStats: AllMomentumRankStats = {
+      rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
+    };
+
+    if (momentumPredictionHistory.value.length === 0) {
+      return rankStats;
+    }
+
+    momentumPredictionHistory.value.forEach((round) => {
+      [1, 2, 3].forEach((predictedRank) => {
+        const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
+
+        predictions.forEach((prediction) => {
+          const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          if (actualResult) {
+            const key = `rank${predictedRank}` as keyof AllMomentumRankStats;
+            rankStats[key].total++;
+
+            const analysis = getMomentumPredictionAnalysis(prediction.predicted_rank, actualResult.actual_rank);
+
+            if (analysis.status === 'exact' || analysis.status === 'breakeven') {
+              rankStats[key].breakeven++;
+            } else if (analysis.status === 'loss') {
+              rankStats[key].loss++;
             }
-          },
-          recentStats: {
-            rank1: data.recent_stats?.rank1 || {
-              total: 0,
-              breakeven: 0,
-              loss: 0,
-              firstPlace: 0,
-              breakevenRate: 0,
-              lossRate: 0,
-              firstPlaceRate: 0
-            },
-            rank2: data.recent_stats?.rank2 || {
-              total: 0,
-              breakeven: 0,
-              loss: 0,
-              firstPlace: 0,
-              breakevenRate: 0,
-              lossRate: 0,
-              firstPlaceRate: 0
-            },
-            rank3: data.recent_stats?.rank3 || {
-              total: 0,
-              breakeven: 0,
-              loss: 0,
-              firstPlace: 0,
-              breakevenRate: 0,
-              lossRate: 0,
-              firstPlaceRate: 0
+
+            // 计算第一名率：实际排名是第一名的情况
+            if (actualResult.actual_rank === 1) {
+              rankStats[key].firstPlace++;
             }
           }
-        };
+        });
+      });
+    });
 
-        maxRounds.value = data.max_rounds || 300;
-        console.log('⚡ 动能预测统计数据获取成功:', data);
-      } else {
-        error.value = response.data.message || '获取动能预测统计数据失败';
-        console.warn('⚠️ 动能预测统计数据获取失败:', response.data.message);
+    // 计算百分比
+    Object.keys(rankStats).forEach((key) => {
+      const stats = rankStats[key as keyof AllMomentumRankStats];
+      if (stats.total > 0) {
+        stats.breakevenRate = (stats.breakeven / stats.total) * 100;
+        stats.lossRate = (stats.loss / stats.total) * 100;
+        stats.firstPlaceRate = (stats.firstPlace / stats.total) * 100;
       }
-    } catch (err: any) {
-      error.value = err.message || '网络错误';
-      console.error('❌ 获取动能预测统计数据出错:', err);
-    } finally {
-      loading.value = false;
+    });
+
+    return rankStats;
+  });
+
+  // 按预测排名分别统计最新N局的保本/亏本率和第一名率
+  const calculateRecentRankBasedStats = computed((): AllMomentumRankStats => {
+    const rankStats: AllMomentumRankStats = {
+      rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
+    };
+
+    if (momentumPredictionHistory.value.length === 0) {
+      return rankStats;
     }
-  };
 
-  // 更新最近局数
-  const updateRecentRoundsCount = async (count: number) => {
-    recentRoundsCount.value = count;
-    await fetchMomentumPredictionStats(count);
-  };
+    // 获取最新N局数据（按轮次ID倒序排列后取前N个）
+    const recentRounds = momentumPredictionHistory.value
+      .slice()
+      .sort((a, b) => b.round_id.localeCompare(a.round_id))
+      .slice(0, recentRoundsCount.value);
 
-  // 刷新统计数据
-  const refreshStats = async () => {
-    await fetchMomentumPredictionStats();
-  };
+    recentRounds.forEach((round) => {
+      [1, 2, 3].forEach((predictedRank) => {
+        const predictions = round.predictions.filter((p) => p.predicted_rank === predictedRank);
 
-  // 初始化
-  const initialize = async () => {
-    await fetchMomentumPredictionStats();
-  };
+        predictions.forEach((prediction) => {
+          const actualResult = round.results.find((r) => r.symbol === prediction.symbol);
+          if (actualResult) {
+            const key = `rank${predictedRank}` as keyof AllMomentumRankStats;
+            rankStats[key].total++;
+
+            const analysis = getMomentumPredictionAnalysis(prediction.predicted_rank, actualResult.actual_rank);
+
+            if (analysis.status === 'exact' || analysis.status === 'breakeven') {
+              rankStats[key].breakeven++;
+            } else if (analysis.status === 'loss') {
+              rankStats[key].loss++;
+            }
+
+            // 计算第一名率：实际排名是第一名的情况
+            if (actualResult.actual_rank === 1) {
+              rankStats[key].firstPlace++;
+            }
+          }
+        });
+      });
+    });
+
+    // 计算百分比
+    Object.keys(rankStats).forEach((key) => {
+      const stats = rankStats[key as keyof AllMomentumRankStats];
+      if (stats.total > 0) {
+        stats.breakevenRate = (stats.breakeven / stats.total) * 100;
+        stats.lossRate = (stats.loss / stats.total) * 100;
+        stats.firstPlaceRate = (stats.firstPlace / stats.total) * 100;
+      }
+    });
+
+    return rankStats;
+  });
+
+  // 计算总局数
+  const calculateTotalRounds = computed(() => {
+    return momentumPredictionHistory.value.length;
+  });
+
+  // 综合统计数据
+  const stats = computed(
+    (): MomentumStats => ({
+      momentumAccuracy: calculateMomentumAccuracy.value,
+      totalRounds: calculateTotalRounds.value,
+      allStats: calculateAllRankBasedStats.value,
+      recentStats: calculateRecentRankBasedStats.value,
+      averageMomentumScore: calculateAverageMomentumScore.value,
+      averageConfidence: calculateAverageConfidence.value
+    })
+  );
 
   return {
-    // 状态
-    stats: readonly(stats),
-    loading: readonly(loading),
-    error: readonly(error),
-    recentRoundsCount: readonly(recentRoundsCount),
-    maxRounds: readonly(maxRounds),
+    // 分析函数
+    getMomentumPredictionAnalysis,
 
-    // 计算属性
-    hasData,
+    // 统计计算
+    calculateMomentumAccuracy,
+    calculateAverageMomentumScore,
+    calculateAverageConfidence,
+    calculateAllRankBasedStats,
+    calculateRecentRankBasedStats,
+    calculateTotalRounds,
 
-    // 方法
-    fetchMomentumPredictionStats,
-    updateRecentRoundsCount,
-    refreshStats,
-    initialize
+    // 综合统计数据
+    stats
   };
-};
+}

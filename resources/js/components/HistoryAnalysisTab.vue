@@ -27,7 +27,7 @@
       :loading="momentumLoading"
       :average-momentum-score="momentumStats.averageMomentumScore"
       :average-confidence="momentumStats.averageConfidence"
-      @refresh="refreshMomentumStats"
+      @refresh="$emit('refreshMomentumHistory')"
     />
 
     <!-- 投注表现分析 -->
@@ -36,11 +36,11 @@
 </template>
 
 <script setup lang="ts">
-  import { onMounted } from 'vue';
+  import { ref } from 'vue';
   import PredictionStats from './PredictionStats.vue';
   import MomentumPredictionStats from './MomentumPredictionStats.vue';
   import BettingPerformanceAnalysis from './BettingPerformanceAnalysis.vue';
-  import { useMomentumPredictionStats } from '@/composables/useMomentumPredictionStats';
+  import type { MomentumStats } from '@/composables/useMomentumPredictionStats';
 
   // Props
   interface Props {
@@ -52,36 +52,34 @@
     maxRounds: number;
     historyLoading: boolean;
     predictionComparisonData: any[];
+    momentumStats: MomentumStats;
+    momentumLoading?: boolean;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const props = defineProps<Props>();
+  const props = withDefaults(defineProps<Props>(), {
+    momentumLoading: false
+  });
 
   // Emits
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const emit = defineEmits<{
     refreshPredictionHistory: [];
+    refreshMomentumHistory: [];
     'update:recent-rounds-count': [value: number];
   }>();
 
-  // 动能预测统计数据
-  const {
-    stats: momentumStats,
-    loading: momentumLoading,
-    recentRoundsCount: momentumRecentRoundsCount,
-    maxRounds: momentumMaxRounds,
-    updateRecentRoundsCount: updateMomentumRecentRoundsCount,
-    refreshStats: refreshMomentumStats,
-    initialize: initializeMomentumStats
-  } = useMomentumPredictionStats();
+  // 动能预测相关状态
+  const momentumRecentRoundsCount = ref(50);
+  const momentumMaxRounds = ref(300);
+
+  // 更新动能预测最近局数
+  const updateMomentumRecentRoundsCount = (count: number) => {
+    momentumRecentRoundsCount.value = count;
+  };
 
   // 获取当前用户UID
   const getCurrentUID = () => {
     return localStorage.getItem('currentUID') || '';
   };
-
-  // 初始化动能预测统计数据
-  onMounted(async () => {
-    await initializeMomentumStats();
-  });
 </script>

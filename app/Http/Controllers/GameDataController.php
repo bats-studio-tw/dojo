@@ -1180,4 +1180,86 @@ class GameDataController extends Controller
 
         return $rankStats;
     }
+
+    /**
+     * 获取动能预测历史数据
+     */
+    public function getMomentumPredictionHistory(): JsonResponse
+    {
+        try {
+            // 获取所有已结算的回合，包含动能预测数据
+            $rounds = \App\Models\GameRound::whereNotNull('settled_at')
+                ->orderBy('settled_at', 'desc')
+                ->limit(100) // 限制返回最近100轮
+                ->get();
+
+            if ($rounds->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '暂无动能预测历史数据',
+                    'data' => []
+                ]);
+            }
+
+            $historyData = [];
+
+            foreach ($rounds as $round) {
+                // 获取动能预测数据
+                $predictions = \App\Models\HybridRoundPredict::where('game_round_id', $round->id)
+                    ->orderBy('predicted_rank')
+                    ->get()
+                    ->map(function ($prediction) {
+                        return [
+                            'symbol' => $prediction->token_symbol,
+                            'predicted_rank' => $prediction->predicted_rank,
+                            'momentum_score' => $prediction->mom_score,
+                            'confidence' => $prediction->confidence
+                        ];
+                    })
+                    ->toArray();
+
+                // 获取实际结果
+                $results = \App\Models\RoundResult::where('game_round_id', $round->id)
+                    ->orderBy('rank')
+                    ->get()
+                    ->map(function ($result) {
+                        return [
+                            'symbol' => $result->token_symbol,
+                            'actual_rank' => $result->rank
+                        ];
+                    })
+                    ->toArray();
+
+                if (!empty($predictions) && !empty($results)) {
+                    $historyData[] = [
+                        'round_id' => $round->round_id,
+                        'settled_at' => $round->settled_at?->toISOString(),
+                        'predictions' => $predictions,
+                        'results' => $results
+                    ];
+                }
+            }
+
+            Log::info('获取动能预测历史数据成功', [
+                'total_rounds' => count($historyData)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => '获取动能预测历史数据成功',
+                'data' => $historyData
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取动能预测历史数据失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取动能预测历史数据失败: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

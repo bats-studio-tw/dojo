@@ -219,6 +219,11 @@ export const gameApi = {
     });
   },
 
+  // 获取动能预测历史数据
+  getMomentumPredictionHistory: () => {
+    return api.get('/game/momentum-prediction-history');
+  },
+
   // 获取下注ID
   getBetId: (roundId: string, jwtToken: string) => {
     return dojoGameApi.post(

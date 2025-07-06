@@ -1,6 +1,6 @@
 <template>
   <NCard
-    v-if="showCard && shouldShowPredictions"
+    v-if="showCard"
     class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
     :title="title"
     size="large"
@@ -19,8 +19,21 @@
       </div>
     </template>
 
+    <!-- 換回合時的加載狀態 -->
+    <div v-if="isRoundTransitioning" class="flex flex-col items-center justify-center py-12">
+      <NSpin size="large" />
+      <div class="mt-4 text-center">
+        <div class="mb-2 text-lg text-blue-300 font-semibold">
+          {{ transitionMessage }}
+        </div>
+        <div class="text-sm text-gray-400">
+          {{ transitionDescription }}
+        </div>
+      </div>
+    </div>
+
     <!-- 動能預測排名展示 -->
-    <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5">
+    <div v-else-if="shouldShowPredictions" class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-5">
       <div
         v-for="(token, index) in displayPredictions"
         :key="`momentum-${index}-${token.symbol}`"
@@ -73,38 +86,9 @@
         </div>
       </div>
     </div>
-  </NCard>
 
-  <!-- 換回合時的加載狀態 -->
-  <NCard
-    v-else-if="showCard && isRoundTransitioning"
-    class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-    :title="title"
-    size="large"
-  >
-    <div class="flex flex-col items-center justify-center py-12">
-      <NSpin size="large" />
-      <div class="mt-4 text-center">
-        <div class="mb-2 text-lg text-blue-300 font-semibold">
-          {{ transitionMessage }}
-        </div>
-        <div class="text-sm text-gray-400">
-          {{ transitionDescription }}
-        </div>
-      </div>
-    </div>
-  </NCard>
-
-  <!-- 無數據狀態 -->
-  <NCard
-    v-else-if="
-      showCard && !analysisLoading && !isRoundTransitioning && (!hybridPredictions || hybridPredictions.length === 0)
-    "
-    class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-    :title="title"
-    size="large"
-  >
-    <div class="flex flex-col items-center justify-center py-12">
+    <!-- 無數據狀態 -->
+    <div v-else class="flex flex-col items-center justify-center py-12">
       <div class="mb-4 text-4xl">⚡</div>
       <div class="text-center">
         <div class="mb-2 text-lg text-blue-300 font-semibold">暫無動能預測數據</div>
@@ -226,11 +210,6 @@
 
     // 如果當前顯示的輪次ID與當前輪次不匹配，不顯示
     if (currentDisplayRoundId.value !== props.currentRoundId) {
-      return false;
-    }
-
-    // 如果遊戲狀態不是投注中，不顯示（可選，根據需求調整）
-    if (props.currentGameStatus !== 'bet') {
       return false;
     }
 

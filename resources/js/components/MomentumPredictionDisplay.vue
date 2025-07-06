@@ -93,7 +93,6 @@
       <div class="text-center">
         <div class="mb-2 text-lg text-blue-300 font-semibold">暫無動能預測數據</div>
         <div class="mb-4 text-sm text-gray-400">當前輪次尚未生成 Hybrid-Edge 預測數據</div>
-        <n-button :loading="analysisLoading" @click="refreshAnalysis" type="primary" size="small">🔄 刷新分析</n-button>
       </div>
     </div>
   </NCard>

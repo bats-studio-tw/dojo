@@ -32,7 +32,7 @@ class PredictRoundJob implements ShouldQueue
 
     /**
      * 执行 Job。
-     * 注意：此方法已被重构为非阻塞架构，现在只是调度 FetchInitialPriceJob
+     * 注意：此方法已被重构为直接调度动能计算，不再依赖API调用
      */
     public function handle(): void
     {
@@ -42,12 +42,12 @@ class PredictRoundJob implements ShouldQueue
             'chain_id' => $this->chainId
         ]);
 
-        // 调度第一个 Job 来获取初始价格
-        FetchInitialPriceJob::dispatch($this->roundId, $this->symbols, $this->chainId);
+        // 直接调度动能计算任务，无需延迟
+        CalculateMomentumJob::dispatch($this->roundId, $this->symbols, $this->chainId);
 
         Log::info('[PredictRoundJob] 预测流程调度完成', [
             'round_id' => $this->roundId,
-            'scheduled_fetch_initial_price_job' => true
+            'scheduled_calculate_momentum_job' => true
         ]);
     }
 

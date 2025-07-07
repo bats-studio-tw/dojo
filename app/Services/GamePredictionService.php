@@ -149,9 +149,9 @@ class GamePredictionService
             }
 
             // 记录分析结果（Service分析）
-            Log::info('[GamePredictionService] Service分析分数', [
-                'analysis_data' => $analysisData
-            ]);
+            // Log::info('[GamePredictionService] Service分析分数', [
+            //     'analysis_data' => $analysisData
+            // ]);
 
             return true;
         } catch (\Exception $e) {
@@ -399,9 +399,9 @@ class GamePredictionService
         }
 
         // 记录分析结果（Service分析）
-        Log::info('[GamePredictionService] Service分析分数', [
-            'analysis_data' => $analysisData
-        ]);
+        // Log::info('[GamePredictionService] Service分析分数', [
+        //     'analysis_data' => $analysisData
+        // ]);
 
         return $analysisData;
     }

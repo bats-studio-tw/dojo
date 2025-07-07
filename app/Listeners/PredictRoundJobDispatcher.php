@@ -17,7 +17,7 @@ class PredictRoundJobDispatcher
      */
     public function __construct()
     {
-        Log::info('🔧 PredictRoundJobDispatcher 监听器已初始化');
+        //
     }
 
     /**
@@ -25,13 +25,7 @@ class PredictRoundJobDispatcher
      */
     public function handle(NewRoundStarted $event): void
     {
-        Log::info('🎯 PredictRoundJobDispatcher 接收到 NewRoundStarted 事件', [
-            'round_id' => $event->roundId,
-            'symbols' => $event->symbols,
-            'chain_id' => $event->chainId,
-            'event_class' => get_class($event),
-            'timestamp' => now()->toISOString()
-        ]);
+
 
         try {
             // 验证事件数据
@@ -54,22 +48,8 @@ class PredictRoundJobDispatcher
                 return;
             }
 
-            Log::info('✅ 事件数据验证通过，准备派遣 PredictRoundJob', [
-                'round_id' => $event->roundId,
-                'symbols_count' => count($event->symbols),
-                'symbols' => $event->symbols,
-                'chain_id' => $event->chainId
-            ]);
-
             // 派遣 PredictRoundJob
             PredictRoundJob::dispatch($event->roundId, $event->symbols, $event->chainId);
-                       // ->onQueue('predictions'); // 使用默认队列
-
-            Log::info('🚀 PredictRoundJob 已派遣到队列', [
-                'round_id' => $event->roundId,
-                'queue_name' => 'default',
-                'dispatch_time' => now()->toISOString()
-            ]);
 
         } catch (\Exception $e) {
             Log::error('❌ PredictRoundJobDispatcher 处理事件失败', [

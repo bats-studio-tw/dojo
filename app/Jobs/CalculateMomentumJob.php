@@ -50,28 +50,11 @@ class CalculateMomentumJob implements ShouldQueue
         $startTime = microtime(true);
 
         try {
-            Log::info('[CalculateMomentumJob] 开始计算动能分数', [
-                'round_id' => $this->roundId,
-                'symbols' => $this->symbols,
-                'attempt' => $this->attempts()
-            ]);
-
             // 从数据库获取价格数据
             $priceData = $tokenPriceRepository->getLatestPricesForTokens($this->symbols, 2);
 
-            Log::info('[CalculateMomentumJob] 从数据库获取价格数据', [
-                'round_id' => $this->roundId,
-                'price_data_keys' => array_keys($priceData)
-            ]);
-
             // 计算动能分数
             $momScore = $this->calculateMomentumScoresFromDatabase($priceData);
-
-            // 新增：详细输出动能分数日志
-            Log::info('[CalculateMomentumJob] 动能分数详情', [
-                'round_id' => $this->roundId,
-                'mom_score' => $momScore
-            ]);
 
             // 计算 Elo 机率
             $eloProb = $eloRatingEngine->probabilities($this->symbols);
@@ -109,16 +92,6 @@ class CalculateMomentumJob implements ShouldQueue
 
             // 广播事件
             $this->broadcastPredictionEvent($predictions);
-
-            $endTime = microtime(true);
-            $executionTime = round(($endTime - $startTime) * 1000, 2);
-
-            Log::info('[CalculateMomentumJob] 任务执行完成', [
-                'round_id' => $this->roundId,
-                'execution_time_ms' => $executionTime,
-                'saved_predictions' => $savedCount,
-                'total_predictions' => count($predictions)
-            ]);
 
         } catch (\Throwable $e) {
             $endTime = microtime(true);
@@ -184,17 +157,7 @@ class CalculateMomentumJob implements ShouldQueue
                         $momScore[$symbol] = min(100, max(0, 50 + ($momentum * $sensitivity)));
                     }
 
-                    Log::info('[CalculateMomentumJob] 动能分数计算（数据库）', [
-                        'symbol' => $symbol,
-                        'price_p0' => $priceP0,
-                        'price_p1' => $priceP1,
-                        'price_diff' => $priceDiff,
-                        'price_change_percent' => $priceChangePercent . '%',
-                        'momentum' => $momentum,
-                        'mom_score' => $momScore[$symbol],
-                        'threshold' => $threshold,
-                        'sensitivity' => $sensitivity
-                    ]);
+
 
                     $validPriceCount++;
                 } else {
@@ -202,36 +165,18 @@ class CalculateMomentumJob implements ShouldQueue
                     $momScore[$symbol] = $this->calculateDefaultMomentumScore($symbol, $priceP0, $priceP1);
                     $invalidPriceCount++;
 
-                    Log::warning('[CalculateMomentumJob] 使用智能默认动能分数（数据库）', [
-                        'symbol' => $symbol,
-                        'price_p0' => $priceP0,
-                        'price_p1' => $priceP1,
-                        'default_mom_score' => $momScore[$symbol],
-                        'reason' => $this->getInvalidPriceReason($priceP0, $priceP1)
-                    ]);
+
                 }
             } else {
                 // 数据库中没有足够的价格记录，使用默认分数
                 $momScore[$symbol] = $this->calculateDefaultMomentumScore($symbol, null, null);
                 $invalidPriceCount++;
 
-                Log::warning('[CalculateMomentumJob] 数据库价格记录不足，使用默认分数', [
-                    'symbol' => $symbol,
-                    'price_records_count' => $prices ? $prices->count() : 0,
-                    'required_count' => 2,
-                    'default_mom_score' => $momScore[$symbol]
-                ]);
+
             }
         }
 
-        // 记录整体统计
-        Log::info('[CalculateMomentumJob] 动能计算统计（数据库）', [
-            'round_id' => $this->roundId,
-            'total_symbols' => count($this->symbols),
-            'valid_price_count' => $validPriceCount,
-            'invalid_price_count' => $invalidPriceCount,
-            'success_rate' => round(($validPriceCount / count($this->symbols)) * 100, 1) . '%'
-        ]);
+
 
         return $momScore;
     }
@@ -334,17 +279,8 @@ class CalculateMomentumJob implements ShouldQueue
         $gameRound = GameRound::where('round_id', $this->roundId)->first();
 
         if (!$gameRound) {
-            Log::info('[CalculateMomentumJob] 找不到对应的 game_rounds 记录，自动创建新记录', [
-                'round_id_string' => $this->roundId
-            ]);
-
             $gameRound = GameRound::create([
                 'round_id' => $this->roundId,
-            ]);
-
-            Log::info('[CalculateMomentumJob] 已创建新的 GameRound 记录', [
-                'round_id' => $this->roundId,
-                'game_round_id' => $gameRound->id
             ]);
         }
 
@@ -379,7 +315,7 @@ class CalculateMomentumJob implements ShouldQueue
         try {
             event(new HybridPredictionUpdated($predictions, $this->roundId, 'hybrid_prediction', 'hybrid_edge_v1'));
         } catch (\Exception $broadcastError) {
-            Log::warning('[CalculateMomentumJob] 事件广播失败', [
+            Log::error('[CalculateMomentumJob] 事件广播失败', [
                 'round_id' => $this->roundId,
                 'broadcast_error' => $broadcastError->getMessage()
             ]);

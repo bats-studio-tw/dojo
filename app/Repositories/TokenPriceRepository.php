@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\TokenPrice;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class TokenPriceRepository
 {
@@ -24,19 +25,7 @@ class TokenPriceRepository
                 ->get();
 
             if ($prices->isEmpty()) {
-                Log::warning('[TokenPriceRepository] 未找到代币价格记录', [
-                    'symbol' => $symbol,
-                    'limit' => $limit
-                ]);
                 return null;
-            }
-
-            if ($prices->count() < $limit) {
-                Log::warning('[TokenPriceRepository] 代币价格记录不足', [
-                    'symbol' => $symbol,
-                    'found_count' => $prices->count(),
-                    'required_count' => $limit
-                ]);
             }
 
             return $prices;
@@ -52,13 +41,92 @@ class TokenPriceRepository
     }
 
     /**
-     * 批量获取多个代币的最新价格记录
+     * 批量获取多个代币的最新价格记录（优化版本）
+     * 使用单个查询获取所有代币的最新价格，然后按代币分组
      *
      * @param array $symbols 代币符号数组
      * @param int $limit 每个代币返回的记录数量
      * @return array 格式: ['SYMBOL' => Collection|null, ...]
      */
     public function getLatestPricesForTokens(array $symbols, int $limit = 2): array
+    {
+        if (empty($symbols)) {
+            return [];
+        }
+
+        try {
+            // 将代币符号转换为大写
+            $upperSymbols = array_map('strtoupper', $symbols);
+
+            // 使用窗口函数获取每个代币的最新N条记录
+            $query = DB::table('token_prices')
+                ->select([
+                    'symbol',
+                    'price_usd',
+                    'currency',
+                    'minute_timestamp',
+                    'created_at',
+                    'updated_at',
+                    DB::raw('ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY minute_timestamp DESC) as rn')
+                ])
+                ->whereIn('symbol', $upperSymbols)
+                ->having('rn', '<=', $limit);
+
+            $results = $query->get();
+
+            // 按代币分组结果
+            $groupedResults = [];
+            foreach ($upperSymbols as $symbol) {
+                $groupedResults[$symbol] = null;
+            }
+
+            foreach ($results as $row) {
+                $symbol = $row->symbol;
+                if (!isset($groupedResults[$symbol])) {
+                    $groupedResults[$symbol] = collect();
+                }
+
+                // 创建TokenPrice模型实例
+                $tokenPrice = new TokenPrice();
+                $tokenPrice->fill([
+                    'symbol' => $row->symbol,
+                    'price_usd' => $row->price_usd,
+                    'currency' => $row->currency,
+                    'minute_timestamp' => $row->minute_timestamp,
+                    'created_at' => $row->created_at,
+                    'updated_at' => $row->updated_at,
+                ]);
+
+                $groupedResults[$symbol]->push($tokenPrice);
+            }
+
+            // 按minute_timestamp排序每个代币的记录
+            foreach ($groupedResults as $symbol => $collection) {
+                if ($collection) {
+                    $groupedResults[$symbol] = $collection->sortByDesc('minute_timestamp')->values();
+                }
+            }
+
+
+
+            return $groupedResults;
+
+        } catch (\Exception $e) {
+            Log::error('[TokenPriceRepository] 批量查询代币价格时发生错误', [
+                'symbols' => $symbols,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            // 降级到单个查询方式
+            return $this->getLatestPricesForTokensFallback($symbols, $limit);
+        }
+    }
+
+    /**
+     * 降级方案：使用单个查询方式（当批量查询失败时）
+     */
+    private function getLatestPricesForTokensFallback(array $symbols, int $limit = 2): array
     {
         $results = [];
 

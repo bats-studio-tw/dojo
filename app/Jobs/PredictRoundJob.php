@@ -36,19 +36,8 @@ class PredictRoundJob implements ShouldQueue
      */
     public function handle(): void
     {
-        Log::info('[PredictRoundJob] 开始调度预测流程', [
-            'round_id' => $this->roundId,
-            'symbols' => $this->symbols,
-            'chain_id' => $this->chainId
-        ]);
-
         // 直接调度动能计算任务，无需延迟
         CalculateMomentumJob::dispatch($this->roundId, $this->symbols, $this->chainId);
-
-        Log::info('[PredictRoundJob] 预测流程调度完成', [
-            'round_id' => $this->roundId,
-            'scheduled_calculate_momentum_job' => true
-        ]);
     }
 
     public function failed(\Throwable $exception): void

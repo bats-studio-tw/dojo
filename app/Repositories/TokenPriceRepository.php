@@ -58,52 +58,64 @@ class TokenPriceRepository
             // 将代币符号转换为大写
             $upperSymbols = array_map('strtoupper', $symbols);
 
-            // 使用窗口函数获取每个代币的最新N条记录
-            $query = DB::table('token_prices')
-                ->select([
-                    'symbol',
-                    'price_usd',
-                    'currency',
-                    'minute_timestamp',
-                    'created_at',
-                    'updated_at',
-                    DB::raw('ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY minute_timestamp DESC) as rn')
-                ])
-                ->whereIn('symbol', $upperSymbols)
-                ->having('rn', '<=', $limit);
-
-            $results = $query->get();
-
-            // 按代币分组结果
+                                                                        // 使用优化的批量查询，每个代币只获取需要的记录数
             $groupedResults = [];
-            foreach ($upperSymbols as $symbol) {
-                $groupedResults[$symbol] = null;
-            }
 
-            foreach ($results as $row) {
-                $symbol = $row->symbol;
-                if (!isset($groupedResults[$symbol])) {
-                    $groupedResults[$symbol] = collect();
+            // 如果代币数量较少，使用循环查询（更简单）
+            if (count($upperSymbols) <= 5) {
+                foreach ($upperSymbols as $symbol) {
+                    $prices = TokenPrice::where('symbol', $symbol)
+                        ->orderBy('minute_timestamp', 'desc')
+                        ->limit($limit)
+                        ->get();
+
+                    $groupedResults[$symbol] = $prices->isEmpty() ? null : $prices;
+                }
+            } else {
+                // 如果代币数量较多，使用批量查询（性能更好）
+                $results = DB::table('token_prices as tp1')
+                    ->select([
+                        'tp1.symbol',
+                        'tp1.price_usd',
+                        'tp1.currency',
+                        'tp1.minute_timestamp',
+                        'tp1.created_at',
+                        'tp1.updated_at'
+                    ])
+                    ->whereIn('tp1.symbol', $upperSymbols)
+                    ->whereRaw('(
+                        SELECT COUNT(*)
+                        FROM token_prices as tp2
+                        WHERE tp2.symbol = tp1.symbol
+                        AND tp2.minute_timestamp >= tp1.minute_timestamp
+                    ) <= ?', [$limit])
+                    ->orderBy('tp1.symbol')
+                    ->orderBy('tp1.minute_timestamp', 'desc')
+                    ->get();
+
+                // 按代币分组结果
+                foreach ($upperSymbols as $symbol) {
+                    $groupedResults[$symbol] = null;
                 }
 
-                // 创建TokenPrice模型实例
-                $tokenPrice = new TokenPrice();
-                $tokenPrice->fill([
-                    'symbol' => $row->symbol,
-                    'price_usd' => $row->price_usd,
-                    'currency' => $row->currency,
-                    'minute_timestamp' => $row->minute_timestamp,
-                    'created_at' => $row->created_at,
-                    'updated_at' => $row->updated_at,
-                ]);
+                foreach ($results as $row) {
+                    $symbol = $row->symbol;
+                    if (!isset($groupedResults[$symbol])) {
+                        $groupedResults[$symbol] = collect();
+                    }
 
-                $groupedResults[$symbol]->push($tokenPrice);
-            }
+                    // 创建TokenPrice模型实例
+                    $tokenPrice = new TokenPrice();
+                    $tokenPrice->fill([
+                        'symbol' => $row->symbol,
+                        'price_usd' => $row->price_usd,
+                        'currency' => $row->currency,
+                        'minute_timestamp' => $row->minute_timestamp,
+                        'created_at' => $row->created_at,
+                        'updated_at' => $row->updated_at,
+                    ]);
 
-            // 按minute_timestamp排序每个代币的记录
-            foreach ($groupedResults as $symbol => $collection) {
-                if ($collection) {
-                    $groupedResults[$symbol] = $collection->sortByDesc('minute_timestamp')->values();
+                    $groupedResults[$symbol]->push($tokenPrice);
                 }
             }
 

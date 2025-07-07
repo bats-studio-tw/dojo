@@ -303,12 +303,12 @@ class GameDataProcessorService
     }
 
     /**
-     * 派遣 Elo 更新任务
+     * 直接执行 Elo 更新任务
      */
     private function dispatchEloUpdateJob(int $gameRoundId): void
     {
         try {
-            Log::channel('websocket')->info('🔄 开始派遣 Elo 更新任务', [
+            Log::channel('websocket')->info('🔄 开始直接执行 Elo 更新任务', [
                 'game_round_id' => $gameRoundId,
                 'timestamp' => now()->toISOString()
             ]);
@@ -321,46 +321,188 @@ class GameDataProcessorService
                 return;
             }
 
-            // 检查是否已经派遣过该轮次的 Elo 更新任务
-            $cacheKey = "elo_update_dispatched:{$gameRoundId}";
+            // 检查是否已经执行过该轮次的 Elo 更新任务
+            $cacheKey = "elo_update_executed:{$gameRoundId}";
             if (Cache::has($cacheKey)) {
-                Log::channel('websocket')->warning('⚠️ Elo 更新任务已派遣过，跳过重复派遣', [
+                Log::channel('websocket')->warning('⚠️ Elo 更新任务已执行过，跳过重复执行', [
                     'game_round_id' => $gameRoundId,
                     'cache_key' => $cacheKey
                 ]);
                 return;
             }
 
-            Log::channel('websocket')->info('📋 准备创建 EloUpdateJob', [
-                'game_round_id' => $gameRoundId,
-                'job_class' => 'App\Jobs\EloUpdateJob'
+            Log::channel('websocket')->info('📋 准备直接执行 Elo 更新', [
+                'game_round_id' => $gameRoundId
             ]);
 
-            // 派遣 EloUpdateJob
-            $job = EloUpdateJob::dispatch($gameRoundId);
-            // ->onQueue('elo_updates');
+            // 直接执行 Elo 更新逻辑
+            $this->executeEloUpdate($gameRoundId);
 
-            Log::channel('websocket')->info('✅ Elo 更新任务已派遣', [
+            Log::channel('websocket')->info('✅ Elo 更新任务已完成', [
                 'game_round_id' => $gameRoundId,
-                'queue_name' => 'default',
-                'dispatch_time' => now()->toISOString()
+                'execution_time' => now()->toISOString()
             ]);
 
-            // 标记该轮次已派遣 Elo 更新任务，避免重复派遣
+            // 标记该轮次已执行 Elo 更新任务，避免重复执行
             Cache::put($cacheKey, true, now()->addMinutes(30));
 
-            Log::channel('websocket')->info('📝 已标记 Elo 更新任务派遣状态', [
+            Log::channel('websocket')->info('📝 已标记 Elo 更新任务执行状态', [
                 'game_round_id' => $gameRoundId,
                 'cache_key' => $cacheKey,
                 'cache_ttl' => '30 minutes'
             ]);
 
         } catch (\Exception $e) {
-            Log::channel('websocket')->error('❌ 派遣 Elo 更新任务失败', [
+            Log::channel('websocket')->error('❌ 执行 Elo 更新任务失败', [
                 'game_round_id' => $gameRoundId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
         }
+    }
+
+    /**
+     * 直接执行 Elo 更新逻辑
+     */
+    private function executeEloUpdate(int $gameRoundId): void
+    {
+        $startTime = microtime(true);
+
+        try {
+            // 注入依赖
+            $eloRatingEngine = app(\App\Services\EloRatingEngine::class);
+
+            // 步骤1: 读取结算后的 round_results
+            $results = \App\Models\RoundResult::where('game_round_id', $gameRoundId)
+                                  ->orderBy('rank')
+                                  ->get();
+
+            if ($results->isEmpty()) {
+                Log::warning("[GameDataProcessorService] 赛果不足，无法更新 Elo。Round ID: " . $gameRoundId, [
+                    'game_round_id' => $gameRoundId,
+                    'query_conditions' => [
+                        'game_round_id' => $gameRoundId,
+                        'order_by' => 'rank'
+                    ]
+                ]);
+                return;
+            }
+
+            // 步骤2: 整理排名结果
+            // 将结果转换为数组，使用索引而不是rank值作为键
+            $rankedSymbols = $results->pluck('token_symbol')->toArray();
+
+            // 步骤3: 开始 Elo 评分更新
+            $updateCount = 0;
+            $eloUpdates = [];
+            $errors = [];
+
+            // 5x4/2 組對戰 → EloRatingEngine::updateElo(win, lose)
+            // 遍歷所有可能的勝負對
+            for ($i = 0; $i < count($rankedSymbols); $i++) {
+                for ($j = $i + 1; $j < count($rankedSymbols); $j++) {
+                    $winnerSymbol = $rankedSymbols[$i];
+                    $loserSymbol = $rankedSymbols[$j];
+
+                    try {
+                        // 在更新前获取当前的games数量来计算K值衰减
+                        $winnerRating = \App\Models\TokenRating::firstOrCreate(['symbol' => strtoupper($winnerSymbol)]);
+                        $loserRating = \App\Models\TokenRating::firstOrCreate(['symbol' => strtoupper($loserSymbol)]);
+
+                        // 計算衰減後的 K 值 - 确保 games 不为 null
+                        $winnerKFactor = $this->calculateKFactor($winnerRating->games ?? 0);
+                        $loserKFactor = $this->calculateKFactor($loserRating->games ?? 0);
+
+                        // 使用平均 K 值进行更新
+                        $averageKFactor = ($winnerKFactor + $loserKFactor) / 2;
+
+                        $eloRatingEngine->updateElo($winnerSymbol, $loserSymbol, $averageKFactor);
+
+                        $updateCount++;
+                        $eloUpdates[] = [
+                            'winner' => $winnerSymbol,
+                            'loser' => $loserSymbol,
+                            'k_factor' => $averageKFactor,
+                            'winner_old_elo' => $winnerRating->elo,
+                            'loser_old_elo' => $loserRating->elo
+                        ];
+
+                    } catch (\Exception $updateError) {
+                        $errorCombinationNumber = $updateCount + 1;
+                        $errorInfo = [
+                            'combination' => "{$errorCombinationNumber}",
+                            'winner' => $winnerSymbol,
+                            'loser' => $loserSymbol,
+                            'error' => $updateError->getMessage()
+                        ];
+
+                        $errors[] = $errorInfo;
+                        Log::error('[GameDataProcessorService] 对战组合处理失败', $errorInfo);
+                    }
+                }
+            }
+
+            if (!empty($errors)) {
+                Log::warning('[GameDataProcessorService] 部分对战组合更新失败', [
+                    'game_round_id' => $gameRoundId,
+                    'errors' => $errors
+                ]);
+            }
+
+            // 步骤4: 记录更新后的评分状态
+            $finalRatings = [];
+            foreach ($rankedSymbols as $index => $symbol) {
+                $rating = \App\Models\TokenRating::where('symbol', strtoupper($symbol))->first();
+                if ($rating) {
+                    $finalRatings[$symbol] = [
+                        'rank' => $index + 1, // 使用索引+1作为显示排名
+                        'elo' => round($rating->elo, 2),
+                        'games' => $rating->games
+                    ];
+                } else {
+                    Log::warning('[GameDataProcessorService] 未找到代币评分记录', [
+                        'symbol' => $symbol,
+                        'index' => $index
+                    ]);
+                }
+            }
+
+            $endTime = microtime(true);
+            $executionTime = round(($endTime - $startTime) * 1000, 2);
+
+            Log::info('[GameDataProcessorService] Elo 更新完成', [
+                'game_round_id' => $gameRoundId,
+                'execution_time_ms' => $executionTime,
+                'update_count' => $updateCount,
+                'final_ratings' => $finalRatings
+            ]);
+
+        } catch (\Throwable $e) {
+            $endTime = microtime(true);
+            $executionTime = round(($endTime - $startTime) * 1000, 2);
+
+            Log::error('[GameDataProcessorService] Elo 更新执行时发生严重错误', [
+                'game_round_id' => $gameRoundId,
+                'execution_time_ms' => $executionTime,
+                'error_message' => $e->getMessage(),
+                'error_trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * 計算 K 值衰減因子
+     * K = K_BASE * 200 / (200 + games)
+     *
+     * @param int $games 已玩游戏次数
+     * @return float K 值衰減因子
+     */
+    private function calculateKFactor(int $games): float
+    {
+        $kBase = 32; // 基础 K 值
+        $kFactor = $kBase * 200 / (200 + $games);
+
+        return $kFactor;
     }
 }

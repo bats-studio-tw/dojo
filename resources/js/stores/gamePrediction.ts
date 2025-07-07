@@ -503,17 +503,17 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
                 );
               });
 
-                      // 基于symbol去重，保留排名最高的记录
-        const uniquePredictions = new Map<string, HybridPrediction>();
-        validatedPredictions.forEach((prediction: HybridPrediction) => {
-          const symbol = prediction.symbol.toUpperCase();
-          if (
-            !uniquePredictions.has(symbol) ||
-            prediction.predicted_rank < uniquePredictions.get(symbol)!.predicted_rank
-          ) {
-            uniquePredictions.set(symbol, prediction);
-          }
-        });
+              // 基于symbol去重，保留排名最高的记录
+              const uniquePredictions = new Map<string, HybridPrediction>();
+              validatedPredictions.forEach((prediction: HybridPrediction) => {
+                const symbol = prediction.symbol.toUpperCase();
+                if (
+                  !uniquePredictions.has(symbol) ||
+                  prediction.predicted_rank < uniquePredictions.get(symbol)!.predicted_rank
+                ) {
+                  uniquePredictions.set(symbol, prediction);
+                }
+              });
 
               const finalPredictions = Array.from(uniquePredictions.values());
 

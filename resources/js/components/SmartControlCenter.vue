@@ -11,15 +11,15 @@
       @refresh-analysis="refreshAnalysis"
     />
 
-    <!-- ⚡ AI動能預測排名面板 (新增) -->
+    <!-- ⚡ AI动能预测排名面板 -->
     <MomentumPredictionDisplay
       :hybrid-predictions="hybridPredictions || []"
       :analysis-meta="hybridAnalysisMeta"
       :current-round-id="currentRoundId"
       :current-game-status="currentGameStatus"
+      :current-game-tokens-with-ranks="currentGameTokensWithRanks"
       :analysis-loading="hybridAnalysisLoading"
-      :config="config"
-      :refresh-analysis="refreshHybridAnalysis"
+      @refresh-analysis="refreshHybridAnalysis"
     />
 
     <!-- 🤖 自动下注状态面板 (整合自页面) -->
@@ -1210,6 +1210,16 @@
   const refreshAnalysis = () => {
     console.log('🔄 SmartControlCenter: 手动刷新分析数据');
     emit('refreshAnalysis');
+  };
+
+  // 刷新动能预测数据
+  const refreshHybridAnalysis = () => {
+    console.log('⚡ SmartControlCenter: 手动刷新动能预测数据');
+    if (props.refreshHybridAnalysis) {
+      props.refreshHybridAnalysis();
+    } else {
+      emit('refreshAnalysis'); // 如果没有专门的动能刷新方法，使用通用刷新
+    }
   };
 
   // ==================== 生命周期钩子 ====================

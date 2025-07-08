@@ -88,6 +88,14 @@ export interface AutoBettingConfig {
   enable_change_24h_filter: boolean;
   min_change_24h_threshold: number;
   max_change_24h_threshold: number;
+
+  // 🆕 新增策略类型选择
+  strategy_type: 'h2h_breakeven' | 'momentum';
+
+  // 🆕 新增动能策略专用参数
+  min_momentum_score: number;
+  min_elo_win_rate: number;
+  min_confidence: number;
 }
 
 /**
@@ -105,6 +113,14 @@ export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token'> = {
   min_sample_count: 1, // 降低至1，适应样本不足现实
   max_bet_percentage: 15,
   strategy: 'single_bet' as const,
+
+  // 🆕 新增策略类型选择 - 默认为H2H保本预测
+  strategy_type: 'h2h_breakeven' as const,
+
+  // 🆕 新增动能策略专用参数 - 默认值
+  min_momentum_score: 1.5,
+  min_elo_win_rate: 0.55,
+  min_confidence: 0.65,
 
   // 🔧 高级功能设置
   enable_trend_analysis: false, // 默认关闭，避免过度过滤
@@ -240,7 +256,8 @@ export const strategyTemplates = {
     max_change_4h_threshold: 0,
     enable_change_24h_filter: false,
     min_change_24h_threshold: 0,
-    max_change_24h_threshold: 0
+    max_change_24h_threshold: 0,
+    strategy_type: 'h2h_breakeven' as const
   },
 
   /** 🗿 磐石型 (The Rock) — 回測 63.2 % */
@@ -311,7 +328,9 @@ export const strategyTemplates = {
     max_change_1h_threshold: 0,
     enable_change_4h_filter: false,
     min_change_4h_threshold: 0,
-    max_change_4h_threshold: 0
+    max_change_4h_threshold: 0,
+    // 🆕 新增策略类型和动能参数
+    strategy_type: 'h2h_breakeven' as const
   },
 
   /** 🎯 狙擊手型 (Elite Sniper 75) — 回測 75 %+ */
@@ -382,7 +401,9 @@ export const strategyTemplates = {
     max_change_1h_threshold: 0,
     enable_change_4h_filter: false,
     min_change_4h_threshold: 0,
-    max_change_4h_threshold: 0
+    max_change_4h_threshold: 0,
+    // 🆕 新增策略类型和动能参数
+    strategy_type: 'h2h_breakeven' as const
   },
 
   /** 🏇 動量騎士型 (Momentum Rider) — 回測 61.9 % */
@@ -452,7 +473,9 @@ export const strategyTemplates = {
     // 其他市場動態過濾器
     enable_change_4h_filter: false,
     min_change_4h_threshold: 0,
-    max_change_4h_threshold: 0
+    max_change_4h_threshold: 0,
+    // 🆕 新增策略类型和动能参数
+    strategy_type: 'h2h_breakeven' as const
   },
 
   /** ⚖️ 全能平衡型 (Precision 66) — 回測 66.2 % */
@@ -587,7 +610,86 @@ export const strategyTemplates = {
     max_change_4h_threshold: 0,
     enable_change_24h_filter: false,
     min_change_24h_threshold: 0,
-    max_change_24h_threshold: 0
+    max_change_24h_threshold: 0,
+    // 🆕 新增策略类型和动能参数
+    strategy_type: 'h2h_breakeven' as const
+  },
+
+  // 🆕 动能狙击手模板
+  momentum_sniper: {
+    name: '⚡ 动能狙击手 (Momentum Sniper)',
+    description: '基于Hybrid-Edge动能预测的精准狙击策略，结合价格动能和Elo评分。',
+    strategy: 'single_bet' as const,
+    bet_amount: 200,
+    daily_stop_loss_percentage: 12,
+    max_bet_percentage: 10,
+    // 🆕 动能策略专用参数
+    strategy_type: 'momentum' as const,
+    min_momentum_score: 1.5,
+    min_elo_win_rate: 0.55,
+    min_confidence: 0.65,
+    // H2H策略参数（动能策略不使用）
+    confidence_threshold: 0,
+    score_gap_threshold: 0,
+    min_total_games: 1,
+    historical_accuracy_threshold: 0,
+    min_sample_count: 1,
+    // 风控
+    stop_loss_consecutive: 6,
+    // 关闭所有H2H相关过滤器
+    enable_trend_analysis: false,
+    enable_volume_filter: false,
+    enable_kelly_criterion: false,
+    kelly_fraction: 25,
+    enable_martingale: false,
+    martingale_multiplier: 2.0,
+    max_martingale_steps: 3,
+    enable_time_filter: false,
+    allowed_hours_start: 9,
+    allowed_hours_end: 21,
+    enable_volatility_filter: false,
+    max_volatility_threshold: 80,
+    min_liquidity_threshold: 1000000,
+    is_active: false,
+    rank_betting_enabled_ranks: [1, 2, 3],
+    rank_betting_amount_per_rank: 200,
+    rank_betting_different_amounts: false,
+    rank_betting_rank1_amount: 200,
+    rank_betting_rank2_amount: 200,
+    rank_betting_rank3_amount: 200,
+    rank_betting_max_ranks: 5,
+    // 关闭所有H2H过滤器
+    enable_win_rate_filter: false,
+    min_win_rate_threshold: 0,
+    enable_top3_rate_filter: false,
+    min_top3_rate_threshold: 0,
+    enable_avg_rank_filter: false,
+    max_avg_rank_threshold: 0,
+    enable_stability_filter: false,
+    max_stability_threshold: 0,
+    enable_absolute_score_filter: false,
+    min_absolute_score_threshold: 0,
+    enable_relative_score_filter: false,
+    min_relative_score_threshold: 0,
+    enable_h2h_score_filter: false,
+    min_h2h_score_threshold: 0,
+    enable_change_5m_filter: false,
+    min_change_5m_threshold: 0,
+    max_change_5m_threshold: 0,
+    enable_change_1h_filter: false,
+    min_change_1h_threshold: 0,
+    max_change_1h_threshold: 0,
+    enable_change_4h_filter: false,
+    min_change_4h_threshold: 0,
+    max_change_4h_threshold: 0,
+    enable_change_24h_filter: false,
+    min_change_24h_threshold: 0,
+    max_change_24h_threshold: 0,
+    // 🆕 新增策略类型和动能参数
+    strategy_type: 'momentum' as const,
+    min_momentum_score: 1.5,
+    min_elo_win_rate: 0.55,
+    min_confidence: 0.65
   }
 };
 
@@ -804,7 +906,12 @@ export const useAutoBettingConfig = () => {
         config.max_change_4h_threshold === template.max_change_4h_threshold &&
         config.enable_change_24h_filter === template.enable_change_24h_filter &&
         config.min_change_24h_threshold === template.min_change_24h_threshold &&
-        config.max_change_24h_threshold === template.max_change_24h_threshold;
+        config.max_change_24h_threshold === template.max_change_24h_threshold &&
+        // 🆕 新增：策略类型和动能参数匹配
+        config.strategy_type === (template.strategy_type || 'h2h_breakeven') &&
+        config.min_momentum_score === (template.min_momentum_score || 1.5) &&
+        config.min_elo_win_rate === (template.min_elo_win_rate || 0.55) &&
+        config.min_confidence === (template.min_confidence || 0.65);
 
       if (matches) {
         return key;
@@ -869,7 +976,13 @@ export const useAutoBettingConfig = () => {
       max_change_4h_threshold: template.max_change_4h_threshold,
       enable_change_24h_filter: template.enable_change_24h_filter,
       min_change_24h_threshold: template.min_change_24h_threshold,
-      max_change_24h_threshold: template.max_change_24h_threshold
+      max_change_24h_threshold: template.max_change_24h_threshold,
+
+      // 🆕 新增策略类型和动能参数
+      strategy_type: template.strategy_type || 'h2h_breakeven',
+      min_momentum_score: template.min_momentum_score || 1.5,
+      min_elo_win_rate: template.min_elo_win_rate || 0.55,
+      min_confidence: template.min_confidence || 0.65
     });
 
     selectedTemplate.value = templateKey;

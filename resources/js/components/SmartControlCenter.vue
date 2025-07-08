@@ -143,7 +143,7 @@
         <!-- Token分析网格 -->
         <div class="grid grid-cols-1 gap-3 lg:grid-cols-5 md:grid-cols-3 xl:grid-cols-5">
           <div
-            v-for="(token, index) in currentAnalysis.slice(0, 5)"
+            v-for="(token, index) in displayAnalysisData.slice(0, 5)"
             :key="`analysis-${index}-${token.symbol}`"
             class="border rounded-lg p-3 transition-all duration-200 hover:shadow-lg"
             :class="getTokenDebugClass(token)"
@@ -281,8 +281,8 @@
         </div>
 
         <!-- 显示更多提示 -->
-        <div v-if="currentAnalysis.length > 5" class="mt-4 text-center">
-          <span class="text-xs text-gray-400">显示前5个Token，总共{{ currentAnalysis.length }}个</span>
+        <div v-if="displayAnalysisData.length > 5" class="mt-4 text-center">
+          <span class="text-xs text-gray-400">显示前5个Token，总共{{ displayAnalysisData.length }}个</span>
         </div>
       </div>
 
@@ -345,10 +345,58 @@
           size="large"
         >
           <div class="space-y-4">
+            <!-- 🆕 预测模型选择器 -->
+            <div class="mb-4">
+              <NTooltip trigger="hover" placement="top">
+                <template #trigger>
+                  <label class="inline-flex cursor-help items-center text-sm text-gray-300 font-medium space-x-1">
+                    <span>预测模型</span>
+                    <span class="text-blue-400">ℹ️</span>
+                  </label>
+                </template>
+                <div class="space-y-1">
+                  <div><strong>预测模型说明：</strong></div>
+                  <div>
+                    •
+                    <strong>v8.3 H2H保本预测：</strong>
+                    基于历史对战数据的传统预测模型
+                  </div>
+                  <div>
+                    •
+                    <strong>Hybrid-Edge 动能预测：</strong>
+                    结合价格动能的混合预测模型
+                  </div>
+                  <div>• 不同模型使用不同的过滤条件和评分标准</div>
+                </div>
+              </NTooltip>
+              <div class="mt-2 flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    :id="'h2h_breakeven'"
+                    :value="'h2h_breakeven'"
+                    v-model="props.config.strategy_type"
+                    class="text-blue-600 focus:ring-blue-500"
+                  />
+                  <label :for="'h2h_breakeven'" class="text-sm text-gray-300">v8.3 H2H保本预测</label>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    :id="'momentum'"
+                    :value="'momentum'"
+                    v-model="props.config.strategy_type"
+                    class="text-blue-600 focus:ring-blue-500"
+                  />
+                  <label :for="'momentum'" class="text-sm text-gray-300">Hybrid-Edge 动能预测</label>
+                </div>
+              </div>
+            </div>
+
             <!-- 策略网格布局 -->
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div
-                v-for="(template, key) in strategyTemplatesWithCustom"
+                v-for="(template, key) in strategyTemplatesWithCustom as Record<string, any>"
                 :key="key"
                 class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-3 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
                 :class="{
@@ -424,93 +472,95 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-2">
-                <NTooltip trigger="hover" placement="top">
-                  <template #trigger>
-                    <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
-                      <span>置信度(%)</span>
-                      <span class="text-blue-400">ℹ️</span>
-                    </label>
-                  </template>
-                  AI 预测结果的可信程度，数值越高表示算法对预测结果越有把握。建议设置在 85%
-                  以上以确保预测质量。排名策略忽略此参数。
-                </NTooltip>
-                <n-input-number
-                  v-model:value="props.config.confidence_threshold"
-                  :min="0"
-                  :max="100"
-                  :step="1"
-                  :disabled="isRunning || props.config.strategy === 'rank_betting'"
-                  size="small"
-                />
+            <template v-if="props.config.strategy_type === 'h2h_breakeven'">
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <NTooltip trigger="hover" placement="top">
+                    <template #trigger>
+                      <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
+                        <span>置信度(%)</span>
+                        <span class="text-blue-400">ℹ️</span>
+                      </label>
+                    </template>
+                    AI 预测结果的可信程度，数值越高表示算法对预测结果越有把握。建议设置在 85%
+                    以上以确保预测质量。排名策略忽略此参数。
+                  </NTooltip>
+                  <n-input-number
+                    v-model:value="props.config.confidence_threshold"
+                    :min="0"
+                    :max="100"
+                    :step="1"
+                    :disabled="isRunning || props.config.strategy === 'rank_betting'"
+                    size="small"
+                  />
+                </div>
+                <div class="space-y-2">
+                  <NTooltip trigger="hover" placement="top">
+                    <template #trigger>
+                      <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
+                        <span>分数门槛</span>
+                        <span class="text-blue-400">ℹ️</span>
+                      </label>
+                    </template>
+                    预测分数的最低要求，分数越高表示该 Token 在预测中表现越突出。通常设置在 5-10
+                    之间，数值越高筛选越严格。
+                  </NTooltip>
+                  <n-input-number
+                    v-model:value="props.config.score_gap_threshold"
+                    :min="0"
+                    :max="100"
+                    :step="1"
+                    :precision="1"
+                    :disabled="isRunning || props.config.strategy === 'rank_betting'"
+                    size="small"
+                  />
+                </div>
               </div>
-              <div class="space-y-2">
-                <NTooltip trigger="hover" placement="top">
-                  <template #trigger>
-                    <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
-                      <span>分数门槛</span>
-                      <span class="text-blue-400">ℹ️</span>
-                    </label>
-                  </template>
-                  预测分数的最低要求，分数越高表示该 Token 在预测中表现越突出。通常设置在 5-10
-                  之间，数值越高筛选越严格。
-                </NTooltip>
-                <n-input-number
-                  v-model:value="props.config.score_gap_threshold"
-                  :min="0"
-                  :max="100"
-                  :step="1"
-                  :precision="1"
-                  :disabled="isRunning || props.config.strategy === 'rank_betting'"
-                  size="small"
-                />
-              </div>
-            </div>
 
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-2">
-                <NTooltip trigger="hover" placement="top">
-                  <template #trigger>
-                    <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
-                      <span>最少样本数</span>
-                      <span class="text-blue-400">ℹ️</span>
-                    </label>
-                  </template>
-                  预测所需的最少历史数据量。样本数越多，预测结果越可靠。建议设置在 30-50
-                  之间，确保有足够的历史数据支撑预测。
-                </NTooltip>
-                <n-input-number
-                  v-model:value="props.config.min_sample_count"
-                  :min="1"
-                  :max="200"
-                  :step="1"
-                  :disabled="isRunning || props.config.strategy === 'rank_betting'"
-                  size="small"
-                />
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <NTooltip trigger="hover" placement="top">
+                    <template #trigger>
+                      <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
+                        <span>最少样本数</span>
+                        <span class="text-blue-400">ℹ️</span>
+                      </label>
+                    </template>
+                    预测所需的最少历史数据量。样本数越多，预测结果越可靠。建议设置在 30-50
+                    之间，确保有足够的历史数据支撑预测。
+                  </NTooltip>
+                  <n-input-number
+                    v-model:value="props.config.min_sample_count"
+                    :min="1"
+                    :max="200"
+                    :step="1"
+                    :disabled="isRunning || props.config.strategy === 'rank_betting'"
+                    size="small"
+                  />
+                </div>
+                <div class="space-y-2">
+                  <NTooltip trigger="hover" placement="top">
+                    <template #trigger>
+                      <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
+                        <span>胜率(%)</span>
+                        <span class="text-blue-400">ℹ️</span>
+                      </label>
+                    </template>
+                    该 Token 在历史预测中的成功率。数值越高表示过往表现越好，通常设置在 65-75%
+                    之间。过高可能导致无法找到合适的下注目标。
+                  </NTooltip>
+                  <n-input-number
+                    v-model:value="historyAccuracyPercent"
+                    :min="0"
+                    :max="100"
+                    :step="1"
+                    :precision="0"
+                    :disabled="isRunning || props.config.strategy === 'rank_betting'"
+                    size="small"
+                  />
+                </div>
               </div>
-              <div class="space-y-2">
-                <NTooltip trigger="hover" placement="top">
-                  <template #trigger>
-                    <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
-                      <span>胜率(%)</span>
-                      <span class="text-blue-400">ℹ️</span>
-                    </label>
-                  </template>
-                  该 Token 在历史预测中的成功率。数值越高表示过往表现越好，通常设置在 65-75%
-                  之间。过高可能导致无法找到合适的下注目标。
-                </NTooltip>
-                <n-input-number
-                  v-model:value="historyAccuracyPercent"
-                  :min="0"
-                  :max="100"
-                  :step="1"
-                  :precision="0"
-                  :disabled="isRunning || props.config.strategy === 'rank_betting'"
-                  size="small"
-                />
-              </div>
-            </div>
+            </template>
 
             <div class="grid grid-cols-1 gap-4">
               <div class="space-y-2">
@@ -617,376 +667,470 @@
                 </n-button>
               </div>
               <NCollapse size="small">
-                <!-- 历史表现过滤器 -->
-                <NCollapseItem title="📊 历史表现过滤器" name="historical">
-                  <div class="space-y-3">
-                    <!-- 胜率过滤器 -->
-                    <div class="flex items-center space-x-3">
-                      <NSwitch v-model:value="props.config.enable_win_rate_filter" size="small" :disabled="isRunning" />
-                      <div class="grid grid-cols-2 flex-1 gap-2">
-                        <NTooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
-                              <span>胜率 ≥</span>
-                              <span class="text-xs text-blue-400">ℹ️</span>
-                            </label>
-                          </template>
-                          Token 在历史预测中获胜的比例。胜率越高表示该 Token 过往表现越稳定。建议设置在 65-75 之间。
-                        </NTooltip>
-                        <NInputNumber
-                          v-model:value="props.config.min_win_rate_threshold"
-                          :min="0"
-                          :max="100"
-                          :step="1"
-                          :precision="1"
-                          :disabled="isRunning || !props.config.enable_win_rate_filter"
-                          size="tiny"
-                          placeholder="70"
+                <!-- 🆕 根据策略类型显示不同的过滤器 -->
+                <template v-if="props.config.strategy_type === 'h2h_breakeven'">
+                  <!-- H2H策略的历史表现过滤器 -->
+                  <NCollapseItem title="📊 历史表现过滤器" name="historical">
+                    <div class="space-y-3">
+                      <!-- 胜率过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <NSwitch
+                          v-model:value="props.config.enable_win_rate_filter"
+                          size="small"
+                          :disabled="isRunning"
                         />
+                        <div class="grid grid-cols-2 flex-1 gap-2">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>胜率 ≥</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            Token 在历史预测中获胜的比例。胜率越高表示该 Token 过往表现越稳定。建议设置在 65-75 之间。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.min_win_rate_threshold"
+                            :min="0"
+                            :max="100"
+                            :step="1"
+                            :precision="1"
+                            :disabled="isRunning || !props.config.enable_win_rate_filter"
+                            size="tiny"
+                            placeholder="70"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <!-- 保本率过滤器 -->
-                    <div class="flex items-center space-x-3">
-                      <NSwitch
-                        v-model:value="props.config.enable_top3_rate_filter"
-                        size="small"
-                        :disabled="isRunning"
-                      />
-                      <div class="grid grid-cols-2 flex-1 gap-2">
-                        <NTooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
-                              <span>保本率 ≥</span>
-                              <span class="text-xs text-blue-400">ℹ️</span>
-                            </label>
-                          </template>
-                          Token 排名进入前三的比例（通常前三有奖励，可以保本或盈利）。数值越高表示风险越低。建议设置在
-                          50-65 之间。
-                        </NTooltip>
-                        <NInputNumber
-                          v-model:value="props.config.min_top3_rate_threshold"
-                          :min="0"
-                          :max="100"
-                          :step="1"
-                          :precision="1"
-                          :disabled="isRunning || !props.config.enable_top3_rate_filter"
-                          size="tiny"
-                          placeholder="50"
+                      <!-- 保本率过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <NSwitch
+                          v-model:value="props.config.enable_top3_rate_filter"
+                          size="small"
+                          :disabled="isRunning"
                         />
+                        <div class="grid grid-cols-2 flex-1 gap-2">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>保本率 ≥</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            Token 排名进入前三的比例（通常前三有奖励，可以保本或盈利）。数值越高表示风险越低。建议设置在
+                            50-65 之间。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.min_top3_rate_threshold"
+                            :min="0"
+                            :max="100"
+                            :step="1"
+                            :precision="1"
+                            :disabled="isRunning || !props.config.enable_top3_rate_filter"
+                            size="tiny"
+                            placeholder="50"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <!-- 平均排名过滤器 -->
-                    <div class="flex items-center space-x-3">
-                      <NSwitch v-model:value="props.config.enable_avg_rank_filter" size="small" :disabled="isRunning" />
-                      <div class="grid grid-cols-2 flex-1 gap-2">
-                        <NTooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
-                              <span>平均排名 ≤</span>
-                              <span class="text-xs text-blue-400">ℹ️</span>
-                            </label>
-                          </template>
-                          Token 在历史预测中的平均排名。数值越小表示平均表现越好。建议设置在 2.5-3.0
-                          之间，过小可能筛选过严。
-                        </NTooltip>
-                        <NInputNumber
-                          v-model:value="props.config.max_avg_rank_threshold"
-                          :min="1"
-                          :max="5"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_avg_rank_filter"
-                          size="tiny"
-                          placeholder="3.00"
+                      <!-- 平均排名过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <NSwitch
+                          v-model:value="props.config.enable_avg_rank_filter"
+                          size="small"
+                          :disabled="isRunning"
                         />
+                        <div class="grid grid-cols-2 flex-1 gap-2">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>平均排名 ≤</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            Token 在历史预测中的平均排名。数值越小表示平均表现越好。建议设置在 2.5-3.0
+                            之间，过小可能筛选过严。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.max_avg_rank_threshold"
+                            :min="1"
+                            :max="5"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_avg_rank_filter"
+                            size="tiny"
+                            placeholder="3.00"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <!-- 稳定性过滤器 -->
-                    <div class="flex items-center space-x-3">
-                      <NSwitch
-                        v-model:value="props.config.enable_stability_filter"
-                        size="small"
-                        :disabled="isRunning"
-                      />
-                      <div class="grid grid-cols-2 flex-1 gap-2">
-                        <NTooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
-                              <span>波动性 ≤</span>
-                              <span class="text-xs text-blue-400">ℹ️</span>
-                            </label>
-                          </template>
-                          Token 价格波动的标准差，数值越小表示价格越稳定，风险越低。建议设置在 0.6-0.8
-                          之间，过低可能筛选过严。
-                        </NTooltip>
-                        <NInputNumber
-                          v-model:value="props.config.max_stability_threshold"
-                          :min="0"
-                          :max="2"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_stability_filter"
-                          size="tiny"
-                          placeholder="0.80"
+                      <!-- 稳定性过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <NSwitch
+                          v-model:value="props.config.enable_stability_filter"
+                          size="small"
+                          :disabled="isRunning"
                         />
+                        <div class="grid grid-cols-2 flex-1 gap-2">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>波动性 ≤</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            Token 价格波动的标准差，数值越小表示价格越稳定，风险越低。建议设置在 0.6-0.8
+                            之间，过低可能筛选过严。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.max_stability_threshold"
+                            :min="0"
+                            :max="2"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_stability_filter"
+                            size="tiny"
+                            placeholder="0.80"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </NCollapseItem>
+                  </NCollapseItem>
 
-                <!-- 算法评分过滤器 -->
-                <NCollapseItem title="🎯 算法评分过滤器" name="scores">
-                  <div class="space-y-3">
-                    <!-- 绝对分数过滤器 -->
-                    <div class="flex items-center space-x-3">
-                      <NSwitch
-                        v-model:value="props.config.enable_absolute_score_filter"
-                        size="small"
-                        :disabled="isRunning"
-                      />
-                      <div class="grid grid-cols-2 flex-1 gap-2">
-                        <NTooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
-                              <span>绝对分数 ≥</span>
-                              <span class="text-xs text-blue-400">ℹ️</span>
-                            </label>
-                          </template>
-                          AI 算法给出的绝对评分，反映 Token 的综合表现潜力。数值越高表示算法越看好该 Token。建议设置在
-                          0.65-0.75 之间。
-                        </NTooltip>
-                        <NInputNumber
-                          v-model:value="props.config.min_absolute_score_threshold"
-                          :min="0"
-                          :max="1"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_absolute_score_filter"
-                          size="tiny"
-                          placeholder="0.70"
+                  <!-- H2H策略的算法评分过滤器 -->
+                  <NCollapseItem title="🎯 算法评分过滤器" name="scores">
+                    <div class="space-y-3">
+                      <!-- 绝对分数过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <NSwitch
+                          v-model:value="props.config.enable_absolute_score_filter"
+                          size="small"
+                          :disabled="isRunning"
                         />
+                        <div class="grid grid-cols-2 flex-1 gap-2">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>绝对分数 ≥</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            AI 算法给出的绝对评分，反映 Token 的综合表现潜力。数值越高表示算法越看好该 Token。建议设置在
+                            0.65-0.75 之间。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.min_absolute_score_threshold"
+                            :min="0"
+                            :max="1"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_absolute_score_filter"
+                            size="tiny"
+                            placeholder="0.70"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <!-- 相对分数过滤器 -->
-                    <div class="flex items-center space-x-3">
-                      <NSwitch
-                        v-model:value="props.config.enable_relative_score_filter"
-                        size="small"
-                        :disabled="isRunning"
-                      />
-                      <div class="grid grid-cols-2 flex-1 gap-2">
-                        <NTooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
-                              <span>相对分数 ≥</span>
-                              <span class="text-xs text-blue-400">ℹ️</span>
-                            </label>
-                          </template>
-                          该 Token 相对于其他 Token 的评分优势。数值越高表示在当前轮次中相对表现越突出。建议设置在
-                          0.55-0.70 之间。
-                        </NTooltip>
-                        <NInputNumber
-                          v-model:value="props.config.min_relative_score_threshold"
-                          :min="0"
-                          :max="1"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_relative_score_filter"
-                          size="tiny"
-                          placeholder="0.50"
+                      <!-- 相对分数过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <NSwitch
+                          v-model:value="props.config.enable_relative_score_filter"
+                          size="small"
+                          :disabled="isRunning"
                         />
+                        <div class="grid grid-cols-2 flex-1 gap-2">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>相对分数 ≥</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            该 Token 相对于其他 Token 的评分优势。数值越高表示在当前轮次中相对表现越突出。建议设置在
+                            0.55-0.70 之间。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.min_relative_score_threshold"
+                            :min="0"
+                            :max="1"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_relative_score_filter"
+                            size="tiny"
+                            placeholder="0.50"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <!-- H2H分数过滤器 -->
-                    <div class="flex items-center space-x-3">
-                      <NSwitch
-                        v-model:value="props.config.enable_h2h_score_filter"
-                        size="small"
-                        :disabled="isRunning"
-                      />
-                      <div class="grid grid-cols-2 flex-1 gap-2">
-                        <NTooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
-                              <span>H2H分数 ≥</span>
-                              <span class="text-xs text-blue-400">ℹ️</span>
-                            </label>
-                          </template>
-                          Head-to-Head 对战分数，反映该 Token 与其他 Token
-                          直接竞争时的胜率。数值越高表示竞争优势越明显。建议设置在 0.60-0.75 之间。
-                        </NTooltip>
-                        <NInputNumber
-                          v-model:value="props.config.min_h2h_score_threshold"
-                          :min="0"
-                          :max="1"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_h2h_score_filter"
-                          size="tiny"
-                          placeholder="0.70"
+                      <!-- H2H分数过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <NSwitch
+                          v-model:value="props.config.enable_h2h_score_filter"
+                          size="small"
+                          :disabled="isRunning"
                         />
+                        <div class="grid grid-cols-2 flex-1 gap-2">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>H2H分数 ≥</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            Head-to-Head 对战分数，反映该 Token 与其他 Token
+                            直接竞争时的胜率。数值越高表示竞争优势越明显。建议设置在 0.60-0.75 之间。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.min_h2h_score_threshold"
+                            :min="0"
+                            :max="1"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_h2h_score_filter"
+                            size="tiny"
+                            placeholder="0.70"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </NCollapseItem>
+                  </NCollapseItem>
 
-                <!-- 市场动态过滤器 -->
-                <NCollapseItem title="📈 市场动态过滤器" name="market">
-                  <div class="space-y-3">
-                    <!-- 5分钟涨跌幅过滤器 -->
-                    <div class="flex items-center space-x-3">
-                      <NSwitch
-                        v-model:value="props.config.enable_change_5m_filter"
-                        size="small"
-                        :disabled="isRunning"
-                      />
-                      <div class="grid grid-cols-3 flex-1 gap-1">
-                        <NTooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
-                              <span>5分钟</span>
-                              <span class="text-xs text-blue-400">ℹ️</span>
-                            </label>
-                          </template>
-                          Token 在过去5分钟的价格变动范围。可以筛选出短期内表现稳定或有特定趋势的
-                          Token。例如：最小-0.02，最大0.05。
-                        </NTooltip>
-                        <NInputNumber
-                          v-model:value="props.config.min_change_5m_threshold"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_change_5m_filter"
-                          size="tiny"
-                          placeholder="最小"
+                  <!-- H2H策略的市场动态过滤器 -->
+                  <NCollapseItem title="📈 市场动态过滤器" name="market">
+                    <div class="space-y-3">
+                      <!-- 5分钟涨跌幅过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <NSwitch
+                          v-model:value="props.config.enable_change_5m_filter"
+                          size="small"
+                          :disabled="isRunning"
                         />
-                        <NInputNumber
-                          v-model:value="props.config.max_change_5m_threshold"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_change_5m_filter"
-                          size="tiny"
-                          placeholder="最大"
-                        />
+                        <div class="grid grid-cols-3 flex-1 gap-1">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>5分钟</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            Token 在过去5分钟的价格变动范围。可以筛选出短期内表现稳定或有特定趋势的
+                            Token。例如：最小-0.02，最大0.05。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.min_change_5m_threshold"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_change_5m_filter"
+                            size="tiny"
+                            placeholder="最小"
+                          />
+                          <NInputNumber
+                            v-model:value="props.config.max_change_5m_threshold"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_change_5m_filter"
+                            size="tiny"
+                            placeholder="最大"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <!-- 1小时涨跌幅过滤器 -->
-                    <div class="flex items-center space-x-3">
-                      <NSwitch
-                        v-model:value="props.config.enable_change_1h_filter"
-                        size="small"
-                        :disabled="isRunning"
-                      />
-                      <div class="grid grid-cols-3 flex-1 gap-1">
-                        <NTooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
-                              <span>1小时</span>
-                              <span class="text-xs text-blue-400">ℹ️</span>
-                            </label>
-                          </template>
-                          Token 在过去1小时的价格变动范围。中期趋势指标，有助于识别有上涨潜力但不过于波动的
-                          Token。例如：最小-0.05，最大0.10。
-                        </NTooltip>
-                        <NInputNumber
-                          v-model:value="props.config.min_change_1h_threshold"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_change_1h_filter"
-                          size="tiny"
-                          placeholder="最小"
+                      <!-- 1小时涨跌幅过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <NSwitch
+                          v-model:value="props.config.enable_change_1h_filter"
+                          size="small"
+                          :disabled="isRunning"
                         />
-                        <NInputNumber
-                          v-model:value="props.config.max_change_1h_threshold"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_change_1h_filter"
-                          size="tiny"
-                          placeholder="最大"
-                        />
+                        <div class="grid grid-cols-3 flex-1 gap-1">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>1小时</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            Token 在过去1小时的价格变动范围。中期趋势指标，有助于识别有上涨潜力但不过于波动的
+                            Token。例如：最小-0.05，最大0.10。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.min_change_1h_threshold"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_change_1h_filter"
+                            size="tiny"
+                            placeholder="最小"
+                          />
+                          <NInputNumber
+                            v-model:value="props.config.max_change_1h_threshold"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_change_1h_filter"
+                            size="tiny"
+                            placeholder="最大"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <!-- 4小时涨跌幅过滤器 -->
-                    <div class="flex items-center space-x-3">
-                      <NSwitch
-                        v-model:value="props.config.enable_change_4h_filter"
-                        size="small"
-                        :disabled="isRunning"
-                      />
-                      <div class="grid grid-cols-3 flex-1 gap-1">
-                        <NTooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
-                              <span>4小时</span>
-                              <span class="text-xs text-blue-400">ℹ️</span>
-                            </label>
-                          </template>
-                          Token 在过去4小时的价格变动范围。较长期的市场趋势指标，可以筛选出有持续上涨势头的
-                          Token。例如：最小-0.10，最大0.20。
-                        </NTooltip>
-                        <NInputNumber
-                          v-model:value="props.config.min_change_4h_threshold"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_change_4h_filter"
-                          size="tiny"
-                          placeholder="最小"
+                      <!-- 4小时涨跌幅过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <NSwitch
+                          v-model:value="props.config.enable_change_4h_filter"
+                          size="small"
+                          :disabled="isRunning"
                         />
-                        <NInputNumber
-                          v-model:value="props.config.max_change_4h_threshold"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_change_4h_filter"
-                          size="tiny"
-                          placeholder="最大"
-                        />
+                        <div class="grid grid-cols-3 flex-1 gap-1">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>4小时</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            Token 在过去4小时的价格变动范围。较长期的市场趋势指标，可以筛选出有持续上涨势头的
+                            Token。例如：最小-0.10，最大0.20。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.min_change_4h_threshold"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_change_4h_filter"
+                            size="tiny"
+                            placeholder="最小"
+                          />
+                          <NInputNumber
+                            v-model:value="props.config.max_change_4h_threshold"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_change_4h_filter"
+                            size="tiny"
+                            placeholder="最大"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <!-- 24小时涨跌幅过滤器 -->
-                    <div class="flex items-center space-x-3">
-                      <NSwitch
-                        v-model:value="props.config.enable_change_24h_filter"
-                        size="small"
-                        :disabled="isRunning"
-                      />
-                      <div class="grid grid-cols-3 flex-1 gap-1">
-                        <NTooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
-                              <span>24小时</span>
-                              <span class="text-xs text-blue-400">ℹ️</span>
-                            </label>
-                          </template>
-                          Token 在过去24小时的价格变动范围。长期趋势指标，可以排除过度波动的
-                          Token，选择表现稳定或有明确方向的 Token。
-                        </NTooltip>
-                        <NInputNumber
-                          v-model:value="props.config.min_change_24h_threshold"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_change_24h_filter"
-                          size="tiny"
-                          placeholder="最小"
+                      <!-- 24小时涨跌幅过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <NSwitch
+                          v-model:value="props.config.enable_change_24h_filter"
+                          size="small"
+                          :disabled="isRunning"
                         />
-                        <NInputNumber
-                          v-model:value="props.config.max_change_24h_threshold"
-                          :step="0.01"
-                          :precision="2"
-                          :disabled="isRunning || !props.config.enable_change_24h_filter"
-                          size="tiny"
-                          placeholder="最大"
-                        />
+                        <div class="grid grid-cols-3 flex-1 gap-1">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>24小时</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            Token 在过去24小时的价格变动范围。长期趋势指标，可以排除过度波动的
+                            Token，选择表现稳定或有明确方向的 Token。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.min_change_24h_threshold"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_change_24h_filter"
+                            size="tiny"
+                            placeholder="最小"
+                          />
+                          <NInputNumber
+                            v-model:value="props.config.max_change_24h_threshold"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning || !props.config.enable_change_24h_filter"
+                            size="tiny"
+                            placeholder="最大"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </NCollapseItem>
+                  </NCollapseItem>
+                </template>
+
+                <!-- 🆕 动能策略专用过滤器 -->
+                <template v-else>
+                  <NCollapseItem title="⚡ 动能策略过滤器" name="momentum">
+                    <div class="space-y-3">
+                      <!-- 最低动能分数过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <div class="grid grid-cols-2 flex-1 gap-2">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>最低动能分数 ≥</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            基于价格动能的综合评分，数值越高表示该 Token 的上涨动能越强。建议设置在 1.0-2.0 之间。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.min_momentum_score"
+                            :min="-5"
+                            :max="5"
+                            :step="0.1"
+                            :precision="1"
+                            :disabled="isRunning"
+                            size="tiny"
+                            placeholder="1.5"
+                          />
+                        </div>
+                      </div>
+
+                      <!-- 最低Elo胜率过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <div class="grid grid-cols-2 flex-1 gap-2">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>最低Elo胜率 ≥</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            基于Elo评分系统的胜率预测，数值越高表示该 Token 在竞争中获胜的概率越大。建议设置在 0.50-0.70
+                            之间。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.min_elo_win_rate"
+                            :min="0"
+                            :max="1"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning"
+                            size="tiny"
+                            placeholder="0.55"
+                          />
+                        </div>
+                      </div>
+
+                      <!-- 最低置信度过滤器 -->
+                      <div class="flex items-center space-x-3">
+                        <div class="grid grid-cols-2 flex-1 gap-2">
+                          <NTooltip trigger="hover" placement="top">
+                            <template #trigger>
+                              <label class="inline-flex cursor-help items-center text-xs text-gray-300 space-x-1">
+                                <span>最低置信度 ≥</span>
+                                <span class="text-xs text-blue-400">ℹ️</span>
+                              </label>
+                            </template>
+                            动能预测模型对结果的置信程度，数值越高表示预测越可靠。建议设置在 0.60-0.80 之间。
+                          </NTooltip>
+                          <NInputNumber
+                            v-model:value="props.config.min_confidence"
+                            :min="0"
+                            :max="1"
+                            :step="0.01"
+                            :precision="2"
+                            :disabled="isRunning"
+                            size="tiny"
+                            placeholder="0.65"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </NCollapseItem>
+                </template>
               </NCollapse>
             </div>
 
@@ -1272,8 +1416,8 @@
     };
   };
 
-  // 评估预测是否符合策略条件（复制自AutoBetting.vue）
-  const evaluatePredictionMatch = (prediction: any): boolean => {
+  // 🆕 H2H策略评估逻辑
+  const evaluateH2HPrediction = (prediction: any): boolean => {
     // 对于排名下注策略，首先检查排名是否在选中范围内
     if (props.config.strategy === 'rank_betting') {
       if (!props.config.rank_betting_enabled_ranks.includes(prediction.predicted_rank)) {
@@ -1342,6 +1486,31 @@
     }
 
     return true;
+  };
+
+  // 🆕 动能策略评估逻辑
+  const evaluateMomentumPrediction = (prediction: any): boolean => {
+    // 动能策略使用不同的数据字段和评估标准
+    const momentumScore = prediction.momentum_score || 0;
+    const eloWinRate = prediction.elo_win_rate || 0;
+    const confidence = prediction.confidence || 0;
+
+    // 检查动能策略的三个核心条件
+    if (momentumScore < props.config.min_momentum_score) return false;
+    if (eloWinRate < props.config.min_elo_win_rate) return false;
+    if (confidence < props.config.min_confidence) return false;
+
+    return true;
+  };
+
+  // 🔧 评估预测是否符合策略条件 - 支持多策略类型
+  const evaluatePredictionMatch = (prediction: any): boolean => {
+    // 🆕 根据策略类型选择不同的评估逻辑
+    if (props.config.strategy_type === 'momentum') {
+      return evaluateMomentumPrediction(prediction);
+    } else {
+      return evaluateH2HPrediction(prediction);
+    }
   };
 
   // 调试工具函数
@@ -1423,6 +1592,29 @@
   const applyStrategyTemplate = (key: string) => emit('applyStrategyTemplate', key);
   const executeStrategyBetting = () => emit('executeStrategyBetting');
   const manualSaveConfig = () => emit('manualSaveConfig');
+
+  // [新增] 创建计算属性来动态选择数据源
+  const displayAnalysisData = computed(() => {
+    if (props.config.strategy_type === 'momentum') {
+      return props.hybridPredictions || [];
+    }
+    return props.currentAnalysis || [];
+  });
+
+  // 替换 strategyTemplatesWithCustom 的定义，增加过滤逻辑
+  const strategyTemplatesWithCustom = computed(() => {
+    const allTemplates = props.strategyTemplatesWithCustom;
+    const type = props.config.strategy_type;
+    // 只保留与当前 strategy_type 匹配的模板
+    const filtered = Object.fromEntries(
+      Object.entries(allTemplates).filter(([key, tpl]) => {
+        // custom 模板始终保留
+        if (key === 'custom') return true;
+        return (tpl as any).strategy_type === type;
+      })
+    );
+    return filtered;
+  });
 </script>
 
 <style scoped>

@@ -22,6 +22,7 @@ class CalculateMomentumJob implements ShouldQueue
     protected $roundId;
     protected $symbols;
     protected $chainId;
+    protected $tokenPriceRepository;
     public $tries = 3; // 最大重试次数
     public $backoff = [10, 30, 60]; // 重试延迟（秒）
 
@@ -50,7 +51,10 @@ class CalculateMomentumJob implements ShouldQueue
         $startTime = microtime(true);
 
         try {
-            // 从数据库获取价格数据
+            // 保存TokenPriceRepository实例供后续使用
+            $this->tokenPriceRepository = $tokenPriceRepository;
+
+            // 从数据库获取价格数据（保持兼容性）
             $priceData = $tokenPriceRepository->getLatestPricesForTokens($this->symbols, 2);
 
             // 计算动能分数
@@ -118,67 +122,186 @@ class CalculateMomentumJob implements ShouldQueue
 
 
     /**
-     * 从数据库计算动能分数
+     * 从数据库计算动能分数（基于线性回归趋势分析）
      * @param array $priceData 价格数据数组，格式: ['SYMBOL' => Collection|null, ...]
      * @return array 动能分数数组
      */
     private function calculateMomentumScoresFromDatabase(array $priceData): array
     {
-        $momScore = [];
-        $validPriceCount = 0;
-        $invalidPriceCount = 0;
-        $sensitivity = 10.0; // 动能敏感度系数
-        $threshold = 0.001; // 微小变化阈值
+        // 获取历史价格序列用于线性回归计算
+        $historicalPriceData = $this->tokenPriceRepository->getHistoricalPriceSequences($this->symbols, 5);
 
+        $trendSlopes = [];
+        $validSlopes = 0;
+        $invalidSlopes = 0;
+
+        // 步骤一：为每个代币计算趋势斜率
         foreach ($this->symbols as $symbol) {
             $symbolUpper = strtoupper($symbol);
-            $prices = $priceData[$symbolUpper] ?? null;
+            $prices = $historicalPriceData[$symbolUpper] ?? null;
 
-            if ($prices && $prices->count() >= 2) {
-                // 获取最新的两个价格记录
-                $priceP1 = $prices->first()->price_usd; // 最新价格
-                $priceP0 = $prices->skip(1)->first()->price_usd; // 前一个价格
+            if ($prices && $prices->count() >= 3) {
+                // 计算线性回归斜率
+                $slope = $this->calculateLinearRegressionSlope($prices);
 
-                if ($this->isValidPriceData($priceP0, $priceP1)) {
-                    $priceDiff = $priceP1 - $priceP0;
-                    $priceChangePercent = round((($priceP1 / $priceP0 - 1) * 100), 6);
-                    $momentum = ($priceP1 / $priceP0 - 1) * 1000;
+                if ($slope !== null) {
+                    $trendSlopes[$symbol] = $slope;
+                    $validSlopes++;
 
-                    // 检查是否为微小变化
-                    if (abs($momentum) < $threshold) {
-                        // 微小变化时，基于历史数据生成更稳定的分数
-                        $historicalScore = $this->getHistoricalMomentumScore($symbol);
-                        $microChange = $momentum * 10000; // 放大微小变化
-                        $baseScore = $historicalScore;
-                        $microAdjustment = $microChange * 2.0; // 微小调整系数
-                        $momScore[$symbol] = max(45, min(55, $baseScore + $microAdjustment));
-                    } else {
-                        // 价格有明显变化，使用更敏感的计算
-                        $momScore[$symbol] = min(100, max(0, 50 + ($momentum * $sensitivity)));
-                    }
-
-
-
-                    $validPriceCount++;
+                    Log::info('[CalculateMomentumJob] 计算趋势斜率成功', [
+                        'symbol' => $symbol,
+                        'slope' => $slope,
+                        'data_points' => $prices->count()
+                    ]);
                 } else {
-                    // 使用智能默认值策略
-                    $momScore[$symbol] = $this->calculateDefaultMomentumScore($symbol, $priceP0, $priceP1);
-                    $invalidPriceCount++;
-
-
+                    $invalidSlopes++;
+                    Log::warning('[CalculateMomentumJob] 趋势斜率计算失败', [
+                        'symbol' => $symbol,
+                        'data_points' => $prices->count()
+                    ]);
                 }
             } else {
-                // 数据库中没有足够的价格记录，使用默认分数
-                $momScore[$symbol] = $this->calculateDefaultMomentumScore($symbol, null, null);
-                $invalidPriceCount++;
-
-
+                $invalidSlopes++;
+                Log::warning('[CalculateMomentumJob] 历史价格数据不足', [
+                    'symbol' => $symbol,
+                    'data_points' => $prices ? $prices->count() : 0
+                ]);
             }
         }
 
+        // 步骤二：如果没有有效的斜率数据，使用备用方案
+        if (empty($trendSlopes)) {
+            Log::warning('[CalculateMomentumJob] 没有有效的趋势斜率数据，使用备用方案', [
+                'valid_slopes' => $validSlopes,
+                'invalid_slopes' => $invalidSlopes
+            ]);
+            return $this->calculateFallbackMomentumScores();
+        }
 
+        // 步骤三：基于斜率进行排名和分数映射
+        $momentumScores = $this->mapSlopesToScores($trendSlopes);
 
-        return $momScore;
+        Log::info('[CalculateMomentumJob] 动能分数计算完成', [
+            'valid_slopes' => $validSlopes,
+            'invalid_slopes' => $invalidSlopes,
+            'momentum_scores' => $momentumScores
+        ]);
+
+        return $momentumScores;
+    }
+
+    /**
+     * 计算线性回归斜率
+     * @param Collection $prices 价格数据集合（按时间升序排列）
+     * @return float|null 斜率值，如果计算失败返回null
+     */
+    private function calculateLinearRegressionSlope($prices): ?float
+    {
+        try {
+            $n = $prices->count();
+            if ($n < 3) {
+                return null; // 至少需要3个数据点
+            }
+
+            // 准备数据：x为时间点（0, 1, 2, ...），y为价格
+            $xValues = [];
+            $yValues = [];
+
+            foreach ($prices as $index => $price) {
+                $xValues[] = $index; // 时间点：0, 1, 2, 3, 4
+                $yValues[] = (float) $price->price_usd;
+            }
+
+            // 计算线性回归斜率：slope = (N * Σ(xy) - Σx * Σy) / (N * Σ(x²) - (Σx)²)
+            $sumX = array_sum($xValues);
+            $sumY = array_sum($yValues);
+            $sumXY = 0;
+            $sumX2 = 0;
+
+            for ($i = 0; $i < $n; $i++) {
+                $sumXY += $xValues[$i] * $yValues[$i];
+                $sumX2 += $xValues[$i] * $xValues[$i];
+            }
+
+            $denominator = ($n * $sumX2) - ($sumX * $sumX);
+
+            if (abs($denominator) < 1e-10) {
+                // 分母接近零，无法计算斜率
+                return null;
+            }
+
+            $slope = (($n * $sumXY) - ($sumX * $sumY)) / $denominator;
+
+            return $slope;
+
+        } catch (\Exception $e) {
+            Log::error('[CalculateMomentumJob] 线性回归斜率计算失败', [
+                'error' => $e->getMessage(),
+                'data_points' => $prices->count()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * 将斜率映射到0-100的分数范围
+     * @param array $trendSlopes 斜率数组 ['SYMBOL' => slope, ...]
+     * @return array 分数数组 ['SYMBOL' => score, ...]
+     */
+    private function mapSlopesToScores(array $trendSlopes): array
+    {
+        if (empty($trendSlopes)) {
+            return [];
+        }
+
+        // 按斜率降序排序
+        arsort($trendSlopes);
+
+        $sortedSymbols = array_keys($trendSlopes);
+        $tokenCount = count($sortedSymbols);
+        $momentumScores = [];
+
+        // 线性映射：第一名100分，最后一名0分
+        foreach ($sortedSymbols as $index => $symbol) {
+            if ($tokenCount > 1) {
+                // 线性插值：100 - (index / (tokenCount - 1)) * 100
+                $score = 100 - ($index / ($tokenCount - 1)) * 100;
+            } else {
+                // 如果只有一个代币，给予中性分数
+                $score = 50;
+            }
+
+            $momentumScores[$symbol] = round($score, 1);
+        }
+
+        // 为没有斜率数据的代币分配默认分数
+        foreach ($this->symbols as $symbol) {
+            if (!isset($momentumScores[$symbol])) {
+                $momentumScores[$symbol] = $this->calculateDefaultMomentumScore($symbol, null, null);
+            }
+        }
+
+        return $momentumScores;
+    }
+
+    /**
+     * 备用动能分数计算方案（当线性回归失败时）
+     * @return array 动能分数数组
+     */
+    private function calculateFallbackMomentumScores(): array
+    {
+        $momentumScores = [];
+
+        foreach ($this->symbols as $symbol) {
+            $momentumScores[$symbol] = $this->calculateDefaultMomentumScore($symbol, null, null);
+        }
+
+        Log::info('[CalculateMomentumJob] 使用备用动能分数计算方案', [
+            'symbols' => $this->symbols,
+            'fallback_scores' => $momentumScores
+        ]);
+
+        return $momentumScores;
     }
 
     /**

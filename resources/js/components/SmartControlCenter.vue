@@ -352,17 +352,17 @@
           size="large"
         >
           <div class="space-y-4">
-            <!-- 🆕 预测模型选择器 -->
+            <!-- 🆕 策略说明 -->
             <div class="mb-4">
               <NTooltip trigger="hover" placement="top">
                 <template #trigger>
                   <label class="inline-flex cursor-help items-center text-sm text-gray-300 font-medium space-x-1">
-                    <span>预测模型</span>
+                    <span>策略说明</span>
                     <span class="text-blue-400">ℹ️</span>
                   </label>
                 </template>
                 <div class="space-y-1">
-                  <div><strong>预测模型说明：</strong></div>
+                  <div><strong>策略类型说明：</strong></div>
                   <div>
                     •
                     <strong>v8.3 H2H保本预测：</strong>
@@ -373,41 +373,14 @@
                     <strong>Hybrid-Edge 动能预测：</strong>
                     结合价格动能的混合预测模型
                   </div>
-                  <div>• 不同模型使用不同的过滤条件和评分标准</div>
+                  <div>
+                    •
+                    <strong>复合型策略：</strong>
+                    AI+动能排名交集，双重验证提高准确性
+                  </div>
+                  <div>• 点击任意策略模板，参数配置区域会自动显示对应的可调整参数</div>
                 </div>
               </NTooltip>
-              <div class="mt-2 flex items-center space-x-4">
-                <div class="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    :id="'h2h_breakeven'"
-                    :value="'h2h_breakeven'"
-                    v-model="props.config.strategy_type"
-                    class="text-blue-600 focus:ring-blue-500"
-                  />
-                  <label :for="'h2h_breakeven'" class="text-sm text-gray-300">v8.3 H2H保本预测</label>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    :id="'momentum'"
-                    :value="'momentum'"
-                    v-model="props.config.strategy_type"
-                    class="text-blue-600 focus:ring-blue-500"
-                  />
-                  <label :for="'momentum'" class="text-sm text-gray-300">Hybrid-Edge 动能预测</label>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    :id="'hybrid_rank'"
-                    :value="'hybrid_rank'"
-                    v-model="props.config.strategy_type"
-                    class="text-blue-600 focus:ring-blue-500"
-                  />
-                  <label :for="'hybrid_rank'" class="text-sm text-gray-300">🎯 复合型（AI+动能排名交集）</label>
-                </div>
-              </div>
             </div>
 
             <!-- 策略网格布局 -->
@@ -439,6 +412,30 @@
                 </div>
                 <div class="text-xs text-gray-400">{{ template.description }}</div>
                 <div v-if="String(key) !== 'custom'" class="mt-2 flex flex-wrap gap-1">
+                  <!-- 策略类型标签 -->
+                  <span
+                    class="rounded px-1.5 py-0.5 text-xs"
+                    :class="
+                      template.strategy_type === 'h2h_breakeven'
+                        ? 'bg-blue-600 text-blue-200'
+                        : template.strategy_type === 'momentum'
+                          ? 'bg-green-600 text-green-200'
+                          : template.strategy_type === 'hybrid_rank'
+                            ? 'bg-purple-600 text-purple-200'
+                            : 'bg-gray-600 text-gray-300'
+                    "
+                  >
+                    {{
+                      template.strategy_type === 'h2h_breakeven'
+                        ? 'H2H'
+                        : template.strategy_type === 'momentum'
+                          ? '动能'
+                          : template.strategy_type === 'hybrid_rank'
+                            ? '复合'
+                            : '通用'
+                    }}
+                  </span>
+                  <!-- 下注策略标签 -->
                   <span class="rounded bg-gray-600 px-1.5 py-0.5 text-xs text-gray-300">
                     {{
                       template.strategy === 'single_bet'
@@ -1759,7 +1756,16 @@
   const startAutoBetting = () => emit('startAutoBetting');
   const stopAutoBetting = () => emit('stopAutoBetting');
   const executeManualBetting = () => emit('executeManualBetting');
-  const applyStrategyTemplate = (key: string) => emit('applyStrategyTemplate', key);
+  const applyStrategyTemplate = (key: string) => {
+    // 获取选中的模板
+    const template = props.strategyTemplatesWithCustom[key];
+    if (template && template.strategy_type) {
+      // 自动设置策略类型
+      props.config.strategy_type = template.strategy_type;
+    }
+    // 应用模板配置
+    emit('applyStrategyTemplate', key);
+  };
   const executeStrategyBetting = () => emit('executeStrategyBetting');
   const manualSaveConfig = () => emit('manualSaveConfig');
 
@@ -1786,21 +1792,9 @@
     return props.currentAnalysis || [];
   });
 
-  // 替换 strategyTemplatesWithCustom 的定义，增加过滤逻辑
+  // 直接显示所有策略模板，不进行过滤
   const strategyTemplatesWithCustom = computed(() => {
-    const allTemplates = props.strategyTemplatesWithCustom;
-    const type = props.config.strategy_type;
-    // 只保留与当前 strategy_type 匹配的模板
-    const filtered = Object.fromEntries(
-      Object.entries(allTemplates).filter(([key, tpl]) => {
-        // custom 模板始终保留
-        if (key === 'custom') return true;
-        // 🆕 复合型策略：显示所有模板，因为复合型策略可以基于任何基础策略
-        if (type === 'hybrid_rank') return true;
-        return (tpl as any).strategy_type === type;
-      })
-    );
-    return filtered;
+    return props.strategyTemplatesWithCustom;
   });
 </script>
 

@@ -69,48 +69,6 @@
               {{ getMomentumStatusText(token.mom_score) }}
             </span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-gray-400">历史胜率:</span>
-            <span class="text-yellow-400 font-bold">
-              {{ token.win_rate ? (token.win_rate || 0).toFixed(1) + '%' : '-' }}
-            </span>
-          </div>
-
-          <!-- 代币涨跌幅信息 -->
-          <div class="mt-2 border-t border-gray-600/30 pt-1">
-            <div class="flex justify-between">
-              <span class="text-gray-400">5分钟:</span>
-              <span class="font-bold" :class="formatTokenPriceChange(token.change_5m).color">
-                {{ formatTokenPriceChange(token.change_5m).text }}
-              </span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-400">1小时:</span>
-              <span class="font-bold" :class="formatTokenPriceChange(token.change_1h).color">
-                {{ formatTokenPriceChange(token.change_1h).text }}
-              </span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-400">24小时:</span>
-              <span class="font-bold" :class="formatTokenPriceChange(token.change_24h).color">
-                {{ formatTokenPriceChange(token.change_24h).text }}
-              </span>
-            </div>
-          </div>
-
-          <!-- 实时游戏数据对比（如果有） -->
-          <div v-if="getTokenCurrentRank(token.symbol)" class="mt-2 border-t border-gray-600/30 pt-1">
-            <div class="flex justify-between">
-              <span class="text-gray-400">当前排名:</span>
-              <span class="text-cyan-400 font-bold">#{{ getTokenCurrentRank(token.symbol) }}</span>
-            </div>
-            <div v-if="getTokenCurrentChange(token.symbol)" class="flex justify-between">
-              <span class="text-gray-400">价格变化:</span>
-              <span class="font-bold" :class="formatPriceChange(getTokenCurrentChange(token.symbol)).color">
-                {{ formatPriceChange(getTokenCurrentChange(token.symbol)).text }}
-              </span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -178,40 +136,6 @@
     }
   };
 
-  // 获取Token当前排名
-  const getTokenCurrentRank = (symbol: string) => {
-    const token = props.currentGameTokensWithRanks.find((t) => t.symbol === symbol);
-    return token?.rank || null;
-  };
-
-  // 获取Token当前价格变化
-  const getTokenCurrentChange = (symbol: string) => {
-    const token = props.currentGameTokensWithRanks.find((t) => t.symbol === symbol);
-    return token?.priceChange || null;
-  };
-
-  // 格式化价格变化
-  const formatPriceChange = (change: number | null) => {
-    if (change === null || change === undefined) return { text: '-', color: 'text-gray-400' };
-
-    const prefix = change > 0 ? '+' : '';
-    const text = `${prefix}${change.toFixed(2)}%`;
-    const color = change > 0 ? 'text-green-400' : change < 0 ? 'text-red-400' : 'text-gray-400';
-
-    return { text, color };
-  };
-
-  // 格式化Token涨跌幅数据
-  const formatTokenPriceChange = (change: number | null) => {
-    if (change === null || change === undefined) return { text: '-', color: 'text-gray-400' };
-
-    const prefix = change > 0 ? '+' : '';
-    const text = `${prefix}${change.toFixed(2)}%`;
-    const color = change > 0 ? 'text-green-400' : change < 0 ? 'text-red-400' : 'text-gray-400';
-
-    return { text, color };
-  };
-
   // 获取动能状态文本
   const getMomentumStatusText = (momScore: number) => {
     if (momScore >= 70) return '强劲上升';
@@ -247,6 +171,6 @@
     if (index === 0) return '🥇';
     if (index === 1) return '🥈';
     if (index === 2) return '🥉';
-    return '��';
+    return '🏅';
   };
 </script>

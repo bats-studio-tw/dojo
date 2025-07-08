@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <!-- 🎯 统一预测展示区域 -->
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+    <div class="space-y-6">
       <!-- 🔮 AI预测排名面板 -->
       <AIPredictionRanking
         :current-analysis="currentAnalysis"

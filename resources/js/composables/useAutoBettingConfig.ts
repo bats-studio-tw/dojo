@@ -257,7 +257,10 @@ export const strategyTemplates = {
     enable_change_24h_filter: false,
     min_change_24h_threshold: 0,
     max_change_24h_threshold: 0,
-    strategy_type: 'h2h_breakeven' as const
+    strategy_type: 'h2h_breakeven' as const,
+    min_momentum_score: 1.5,
+    min_elo_win_rate: 0.55,
+    min_confidence: 0.65
   },
 
   /** 🗿 磐石型 (The Rock) — 回測 63.2 % */
@@ -330,7 +333,10 @@ export const strategyTemplates = {
     min_change_4h_threshold: 0,
     max_change_4h_threshold: 0,
     // 🆕 新增策略类型和动能参数
-    strategy_type: 'h2h_breakeven' as const
+    strategy_type: 'h2h_breakeven' as const,
+    min_momentum_score: 1.5,
+    min_elo_win_rate: 0.55,
+    min_confidence: 0.65
   },
 
   /** 🎯 狙擊手型 (Elite Sniper 75) — 回測 75 %+ */
@@ -403,7 +409,10 @@ export const strategyTemplates = {
     min_change_4h_threshold: 0,
     max_change_4h_threshold: 0,
     // 🆕 新增策略类型和动能参数
-    strategy_type: 'h2h_breakeven' as const
+    strategy_type: 'h2h_breakeven' as const,
+    min_momentum_score: 1.5,
+    min_elo_win_rate: 0.55,
+    min_confidence: 0.65
   },
 
   /** 🏇 動量騎士型 (Momentum Rider) — 回測 61.9 % */
@@ -475,7 +484,10 @@ export const strategyTemplates = {
     min_change_4h_threshold: 0,
     max_change_4h_threshold: 0,
     // 🆕 新增策略类型和动能参数
-    strategy_type: 'h2h_breakeven' as const
+    strategy_type: 'h2h_breakeven' as const,
+    min_momentum_score: 1.5,
+    min_elo_win_rate: 0.55,
+    min_confidence: 0.65
   },
 
   /** ⚖️ 全能平衡型 (Precision 66) — 回測 66.2 % */
@@ -546,7 +558,12 @@ export const strategyTemplates = {
     max_change_5m_threshold: 0,
     enable_change_4h_filter: false,
     min_change_4h_threshold: 0,
-    max_change_4h_threshold: 0
+    max_change_4h_threshold: 0,
+    // 🆕 新增策略类型和动能参数
+    strategy_type: 'h2h_breakeven' as const,
+    min_momentum_score: 1.5,
+    min_elo_win_rate: 0.55,
+    min_confidence: 0.65
   },
 
   // 🎯 智能排名策略 - 保持宽松设置
@@ -612,7 +629,10 @@ export const strategyTemplates = {
     min_change_24h_threshold: 0,
     max_change_24h_threshold: 0,
     // 🆕 新增策略类型和动能参数
-    strategy_type: 'h2h_breakeven' as const
+    strategy_type: 'h2h_breakeven' as const,
+    min_momentum_score: 1.5,
+    min_elo_win_rate: 0.55,
+    min_confidence: 0.65
   },
 
   // 🆕 动能狙击手模板
@@ -684,12 +704,7 @@ export const strategyTemplates = {
     max_change_4h_threshold: 0,
     enable_change_24h_filter: false,
     min_change_24h_threshold: 0,
-    max_change_24h_threshold: 0,
-    // 🆕 新增策略类型和动能参数
-    strategy_type: 'momentum' as const,
-    min_momentum_score: 1.5,
-    min_elo_win_rate: 0.55,
-    min_confidence: 0.65
+    max_change_24h_threshold: 0
   }
 };
 
@@ -754,7 +769,12 @@ export const useAutoBettingConfig = () => {
       max_change_4h_threshold: config.max_change_4h_threshold,
       enable_change_24h_filter: config.enable_change_24h_filter,
       min_change_24h_threshold: config.min_change_24h_threshold,
-      max_change_24h_threshold: config.max_change_24h_threshold
+      max_change_24h_threshold: config.max_change_24h_threshold,
+      // 🆕 新增策略类型和动能参数
+      strategy_type: config.strategy_type,
+      min_momentum_score: config.min_momentum_score,
+      min_elo_win_rate: config.min_elo_win_rate,
+      min_confidence: config.min_confidence
     }
   });
 

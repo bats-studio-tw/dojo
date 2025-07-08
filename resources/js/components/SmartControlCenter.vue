@@ -167,6 +167,14 @@
                   下注 ${{ config.bet_amount }}
                 </span>
               </div>
+              <!-- 🆕 复合型策略：显示两种排名 -->
+              <div
+                v-if="props.config.strategy_type === 'hybrid_rank'"
+                class="mt-2 flex items-center justify-between text-xs"
+              >
+                <span class="text-blue-300">AI: #{{ token.predicted_rank || 'N/A' }}</span>
+                <span class="text-green-300">动能: #{{ token.momentum_rank || 'N/A' }}</span>
+              </div>
             </div>
 
             <!-- 核心指标 -->
@@ -389,6 +397,16 @@
                     class="text-blue-600 focus:ring-blue-500"
                   />
                   <label :for="'momentum'" class="text-sm text-gray-300">Hybrid-Edge 动能预测</label>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    :id="'hybrid_rank'"
+                    :value="'hybrid_rank'"
+                    v-model="props.config.strategy_type"
+                    class="text-blue-600 focus:ring-blue-500"
+                  />
+                  <label :for="'hybrid_rank'" class="text-sm text-gray-300">🎯 复合型（AI+动能排名交集）</label>
                 </div>
               </div>
             </div>
@@ -1134,6 +1152,103 @@
               </NCollapse>
             </div>
 
+            <!-- 🆕 复合型策略配置 -->
+            <template v-if="props.config.strategy_type === 'hybrid_rank'">
+              <div class="space-y-4">
+                <!-- 复合型策略说明 -->
+                <div class="border border-blue-500/30 rounded-lg bg-blue-500/10 p-3">
+                  <div class="mb-2 text-sm text-blue-300 font-medium">🎯 复合型策略说明</div>
+                  <div class="text-xs text-blue-200/70 space-y-1">
+                    <div>• 只有当Token同时满足AI预测排名和动能预测排名条件时才下注</div>
+                    <div>• 可以设置不同的逻辑：必须同时满足("且") 或 满足任一("或")</div>
+                    <div>• 建议选择TOP1-3排名，提高命中率</div>
+                  </div>
+                </div>
+
+                <!-- 逻辑选择 -->
+                <div class="space-y-2">
+                  <NTooltip trigger="hover" placement="top">
+                    <template #trigger>
+                      <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
+                        <span>逻辑条件</span>
+                        <span class="text-blue-400">ℹ️</span>
+                      </label>
+                    </template>
+                    选择排名条件的逻辑关系：
+                    <br />
+                    • "且"：必须同时满足AI排名和动能排名条件
+                    <br />
+                    • "或"：满足任一排名条件即可
+                  </NTooltip>
+                  <n-select
+                    v-model:value="props.config.hybrid_rank_logic"
+                    :options="[
+                      { label: '且 (必须同时满足)', value: 'and' },
+                      { label: '或 (满足任一即可)', value: 'or' }
+                    ]"
+                    :disabled="isRunning"
+                    size="small"
+                  />
+                </div>
+
+                <!-- AI预测排名选择 -->
+                <div class="space-y-2">
+                  <NTooltip trigger="hover" placement="top">
+                    <template #trigger>
+                      <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
+                        <span>AI预测排名</span>
+                        <span class="text-blue-400">ℹ️</span>
+                      </label>
+                    </template>
+                    选择AI预测排名为哪些名次的Token。可以选择多个排名，建议选择TOP1-3。
+                  </NTooltip>
+                  <div class="grid grid-cols-5 gap-2">
+                    <div
+                      v-for="rank in [1, 2, 3, 4, 5]"
+                      :key="`h2h-${rank}`"
+                      class="cursor-pointer border-2 rounded p-2 text-center text-xs transition-all duration-200"
+                      :class="
+                        props.config.h2h_rank_enabled_ranks.includes(rank)
+                          ? 'border-blue-400 bg-blue-500/20 text-blue-400'
+                          : 'border-gray-500/30 bg-gray-500/10 text-gray-400 hover:border-gray-400/60'
+                      "
+                      @click="toggleH2HRankBetting(rank, !props.config.h2h_rank_enabled_ranks.includes(rank))"
+                    >
+                      <div class="font-bold">TOP{{ rank }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 动能预测排名选择 -->
+                <div class="space-y-2">
+                  <NTooltip trigger="hover" placement="top">
+                    <template #trigger>
+                      <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
+                        <span>动能预测排名</span>
+                        <span class="text-blue-400">ℹ️</span>
+                      </label>
+                    </template>
+                    选择动能预测排名为哪些名次的Token。可以选择多个排名，建议选择TOP1-3。
+                  </NTooltip>
+                  <div class="grid grid-cols-5 gap-2">
+                    <div
+                      v-for="rank in [1, 2, 3, 4, 5]"
+                      :key="`momentum-${rank}`"
+                      class="cursor-pointer border-2 rounded p-2 text-center text-xs transition-all duration-200"
+                      :class="
+                        props.config.momentum_rank_enabled_ranks.includes(rank)
+                          ? 'border-green-400 bg-green-500/20 text-green-400'
+                          : 'border-gray-500/30 bg-gray-500/10 text-gray-400 hover:border-gray-400/60'
+                      "
+                      @click="toggleMomentumRankBetting(rank, !props.config.momentum_rank_enabled_ranks.includes(rank))"
+                    >
+                      <div class="font-bold">TOP{{ rank }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+
             <!-- 保存按钮 -->
             <div class="text-center">
               <n-button @click="manualSaveConfig" :disabled="isRunning" :loading="configSaving" type="primary">
@@ -1310,6 +1425,36 @@
     }
   };
 
+  // 🆕 复合型策略 - AI预测排名切换方法
+  const toggleH2HRankBetting = (rank: number, checked: boolean) => {
+    if (checked) {
+      if (!props.config.h2h_rank_enabled_ranks.includes(rank)) {
+        props.config.h2h_rank_enabled_ranks.push(rank);
+        props.config.h2h_rank_enabled_ranks.sort((a: number, b: number) => a - b);
+      }
+    } else {
+      const index = props.config.h2h_rank_enabled_ranks.indexOf(rank);
+      if (index > -1) {
+        props.config.h2h_rank_enabled_ranks.splice(index, 1);
+      }
+    }
+  };
+
+  // 🆕 复合型策略 - 动能预测排名切换方法
+  const toggleMomentumRankBetting = (rank: number, checked: boolean) => {
+    if (checked) {
+      if (!props.config.momentum_rank_enabled_ranks.includes(rank)) {
+        props.config.momentum_rank_enabled_ranks.push(rank);
+        props.config.momentum_rank_enabled_ranks.sort((a: number, b: number) => a - b);
+      }
+    } else {
+      const index = props.config.momentum_rank_enabled_ranks.indexOf(rank);
+      if (index > -1) {
+        props.config.momentum_rank_enabled_ranks.splice(index, 1);
+      }
+    }
+  };
+
   // 🔄 重置为默认配置
   const resetToDefaults = () => {
     window.$dialog?.warning({
@@ -1412,7 +1557,9 @@
       sample_count: rawPrediction.total_games || rawPrediction.sample_count || 0,
       historical_accuracy: (rawPrediction.win_rate || 0) / 100,
       symbol: rawPrediction.symbol,
-      predicted_rank: rawPrediction.predicted_rank
+      predicted_rank: rawPrediction.predicted_rank,
+      // 🆕 复合型策略需要的数据
+      momentum_rank: rawPrediction.momentum_rank || rawPrediction.predicted_rank || 999
     };
   };
 
@@ -1503,11 +1650,35 @@
     return true;
   };
 
+  // 🆕 复合型策略评估逻辑
+  const evaluateHybridRankPrediction = (prediction: any): boolean => {
+    // 获取AI预测排名和动能预测排名
+    const h2hRank = prediction.predicted_rank || 999;
+    const momentumRank = prediction.momentum_rank || 999;
+
+    // 检查AI预测排名是否在选中范围内
+    const h2hRankMatch = props.config.h2h_rank_enabled_ranks.includes(h2hRank);
+
+    // 检查动能预测排名是否在选中范围内
+    const momentumRankMatch = props.config.momentum_rank_enabled_ranks.includes(momentumRank);
+
+    // 根据逻辑条件判断
+    if (props.config.hybrid_rank_logic === 'and') {
+      // "且"逻辑：必须同时满足两个条件
+      return h2hRankMatch && momentumRankMatch;
+    } else {
+      // "或"逻辑：满足任一条件即可
+      return h2hRankMatch || momentumRankMatch;
+    }
+  };
+
   // 🔧 评估预测是否符合策略条件 - 支持多策略类型
   const evaluatePredictionMatch = (prediction: any): boolean => {
     // 🆕 根据策略类型选择不同的评估逻辑
     if (props.config.strategy_type === 'momentum') {
       return evaluateMomentumPrediction(prediction);
+    } else if (props.config.strategy_type === 'hybrid_rank') {
+      return evaluateHybridRankPrediction(prediction);
     } else {
       return evaluateH2HPrediction(prediction);
     }
@@ -1597,6 +1768,21 @@
   const displayAnalysisData = computed(() => {
     if (props.config.strategy_type === 'momentum') {
       return props.hybridPredictions || [];
+    } else if (props.config.strategy_type === 'hybrid_rank') {
+      // 🆕 复合型策略：需要同时有AI预测和动能预测数据
+      const h2hData = props.currentAnalysis || [];
+      const momentumData = props.hybridPredictions || [];
+
+      // 合并数据，确保每个Token都有两种预测的排名信息
+      const combinedData = h2hData.map((h2hToken: any) => {
+        const momentumToken = momentumData.find((m: any) => m.symbol === h2hToken.symbol);
+        return {
+          ...h2hToken,
+          momentum_rank: momentumToken?.predicted_rank || 999
+        };
+      });
+
+      return combinedData;
     }
     return props.currentAnalysis || [];
   });
@@ -1610,6 +1796,8 @@
       Object.entries(allTemplates).filter(([key, tpl]) => {
         // custom 模板始终保留
         if (key === 'custom') return true;
+        // 🆕 复合型策略：显示所有模板，因为复合型策略可以基于任何基础策略
+        if (type === 'hybrid_rank') return true;
         return (tpl as any).strategy_type === type;
       })
     );

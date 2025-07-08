@@ -737,6 +737,83 @@ export const strategyTemplates = {
     enable_change_24h_filter: false,
     min_change_24h_threshold: 0,
     max_change_24h_threshold: 0
+  },
+
+  // 🆕 复合型策略模板
+  hybrid_rank_conservative: {
+    name: '🎯 复合型保守策略',
+    description: 'AI预测TOP1-2 且 动能预测TOP1-2，双重确认提高命中率。',
+    strategy: 'single_bet' as const,
+    bet_amount: 200,
+    daily_stop_loss_percentage: 10,
+    max_bet_percentage: 8,
+    // 🆕 复合型策略专用参数
+    strategy_type: 'hybrid_rank' as const,
+    enable_hybrid_rank_filter: true,
+    h2h_rank_enabled_ranks: [1, 2],
+    momentum_rank_enabled_ranks: [1, 2],
+    hybrid_rank_logic: 'and' as const,
+    // H2H策略参数（复合型策略不使用）
+    confidence_threshold: 0,
+    score_gap_threshold: 0,
+    min_total_games: 1,
+    historical_accuracy_threshold: 0,
+    min_sample_count: 1,
+    // 动能策略参数（复合型策略不使用）
+    min_momentum_score: 0,
+    min_elo_win_rate: 0,
+    min_confidence: 0,
+    // 风控
+    stop_loss_consecutive: 5,
+    // 关闭所有过滤器
+    enable_trend_analysis: false,
+    enable_volume_filter: false,
+    enable_kelly_criterion: false,
+    kelly_fraction: 25,
+    enable_martingale: false,
+    martingale_multiplier: 2.0,
+    max_martingale_steps: 3,
+    enable_time_filter: false,
+    allowed_hours_start: 9,
+    allowed_hours_end: 21,
+    enable_volatility_filter: false,
+    max_volatility_threshold: 80,
+    min_liquidity_threshold: 1000000,
+    is_active: false,
+    rank_betting_enabled_ranks: [1, 2, 3],
+    rank_betting_amount_per_rank: 200,
+    rank_betting_different_amounts: false,
+    rank_betting_rank1_amount: 200,
+    rank_betting_rank2_amount: 200,
+    rank_betting_rank3_amount: 200,
+    rank_betting_max_ranks: 5,
+    // 关闭所有过滤器
+    enable_win_rate_filter: false,
+    min_win_rate_threshold: 0,
+    enable_top3_rate_filter: false,
+    min_top3_rate_threshold: 0,
+    enable_avg_rank_filter: false,
+    max_avg_rank_threshold: 0,
+    enable_stability_filter: false,
+    max_stability_threshold: 0,
+    enable_absolute_score_filter: false,
+    min_absolute_score_threshold: 0,
+    enable_relative_score_filter: false,
+    min_relative_score_threshold: 0,
+    enable_h2h_score_filter: false,
+    min_h2h_score_threshold: 0,
+    enable_change_5m_filter: false,
+    min_change_5m_threshold: 0,
+    max_change_5m_threshold: 0,
+    enable_change_1h_filter: false,
+    min_change_1h_threshold: 0,
+    max_change_1h_threshold: 0,
+    enable_change_4h_filter: false,
+    min_change_4h_threshold: 0,
+    max_change_4h_threshold: 0,
+    enable_change_24h_filter: false,
+    min_change_24h_threshold: 0,
+    max_change_24h_threshold: 0
   }
 };
 
@@ -806,7 +883,12 @@ export const useAutoBettingConfig = () => {
       strategy_type: config.strategy_type,
       min_momentum_score: config.min_momentum_score,
       min_elo_win_rate: config.min_elo_win_rate,
-      min_confidence: config.min_confidence
+      min_confidence: config.min_confidence,
+      // 🆕 新增复合型策略参数
+      enable_hybrid_rank_filter: config.enable_hybrid_rank_filter,
+      h2h_rank_enabled_ranks: config.h2h_rank_enabled_ranks,
+      momentum_rank_enabled_ranks: config.momentum_rank_enabled_ranks,
+      hybrid_rank_logic: config.hybrid_rank_logic
     }
   });
 

@@ -154,7 +154,7 @@
         props.hybridPredictions &&
         props.hybridPredictions.length > 0 &&
         newRoundId &&
-        props.hybridPredictions.some((p) => p.round_id === newRoundId);
+        props.analysisMeta?.round_id === newRoundId;
 
       // 回合变化
       if (newRoundId && oldRoundId && newRoundId !== oldRoundId) {
@@ -201,12 +201,30 @@
     (newPredictions) => {
       // 如果有新的预测数据且与当前轮次匹配，立即结束过渡状态
       if (newPredictions && newPredictions.length > 0 && props.currentRoundId) {
-        const hasDataForCurrentRound = newPredictions.some((p) => p.round_id === props.currentRoundId);
+        const hasDataForCurrentRound = props.analysisMeta?.round_id === props.currentRoundId;
 
         if (hasDataForCurrentRound) {
           currentDisplayRoundId.value = props.currentRoundId;
           endRoundTransition();
         }
+      }
+    },
+    { deep: true }
+  );
+
+  // 監聽 analysisMeta 變化
+  watch(
+    () => props.analysisMeta,
+    (newMeta) => {
+      // 如果meta数据更新且与当前轮次匹配，同时有预测数据，立即结束过渡状态
+      if (
+        newMeta &&
+        newMeta.round_id === props.currentRoundId &&
+        props.hybridPredictions &&
+        props.hybridPredictions.length > 0
+      ) {
+        currentDisplayRoundId.value = props.currentRoundId;
+        endRoundTransition();
       }
     },
     { deep: true }

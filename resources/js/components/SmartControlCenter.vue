@@ -1,33 +1,32 @@
 <template>
   <div class="space-y-6">
-    <!-- 🔮 AI预测排名面板 (使用组件) -->
-    <AIPredictionRanking
-      :current-analysis="currentAnalysis"
-      :analysis-meta="analysisMeta"
-      :current-round-id="currentRoundId"
-      :current-game-status="currentGameStatus"
-      :current-game-tokens-with-ranks="currentGameTokensWithRanks"
-      :analysis-loading="analysisLoading"
-      @refresh-analysis="refreshAnalysis"
-    />
+    <!-- 🎯 统一预测展示区域 -->
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <!-- 🔮 AI预测排名面板 -->
+      <AIPredictionRanking
+        :current-analysis="currentAnalysis"
+        :analysis-meta="analysisMeta"
+        :current-round-id="currentRoundId"
+        :current-game-status="currentGameStatus"
+        :current-game-tokens-with-ranks="currentGameTokensWithRanks"
+        :analysis-loading="analysisLoading"
+        @refresh-analysis="refreshAnalysis"
+      />
 
-    <!-- ⚡ AI动能预测排名面板 -->
-    <MomentumPredictionDisplay
-      :hybrid-predictions="hybridPredictions || []"
-      :analysis-meta="hybridAnalysisMeta"
-      :current-round-id="currentRoundId"
-      :current-game-status="currentGameStatus"
-      :current-game-tokens-with-ranks="currentGameTokensWithRanks"
-      :analysis-loading="hybridAnalysisLoading"
-      @refresh-analysis="refreshHybridAnalysis"
-    />
+      <!-- ⚡ AI动能预测排名面板 -->
+      <MomentumPredictionDisplay
+        :hybrid-predictions="hybridPredictions || []"
+        :analysis-meta="hybridAnalysisMeta"
+        :current-round-id="currentRoundId"
+        :current-game-status="currentGameStatus"
+        :current-game-tokens-with-ranks="currentGameTokensWithRanks"
+        :analysis-loading="hybridAnalysisLoading"
+        @refresh-analysis="refreshHybridAnalysis"
+      />
+    </div>
 
-    <!-- 🤖 自动下注状态面板 (整合自页面) -->
-    <NCard
-      class="mb-6 border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-      title="🤖 自动下注状态"
-      size="large"
-    >
+    <!-- 🤖 自动下注状态面板 -->
+    <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="🤖 自动下注状态" size="large">
       <template #header-extra>
         <div class="flex items-center space-x-3">
           <n-button @click="setVeryLowThresholds" type="warning" size="small">🚨 紧急降低门槛</n-button>
@@ -342,7 +341,7 @@
       </div>
     </NCard>
 
-    <!-- 主要工作区域：左侧策略配置，右侧快速配置 -->
+    <!-- 🎛️ 智能控制中心：策略配置区域 -->
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
       <!-- 左侧：策略选择和配置区域 -->
       <div class="space-y-6">
@@ -464,7 +463,7 @@
       <!-- 右侧：快速配置面板 -->
       <div class="space-y-6">
         <!-- 快速配置面板 -->
-        <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="⚙️ 快速配置">
+        <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="⚙️ 策略参数配置">
           <div class="space-y-4">
             <!-- 基础配置 -->
             <div class="grid grid-cols-1 gap-4">

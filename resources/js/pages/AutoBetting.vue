@@ -395,13 +395,17 @@
       sample_count: rawPrediction.total_games || rawPrediction.sample_count || 0,
       historical_accuracy: (rawPrediction.win_rate || 0) / 100,
       symbol: rawPrediction.symbol,
-      predicted_rank: rawPrediction.predicted_rank
+      predicted_rank: rawPrediction.predicted_rank,
+      // 🆕 复合型策略需要的数据
+      momentum_rank: rawPrediction.momentum_rank || rawPrediction.predicted_rank || 999
     };
   };
 
-  // 🔧 评估预测是否符合策略条件 - 逻辑验证完毕
+  // 🔧 评估预测是否符合策略条件 - 支持多策略类型
   // 📊 数据单位统一 (2025-01-06): 所有百分比配置项已统一为0-100格式
-  const evaluatePredictionMatch = (prediction: any): boolean => {
+
+  // 🆕 H2H策略评估逻辑
+  const evaluateH2HPrediction = (prediction: any): boolean => {
     // 对于排名下注策略，首先检查排名是否在选中范围内
     if (config.strategy === 'rank_betting') {
       if (!config.rank_betting_enabled_ranks.includes(prediction.predicted_rank)) {
@@ -457,6 +461,55 @@
     return true;
   };
 
+  // 🆕 动能策略评估逻辑
+  const evaluateMomentumPrediction = (prediction: any): boolean => {
+    // 动能策略使用不同的数据字段和评估标准
+    const momentumScore = prediction.momentum_score || 0;
+    const eloWinRate = prediction.elo_win_rate || 0;
+    const confidence = prediction.confidence || 0;
+
+    // 检查动能策略的三个核心条件
+    if (momentumScore < config.min_momentum_score) return false;
+    if (eloWinRate < config.min_elo_win_rate) return false;
+    if (confidence < config.min_confidence) return false;
+
+    return true;
+  };
+
+  // 🆕 复合型策略评估逻辑
+  const evaluateHybridRankPrediction = (prediction: any): boolean => {
+    // 获取AI预测排名和动能预测排名
+    const h2hRank = prediction.predicted_rank || 999;
+    const momentumRank = prediction.momentum_rank || 999;
+
+    // 检查AI预测排名是否在选中范围内
+    const h2hRankMatch = config.h2h_rank_enabled_ranks.includes(h2hRank);
+
+    // 检查动能预测排名是否在选中范围内
+    const momentumRankMatch = config.momentum_rank_enabled_ranks.includes(momentumRank);
+
+    // 根据逻辑条件判断
+    if (config.hybrid_rank_logic === 'and') {
+      // "且"逻辑：必须同时满足两个条件
+      return h2hRankMatch && momentumRankMatch;
+    } else {
+      // "或"逻辑：满足任一条件即可
+      return h2hRankMatch || momentumRankMatch;
+    }
+  };
+
+  // 🔧 评估预测是否符合策略条件 - 支持多策略类型
+  const evaluatePredictionMatch = (prediction: any): boolean => {
+    // 🆕 根据策略类型选择不同的评估逻辑
+    if (config.strategy_type === 'momentum') {
+      return evaluateMomentumPrediction(prediction);
+    } else if (config.strategy_type === 'hybrid_rank') {
+      return evaluateHybridRankPrediction(prediction);
+    } else {
+      return evaluateH2HPrediction(prediction);
+    }
+  };
+
   // 计算下注金额
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const calculateBetAmount = (prediction: any): number => {
@@ -471,12 +524,32 @@
     debugInfo.strategyValidationCount++;
     debugInfo.lastValidationTime = new Date().toLocaleTimeString();
 
-    if (!currentAnalysis.value || currentAnalysis.value.length === 0) {
+    // 🆕 根据策略类型选择数据源
+    let predictions: any[] = [];
+    if (config.strategy_type === 'momentum') {
+      predictions = hybridPredictions.value || [];
+    } else if (config.strategy_type === 'hybrid_rank') {
+      // 🆕 复合型策略：需要同时有AI预测和动能预测数据
+      const h2hData = currentAnalysis.value || [];
+      const momentumData = hybridPredictions.value || [];
+
+      // 合并数据，确保每个Token都有两种预测的排名信息
+      predictions = h2hData.map((h2hToken: any) => {
+        const momentumToken = momentumData.find((m: any) => m.symbol === h2hToken.symbol);
+        return {
+          ...h2hToken,
+          momentum_rank: momentumToken?.predicted_rank || 999
+        };
+      });
+    } else {
+      predictions = currentAnalysis.value || [];
+    }
+
+    if (!predictions || predictions.length === 0) {
       strategyValidation.value = null;
       return;
     }
 
-    const predictions = currentAnalysis.value;
     const allMatches: any[] = [];
     let totalMatchedValue = 0;
 
@@ -506,6 +579,10 @@
         console.log(
           `🎯 单项策略：从 ${allMatches.length} 个符合条件的Token中选择最优: ${finalMatches[0].symbol} (置信度: ${finalMatches[0].confidence})`
         );
+      } else {
+        // 🚫 单项策略：没有符合条件的Token，不执行下注
+        console.log(`🚫 单项策略：没有符合条件的Token，跳过下注`);
+        finalMatches = [];
       }
     } else if (config.strategy === 'rank_betting') {
       // 🏆 排名下注：按预测排名过滤并排序
@@ -722,8 +799,24 @@
       return { canProceed: false, reason: '缺少JWT Token' };
     }
 
-    if (!currentAnalysis.value || currentAnalysis.value.length === 0) {
-      return { canProceed: false, reason: '无分析数据' };
+    // 🆕 根据策略类型检查数据源
+    if (config.strategy_type === 'momentum') {
+      if (!hybridPredictions.value || hybridPredictions.value.length === 0) {
+        return { canProceed: false, reason: '无动能预测数据' };
+      }
+    } else if (config.strategy_type === 'hybrid_rank') {
+      if (
+        !currentAnalysis.value ||
+        currentAnalysis.value.length === 0 ||
+        !hybridPredictions.value ||
+        hybridPredictions.value.length === 0
+      ) {
+        return { canProceed: false, reason: '复合型策略需要AI预测和动能预测数据' };
+      }
+    } else {
+      if (!currentAnalysis.value || currentAnalysis.value.length === 0) {
+        return { canProceed: false, reason: '无分析数据' };
+      }
     }
 
     if (!currentRoundId.value) {
@@ -884,6 +977,7 @@
       currentGameStatus,
       currentRoundId,
       currentAnalysis,
+      hybridPredictions,
       () => config.jwt_token,
       currentUID
     ],
@@ -904,14 +998,14 @@
       const conditions = checkAutoBettingConditions();
       if (!conditions.canProceed) {
         // 只有在游戏状态从非bet变为bet时才打印日志，避免过多输出
-        if (gameStatus === 'bet' && roundId && analysis && isRunning) {
+        if (gameStatus === 'bet' && roundId && (analysis || hybridPredictions.value) && isRunning) {
           console.log(`⏸️ 自动下注条件不满足: ${conditions.reason}`);
         }
         return;
       }
 
       // 🎯 关键触发条件：游戏状态为bet且有轮次数据
-      if (gameStatus === 'bet' && roundId && analysis && isRunning && jwtToken && uid) {
+      if (gameStatus === 'bet' && roundId && (analysis || hybridPredictions.value) && isRunning && jwtToken && uid) {
         console.log(`🚀 触发自动下注检查 - 轮次: ${roundId}, 状态: ${gameStatus}`);
         await executeAutoBettingLogic();
       }

@@ -149,20 +149,43 @@
   watch(
     [() => props.currentRoundId, () => props.currentGameStatus],
     ([newRoundId, newGameStatus], [oldRoundId, oldGameStatus]) => {
-      // 回合變化
+      // 1. 检查是否已经拥有当前轮次的有效预测数据
+      const hasDataForCurrentRound =
+        props.hybridPredictions &&
+        props.hybridPredictions.length > 0 &&
+        newRoundId &&
+        props.hybridPredictions.some((p) => p.round_id === newRoundId);
+
+      // 回合变化
       if (newRoundId && oldRoundId && newRoundId !== oldRoundId) {
+        // 如果已经有新回合的数据，直接切换显示，不显示加载状态
+        if (hasDataForCurrentRound) {
+          currentDisplayRoundId.value = newRoundId;
+          endRoundTransition();
+          return;
+        }
+        // 否则显示加载状态
         startRoundTransition('正在準備新回合預測...', '清空上一回合數據，等待新回合開始');
         return;
       }
 
       // 遊戲狀態從結算變成投注中
       if (oldGameStatus === 'settled' && newGameStatus === 'bet') {
+        // 如果已经有当前回合的数据，不要显示加载状态
+        if (hasDataForCurrentRound) {
+          if (currentDisplayRoundId.value !== newRoundId) {
+            currentDisplayRoundId.value = newRoundId;
+          }
+          endRoundTransition();
+          return;
+        }
+        // 否则显示加载状态
         startRoundTransition('正在計算新回合預測...', 'AI 正在分析新回合的動能數據');
         return;
       }
 
       // 當有新的預測數據且當前輪次匹配時，結束過渡狀態
-      if (newRoundId && props.hybridPredictions && props.hybridPredictions.length > 0) {
+      if (newRoundId && hasDataForCurrentRound) {
         if (currentDisplayRoundId.value !== newRoundId) {
           currentDisplayRoundId.value = newRoundId;
           endRoundTransition();
@@ -175,10 +198,15 @@
   // 額外監聽 hybridPredictions 變化，確保數據清空
   watch(
     () => props.hybridPredictions,
-    () => {
-      // 如果正在過渡狀態，且數據發生變化，確保清空顯示
-      if (isRoundTransitioning.value) {
-        currentDisplayRoundId.value = null;
+    (newPredictions) => {
+      // 如果有新的预测数据且与当前轮次匹配，立即结束过渡状态
+      if (newPredictions && newPredictions.length > 0 && props.currentRoundId) {
+        const hasDataForCurrentRound = newPredictions.some((p) => p.round_id === props.currentRoundId);
+
+        if (hasDataForCurrentRound) {
+          currentDisplayRoundId.value = props.currentRoundId;
+          endRoundTransition();
+        }
       }
     },
     { deep: true }

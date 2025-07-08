@@ -90,12 +90,18 @@ export interface AutoBettingConfig {
   max_change_24h_threshold: number;
 
   // 🆕 新增策略类型选择
-  strategy_type: 'h2h_breakeven' | 'momentum';
+  strategy_type: 'h2h_breakeven' | 'momentum' | 'hybrid_rank';
 
   // 🆕 新增动能策略专用参数
   min_momentum_score: number;
   min_elo_win_rate: number;
   min_confidence: number;
+
+  // 🆕 新增复合型策略专用参数
+  enable_hybrid_rank_filter: boolean;
+  h2h_rank_enabled_ranks: number[];
+  momentum_rank_enabled_ranks: number[];
+  hybrid_rank_logic: 'and' | 'or'; // 'and': 两个排名都必须满足, 'or': 任一排名满足即可
 }
 
 /**
@@ -121,6 +127,12 @@ export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token'> = {
   min_momentum_score: 1.5,
   min_elo_win_rate: 0.55,
   min_confidence: 0.65,
+
+  // 🆕 新增复合型策略专用参数 - 默认值
+  enable_hybrid_rank_filter: false,
+  h2h_rank_enabled_ranks: [1, 2, 3],
+  momentum_rank_enabled_ranks: [1, 2, 3],
+  hybrid_rank_logic: 'and' as const, // 默认要求两个排名都满足
 
   // 🔧 高级功能设置
   enable_trend_analysis: false, // 默认关闭，避免过度过滤
@@ -260,7 +272,12 @@ export const strategyTemplates = {
     strategy_type: 'h2h_breakeven' as const,
     min_momentum_score: 1.5,
     min_elo_win_rate: 0.55,
-    min_confidence: 0.65
+    min_confidence: 0.65,
+    // 🆕 新增复合型策略参数
+    enable_hybrid_rank_filter: false,
+    h2h_rank_enabled_ranks: [1, 2, 3],
+    momentum_rank_enabled_ranks: [1, 2, 3],
+    hybrid_rank_logic: 'and' as const
   },
 
   /** 🗿 磐石型 (The Rock) — 回測 63.2 % */
@@ -487,7 +504,12 @@ export const strategyTemplates = {
     strategy_type: 'h2h_breakeven' as const,
     min_momentum_score: 1.5,
     min_elo_win_rate: 0.55,
-    min_confidence: 0.65
+    min_confidence: 0.65,
+    // 🆕 新增复合型策略参数
+    enable_hybrid_rank_filter: false,
+    h2h_rank_enabled_ranks: [1, 2, 3],
+    momentum_rank_enabled_ranks: [1, 2, 3],
+    hybrid_rank_logic: 'and' as const
   },
 
   /** ⚖️ 全能平衡型 (Precision 66) — 回測 66.2 % */
@@ -563,7 +585,12 @@ export const strategyTemplates = {
     strategy_type: 'h2h_breakeven' as const,
     min_momentum_score: 1.5,
     min_elo_win_rate: 0.55,
-    min_confidence: 0.65
+    min_confidence: 0.65,
+    // 🆕 新增复合型策略参数
+    enable_hybrid_rank_filter: false,
+    h2h_rank_enabled_ranks: [1, 2, 3],
+    momentum_rank_enabled_ranks: [1, 2, 3],
+    hybrid_rank_logic: 'and' as const
   },
 
   // 🎯 智能排名策略 - 保持宽松设置
@@ -632,7 +659,12 @@ export const strategyTemplates = {
     strategy_type: 'h2h_breakeven' as const,
     min_momentum_score: 1.5,
     min_elo_win_rate: 0.55,
-    min_confidence: 0.65
+    min_confidence: 0.65,
+    // 🆕 新增复合型策略参数
+    enable_hybrid_rank_filter: false,
+    h2h_rank_enabled_ranks: [1, 2, 3],
+    momentum_rank_enabled_ranks: [1, 2, 3],
+    hybrid_rank_logic: 'and' as const
   },
 
   // 🆕 动能狙击手模板

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 use App\Models\GameRound;
+use App\Models\HybridRoundPredict;
 
 class ExportPredictionAnalysis extends Command
 {
@@ -77,6 +78,9 @@ class ExportPredictionAnalysis extends Command
 
             // H2H相关 (重要的算法特色)
             'h2h_score', 'h2h_data_available',
+
+            // Hybrid 预测数据
+            'hybrid_predicted_rank', 'hybrid_rank_difference', 'hybrid_final_score', 'hybrid_elo_prob', 'hybrid_mom_score', 'hybrid_confidence',
         ];
         fputcsv($fileHandle, $headers);
 
@@ -89,9 +93,18 @@ class ExportPredictionAnalysis extends Command
             ->with(['roundPredicts', 'roundResults'])
             ->orderBy('id', 'asc')
             ->chunk(100, function ($rounds) use ($fileHandle, &$processedPredictions, $version) {
+                // 批量獲取這批回合的 Hybrid 預測數據
+                $roundIds = $rounds->pluck('id')->toArray();
+                $hybridPredictionsCollection = HybridRoundPredict::whereIn('game_round_id', $roundIds)
+                    ->get()
+                    ->groupBy('game_round_id');
+
                 foreach ($rounds as $round) {
                     // 建立一個快速查找賽果的 map
                     $resultsMap = $round->roundResults->keyBy('token_symbol');
+
+                    // 獲取該回合的 Hybrid 預測數據
+                    $hybridPredictions = $hybridPredictionsCollection->get($round->id, collect())->keyBy('token_symbol');
 
                     foreach ($round->roundPredicts as $prediction) {
                         $symbol = $prediction->token_symbol;
@@ -100,6 +113,9 @@ class ExportPredictionAnalysis extends Command
                         if (!$actualResult) {
                             continue; // 如果賽果中沒有該代幣，則跳過
                         }
+
+                        // 獲取對應的 Hybrid 預測
+                        $hybridPrediction = $hybridPredictions->get($symbol);
 
                         // 從 prediction_data JSON 中提取詳細數據
                         $predictionData = $prediction->prediction_data ?? [];
@@ -148,6 +164,13 @@ class ExportPredictionAnalysis extends Command
                             $predictionData['h2h_score'] ?? null,
                             $h2hDataAvailable,
 
+                            // Hybrid 预测数据
+                            $hybridPrediction?->predicted_rank ?? null,
+                            $hybridPrediction ? abs($hybridPrediction->predicted_rank - $actualResult->rank) : null,
+                            $hybridPrediction?->final_score ?? null,
+                            $hybridPrediction?->elo_prob ?? null,
+                            $hybridPrediction?->mom_score ?? null,
+                            $hybridPrediction?->confidence ?? null,
                         ];
                         fputcsv($fileHandle, $rowData);
                         $processedPredictions++;

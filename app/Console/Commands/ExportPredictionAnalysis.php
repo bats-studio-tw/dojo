@@ -14,7 +14,7 @@ class ExportPredictionAnalysis extends Command
      *
      * @var string
      */
-    protected $signature = 'analysis:export-predictions';
+    protected $signature = 'analysis:export-predictions {--limit= : 限制輸出最新多少局的數據，不指定則輸出全部}';
 
     /**
      * The console command description.
@@ -30,18 +30,36 @@ class ExportPredictionAnalysis extends Command
     {
         $this->info('Starting prediction data export...');
 
-        // 先获取总数，避免一次性加载过多数据
-        $totalRounds = GameRound::whereNotNull('settled_at')
+        // 獲取限制參數
+        $limit = $this->option('limit');
+        if ($limit && (!is_numeric($limit) || $limit < 1)) {
+            $this->error('Limit parameter must be a positive integer.');
+            return 1;
+        }
+
+        // 建立基本查詢
+        $query = GameRound::whereNotNull('settled_at')
             ->whereHas('roundPredicts')
             ->whereHas('roundResults')
-            ->count();
+            ->orderBy('settled_at', 'desc'); // 按結算時間降序排列，獲取最新的
+
+        // 先获取总数
+        $totalRounds = $query->count();
 
         if ($totalRounds === 0) {
             $this->warn('No completed rounds with predictions and results found.');
             return 1;
         }
 
-        $this->info("Found {$totalRounds} rounds to process.");
+        // 應用限制
+        if ($limit) {
+            $query->limit($limit);
+            $actualRounds = min($limit, $totalRounds);
+            $this->info("Found {$totalRounds} total rounds. Processing latest {$actualRounds} rounds.");
+        } else {
+            $actualRounds = $totalRounds;
+            $this->info("Found {$totalRounds} rounds to process.");
+        }
 
         // 从 composer.json 获取算法版本
         $composerPath = base_path('composer.json');
@@ -53,7 +71,8 @@ class ExportPredictionAnalysis extends Command
         }
 
         $datetime = now()->format('Ymd_His');
-        $filePath = 'prediction_analysis_' . $version . '_' . $datetime . '.csv';
+        $limitSuffix = $limit ? '_latest' . $limit : '_all';
+        $filePath = 'prediction_analysis_' . $version . $limitSuffix . '_' . $datetime . '.csv';
         // 使用 Storage Facade 來處理檔案，更安全
         Storage::disk('local')->put($filePath, ''); // 建立或清空檔案
         $fullPath = Storage::disk('local')->path($filePath);
@@ -85,14 +104,11 @@ class ExportPredictionAnalysis extends Command
         fputcsv($fileHandle, $headers);
 
         $processedPredictions = 0;
+        $processedRounds = 0;
 
         // 使用 Query Builder 的 chunk，每次處理100筆
-        GameRound::whereNotNull('settled_at')
-            ->whereHas('roundPredicts')
-            ->whereHas('roundResults')
-            ->with(['roundPredicts', 'roundResults'])
-            ->orderBy('id', 'asc')
-            ->chunk(100, function ($rounds) use ($fileHandle, &$processedPredictions, $version) {
+        $query->with(['roundPredicts', 'roundResults'])
+            ->chunk(100, function ($rounds) use ($fileHandle, &$processedPredictions, &$processedRounds, $version) {
                 // 批量獲取這批回合的 Hybrid 預測數據
                 $roundIds = $rounds->pluck('id')->toArray();
                 $hybridPredictionsCollection = HybridRoundPredict::whereIn('game_round_id', $roundIds)
@@ -106,6 +122,7 @@ class ExportPredictionAnalysis extends Command
                     // 獲取該回合的 Hybrid 預測數據
                     $hybridPredictions = $hybridPredictionsCollection->get($round->id, collect())->keyBy('token_symbol');
 
+                    $roundHasPredictions = false;
                     foreach ($round->roundPredicts as $prediction) {
                         $symbol = $prediction->token_symbol;
                         $actualResult = $resultsMap->get($symbol);
@@ -174,14 +191,22 @@ class ExportPredictionAnalysis extends Command
                         ];
                         fputcsv($fileHandle, $rowData);
                         $processedPredictions++;
+                        $roundHasPredictions = true;
+                    }
+
+                    if ($roundHasPredictions) {
+                        $processedRounds++;
                     }
                 }
             });
 
         fclose($fileHandle);
 
-        $this->info("Export complete! {$processedPredictions} predictions have been saved.");
+        $this->info("Export complete! {$processedPredictions} predictions from {$processedRounds} rounds have been saved.");
         $this->comment("File location: " . $fullPath);
+        if ($limit && $totalRounds > $limit) {
+            $this->comment("Note: Only the latest {$limit} rounds were exported out of {$totalRounds} total rounds.");
+        }
 
         return 0;
     }

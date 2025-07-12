@@ -199,6 +199,71 @@ class PredictionController extends Controller
     }
 
     /**
+     * 非同步回測（分派到隊列）
+     */
+    public function asyncBacktest(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'strategy_tag' => 'required|string|max:50',
+            'rounds' => 'required|array|min:10',
+            'rounds.*.id' => 'required|integer',
+            'rounds.*.symbols' => 'required|array',
+            'rounds.*.timestamp' => 'required|integer',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => '参数验证失败',
+                'errors' => $validator->errors(),
+                'code' => 400
+            ], 400);
+        }
+        $validated = $validator->validated();
+        $strategyConfig = [
+            'strategy_tag' => $validated['strategy_tag'],
+        ];
+        $batchId = $this->backtestService->startBacktest($validated['rounds'], $strategyConfig, auth()->id());
+        return response()->json([
+            'success' => true,
+            'batch_id' => $batchId,
+            'message' => '回测任务已提交',
+            'code' => 202
+        ], 202);
+    }
+
+    /**
+     * Grid Search 非同步回測
+     */
+    public function gridSearchBacktest(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'param_matrix' => 'required|array',
+            'param_matrix.weights' => 'required|array|min:1',
+            'param_matrix.normalization' => 'required|array|min:1',
+            'rounds' => 'required|array|min:10',
+            'rounds.*.id' => 'required|integer',
+            'rounds.*.symbols' => 'required|array',
+            'rounds.*.timestamp' => 'required|integer',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => '参数验证失败',
+                'errors' => $validator->errors(),
+                'code' => 400
+            ], 400);
+        }
+        $validated = $validator->validated();
+        $batchId = $this->backtestService->startGridSearch($validated['rounds'], $validated['param_matrix'], auth()->id());
+        return response()->json([
+            'success' => true,
+            'batch_id' => $batchId,
+            'message' => 'Grid Search 任务已提交',
+            'code' => 202
+        ], 202);
+    }
+
+    /**
      * 获取预测历史
      */
     public function getPredictionHistory(Request $request): JsonResponse
@@ -392,5 +457,83 @@ class PredictionController extends Controller
         ];
 
         return $descriptions[$tag] ?? '自定义策略配置';
+    }
+
+    /**
+     * 查詢回測任務進度與結果
+     */
+    public function getBacktestBatchStatus(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'batch_id' => 'required|string',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => '参数验证失败',
+                'errors' => $validator->errors(),
+                'code' => 400
+            ], 400);
+        }
+        $batchId = $request->input('batch_id');
+        // 查詢 Laravel Job Batch 狀態
+        $batch = \DB::table('job_batches')->where('id', $batchId)->first();
+        if (!$batch) {
+            return response()->json([
+                'success' => false,
+                'message' => '未找到對應的回測任務',
+                'code' => 404
+            ], 404);
+        }
+        // 查詢所有該batch下的BacktestReport
+        $reports = \App\Models\BacktestReport::where('batch_id', $batchId)->get();
+        return response()->json([
+            'success' => true,
+            'batch' => [
+                'id' => $batch->id,
+                'name' => $batch->name,
+                'total_jobs' => $batch->total_jobs,
+                'pending_jobs' => $batch->pending_jobs,
+                'failed_jobs' => $batch->failed_jobs,
+                'processed_jobs' => $batch->processed_jobs,
+                'status' => $batch->finished_at ? 'finished' : ($batch->cancelled_at ? 'cancelled' : 'processing'),
+                'created_at' => $batch->created_at,
+                'finished_at' => $batch->finished_at,
+            ],
+            'reports' => $reports,
+            'code' => 200
+        ]);
+    }
+
+    /**
+     * 查詢單一回測報告詳情
+     */
+    public function getBacktestReportDetail(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => '参数验证失败',
+                'errors' => $validator->errors(),
+                'code' => 400
+            ], 400);
+        }
+        $id = $request->input('id');
+        $report = \App\Models\BacktestReport::find($id);
+        if (!$report) {
+            return response()->json([
+                'success' => false,
+                'message' => '未找到對應的回測報告',
+                'code' => 404
+            ], 404);
+        }
+        return response()->json([
+            'success' => true,
+            'data' => $report,
+            'code' => 200
+        ]);
     }
 }

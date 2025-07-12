@@ -343,7 +343,59 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
       lastConnectedAt: null
     };
 
+    // 设置连接超时
+    const connectionTimeout = setTimeout(() => {
+      if (websocketStatus.value.status === 'connecting') {
+        console.warn('⚠️ WebSocket连接超时，尝试重连...');
+        websocketStatus.value = {
+          status: 'error',
+          message: '连接超时，正在重试...',
+          lastConnectedAt: null
+        };
+        setTimeout(() => reconnectWebSocket(), 3000);
+      }
+    }, 10000); // 10秒超时
+
     try {
+      // 监听连接状态变化
+      window.Echo.connector.pusher.connection.bind('connected', () => {
+        clearTimeout(connectionTimeout);
+        console.log('✅ WebSocket连接成功');
+        isConnected.value = true;
+        websocketStatus.value = {
+          status: 'connected',
+          message: '已连接',
+          lastConnectedAt: new Date().toISOString()
+        };
+      });
+
+      window.Echo.connector.pusher.connection.bind('disconnected', () => {
+        console.log('❌ WebSocket连接断开');
+        isConnected.value = false;
+        websocketStatus.value = {
+          status: 'disconnected',
+          message: '连接已断开',
+          lastConnectedAt: websocketStatus.value.lastConnectedAt
+        };
+
+        // 自动重连
+        setTimeout(() => {
+          if (websocketStatus.value.status === 'disconnected') {
+            console.log('🔄 尝试自动重连...');
+            reconnectWebSocket();
+          }
+        }, 5000);
+      });
+
+      window.Echo.connector.pusher.connection.bind('error', (error: any) => {
+        console.error('❌ WebSocket连接错误:', error);
+        websocketStatus.value = {
+          status: 'error',
+          message: '连接错误',
+          lastConnectedAt: websocketStatus.value.lastConnectedAt
+        };
+      });
+
       // 1. 监听游戏数据更新
       gameUpdatesChannel = window.Echo.channel('game-updates');
 
@@ -520,9 +572,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
               if (finalPredictions.length > 0) {
                 hybridPredictions.value = finalPredictions;
                 hybridAnalysisMeta.value = metaInfo;
-                console.log(`⚡ 更新Hybrid预测数据: ${finalPredictions.length} 个Token (去重后)`);
-              } else {
-                console.warn('⚠️ Hybrid预测数据验证失败，所有数据都被过滤');
+                console.log(`⚡ 更新Hybrid预测数据: ${finalPredictions.length} 个Token`);
               }
             } else {
               console.warn('⚠️ Hybrid预测数据为空或格式不正确');
@@ -535,71 +585,105 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
           console.error('❌ hybrid-predictions 频道错误:', error);
         });
 
-      // 连接成功
-      websocketStatus.value = {
-        status: 'connected',
-        message: '已连接',
-        lastConnectedAt: new Date().toISOString()
-      };
-
-      isInitialized = true; // 标记为已初始化
-      console.log('✅ WebSocket连接成功建立');
+      isInitialized = true;
+      console.log('✅ WebSocket初始化完成');
     } catch (error) {
-      console.error('❌ WebSocket连接失败:', error);
+      console.error('❌ WebSocket初始化失败:', error);
       websocketStatus.value = {
         status: 'error',
-        message: `连接失败: ${error instanceof Error ? error.message : String(error)}`,
+        message: '初始化失败',
         lastConnectedAt: null
       };
+      clearTimeout(connectionTimeout);
     }
   };
 
   // ==================== 断开连接 ====================
   const disconnectWebSocket = () => {
-    console.log('🔌 断开WebSocket连接');
+    console.log('🔄 断开WebSocket连接...');
 
-    if (gameUpdatesChannel) {
-      try {
+    try {
+      // 断开所有频道
+      if (gameUpdatesChannel) {
         window.Echo.leaveChannel('game-updates');
         gameUpdatesChannel = null;
-      } catch (error) {
-        console.error('❌ 断开 game-updates 频道失败:', error);
       }
-    }
 
-    if (predictionsChannel) {
-      try {
+      if (predictionsChannel) {
         window.Echo.leaveChannel('predictions');
         predictionsChannel = null;
-      } catch (error) {
-        console.error('❌ 断开 predictions 频道失败:', error);
       }
-    }
 
-    if (hybridPredictionsChannel) {
-      try {
+      if (hybridPredictionsChannel) {
         window.Echo.leaveChannel('hybrid-predictions');
         hybridPredictionsChannel = null;
-      } catch (error) {
-        console.error('❌ 断开 hybrid-predictions 频道失败:', error);
       }
-    }
 
-    isInitialized = false; // 重置初始化状态
-    websocketStatus.value = {
-      status: 'disconnected',
-      message: '已断开连接',
-      lastConnectedAt: null
-    };
+      isConnected.value = false;
+      isInitialized = false;
+
+      websocketStatus.value = {
+        status: 'disconnected',
+        message: '已断开连接',
+        lastConnectedAt: websocketStatus.value.lastConnectedAt
+      };
+
+      console.log('✅ WebSocket连接已断开');
+    } catch (error) {
+      console.error('❌ 断开WebSocket连接时发生错误:', error);
+    }
   };
 
-  // ==================== 重连 ====================
+  // 重连相关状态
+  let reconnectAttempts = 0;
+  const maxReconnectAttempts = 5;
+  const baseReconnectDelay = 3000; // 3秒基础延迟
+
   const reconnectWebSocket = () => {
-    console.log('🔄 重连WebSocket...');
-    disconnectWebSocket();
+    if (reconnectAttempts >= maxReconnectAttempts) {
+      console.error('❌ 达到最大重连次数，停止重连');
+      websocketStatus.value = {
+        status: 'error',
+        message: '重连失败，请手动刷新页面',
+        lastConnectedAt: websocketStatus.value.lastConnectedAt
+      };
+      return;
+    }
+
+    reconnectAttempts++;
+    const delay = baseReconnectDelay * Math.pow(2, reconnectAttempts - 1); // 指数退避
+
+    console.log(`🔄 第 ${reconnectAttempts} 次重连尝试，延迟 ${delay}ms`);
+
+    websocketStatus.value = {
+      status: 'connecting',
+      message: `正在重连... (${reconnectAttempts}/${maxReconnectAttempts})`,
+      lastConnectedAt: websocketStatus.value.lastConnectedAt
+    };
+
     setTimeout(() => {
-      initializeWebSocket();
-    }, 1000);
+      try {
+        // 清理旧连接
+        disconnectWebSocket();
+
+        // 重新初始化
+        initializeWebSocket();
+
+        // 重置重连计数（如果连接成功）
+        setTimeout(() => {
+          if (isConnected.value) {
+            reconnectAttempts = 0;
+            console.log('✅ 重连成功，重置重连计数');
+          }
+        }, 5000);
+      } catch (error) {
+        console.error('❌ 重连失败:', error);
+        // 继续重连
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectWebSocket();
+        }
+      }
+    }, delay);
   };
 
   // ==================== API调用方法 ====================

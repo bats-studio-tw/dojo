@@ -73,3 +73,55 @@ export interface BacktestRequest {
   end_date?: string;
   rounds?: number;
 }
+
+// 回測報告（對應BacktestReport模型）
+export interface BacktestReport {
+  id: number;
+  user_id: number | null;
+  batch_id: string | null;
+  strategy_tag: string;
+  strategy_config: Record<string, any>;
+  param_matrix?: GridSearchParamMatrix;
+  total_rounds: number;
+  successful_rounds: number;
+  win_rate: number;
+  breakeven_rate: number;
+  sharpe_ratio: number;
+  sortino_ratio: number;
+  calmar_ratio: number;
+  max_drawdown: number;
+  max_profit: number;
+  max_loss: number;
+  avg_profit_loss_ratio: number;
+  total_profit: number;
+  profit_rate: number;
+  volatility: number;
+  profit_factor: number;
+  consecutive_wins: number;
+  consecutive_losses: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error_message?: string;
+  started_at?: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Grid Search參數矩陣
+export interface GridSearchParamMatrix {
+  weights: Record<string, number>[];
+  normalization: Record<string, string>[];
+}
+
+// 回測批次狀態
+export interface BacktestBatchStatus {
+  id: string;
+  name: string;
+  total_jobs: number;
+  pending_jobs: number;
+  failed_jobs: number;
+  processed_jobs: number;
+  status: 'finished' | 'cancelled' | 'processing';
+  created_at: string;
+  finished_at?: string;
+}

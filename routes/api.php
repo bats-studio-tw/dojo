@@ -70,6 +70,10 @@ Route::prefix('v2')->group(function () {
     Route::post('/predictions', [PredictionController::class, 'executePrediction'])->name('api.v2.predictions.execute');
     Route::get('/strategies', [PredictionController::class, 'listStrategies'])->name('api.v2.strategies.list');
     Route::post('/backtest', [PredictionController::class, 'runBacktest'])->name('api.v2.backtest.run');
+    Route::post('/backtest/async', [PredictionController::class, 'asyncBacktest'])->name('api.v2.backtest.async');
+    Route::post('/backtest/grid-search', [PredictionController::class, 'gridSearchBacktest'])->name('api.v2.backtest.grid-search');
+    Route::post('/backtest/batch-status', [PredictionController::class, 'getBacktestBatchStatus'])->name('api.v2.backtest.batch-status');
+    Route::post('/backtest/report-detail', [PredictionController::class, 'getBacktestReportDetail'])->name('api.v2.backtest.report-detail');
     Route::get('/predictions/history', [PredictionController::class, 'getPredictionHistory'])->name('api.v2.predictions.history');
     Route::get('/strategies/performance', [PredictionController::class, 'getStrategyPerformance'])->name('api.v2.strategies.performance');
 });

@@ -224,11 +224,7 @@
         },
         scales: {
           r: {
-            beginAtZero: true,
-            title: {
-              display: true,
-              text: '标准化分数'
-            }
+            beginAtZero: true
           }
         }
       }

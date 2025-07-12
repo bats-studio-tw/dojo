@@ -8,6 +8,18 @@
         <div class="mb-6 flex items-center justify-between">
           <h1 class="text-2xl text-white font-bold">📊 数据分析面板</h1>
           <div class="flex space-x-3">
+            <!-- 回測中心入口 -->
+            <n-button
+              type="primary"
+              size="small"
+              ghost
+              @click="$inertia.visit('/backtest')"
+              class="flex items-center space-x-1"
+            >
+              <span>📈</span>
+              <span>回測中心</span>
+            </n-button>
+
             <!-- WebSocket状态指示器 -->
             <div class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2" :class="getWebSocketStatusClass()">
               <span>{{ getWebSocketStatusIcon() }}</span>

@@ -21,6 +21,11 @@ Route::get('/prediction', function () {
     return Inertia::render('Prediction');
 })->name('prediction');
 
+// 回測分析中心頁面路由
+Route::get('/backtest', function () {
+    return Inertia::render('BacktestDashboard');
+})->name('backtest');
+
 // WebSocket 相关路由
 Route::prefix('websocket')->name('websocket.')->group(function () {
     Route::post('/broadcast/game-data', [WebSocketController::class, 'broadcastGameData'])->name('broadcast.game-data');

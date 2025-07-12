@@ -1,0 +1,11 @@
+﻿,value
+total_predictions,25000.0
+unique_rounds,5000.0
+unique_tokens,41.0
+breakeven_rate,0.60672
+exact_accuracy,0.20792
+close_accuracy,0.52676
+avg_rank_diff,1.5855200290679932
+median_rank_diff,1.0
+hi_conf_cut,79.76000213623047
+hi_conf_breakeven,0.6230261842894264

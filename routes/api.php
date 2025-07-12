@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GameDataController;
 use App\Http\Controllers\AutoBettingController;
 use App\Http\Controllers\PredictionAnalysisController;
+use App\Http\Controllers\PredictionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -62,4 +63,13 @@ Route::prefix('auto-betting')->group(function () {
 // 投注表现分析API
 Route::prefix('betting-analysis')->group(function () {
     Route::get('/performance', [PredictionAnalysisController::class, 'getUserBettingPerformance'])->name('api.betting-analysis.performance');
+});
+
+// 新一代预测系统API路由组
+Route::prefix('prediction')->group(function () {
+    Route::post('/predict', [PredictionController::class, 'predict'])->name('api.prediction.predict');
+    Route::post('/backtest', [PredictionController::class, 'backtest'])->name('api.prediction.backtest');
+    Route::post('/grid-search', [PredictionController::class, 'gridSearch'])->name('api.prediction.grid-search');
+    Route::get('/strategies', [PredictionController::class, 'getStrategies'])->name('api.prediction.strategies');
+    Route::get('/history', [PredictionController::class, 'getHistory'])->name('api.prediction.history');
 });

@@ -65,7 +65,16 @@ Route::prefix('betting-analysis')->group(function () {
     Route::get('/performance', [PredictionAnalysisController::class, 'getUserBettingPerformance'])->name('api.betting-analysis.performance');
 });
 
-// 新一代预测系统API路由组
+// 新一代预测系统API路由组 (v2)
+Route::prefix('v2')->group(function () {
+    Route::post('/predictions', [PredictionController::class, 'executePrediction'])->name('api.v2.predictions.execute');
+    Route::get('/strategies', [PredictionController::class, 'listStrategies'])->name('api.v2.strategies.list');
+    Route::post('/backtest', [PredictionController::class, 'runBacktest'])->name('api.v2.backtest.run');
+    Route::get('/predictions/history', [PredictionController::class, 'getPredictionHistory'])->name('api.v2.predictions.history');
+    Route::get('/strategies/performance', [PredictionController::class, 'getStrategyPerformance'])->name('api.v2.strategies.performance');
+});
+
+// 旧版预测API路由组 (已弃用，保留兼容性)
 Route::prefix('prediction')->group(function () {
     Route::post('/predict', [PredictionController::class, 'predict'])->name('api.prediction.predict');
     Route::post('/backtest', [PredictionController::class, 'backtest'])->name('api.prediction.backtest');

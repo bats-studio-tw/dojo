@@ -16,6 +16,11 @@ Route::get('/', function () {
 // 自动下注控制页面路由
 Route::get('/auto-betting', [AutoBettingController::class, 'index'])->name('auto-betting');
 
+// 新一代预测系统页面路由
+Route::get('/prediction', function () {
+    return Inertia::render('Prediction');
+})->name('prediction');
+
 // WebSocket 相关路由
 Route::prefix('websocket')->name('websocket.')->group(function () {
     Route::post('/broadcast/game-data', [WebSocketController::class, 'broadcastGameData'])->name('broadcast.game-data');

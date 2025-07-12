@@ -41,6 +41,7 @@
         "@unocss/transformer-directives": "^66.2.3",
         "@unocss/transformer-variant-group": "^66.2.3",
         "@vitejs/plugin-vue": "^5.2.4",
+        "chart.js": "^4.5.0",
         "laravel-echo": "^2.1.6",
         "naive-ui": "^2.42.0",
         "pinia": "^3.0.3",

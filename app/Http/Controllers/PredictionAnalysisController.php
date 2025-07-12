@@ -342,6 +342,10 @@ class PredictionAnalysisController extends Controller
     private function getDetailedBettingRecords(string $uid, int $limit, ?int $limitRounds = null): array
     {
         $query = AutoBettingRecord::where('uid', $uid)
+            ->with([
+                'gameRound.roundResults',
+                'gameRound.roundPredicts',
+            ])
             ->orderBy('created_at', 'desc');
 
         // 如果指定了按局数筛选，使用局数限制，否则使用默认limit
@@ -356,7 +360,7 @@ class PredictionAnalysisController extends Controller
         $detailedRecords = [];
 
         foreach ($records as $record) {
-            $gameRound = GameRound::where('round_id', $record->round_id)->first();
+            $gameRound = $record->gameRound;
             $actualResult = null;
             $prediction = null;
             $actualRank = null;
@@ -365,11 +369,11 @@ class PredictionAnalysisController extends Controller
             $actualProfit = 0;
 
             if ($gameRound) {
-                $actualResult = RoundResult::where('game_round_id', $gameRound->id)
+                $actualResult = $gameRound->roundResults
                     ->where('token_symbol', strtoupper($record->token_symbol))
                     ->first();
 
-                $prediction = RoundPredict::where('game_round_id', $gameRound->id)
+                $prediction = $gameRound->roundPredicts
                     ->where('token_symbol', strtoupper($record->token_symbol))
                     ->first();
 

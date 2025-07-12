@@ -125,23 +125,19 @@ class PredictionAnalysisController extends Controller
      */
     private function calculateBettingPerformance(string $uid, ?int $days, int $limit, ?int $limitRounds = null): array
     {
-        // 获取下注记录的基础查询
+        // Eager Loading 预载入 gameRound.roundResults
         $query = AutoBettingRecord::where('uid', $uid)
             ->with(['gameRound.roundResults'])
             ->orderBy('created_at', 'desc');
 
-        // 根据筛选类型应用不同的条件
         if ($limitRounds !== null) {
-            // 按局数筛选：获取最新的N局记录
             $query->limit($limitRounds);
         } else if ($days !== null) {
-            // 按天数筛选：-1表示全部历史
             if ($days > 0) {
                 $query->where('created_at', '>=', now()->subDays($days));
             }
             $query->limit($limit);
         } else {
-            // 默认情况：应用limit限制
             $query->limit($limit);
         }
 
@@ -158,58 +154,38 @@ class PredictionAnalysisController extends Controller
         $totalAmount = $records->sum('bet_amount');
         $successfulBets = $records->where('success', true)->count();
 
-        // 计算实际盈亏
         $actualProfitLoss = 0;
         $winningBets = 0;
         $losingBets = 0;
         $breakEvenBets = 0;
         $settledBets = 0;
-
         $rankDistribution = [1 => 0, 2 => 0, 3 => 0, 'other' => 0];
         $betsByRank = [];
 
         foreach ($records as $record) {
-            if (!$record->success) continue; // 只分析成功下注的记录
-
-            // 查找该下注对应的实际游戏结果
-            $gameRound = GameRound::where('round_id', $record->round_id)->first();
+            if (!$record->success) continue;
+            $gameRound = $record->gameRound;
             if (!$gameRound) continue;
-
-            $actualResult = RoundResult::where('game_round_id', $gameRound->id)
+            $actualResult = $gameRound->roundResults
                 ->where('token_symbol', strtoupper($record->token_symbol))
                 ->first();
-
             if (!$actualResult) continue;
-
             $settledBets++;
             $actualRank = $actualResult->rank;
             $betAmount = (float) $record->bet_amount;
-
-            // 统计排名分布
             if ($actualRank <= 3) {
                 $rankDistribution[$actualRank]++;
             } else {
                 $rankDistribution['other']++;
             }
-
-            // 计算实际收益（简化计算，实际可能需要根据游戏规则调整）
             $payout = $this->calculatePayout($actualRank, $betAmount);
             $profit = $payout - $betAmount;
             $actualProfitLoss += $profit;
-
-            // 🎯 业务逻辑：以排名为主要成功标准，只有前三名才算盈利
             if ($actualRank <= 3) {
                 $winningBets++;
             } else {
                 $losingBets++;
             }
-
-            // 保本下注暂时不单独统计，归入盈利或亏损类别
-            // if ($profit == 0) {
-            //     $breakEvenBets++;
-            // }
-
-            // 按排名统计下注表现
             if (!isset($betsByRank[$actualRank])) {
                 $betsByRank[$actualRank] = [
                     'count' => 0,
@@ -221,20 +197,17 @@ class PredictionAnalysisController extends Controller
             $betsByRank[$actualRank]['total_amount'] += $betAmount;
             $betsByRank[$actualRank]['total_profit'] += $profit;
         }
-
-                // 计算各种统计数据
         $actualROI = $totalAmount > 0 ? ($actualProfitLoss / $totalAmount) * 100 : 0;
         $winRate = $settledBets > 0 ? ($winningBets / $settledBets) * 100 : 0;
         $avgProfitPerBet = $settledBets > 0 ? $actualProfitLoss / $settledBets : 0;
-
         return [
             'total_bets' => $totalBets,
             'successful_bets' => $successfulBets,
-            'settled_bets' => $settledBets, // 有实际结果的下注
+            'settled_bets' => $settledBets,
             'total_amount_invested' => round($totalAmount, 2),
             'actual_profit_loss' => round($actualProfitLoss, 2),
-            'actual_roi_percentage' => round($actualROI, 2), // 实际投资回报率
-            'win_rate_percentage' => round($winRate, 2), // 胜率（前三名比例）
+            'actual_roi_percentage' => round($actualROI, 2),
+            'win_rate_percentage' => round($winRate, 2),
             'average_profit_per_bet' => round($avgProfitPerBet, 2),
             'betting_distribution' => [
                 'winning_bets' => $winningBets,
@@ -256,53 +229,38 @@ class PredictionAnalysisController extends Controller
      */
     private function calculatePredictionAccuracy(string $uid, ?int $days, ?int $limitRounds = null): array
     {
-        // 获取用户下注对应的预测准确度
         $query = AutoBettingRecord::where('uid', $uid)
             ->where('success', true)
+            ->with(['gameRound.roundResults', 'gameRound.roundPredicts'])
             ->orderBy('created_at', 'desc');
-
-        // 根据筛选类型应用不同的条件
         if ($limitRounds !== null) {
-            // 按局数筛选：获取最新的N局记录
             $query->limit($limitRounds);
         } else if ($days !== null) {
-            // 按天数筛选：-1表示全部历史
             if ($days > 0) {
                 $query->where('created_at', '>=', now()->subDays($days));
             }
         }
-
         $records = $query->get();
-
         if ($records->isEmpty()) {
             return ['message' => '没有找到预测数据'];
         }
-
         $totalPredictions = 0;
         $exactMatches = 0;
         $closeMatches = 0;
         $rankDifferenceSum = 0;
-
         foreach ($records as $record) {
-            $gameRound = GameRound::where('round_id', $record->round_id)->first();
+            $gameRound = $record->gameRound;
             if (!$gameRound) continue;
-
-            // 获取AI预测
-            $prediction = RoundPredict::where('game_round_id', $gameRound->id)
+            $prediction = $gameRound->roundPredicts
                 ->where('token_symbol', strtoupper($record->token_symbol))
                 ->first();
-
-            // 获取实际结果
-            $actualResult = RoundResult::where('game_round_id', $gameRound->id)
+            $actualResult = $gameRound->roundResults
                 ->where('token_symbol', strtoupper($record->token_symbol))
                 ->first();
-
             if (!$prediction || !$actualResult) continue;
-
             $totalPredictions++;
             $rankDifference = abs($prediction->predicted_rank - $actualResult->rank);
             $rankDifferenceSum += $rankDifference;
-
             if ($rankDifference === 0) {
                 $exactMatches++;
             }
@@ -310,7 +268,6 @@ class PredictionAnalysisController extends Controller
                 $closeMatches++;
             }
         }
-
         return [
             'total_predictions_analyzed' => $totalPredictions,
             'exact_matches' => $exactMatches,
@@ -326,30 +283,22 @@ class PredictionAnalysisController extends Controller
      */
     private function calculateStrategyPerformance(string $uid, ?int $days, ?int $limitRounds = null): array
     {
-        // 从prediction_data中提取策略信息进行分析
         $query = AutoBettingRecord::where('uid', $uid)
             ->where('success', true)
+            ->with(['gameRound.roundResults'])
             ->orderBy('created_at', 'desc');
-
-        // 根据筛选类型应用不同的条件
         if ($limitRounds !== null) {
-            // 按局数筛选：获取最新的N局记录
             $query->limit($limitRounds);
         } else if ($days !== null) {
-            // 按天数筛选：-1表示全部历史
             if ($days > 0) {
                 $query->where('created_at', '>=', now()->subDays($days));
             }
         }
-
         $records = $query->get();
-
         $strategyStats = [];
-
         foreach ($records as $record) {
             $predictionData = $record->prediction_data ?? [];
             $strategy = $predictionData['strategy'] ?? 'unknown';
-
             if (!isset($strategyStats[$strategy])) {
                 $strategyStats[$strategy] = [
                     'strategy_name' => $strategy,
@@ -359,31 +308,23 @@ class PredictionAnalysisController extends Controller
                     'winning_bets' => 0,
                 ];
             }
-
             $strategyStats[$strategy]['bet_count']++;
             $strategyStats[$strategy]['total_amount'] += (float) $record->bet_amount;
-
-            // 计算该笔下注的实际收益
-            $gameRound = GameRound::where('round_id', $record->round_id)->first();
+            $gameRound = $record->gameRound;
             if ($gameRound) {
-                $actualResult = RoundResult::where('game_round_id', $gameRound->id)
+                $actualResult = $gameRound->roundResults
                     ->where('token_symbol', strtoupper($record->token_symbol))
                     ->first();
-
                 if ($actualResult) {
                     $payout = $this->calculatePayout($actualResult->rank, (float) $record->bet_amount);
                     $profit = $payout - (float) $record->bet_amount;
                     $strategyStats[$strategy]['total_profit'] += $profit;
-
-                    // 🎯 保持一致：以排名为主要成功标准，只有前三名才算盈利
                     if ($actualResult->rank <= 3) {
                         $strategyStats[$strategy]['winning_bets']++;
                     }
                 }
             }
         }
-
-        // 计算每个策略的统计数据
         foreach ($strategyStats as &$stats) {
             $stats['win_rate_percentage'] = $stats['bet_count'] > 0 ?
                 round(($stats['winning_bets'] / $stats['bet_count']) * 100, 2) : 0;
@@ -392,7 +333,6 @@ class PredictionAnalysisController extends Controller
             $stats['average_profit_per_bet'] = $stats['bet_count'] > 0 ?
                 round($stats['total_profit'] / $stats['bet_count'], 2) : 0;
         }
-
         return array_values($strategyStats);
     }
 

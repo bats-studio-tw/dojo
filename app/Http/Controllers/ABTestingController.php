@@ -2,19 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use App\Services\Prediction\ABTestingService;
 use App\Models\ABTestConfig;
-use App\Models\ABTestResult;
-use Illuminate\Support\Facades\Validator;
+use App\Services\Prediction\ABTestingService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class ABTestingController extends Controller
 {
     public function __construct(
         private ABTestingService $abTestingService
-    ) {}
+    ) {
+    }
 
     /**
      * 啟動A/B測試
@@ -38,7 +38,7 @@ class ABTestingController extends Controller
                     'success' => false,
                     'message' => '參數驗證失敗',
                     'errors' => $validator->errors(),
-                    'code' => 400
+                    'code' => 400,
                 ], 400);
             }
 
@@ -50,7 +50,7 @@ class ABTestingController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => '流量分配總和必須為100%',
-                    'code' => 400
+                    'code' => 400,
                 ], 400);
             }
 
@@ -62,7 +62,7 @@ class ABTestingController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => '策略列表與流量分配不匹配',
-                    'code' => 400
+                    'code' => 400,
                 ], 400);
             }
 
@@ -73,15 +73,15 @@ class ABTestingController extends Controller
                     'success' => true,
                     'data' => [
                         'test_id' => $result['test_id'],
-                        'message' => $result['message']
+                        'message' => $result['message'],
                     ],
-                    'code' => 201
+                    'code' => 201,
                 ], 201);
             } else {
                 return response()->json([
                     'success' => false,
                     'message' => $result['message'],
-                    'code' => 500
+                    'code' => 500,
                 ], 500);
             }
 
@@ -89,13 +89,13 @@ class ABTestingController extends Controller
             Log::error('啟動A/B測試失敗', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => '啟動A/B測試失敗: ' . $e->getMessage(),
-                'code' => 500
+                'code' => 500,
             ], 500);
         }
     }
@@ -121,19 +121,19 @@ class ABTestingController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $tests,
-                'code' => 200
+                'code' => 200,
             ]);
 
         } catch (\Exception $e) {
             Log::error('獲取A/B測試列表失敗', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => '獲取A/B測試列表失敗: ' . $e->getMessage(),
-                'code' => 500
+                'code' => 500,
             ], 500);
         }
     }
@@ -155,7 +155,7 @@ class ABTestingController extends Controller
                     'success' => false,
                     'message' => '參數驗證失敗',
                     'errors' => $validator->errors(),
-                    'code' => 400
+                    'code' => 400,
                 ], 400);
             }
 
@@ -171,13 +171,13 @@ class ABTestingController extends Controller
                 return response()->json([
                     'success' => true,
                     'data' => $result,
-                    'code' => 200
+                    'code' => 200,
                 ]);
             } else {
                 return response()->json([
                     'success' => false,
                     'message' => $result['message'],
-                    'code' => 500
+                    'code' => 500,
                 ], 500);
             }
 
@@ -185,13 +185,13 @@ class ABTestingController extends Controller
             Log::error('獲取A/B測試報告失敗', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => '獲取A/B測試報告失敗: ' . $e->getMessage(),
-                'code' => 500
+                'code' => 500,
             ], 500);
         }
     }
@@ -211,7 +211,7 @@ class ABTestingController extends Controller
                     'success' => false,
                     'message' => '參數驗證失敗',
                     'errors' => $validator->errors(),
-                    'code' => 400
+                    'code' => 400,
                 ], 400);
             }
 
@@ -223,15 +223,15 @@ class ABTestingController extends Controller
                 return response()->json([
                     'success' => true,
                     'data' => [
-                        'message' => $result['message']
+                        'message' => $result['message'],
                     ],
-                    'code' => 200
+                    'code' => 200,
                 ]);
             } else {
                 return response()->json([
                     'success' => false,
                     'message' => $result['message'],
-                    'code' => 500
+                    'code' => 500,
                 ], 500);
             }
 
@@ -239,13 +239,13 @@ class ABTestingController extends Controller
             Log::error('停止A/B測試失敗', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => '停止A/B測試失敗: ' . $e->getMessage(),
-                'code' => 500
+                'code' => 500,
             ], 500);
         }
     }
@@ -261,19 +261,19 @@ class ABTestingController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $activeTests,
-                'code' => 200
+                'code' => 200,
             ]);
 
         } catch (\Exception $e) {
             Log::error('獲取活躍A/B測試失敗', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => '獲取活躍A/B測試失敗: ' . $e->getMessage(),
-                'code' => 500
+                'code' => 500,
             ], 500);
         }
     }
@@ -293,7 +293,7 @@ class ABTestingController extends Controller
                     'success' => false,
                     'message' => '參數驗證失敗',
                     'errors' => $validator->errors(),
-                    'code' => 400
+                    'code' => 400,
                 ], 400);
             }
 
@@ -302,31 +302,31 @@ class ABTestingController extends Controller
             $test = ABTestConfig::with(['creator', 'results'])
                 ->find($validated['test_id']);
 
-            if (!$test) {
+            if (! $test) {
                 return response()->json([
                     'success' => false,
                     'message' => 'A/B測試不存在',
-                    'code' => 404
+                    'code' => 404,
                 ], 404);
             }
 
             return response()->json([
                 'success' => true,
                 'data' => $test,
-                'code' => 200
+                'code' => 200,
             ]);
 
         } catch (\Exception $e) {
             Log::error('獲取A/B測試詳細信息失敗', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => '獲取A/B測試詳細信息失敗: ' . $e->getMessage(),
-                'code' => 500
+                'code' => 500,
             ], 500);
         }
     }

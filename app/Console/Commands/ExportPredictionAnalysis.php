@@ -2,10 +2,10 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
 use App\Models\GameRound;
 use App\Models\HybridRoundPredict;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Storage;
 
 class ExportPredictionAnalysis extends Command
 {
@@ -32,8 +32,9 @@ class ExportPredictionAnalysis extends Command
 
         // 獲取限制參數
         $limit = $this->option('limit');
-        if ($limit && (!is_numeric($limit) || $limit < 1)) {
+        if ($limit && (! is_numeric($limit) || $limit < 1)) {
             $this->error('Limit parameter must be a positive integer.');
+
             return 1;
         }
 
@@ -48,6 +49,7 @@ class ExportPredictionAnalysis extends Command
 
         if ($totalRounds === 0) {
             $this->warn('No completed rounds with predictions and results found.');
+
             return 1;
         }
 
@@ -127,7 +129,7 @@ class ExportPredictionAnalysis extends Command
                         $symbol = $prediction->token_symbol;
                         $actualResult = $resultsMap->get($symbol);
 
-                        if (!$actualResult) {
+                        if (! $actualResult) {
                             continue; // 如果賽果中沒有該代幣，則跳過
                         }
 
@@ -140,7 +142,7 @@ class ExportPredictionAnalysis extends Command
                         // 检查是否有H2H数据
                         $h2hDataAvailable = isset($predictionData['h2h_stats']) &&
                                           is_array($predictionData['h2h_stats']) &&
-                                          !empty($predictionData['h2h_stats']) ? '1' : '0';
+                                          ! empty($predictionData['h2h_stats']) ? '1' : '0';
 
                         $rowData = [
                             // 基础信息

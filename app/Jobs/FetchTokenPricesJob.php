@@ -10,12 +10,15 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class FetchTokenPricesJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
 
     /**
      * Create a new job instance.
@@ -36,24 +39,26 @@ class FetchTokenPricesJob implements ShouldQueue
 
         if (empty($symbols)) {
             Log::warning("token_ratings表中没有找到代币数据");
+
             return;
         }
 
         Log::info("开始获取代币价格数据", [
             'symbols_count' => count($symbols),
-            'minute_timestamp' => $currentMinuteTimestamp
+            'minute_timestamp' => $currentMinuteTimestamp,
         ]);
 
         // 步骤2: 完成所有耗时的网络操作，这里不涉及数据库事务
         // 这是整个流程中最耗时、最不稳定的部分
         $priceData = null;
+
         try {
             // 执行外部API调用，这可能需要几秒到几十秒的时间
             $priceData = $alchemyService->batchPriceData($symbols);
 
             Log::info("成功获取外部API价格数据", [
                 'symbols_fetched' => count($priceData),
-                'minute_timestamp' => $currentMinuteTimestamp
+                'minute_timestamp' => $currentMinuteTimestamp,
             ]);
 
         } catch (\Exception $e) {
@@ -61,7 +66,7 @@ class FetchTokenPricesJob implements ShouldQueue
             Log::error("从外部API获取代币价格失败", [
                 'error' => $e->getMessage(),
                 'symbols_count' => count($symbols),
-                'minute_timestamp' => $currentMinuteTimestamp
+                'minute_timestamp' => $currentMinuteTimestamp,
             ]);
 
             // 重新抛出异常，让队列系统处理重试
@@ -72,8 +77,9 @@ class FetchTokenPricesJob implements ShouldQueue
         if (empty($priceData)) {
             Log::warning("外部API返回空的价格数据", [
                 'symbols_count' => count($symbols),
-                'minute_timestamp' => $currentMinuteTimestamp
+                'minute_timestamp' => $currentMinuteTimestamp,
             ]);
+
             return;
         }
 
@@ -85,7 +91,7 @@ class FetchTokenPricesJob implements ShouldQueue
                 'price_usd' => $data['price_usd'],
                 'currency' => $data['currency'],
                 'minute_timestamp' => $currentMinuteTimestamp,
-                'updated_at' => now()
+                'updated_at' => now(),
             ];
         }
 
@@ -104,14 +110,14 @@ class FetchTokenPricesJob implements ShouldQueue
             Log::info("成功写入代币价格数据到数据库", [
                 'records_count' => count($upsertData),
                 'minute_timestamp' => $currentMinuteTimestamp,
-                'symbols' => array_keys($priceData)
+                'symbols' => array_keys($priceData),
             ]);
 
         } catch (\Exception $e) {
             Log::error("写入代币价格数据到数据库失败", [
                 'error' => $e->getMessage(),
                 'records_count' => count($upsertData),
-                'minute_timestamp' => $currentMinuteTimestamp
+                'minute_timestamp' => $currentMinuteTimestamp,
             ]);
 
             // 重新抛出异常，让队列系统处理

@@ -1,399 +1,265 @@
 <template>
   <div class="ab-test-monitor">
-    <!-- 篩選器 -->
-    <div class="filter-section mb-6">
-      <n-card title="篩選條件">
-        <n-grid :cols="24" :x-gap="16">
-          <n-form-item-gi :span="6" label="狀態">
-            <n-select v-model:value="filters.status" :options="statusOptions" placeholder="選擇狀態" clearable />
-          </n-form-item-gi>
-
-          <n-form-item-gi :span="6" label="創建者">
-            <n-input v-model:value="filters.creator" placeholder="輸入創建者" clearable />
-          </n-form-item-gi>
-
-          <n-form-item-gi :span="6" label="時間範圍">
-            <n-date-picker v-model:value="filters.dateRange" type="daterange" placeholder="選擇時間範圍" clearable />
-          </n-form-item-gi>
-
-          <n-form-item-gi :span="6" class="flex items-end">
-            <n-button type="primary" @click="loadTests" :loading="isLoading">篩選</n-button>
-            <n-button class="ml-2" @click="resetFilters">重置</n-button>
-          </n-form-item-gi>
-        </n-grid>
-      </n-card>
-    </div>
-
-    <!-- 測試列表 -->
-    <n-card title="A/B測試列表">
-      <template #header-extra>
-        <n-button type="primary" @click="loadTests" :loading="isLoading">
-          <template #icon>
-            <n-icon><Refresh /></n-icon>
-          </template>
-          刷新
-        </n-button>
-      </template>
-
-      <n-data-table
-        :columns="columns"
-        :data="tests"
-        :pagination="pagination"
-        :loading="isLoading"
-        :row-key="(row) => row.id"
-        @update:page="handlePageChange"
-      />
-    </n-card>
-
-    <!-- 測試詳情對話框 -->
-    <n-modal v-model:show="showDetailModal" preset="card" style="width: 800px">
-      <template #header>
-        <span class="text-lg font-semibold">測試詳情 - {{ selectedTest?.name }}</span>
-      </template>
-
-      <div v-if="selectedTest" class="test-detail">
-        <n-descriptions :column="2" bordered>
-          <n-descriptions-item label="測試名稱">
-            {{ selectedTest.name }}
-          </n-descriptions-item>
-          <n-descriptions-item label="狀態">
-            <n-tag :type="getStatusType(selectedTest.status)">
-              {{ getStatusText(selectedTest.status) }}
-            </n-tag>
-          </n-descriptions-item>
-          <n-descriptions-item label="開始時間">
-            {{ formatDateTime(selectedTest.start_date) }}
-          </n-descriptions-item>
-          <n-descriptions-item label="結束時間">
-            {{ formatDateTime(selectedTest.end_date) }}
-          </n-descriptions-item>
-          <n-descriptions-item label="創建者">
-            {{ selectedTest.creator?.name || '未知' }}
-          </n-descriptions-item>
-          <n-descriptions-item label="創建時間">
-            {{ formatDateTime(selectedTest.created_at) }}
-          </n-descriptions-item>
-          <n-descriptions-item label="描述" :span="2">
-            {{ selectedTest.description || '無描述' }}
-          </n-descriptions-item>
-        </n-descriptions>
-
-        <!-- 策略配置 -->
-        <div class="mt-6">
-          <h4 class="text-lg font-semibold mb-3">策略配置</h4>
-          <n-table :bordered="false" :single-line="false">
-            <thead>
-              <tr>
-                <th>策略名稱</th>
-                <th>策略標籤</th>
-                <th>流量分配</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(config, name) in selectedTest.strategies" :key="name">
-                <td>{{ name }}</td>
-                <td>
-                  <n-tag>{{ config }}</n-tag>
-                </td>
-                <td>{{ selectedTest.traffic_distribution[name] }}%</td>
-              </tr>
-            </tbody>
-          </n-table>
-        </div>
-
-        <!-- 操作按鈕 -->
-        <div class="mt-6 flex justify-end space-x-4">
-          <n-button @click="viewReport(selectedTest)">查看報告</n-button>
-          <n-button v-if="selectedTest.status === 'active'" type="warning" @click="stopTest(selectedTest)">
-            停止測試
-          </n-button>
-          <n-button @click="showDetailModal = false">關閉</n-button>
+    <NCard title="A/B 测试监控" class="mb-6">
+      <!-- 测试状态概览 -->
+      <div class="mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <NStatistic label="活跃测试" :value="activeTestsCount" />
+          <NStatistic label="总测试数" :value="tests.length" />
+          <NStatistic label="今日新增" :value="todayNewTests" />
+          <NStatistic label="完成测试" :value="completedTestsCount" />
         </div>
       </div>
-    </n-modal>
+
+      <!-- 操作按钮 -->
+      <div class="mb-4 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <NButton type="primary" @click="showCreateForm = true">
+            <template #icon>
+              <Add />
+            </template>
+            创建新测试
+          </NButton>
+          <NButton type="info" @click="refreshTests" :loading="isLoading">
+            <template #icon>
+              <RefreshOutline />
+            </template>
+            刷新
+          </NButton>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <NSelect
+            v-model:value="statusFilter"
+            :options="statusOptions"
+            placeholder="筛选状态"
+            clearable
+            class="w-32"
+          />
+          <NInput v-model:value="searchKeyword" placeholder="搜索测试名称" class="w-48" />
+        </div>
+      </div>
+
+      <!-- 测试列表 -->
+      <NDataTable
+        :columns="columns"
+        :data="filteredTests"
+        :pagination="pagination"
+        :loading="isLoading"
+        :row-key="(row: any) => row.id"
+        @update:page="handlePageChange"
+      />
+
+      <!-- 创建测试表单 -->
+      <NModal v-model:show="showCreateForm" preset="card" title="创建 A/B 测试" style="width: 800px">
+        <CreateABTestForm @created="handleTestCreated" @cancel="showCreateForm = false" />
+      </NModal>
+    </NCard>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { ref, reactive, onMounted, h } from 'vue';
-  import { useMessage, useDialog } from 'naive-ui';
-  import { Refresh, Eye, Stop } from '@vicons/ionicons5';
+  import { ref, computed, onMounted, h } from 'vue';
+  import { useMessage, NButton, NCard, NDataTable, NTag, NModal, NSelect, NInput, NStatistic } from 'naive-ui';
+  import { Add, RefreshOutline } from '@vicons/ionicons5';
+  import CreateABTestForm from './CreateABTestForm.vue';
   import api from '@/utils/api';
 
-  // 定義事件
-  const emit = defineEmits<{
-    testSelected: [test: any];
-  }>();
-
-  // 響應式數據
-  const message = useMessage();
-  const dialog = useDialog();
-  const isLoading = ref(false);
+  // 响应式数据
   const tests = ref<any[]>([]);
-  const showDetailModal = ref(false);
-  const selectedTest = ref<any>(null);
+  const isLoading = ref(false);
+  const showCreateForm = ref(false);
+  const statusFilter = ref<string | null>(null);
+  const searchKeyword = ref('');
+  const message = useMessage();
 
-  const filters = reactive({
-    status: null as string | null,
-    creator: '',
-    dateRange: null as [number, number] | null
-  });
-
-  const statusOptions = [
-    { label: '活躍', value: 'active' },
-    { label: '已停止', value: 'stopped' },
-    { label: '已完成', value: 'completed' }
-  ];
-
-  const pagination = reactive({
+  // 分页
+  const pagination = ref({
     page: 1,
-    pageSize: 15,
+    pageSize: 10,
     showSizePicker: true,
-    pageSizes: [10, 15, 20, 50],
-    onChange: (page: number) => {
-      pagination.page = page;
-      loadTests();
-    },
-    onUpdatePageSize: (pageSize: number) => {
-      pagination.pageSize = pageSize;
-      pagination.page = 1;
-      loadTests();
-    }
+    pageSizes: [10, 20, 50],
+    itemCount: 0
   });
 
-  // 表格列配置
+  // 计算属性
+  const activeTestsCount = computed(() => tests.value.filter((test) => test.status === 'active').length);
+
+  const completedTestsCount = computed(() => tests.value.filter((test) => test.status === 'completed').length);
+
+  const todayNewTests = computed(() => {
+    const today = new Date().toDateString();
+    return tests.value.filter((test) => new Date(test.created_at).toDateString() === today).length;
+  });
+
+  const statusOptions = computed(() => [
+    { label: '活跃', value: 'active' },
+    { label: '暂停', value: 'paused' },
+    { label: '完成', value: 'completed' },
+    { label: '已停止', value: 'stopped' }
+  ]);
+
+  const filteredTests = computed(() => {
+    let filtered = tests.value;
+
+    if (statusFilter.value) {
+      filtered = filtered.filter((test) => test.status === statusFilter.value);
+    }
+
+    if (searchKeyword.value) {
+      const keyword = searchKeyword.value.toLowerCase();
+      filtered = filtered.filter(
+        (test) => test.name.toLowerCase().includes(keyword) || test.description.toLowerCase().includes(keyword)
+      );
+    }
+
+    return filtered;
+  });
+
+  // 表格列定义
   const columns = [
     {
-      title: '測試名稱',
+      title: '测试名称',
       key: 'name',
-      width: 200,
-      ellipsis: {
-        tooltip: true
-      }
-    },
-    {
-      title: '狀態',
-      key: 'status',
-      width: 100,
       render: (row: any) => {
-        const statusMap = {
-          active: { text: '活躍', type: 'success' },
-          stopped: { text: '已停止', type: 'warning' },
-          completed: { text: '已完成', type: 'info' }
-        };
-        const status = statusMap[row.status as keyof typeof statusMap] || { text: row.status, type: 'default' };
-        return h('n-tag', { type: status.type, size: 'small' }, { default: () => status.text });
+        return h('div', { class: 'font-medium' }, row.name);
       }
     },
     {
-      title: '策略數量',
-      key: 'strategy_count',
-      width: 100,
-      render: (row: any) => Object.keys(row.strategies || {}).length
+      title: '状态',
+      key: 'status',
+      render: (row: any) => {
+        const statusMap: Record<string, { type: string; text: string }> = {
+          active: { type: 'success', text: '活跃' },
+          paused: { type: 'warning', text: '暂停' },
+          completed: { type: 'info', text: '完成' },
+          stopped: { type: 'error', text: '已停止' }
+        };
+        const status = statusMap[row.status] || { type: 'default', text: row.status };
+        return h(NTag, { type: status.type as any, size: 'small' }, { default: () => status.text });
+      }
+    },
+    {
+      title: '策略',
+      key: 'strategies',
+      render: (row: any) => {
+        return h(
+          'div',
+          { class: 'space-y-1' },
+          row.strategies.map((strategy: any) =>
+            h(NTag, { type: 'info', size: 'small' }, { default: () => strategy.name })
+          )
+        );
+      }
     },
     {
       title: '流量分配',
-      key: 'traffic_summary',
-      width: 200,
-      ellipsis: {
-        tooltip: true
-      },
+      key: 'traffic_distribution',
       render: (row: any) => {
-        const summary = Object.entries(row.traffic_distribution || {})
-          .map(([name, percentage]) => `${name}: ${percentage}%`)
-          .join(', ');
-        return summary || '未配置';
+        return h(
+          'div',
+          { class: 'text-sm' },
+          Object.entries(row.traffic_distribution).map(([name, percentage]: [string, any]) =>
+            h('div', { key: name }, `${name}: ${percentage}%`)
+          )
+        );
       }
     },
     {
-      title: '開始時間',
+      title: '开始时间',
       key: 'start_date',
-      width: 150,
-      render: (row: any) => formatDateTime(row.start_date)
+      render: (row: any) => {
+        return h('span', { class: 'text-sm text-gray-500' }, new Date(row.start_date).toLocaleDateString('zh-CN'));
+      }
     },
     {
-      title: '結束時間',
+      title: '结束时间',
       key: 'end_date',
-      width: 150,
-      render: (row: any) => formatDateTime(row.end_date)
-    },
-    {
-      title: '創建者',
-      key: 'creator_name',
-      width: 120,
-      render: (row: any) => row.creator?.name || '未知'
+      render: (row: any) => {
+        return h(
+          'span',
+          { class: 'text-sm text-gray-500' },
+          row.end_date ? new Date(row.end_date).toLocaleDateString('zh-CN') : '-'
+        );
+      }
     },
     {
       title: '操作',
       key: 'actions',
-      width: 200,
-      fixed: 'right',
       render: (row: any) => {
-        return h(
-          'div',
-          { class: 'flex space-x-2' },
-          [
-            h(
-              'n-button',
-              {
-                size: 'small',
-                onClick: () => viewDetail(row)
-              },
-              {
-                default: () => '詳情',
-                icon: () => h(Eye)
-              }
-            ),
-            h(
-              'n-button',
-              {
-                size: 'small',
-                type: 'primary',
-                onClick: () => viewReport(row)
-              },
-              {
-                default: () => '報告'
-              }
-            ),
-            row.status === 'active'
-              ? h(
-                  'n-button',
-                  {
-                    size: 'small',
-                    type: 'warning',
-                    onClick: () => stopTest(row)
-                  },
-                  {
-                    default: () => '停止',
-                    icon: () => h(Stop)
-                  }
-                )
-              : null
-          ].filter(Boolean)
-        );
+        return h('div', { class: 'flex items-center space-x-2' }, [
+          h(
+            NButton,
+            {
+              size: 'small',
+              type: 'info',
+              ghost: true,
+              onClick: () => viewReports(row.id)
+            },
+            { default: () => '查看报告' }
+          ),
+          h(
+            NButton,
+            {
+              size: 'small',
+              type: row.status === 'active' ? 'warning' : 'success',
+              ghost: true,
+              onClick: () => toggleTestStatus(row)
+            },
+            { default: () => (row.status === 'active' ? '暂停' : '启动') }
+          )
+        ]);
       }
     }
   ];
 
   // 方法
-  const loadTests = async () => {
+  const fetchTests = async () => {
+    isLoading.value = true;
     try {
-      isLoading.value = true;
-
-      const params = {
-        page: pagination.page,
-        per_page: pagination.pageSize,
-        ...(filters.status && { status: filters.status }),
-        ...(filters.creator && { creator: filters.creator }),
-        ...(filters.dateRange && {
-          start_date: new Date(filters.dateRange[0]).toISOString(),
-          end_date: new Date(filters.dateRange[1]).toISOString()
-        })
-      };
-
-      const response = await api.get('/api/ab-testing/list', { params });
-
-      if (response.data.success) {
-        tests.value = response.data.data.data;
-        pagination.page = response.data.data.current_page;
-        pagination.pageSize = response.data.data.per_page;
-      } else {
-        message.error('加載測試列表失敗');
-      }
+      const response = await api.get('/api/v2/ab-tests');
+      tests.value = response.data.data || [];
+      pagination.value.itemCount = tests.value.length;
     } catch (error: any) {
-      message.error(error.response?.data?.message || '加載測試列表失敗');
+      message.error('获取测试列表失败: ' + error.message);
     } finally {
       isLoading.value = false;
     }
   };
 
-  const resetFilters = () => {
-    filters.status = null;
-    filters.creator = '';
-    filters.dateRange = null;
-    loadTests();
+  const refreshTests = () => {
+    fetchTests();
   };
 
   const handlePageChange = (page: number) => {
-    pagination.page = page;
-    loadTests();
+    pagination.value.page = page;
   };
 
-  const viewDetail = async (test: any) => {
-    try {
-      const response = await api.get('/api/ab-testing/detail', {
-        params: { test_id: test.id }
-      });
+  const handleTestCreated = () => {
+    showCreateForm.value = false;
+    fetchTests();
+    message.success('A/B 测试创建成功');
+  };
 
-      if (response.data.success) {
-        selectedTest.value = response.data.data;
-        showDetailModal.value = true;
-      } else {
-        message.error('獲取測試詳情失敗');
-      }
+  const viewReports = (testId: number) => {
+    // 跳转到报告页面
+    console.log('查看报告:', testId);
+  };
+
+  const toggleTestStatus = async (test: any) => {
+    try {
+      const newStatus = test.status === 'active' ? 'paused' : 'active';
+      await api.put(`/api/v2/ab-tests/${test.id}/status`, { status: newStatus });
+      test.status = newStatus;
+      message.success(`测试已${newStatus === 'active' ? '启动' : '暂停'}`);
     } catch (error: any) {
-      message.error(error.response?.data?.message || '獲取測試詳情失敗');
+      message.error('操作失败: ' + error.message);
     }
   };
 
-  const viewReport = (test: any) => {
-    emit('testSelected', test);
-  };
-
-  const stopTest = (test: any) => {
-    dialog.warning({
-      title: '確認停止測試',
-      content: `確定要停止測試 "${test.name}" 嗎？此操作不可逆。`,
-      positiveText: '確定停止',
-      negativeText: '取消',
-      onPositiveClick: async () => {
-        try {
-          const response = await api.post('/api/ab-testing/stop', {
-            test_id: test.id
-          });
-
-          if (response.data.success) {
-            message.success('測試已停止');
-            loadTests();
-            if (showDetailModal.value) {
-              showDetailModal.value = false;
-            }
-          } else {
-            message.error(response.data.message || '停止測試失敗');
-          }
-        } catch (error: any) {
-          message.error(error.response?.data?.message || '停止測試失敗');
-        }
-      }
-    });
-  };
-
-  const getStatusType = (status: string) => {
-    const statusMap = {
-      active: 'success',
-      stopped: 'warning',
-      completed: 'info'
-    };
-    return statusMap[status as keyof typeof statusMap] || 'default';
-  };
-
-  const getStatusText = (status: string) => {
-    const statusMap = {
-      active: '活躍',
-      stopped: '已停止',
-      completed: '已完成'
-    };
-    return statusMap[status as keyof typeof statusMap] || status;
-  };
-
-  const formatDateTime = (dateString: string) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('zh-CN');
-  };
-
-  // 生命週期
+  // 生命周期
   onMounted(() => {
-    loadTests();
+    fetchTests();
   });
 </script>
 

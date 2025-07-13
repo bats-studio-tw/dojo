@@ -3,7 +3,6 @@
 namespace App\Services\Prediction\Features;
 
 use App\Contracts\Prediction\FeatureProviderInterface;
-use App\Models\TokenPrice;
 
 class MomentumFeatureProvider implements FeatureProviderInterface
 {
@@ -45,6 +44,7 @@ class MomentumFeatureProvider implements FeatureProviderInterface
         // 例如: +10% = 10分, -5% = -5分
         // 限制在合理范围内 (-50 到 +50)
         $score = $priceChange24h * 100; // 转换为百分比
+
         return max(-50, min(50, $score));
     }
 }

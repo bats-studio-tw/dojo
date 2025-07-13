@@ -4,9 +4,8 @@ namespace App\Services;
 
 use App\Events\PredictionUpdated;
 use App\Models\GameRound;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * 核心遊戲預測服務
@@ -24,37 +23,38 @@ class GamePredictionService
 {
     public function __construct(
         private DexPriceClient $dexPriceClient
-    ) {}
+    ) {
+    }
 
     //================== 核心參數配置 ==================
 
     // --- 基礎配置 ---
-    const CACHE_DURATION_MINUTES = 10;           // 預測緩存時長（分鐘）
-    const ANALYSIS_ROUNDS_LIMIT = 120;            // 分析歷史數據的輪次數量
-    const API_DELAY_MICROSECONDS = 200000;        // API調用間隔（微秒，0.2秒）
+    public const CACHE_DURATION_MINUTES = 10;           // 預測緩存時長（分鐘）
+    public const ANALYSIS_ROUNDS_LIMIT = 120;            // 分析歷史數據的輪次數量
+    public const API_DELAY_MICROSECONDS = 200000;        // API調用間隔（微秒，0.2秒）
 
     // --- H2H 演算法核心權重與閾值 ---
-    const H2H_MIN_GAMES_THRESHOLD = 5;            // H2H 有效對戰的最低局數門檻
-    const H2H_DEFAULT_SCORE = 50;                 // 無法計算H2H分數時的基礎分（通常會被智能回退覆蓋）
-    const MIN_H2H_COVERAGE_WEIGHT = 0.15;         // H2H數據覆蓋率貢獻的最低權重（優化：從0.2降低到0.15）
-    const MAX_H2H_COVERAGE_WEIGHT = 0.45;         // H2H數據覆蓋率貢獻的最高權重（優化：從0.6降低到0.45）
+    public const H2H_MIN_GAMES_THRESHOLD = 5;            // H2H 有效對戰的最低局數門檻
+    public const H2H_DEFAULT_SCORE = 50;                 // 無法計算H2H分數時的基礎分（通常會被智能回退覆蓋）
+    public const MIN_H2H_COVERAGE_WEIGHT = 0.15;         // H2H數據覆蓋率貢獻的最低權重（優化：從0.2降低到0.15）
+    public const MAX_H2H_COVERAGE_WEIGHT = 0.45;         // H2H數據覆蓋率貢獻的最高權重（優化：從0.6降低到0.45）
 
     // --- 動態 H2H 門檻與加權參數 (v8.3 新增) ---
-    const H2H_RELIABILITY_THRESHOLD = 0.5;        // H2H 可靠性門檻：低於此覆蓋率時進一步降低權重
-    const H2H_LOW_COVERAGE_PENALTY = 0.8;         // 低覆蓋率懲罰係數：對不可靠的H2H權重進行折扣
+    public const H2H_RELIABILITY_THRESHOLD = 0.5;        // H2H 可靠性門檻：低於此覆蓋率時進一步降低權重
+    public const H2H_LOW_COVERAGE_PENALTY = 0.8;         // 低覆蓋率懲罰係數：對不可靠的H2H權重進行折扣
 
     // --- 風險控制與市場影響 ---
-    const ENHANCED_STABILITY_PENALTY = 1.5;       // 基礎波動性懲罰因子
-    const STABILITY_THRESHOLD_MULTIPLIER = 1.3;   // 識別為「高風險」的波動性倍數閾值
-    const HIGH_RISK_PENALTY_FACTOR = 0.90;        // 對「高風險」代幣的額外懲罰係數 (乘以0.9)
-    const MARKET_ADJUSTMENT_WEIGHT = 0.2;         // 市場動量分數的影響權重
+    public const ENHANCED_STABILITY_PENALTY = 1.5;       // 基礎波動性懲罰因子
+    public const STABILITY_THRESHOLD_MULTIPLIER = 1.3;   // 識別為「高風險」的波動性倍數閾值
+    public const HIGH_RISK_PENALTY_FACTOR = 0.90;        // 對「高風險」代幣的額外懲罰係數 (乘以0.9)
+    public const MARKET_ADJUSTMENT_WEIGHT = 0.2;         // 市場動量分數的影響權重
 
     // --- 置信度計算參數 ---
-    const BASE_CONFIDENCE = 50;                   // 基礎置信度 (%)
-    const CONFIDENCE_PER_GAME = 1.5;              // 每局遊戲貢獻的置信度 (%)
-    const MAX_DATA_CONFIDENCE = 35;               // 數據量最大貢獻置信度 (%)
-    const STABILITY_BONUS_THRESHOLD = 10;         // 穩定性獎勵閾值
-    const MAX_CONSISTENCY_BONUS = 5;              // 一致性最大獎勵 (%)
+    public const BASE_CONFIDENCE = 50;                   // 基礎置信度 (%)
+    public const CONFIDENCE_PER_GAME = 1.5;              // 每局遊戲貢獻的置信度 (%)
+    public const MAX_DATA_CONFIDENCE = 35;               // 數據量最大貢獻置信度 (%)
+    public const STABILITY_BONUS_THRESHOLD = 10;         // 穩定性獎勵閾值
+    public const MAX_CONSISTENCY_BONUS = 5;              // 一致性最大獎勵 (%)
 
     /**
      * 從 composer.json 獲取演算法版本資訊
@@ -62,12 +62,12 @@ class GamePredictionService
     private function getAlgorithmInfo(): array
     {
         $composerPath = base_path('composer.json');
-        if (!file_exists($composerPath)) {
+        if (! file_exists($composerPath)) {
             // 如果 composer.json 不存在，返回開發模式的預設值
             return [
                 'version' => 'dev',
                 'name' => 'h2h_breakeven_prediction',
-                'description' => '保本優先策略：基於H2H對戰關係的終極穩定型預測算法'
+                'description' => '保本優先策略：基於H2H對戰關係的終極穩定型預測算法',
             ];
         }
 
@@ -77,7 +77,7 @@ class GamePredictionService
         return [
             'version' => $gamePredictionConfig['algorithm-version'] ?? 'dev', // 未設定時也返回 'dev'
             'name' => $gamePredictionConfig['algorithm-name'] ?? 'h2h_breakeven_prediction',
-            'description' => $gamePredictionConfig['algorithm-description'] ?? '保本優先策略：基於H2H對戰關係的終極穩定型預測算法'
+            'description' => $gamePredictionConfig['algorithm-description'] ?? '保本優先策略：基於H2H對戰關係的終極穩定型預測算法',
         ];
     }
 
@@ -91,6 +91,7 @@ class GamePredictionService
 
             if (empty($analysisData)) {
                 Log::warning('生成預測數據失敗，分析數據為空', ['round_id' => $roundId]);
+
                 return false;
             }
 
@@ -101,7 +102,7 @@ class GamePredictionService
                 'generated_at' => now()->toISOString(),
                 'algorithm' => $algorithmInfo['name'] . '_' . $algorithmInfo['version'],
                 'algorithm_description' => $algorithmInfo['description'],
-                'analysis_rounds_count' => self::ANALYSIS_ROUNDS_LIMIT
+                'analysis_rounds_count' => self::ANALYSIS_ROUNDS_LIMIT,
             ];
 
             Cache::put('game:current_prediction', $cacheData, now()->addMinutes(self::CACHE_DURATION_MINUTES));
@@ -109,7 +110,7 @@ class GamePredictionService
             Log::info("預測分析完成並已快取", [
                 'round_id' => $roundId,
                 'algorithm' => $cacheData['algorithm'],
-                'tokens_count' => count($analysisData)
+                'tokens_count' => count($analysisData),
             ]);
 
             // 广播预测数据更新事件到WebSocket客户端
@@ -130,8 +131,8 @@ class GamePredictionService
                         'algorithm_description' => $algorithmInfo['description'],
                         'timestamp' => $roundInfo['timestamp'] ?? now()->toISOString(),
                         'generated_at' => now()->toISOString(),
-                        'source' => 'websocket_prediction'
-                    ]
+                        'source' => 'websocket_prediction',
+                    ],
                 ];
 
                 // 使用PredictionUpdated事件广播完整的数据结构
@@ -139,12 +140,12 @@ class GamePredictionService
                 Log::info('📡 预测数据已广播到WebSocket客户端（与API结构一致）', [
                     'round_id' => $roundId,
                     'tokens_count' => count($analysisData),
-                    'data_structure' => 'current_analysis_compatible'
+                    'data_structure' => 'current_analysis_compatible',
                 ]);
             } catch (\Exception $broadcastError) {
                 Log::error('广播预测数据失败', [
                     'round_id' => $roundId,
-                    'error' => $broadcastError->getMessage()
+                    'error' => $broadcastError->getMessage(),
                 ]);
             }
 
@@ -159,8 +160,9 @@ class GamePredictionService
                 'round_id' => $roundId,
                 'tokens' => $tokens,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return false;
         }
     }
@@ -174,6 +176,7 @@ class GamePredictionService
             return Cache::get('game:current_prediction');
         } catch (\Exception $e) {
             Log::error('獲取快取預測數據失敗', ['error' => $e->getMessage()]);
+
             return null;
         }
     }
@@ -192,6 +195,7 @@ class GamePredictionService
 
         if ($recentRounds->isEmpty()) {
             Log::warning('資料庫中沒有歷史數據可用於預測分析');
+
             return [];
         }
 
@@ -224,15 +228,17 @@ class GamePredictionService
 
         foreach ($recentRounds as $round) {
             $historicalTokensInRound = $round->roundResults->pluck('token_symbol')->map('strtoupper')->all();
-            $historicalResultsMap = $round->roundResults->keyBy(fn($result) => strtoupper($result->token_symbol));
+            $historicalResultsMap = $round->roundResults->keyBy(fn ($result) => strtoupper($result->token_symbol));
             $competingTokensInHistory = array_intersect($tokens, $historicalTokensInRound);
 
             if (count($competingTokensInHistory) > 1) {
                 foreach ($competingTokensInHistory as $tokenA) {
                     foreach ($competingTokensInHistory as $tokenB) {
-                        if ($tokenA === $tokenB) continue;
+                        if ($tokenA === $tokenB) {
+                            continue;
+                        }
 
-                        if (!isset($tokenStats[$tokenA]['h2h_stats'][$tokenB])) {
+                        if (! isset($tokenStats[$tokenA]['h2h_stats'][$tokenB])) {
                             $tokenStats[$tokenA]['h2h_stats'][$tokenB] = ['wins' => 0, 'losses' => 0, 'games' => 0];
                         }
                         if ($historicalResultsMap[$tokenA]->rank < $historicalResultsMap[$tokenB]->rank) {
@@ -247,7 +253,9 @@ class GamePredictionService
 
             foreach ($round->roundResults as $result) {
                 $symbol = strtoupper($result->token_symbol);
-                if (!isset($tokenStats[$symbol])) continue;
+                if (! isset($tokenStats[$symbol])) {
+                    continue;
+                }
 
                 $stats = &$tokenStats[$symbol];
                 $stats['total_games']++;
@@ -255,8 +263,12 @@ class GamePredictionService
                 $stats['value_sum'] += floatval($result->value);
                 $stats['value_history'][] = floatval($result->value);
 
-                if ($result->rank === 1) $stats['wins']++;
-                if ($result->rank <= 3) $stats['top3']++;
+                if ($result->rank === 1) {
+                    $stats['wins']++;
+                }
+                if ($result->rank <= 3) {
+                    $stats['top3']++;
+                }
             }
         }
 
@@ -293,6 +305,7 @@ class GamePredictionService
             $stats['avg_value'] = round($stats['avg_value'], 4);
             $stats['value_stddev'] = round($stats['value_stddev'], 4);
         }
+
         return $tokenStats;
     }
 
@@ -307,7 +320,9 @@ class GamePredictionService
             $validOpponentCount = 0;
 
             foreach ($currentTokenSymbols as $opponent) {
-                if ($symbol === $opponent) continue;
+                if ($symbol === $opponent) {
+                    continue;
+                }
                 $h2hData = $stats['h2h_stats'][$opponent] ?? null;
                 if ($h2hData && $h2hData['games'] >= self::H2H_MIN_GAMES_THRESHOLD) {
                     $totalWinRate += $h2hData['wins'] / $h2hData['games'];
@@ -336,7 +351,9 @@ class GamePredictionService
         $tokens = array_keys($tokenStats);
         $tokenCount = count($tokens);
 
-        if ($tokenCount < 2) return 0;
+        if ($tokenCount < 2) {
+            return 0;
+        }
 
         for ($i = 0; $i < $tokenCount; $i++) {
             for ($j = $i + 1; $j < $tokenCount; $j++) {
@@ -348,6 +365,7 @@ class GamePredictionService
                 }
             }
         }
+
         return $totalPossiblePairs > 0 ? $validH2HPairs / $totalPossiblePairs : 0;
     }
 
@@ -388,6 +406,7 @@ class GamePredictionService
         // 核心排序邏輯：基於風險調整後分數排序（穩定性優先）
         usort($analysisData, function ($a, $b) {
             $scoreComparison = $b['risk_adjusted_score'] <=> $a['risk_adjusted_score'];
+
             return $scoreComparison === 0 ? ($b['predicted_final_value'] <=> $a['predicted_final_value']) : $scoreComparison;
         });
 
@@ -415,7 +434,7 @@ class GamePredictionService
         $absoluteScore = $this->calculateAbsoluteScore($data);
         $relativeScore = $data['h2h_score'] ?? self::H2H_DEFAULT_SCORE;
 
-                // 基礎動態權重計算
+        // 基礎動態權重計算
         $originalRelativeWeight = self::MIN_H2H_COVERAGE_WEIGHT + ($h2hCoverageRatio * (self::MAX_H2H_COVERAGE_WEIGHT - self::MIN_H2H_COVERAGE_WEIGHT));
         $dynamicRelativeWeight = $originalRelativeWeight;
 
@@ -462,6 +481,7 @@ class GamePredictionService
         // 每場比賽貢獻 0.1 分的數據可靠性，最多加 5 分
         $dataReliabilityBonus = min(5, $totalGames * 0.1);
         $finalScore = $baseScore + $dataReliabilityBonus;
+
         return max(0, min(105, $finalScore)); // 最高分可能因可靠性加分超過100
     }
 
@@ -526,6 +546,7 @@ class GamePredictionService
                 $totalWeight += $weight;
             }
         }
+
         // 如果有可用數據，返回加權平均分；否則返回中性分50
         return $totalWeight > 0 ? $weightedScore / $totalWeight : 50;
     }
@@ -536,6 +557,7 @@ class GamePredictionService
     private function getTokenMarketData(string $symbol): array
     {
         $priceChanges = $this->dexPriceClient->getTokenPriceChanges($symbol);
+
         return [
             'change_5m' => $priceChanges['change_5m'] ?? null,
             'change_1h' => $priceChanges['change_1h'] ?? null,
@@ -564,7 +586,7 @@ class GamePredictionService
             // 標準差越小，獎勵越高
             $stabilityBonus = max(0, self::STABILITY_BONUS_THRESHOLD - ($valueStddev * 10)); // 放大stddev影響
             $confidence += $stabilityBonus;
-        } else if ($totalGames > 0) {
+        } elseif ($totalGames > 0) {
             $confidence += 5; // 如果有比賽紀錄且波動為0，給予少量獎勵
         }
 

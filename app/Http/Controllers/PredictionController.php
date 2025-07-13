@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use App\Services\Prediction\PredictionServiceFactory;
-use App\Services\Prediction\BacktestService;
-use App\Models\PredictionResult;
 use App\Models\GameRound;
+use App\Models\PredictionResult;
+use App\Services\Prediction\BacktestService;
+use App\Services\Prediction\PredictionServiceFactory;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -16,7 +17,8 @@ class PredictionController extends Controller
     public function __construct(
         private PredictionServiceFactory $factory,
         private BacktestService $backtestService
-    ) {}
+    ) {
+    }
 
     /**
      * 执行预测
@@ -35,7 +37,7 @@ class PredictionController extends Controller
                     'success' => false,
                     'message' => '参数验证失败',
                     'errors' => $validator->errors(),
-                    'code' => 400
+                    'code' => 400,
                 ], 400);
             }
 
@@ -46,11 +48,11 @@ class PredictionController extends Controller
 
             // 获取当前游戏轮次
             $currentRound = GameRound::latest()->first();
-            if (!$currentRound) {
+            if (! $currentRound) {
                 return response()->json([
                     'success' => false,
                     'message' => '未找到当前游戏轮次',
-                    'code' => 404
+                    'code' => 404,
                 ], 404);
             }
 
@@ -87,20 +89,20 @@ class PredictionController extends Controller
                 'success' => true,
                 'data' => $formattedResults,
                 'message' => '预测执行成功',
-                'code' => 200
+                'code' => 200,
             ]);
 
         } catch (\Exception $e) {
             Log::error('预测执行失败', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => '预测执行失败: ' . $e->getMessage(),
-                'code' => 500
+                'code' => 500,
             ], 500);
         }
     }
@@ -111,35 +113,39 @@ class PredictionController extends Controller
     public function listStrategies(): JsonResponse
     {
         try {
-            $strategies = config('prediction.strategies', []);
+            // 使用Redis快取策略列表，提高回應速度
+            $cacheKey = 'prediction:strategies:list';
+            $formattedStrategies = Cache::remember($cacheKey, now()->addHours(1), function () {
+                $strategies = config('prediction.strategies', []);
 
-            $formattedStrategies = collect($strategies)->map(function ($config, $tag) {
-                return [
-                    'tag' => $tag,
-                    'name' => $this->getStrategyName($tag),
-                    'description' => $this->getStrategyDescription($tag),
-                    'weights' => $config['weights'] ?? [],
-                    'normalization' => $config['feature_normalization'] ?? [],
-                ];
-            })->values()->toArray();
+                return collect($strategies)->map(function ($config, $tag) {
+                    return [
+                        'tag' => $tag,
+                        'name' => $this->getStrategyName($tag),
+                        'description' => $this->getStrategyDescription($tag),
+                        'weights' => $config['weights'] ?? [],
+                        'normalization' => $config['feature_normalization'] ?? [],
+                    ];
+                })->values()->toArray();
+            });
 
             return response()->json([
                 'success' => true,
                 'data' => $formattedStrategies,
                 'message' => '策略列表获取成功',
-                'code' => 200
+                'code' => 200,
             ]);
 
         } catch (\Exception $e) {
             Log::error('获取策略列表失败', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => '获取策略列表失败: ' . $e->getMessage(),
-                'code' => 500
+                'code' => 500,
             ], 500);
         }
     }
@@ -154,7 +160,7 @@ class PredictionController extends Controller
                 'strategy_tag' => 'required|string|max:50',
                 'start_date' => 'nullable|date',
                 'end_date' => 'nullable|date|after:start_date',
-                'rounds' => 'nullable|integer|min:10|max:1000',
+                'rounds_limit' => 'nullable|integer|min:10|max:1000',
             ]);
 
             if ($validator->fails()) {
@@ -162,38 +168,57 @@ class PredictionController extends Controller
                     'success' => false,
                     'message' => '参数验证失败',
                     'errors' => $validator->errors(),
-                    'code' => 400
+                    'code' => 400,
                 ], 400);
             }
 
             $validated = $validator->validated();
 
-            // 执行回测
-            $result = $this->backtestService->runBacktest(
-                $validated['strategy_tag'],
-                $validated['rounds'] ?? 100,
+            // 获取历史回合数据
+            $rounds = $this->backtestService->getHistoricalRounds(
+                $validated['rounds_limit'] ?? 100,
                 $validated['start_date'] ?? null,
                 $validated['end_date'] ?? null
+            );
+
+            if (empty($rounds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '未找到符合条件的回合数据',
+                    'code' => 404,
+                ], 404);
+            }
+
+            // 构建策略配置
+            $strategyConfig = [
+                'strategy_tag' => $validated['strategy_tag'],
+            ];
+
+            // 执行同步回测
+            $result = $this->backtestService->runBacktest(
+                $rounds,
+                $strategyConfig,
+                auth()->id()
             );
 
             return response()->json([
                 'success' => true,
                 'data' => $result,
                 'message' => '回测执行成功',
-                'code' => 200
+                'code' => 200,
             ]);
 
         } catch (\Exception $e) {
             Log::error('回测执行失败', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => '回测执行失败: ' . $e->getMessage(),
-                'code' => 500
+                'code' => 500,
             ], 500);
         }
     }
@@ -215,7 +240,7 @@ class PredictionController extends Controller
                 'success' => false,
                 'message' => '参数验证失败',
                 'errors' => $validator->errors(),
-                'code' => 400
+                'code' => 400,
             ], 400);
         }
         $validated = $validator->validated();
@@ -223,11 +248,12 @@ class PredictionController extends Controller
             'strategy_tag' => $validated['strategy_tag'],
         ];
         $batchId = $this->backtestService->startBacktest($validated['rounds'], $strategyConfig, auth()->id());
+
         return response()->json([
             'success' => true,
             'batch_id' => $batchId,
             'message' => '回测任务已提交',
-            'code' => 202
+            'code' => 202,
         ], 202);
     }
 
@@ -250,16 +276,17 @@ class PredictionController extends Controller
                 'success' => false,
                 'message' => '参数验证失败',
                 'errors' => $validator->errors(),
-                'code' => 400
+                'code' => 400,
             ], 400);
         }
         $validated = $validator->validated();
         $batchId = $this->backtestService->startGridSearch($validated['rounds'], $validated['param_matrix'], auth()->id());
+
         return response()->json([
             'success' => true,
             'batch_id' => $batchId,
             'message' => 'Grid Search 任务已提交',
-            'code' => 202
+            'code' => 202,
         ], 202);
     }
 
@@ -281,7 +308,7 @@ class PredictionController extends Controller
                     'success' => false,
                     'message' => '参数验证失败',
                     'errors' => $validator->errors(),
-                    'code' => 400
+                    'code' => 400,
                 ], 400);
             }
 
@@ -292,15 +319,15 @@ class PredictionController extends Controller
                 ->orderBy('created_at', 'desc');
 
             // 应用筛选条件
-            if (!empty($validated['strategy_tag'])) {
+            if (! empty($validated['strategy_tag'])) {
                 $query->where('strategy_tag', $validated['strategy_tag']);
             }
 
-            if (!empty($validated['start_date'])) {
+            if (! empty($validated['start_date'])) {
                 $query->where('created_at', '>=', $validated['start_date']);
             }
 
-            if (!empty($validated['end_date'])) {
+            if (! empty($validated['end_date'])) {
                 $query->where('created_at', '<=', $validated['end_date']);
             }
 
@@ -332,20 +359,20 @@ class PredictionController extends Controller
                 'success' => true,
                 'data' => $formattedResults,
                 'message' => '历史数据获取成功',
-                'code' => 200
+                'code' => 200,
             ]);
 
         } catch (\Exception $e) {
             Log::error('获取预测历史失败', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => '获取预测历史失败: ' . $e->getMessage(),
-                'code' => 500
+                'code' => 500,
             ], 500);
         }
     }
@@ -366,7 +393,7 @@ class PredictionController extends Controller
                     'success' => false,
                     'message' => '参数验证失败',
                     'errors' => $validator->errors(),
-                    'code' => 400
+                    'code' => 400,
                 ], 400);
             }
 
@@ -374,7 +401,7 @@ class PredictionController extends Controller
 
             $query = PredictionResult::where('strategy_tag', $validated['strategy_tag']);
 
-            if (!empty($validated['days'])) {
+            if (! empty($validated['days'])) {
                 $query->where('created_at', '>=', now()->subDays($validated['days']));
             }
 
@@ -384,7 +411,7 @@ class PredictionController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => '未找到该策略的预测数据',
-                    'code' => 404
+                    'code' => 404,
                 ], 404);
             }
 
@@ -409,20 +436,20 @@ class PredictionController extends Controller
                 'success' => true,
                 'data' => $performance,
                 'message' => '性能统计获取成功',
-                'code' => 200
+                'code' => 200,
             ]);
 
         } catch (\Exception $e) {
             Log::error('获取策略性能失败', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => '获取策略性能失败: ' . $e->getMessage(),
-                'code' => 500
+                'code' => 500,
             ], 500);
         }
     }
@@ -472,21 +499,22 @@ class PredictionController extends Controller
                 'success' => false,
                 'message' => '参数验证失败',
                 'errors' => $validator->errors(),
-                'code' => 400
+                'code' => 400,
             ], 400);
         }
         $batchId = $request->input('batch_id');
         // 查詢 Laravel Job Batch 狀態
         $batch = \DB::table('job_batches')->where('id', $batchId)->first();
-        if (!$batch) {
+        if (! $batch) {
             return response()->json([
                 'success' => false,
                 'message' => '未找到對應的回測任務',
-                'code' => 404
+                'code' => 404,
             ], 404);
         }
         // 查詢所有該batch下的BacktestReport
         $reports = \App\Models\BacktestReport::where('batch_id', $batchId)->get();
+
         return response()->json([
             'success' => true,
             'batch' => [
@@ -501,7 +529,7 @@ class PredictionController extends Controller
                 'finished_at' => $batch->finished_at,
             ],
             'reports' => $reports,
-            'code' => 200
+            'code' => 200,
         ]);
     }
 
@@ -518,23 +546,74 @@ class PredictionController extends Controller
                 'success' => false,
                 'message' => '参数验证失败',
                 'errors' => $validator->errors(),
-                'code' => 400
+                'code' => 400,
             ], 400);
         }
         $id = $request->input('id');
-        $report = \App\Models\BacktestReport::find($id);
-        if (!$report) {
+        $report = $this->backtestService->getBacktestReport($id);
+        if (! $report) {
             return response()->json([
                 'success' => false,
                 'message' => '未找到對應的回測報告',
-                'code' => 404
+                'code' => 404,
             ], 404);
         }
+
         return response()->json([
             'success' => true,
             'data' => $report,
-            'code' => 200
+            'code' => 200,
         ]);
+    }
+
+    /**
+     * 获取历史回合数据
+     */
+    public function getHistoricalRounds(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'limit' => 'nullable|integer|min:1|max:1000',
+                'start_date' => 'nullable|date',
+                'end_date' => 'nullable|date|after:start_date',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '参数验证失败',
+                    'errors' => $validator->errors(),
+                    'code' => 400,
+                ], 400);
+            }
+
+            $validated = $validator->validated();
+
+            $rounds = $this->backtestService->getHistoricalRounds(
+                $validated['limit'] ?? 100,
+                $validated['start_date'] ?? null,
+                $validated['end_date'] ?? null
+            );
+
+            return response()->json([
+                'success' => true,
+                'data' => $rounds,
+                'message' => '历史回合数据获取成功',
+                'code' => 200,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取历史回合数据失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取历史回合数据失败: ' . $e->getMessage(),
+                'code' => 500,
+            ], 500);
+        }
     }
 
     /**
@@ -554,7 +633,7 @@ class PredictionController extends Controller
                     'success' => false,
                     'message' => '参数验证失败',
                     'errors' => $validator->errors(),
-                    'code' => 400
+                    'code' => 400,
                 ], 400);
             }
 
@@ -599,7 +678,7 @@ class PredictionController extends Controller
 
             Log::info('WebSocket 测试广播完成', [
                 'round_id' => $roundId,
-                'predictions_count' => count($testPredictions)
+                'predictions_count' => count($testPredictions),
             ]);
 
             return response()->json([
@@ -608,22 +687,525 @@ class PredictionController extends Controller
                 'data' => [
                     'round_id' => $roundId,
                     'predictions_count' => count($testPredictions),
-                    'predictions' => $testPredictions
+                    'predictions' => $testPredictions,
                 ],
-                'code' => 200
+                'code' => 200,
             ]);
 
         } catch (\Exception $e) {
             Log::error('WebSocket 测试广播失败', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'WebSocket 测试广播失败: ' . $e->getMessage(),
-                'code' => 500
+                'code' => 500,
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取当前分析数据
+     */
+    public function getCurrentAnalysis(): JsonResponse
+    {
+        try {
+            // 获取最新的预测结果
+            $latestPredictions = PredictionResult::with('gameRound')
+                ->latest()
+                ->limit(20)
+                ->get()
+                ->groupBy('game_round_id')
+                ->first();
+
+            if (!$latestPredictions) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '暂无预测数据',
+                    'code' => 404,
+                ], 404);
+            }
+
+            // 格式化数据
+            $formattedData = $latestPredictions->map(function ($prediction) {
+                return [
+                    'symbol' => $prediction->token,
+                    'predicted_rank' => $prediction->predict_rank,
+                    'prediction_score' => $prediction->predict_score,
+                    'elo_score' => $prediction->elo_score,
+                    'momentum_score' => $prediction->momentum_score,
+                    'volume_score' => $prediction->volume_score,
+                    'norm_elo' => $prediction->norm_elo,
+                    'norm_momentum' => $prediction->norm_momentum,
+                    'norm_volume' => $prediction->norm_volume,
+                    'strategy_tag' => $prediction->strategy_tag,
+                    'created_at' => $prediction->created_at->toISOString(),
+                ];
+            })->values()->toArray();
+
+            // 按预测分数排序
+            usort($formattedData, function ($a, $b) {
+                return $b['prediction_score'] <=> $a['prediction_score'];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $formattedData,
+                'meta' => [
+                    'round_id' => $latestPredictions->first()->game_round_id,
+                    'status' => 'current',
+                    'total_predictions' => count($formattedData),
+                    'updated_at' => now()->toISOString(),
+                ],
+                'message' => '当前分析数据获取成功',
+                'code' => 200,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取当前分析数据失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取当前分析数据失败: ' . $e->getMessage(),
+                'code' => 500,
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取混合预测数据
+     */
+    public function getHybridPredictions(): JsonResponse
+    {
+        try {
+            // 获取最新的混合预测结果
+            $latestHybridPredictions = \App\Models\HybridRoundPredict::with('gameRound')
+                ->latest()
+                ->limit(20)
+                ->get()
+                ->groupBy('game_round_id')
+                ->first();
+
+            if (!$latestHybridPredictions) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '暂无混合预测数据',
+                    'code' => 404,
+                ], 404);
+            }
+
+            // 格式化数据
+            $formattedData = $latestHybridPredictions->map(function ($prediction) {
+                return [
+                    'symbol' => $prediction->token,
+                    'predicted_rank' => $prediction->predicted_rank,
+                    'mom_score' => $prediction->mom_score,
+                    'elo_prob' => $prediction->elo_prob,
+                    'final_score' => $prediction->final_score,
+                    'confidence' => $prediction->confidence,
+                    'created_at' => $prediction->created_at->toISOString(),
+                ];
+            })->values()->toArray();
+
+            // 按最终分数排序
+            usort($formattedData, function ($a, $b) {
+                return $b['final_score'] <=> $a['final_score'];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $formattedData,
+                'meta' => [
+                    'round_id' => $latestHybridPredictions->first()->game_round_id,
+                    'status' => 'current',
+                    'total_predictions' => count($formattedData),
+                    'updated_at' => now()->toISOString(),
+                ],
+                'message' => '混合预测数据获取成功',
+                'code' => 200,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取混合预测数据失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取混合预测数据失败: ' . $e->getMessage(),
+                'code' => 500,
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取动量预测统计
+     */
+    public function getMomentumPredictionStats(): JsonResponse
+    {
+        try {
+            // 获取动量预测统计数据
+            $stats = \App\Models\HybridRoundPredict::selectRaw('
+                COUNT(*) as total_predictions,
+                AVG(final_score) as avg_final_score,
+                AVG(mom_score) as avg_momentum_score,
+                AVG(elo_prob) as avg_elo_probability,
+                AVG(confidence) as avg_confidence
+            ')->first();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_predictions' => $stats->total_predictions,
+                    'avg_final_score' => round($stats->avg_final_score, 4),
+                    'avg_momentum_score' => round($stats->avg_momentum_score, 4),
+                    'avg_elo_probability' => round($stats->avg_elo_probability, 4),
+                    'avg_confidence' => round($stats->avg_confidence, 4),
+                ],
+                'message' => '动量预测统计获取成功',
+                'code' => 200,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取动量预测统计失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取动量预测统计失败: ' . $e->getMessage(),
+                'code' => 500,
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取动量预测历史
+     */
+    public function getMomentumPredictionHistory(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'limit' => 'nullable|integer|min:1|max:100',
+                'offset' => 'nullable|integer|min:0',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '参数验证失败',
+                    'errors' => $validator->errors(),
+                    'code' => 400,
+                ], 400);
+            }
+
+            $validated = $validator->validated();
+            $limit = $validated['limit'] ?? 50;
+            $offset = $validated['offset'] ?? 0;
+
+            // 获取动量预测历史
+            $history = \App\Models\HybridRoundPredict::with('gameRound')
+                ->orderBy('created_at', 'desc')
+                ->offset($offset)
+                ->limit($limit)
+                ->get()
+                ->groupBy('game_round_id');
+
+            $formattedHistory = [];
+            foreach ($history as $roundId => $predictions) {
+                $formattedHistory[] = [
+                    'round_id' => $roundId,
+                    'predictions' => $predictions->map(function ($prediction) {
+                        return [
+                            'symbol' => $prediction->token,
+                            'predicted_rank' => $prediction->predicted_rank,
+                            'mom_score' => $prediction->mom_score,
+                            'elo_prob' => $prediction->elo_prob,
+                            'final_score' => $prediction->final_score,
+                            'confidence' => $prediction->confidence,
+                            'created_at' => $prediction->created_at->toISOString(),
+                        ];
+                    })->values()->toArray(),
+                    'total_predictions' => $predictions->count(),
+                    'created_at' => $predictions->first()->created_at->toISOString(),
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $formattedHistory,
+                'meta' => [
+                    'total_rounds' => count($formattedHistory),
+                    'limit' => $limit,
+                    'offset' => $offset,
+                ],
+                'message' => '动量预测历史获取成功',
+                'code' => 200,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取动量预测历史失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取动量预测历史失败: ' . $e->getMessage(),
+                'code' => 500,
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取Token市场数据
+     */
+    public function getTokenMarketData(): JsonResponse
+    {
+        try {
+            // 获取最新的Token价格数据
+            $marketData = \App\Models\TokenPrice::latest()
+                ->limit(100)
+                ->get()
+                ->groupBy('symbol')
+                ->map(function ($prices) {
+                    return $prices->first();
+                })
+                ->values()
+                ->toArray();
+
+            return response()->json([
+                'success' => true,
+                'data' => $marketData,
+                'meta' => [
+                    'total_tokens' => count($marketData),
+                    'updated_at' => now()->toISOString(),
+                ],
+                'message' => 'Token市场数据获取成功',
+                'code' => 200,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取Token市场数据失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取Token市场数据失败: ' . $e->getMessage(),
+                'code' => 500,
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取整体准确率
+     */
+    public function getOverallAccuracy(): JsonResponse
+    {
+        try {
+            // 计算整体准确率统计
+            $accuracyStats = PredictionResult::selectRaw('
+                COUNT(*) as total_predictions,
+                SUM(CASE WHEN predict_rank = 1 THEN 1 ELSE 0 END) as correct_predictions,
+                AVG(predict_score) as avg_prediction_score
+            ')->first();
+
+            $accuracy = $accuracyStats->total_predictions > 0
+                ? ($accuracyStats->correct_predictions / $accuracyStats->total_predictions) * 100
+                : 0;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_predictions' => $accuracyStats->total_predictions,
+                    'correct_predictions' => $accuracyStats->correct_predictions,
+                    'accuracy_percentage' => round($accuracy, 2),
+                    'avg_prediction_score' => round($accuracyStats->avg_prediction_score, 4),
+                ],
+                'message' => '整体准确率获取成功',
+                'code' => 200,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取整体准确率失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取整体准确率失败: ' . $e->getMessage(),
+                'code' => 500,
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取性能摘要
+     */
+    public function getPerformanceSummary(): JsonResponse
+    {
+        try {
+            // 获取性能摘要数据
+            $performance = PredictionResult::selectRaw('
+                strategy_tag,
+                COUNT(*) as total_predictions,
+                AVG(predict_score) as avg_score,
+                SUM(CASE WHEN predict_rank = 1 THEN 1 ELSE 0 END) as wins
+            ')
+            ->groupBy('strategy_tag')
+            ->get()
+            ->map(function ($item) {
+                $winRate = $item->total_predictions > 0
+                    ? ($item->wins / $item->total_predictions) * 100
+                    : 0;
+
+                return [
+                    'strategy_tag' => $item->strategy_tag,
+                    'total_predictions' => $item->total_predictions,
+                    'wins' => $item->wins,
+                    'win_rate' => round($winRate, 2),
+                    'avg_score' => round($item->avg_score, 4),
+                ];
+            })
+            ->values()
+            ->toArray();
+
+            return response()->json([
+                'success' => true,
+                'data' => $performance,
+                'message' => '性能摘要获取成功',
+                'code' => 200,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取性能摘要失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取性能摘要失败: ' . $e->getMessage(),
+                'code' => 500,
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取Token历史数据
+     */
+    public function getTokenHistory(string $tokenSymbol): JsonResponse
+    {
+        try {
+            $validator = Validator::make(['tokenSymbol' => $tokenSymbol], [
+                'tokenSymbol' => 'required|string|max:10',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '参数验证失败',
+                    'errors' => $validator->errors(),
+                    'code' => 400,
+                ], 400);
+            }
+
+            // 获取Token历史预测数据
+            $history = PredictionResult::where('token', $tokenSymbol)
+                ->with('gameRound')
+                ->orderBy('created_at', 'desc')
+                ->limit(100)
+                ->get()
+                ->map(function ($prediction) {
+                    return [
+                        'round_id' => $prediction->game_round_id,
+                        'predicted_rank' => $prediction->predict_rank,
+                        'prediction_score' => $prediction->predict_score,
+                        'strategy_tag' => $prediction->strategy_tag,
+                        'created_at' => $prediction->created_at->toISOString(),
+                    ];
+                })
+                ->toArray();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'token_symbol' => $tokenSymbol,
+                    'history' => $history,
+                    'total_records' => count($history),
+                ],
+                'message' => 'Token历史数据获取成功',
+                'code' => 200,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取Token历史数据失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'token_symbol' => $tokenSymbol,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取Token历史数据失败: ' . $e->getMessage(),
+                'code' => 500,
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取用户投注表现
+     */
+    public function getUserBettingPerformance(): JsonResponse
+    {
+        try {
+            // 获取用户投注表现数据
+            $performance = \App\Models\AutoBettingRecord::selectRaw('
+                COUNT(*) as total_bets,
+                SUM(CASE WHEN profit_loss > 0 THEN 1 ELSE 0 END) as winning_bets,
+                SUM(profit_loss) as total_profit_loss,
+                AVG(profit_loss) as avg_profit_loss
+            ')->first();
+
+            $winRate = $performance->total_bets > 0
+                ? ($performance->winning_bets / $performance->total_bets) * 100
+                : 0;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_bets' => $performance->total_bets,
+                    'winning_bets' => $performance->winning_bets,
+                    'win_rate' => round($winRate, 2),
+                    'total_profit_loss' => round($performance->total_profit_loss, 2),
+                    'avg_profit_loss' => round($performance->avg_profit_loss, 2),
+                ],
+                'message' => '用户投注表现获取成功',
+                'code' => 200,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取用户投注表现失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取用户投注表现失败: ' . $e->getMessage(),
+                'code' => 500,
             ], 500);
         }
     }

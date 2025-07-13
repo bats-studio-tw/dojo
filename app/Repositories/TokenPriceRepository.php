@@ -4,8 +4,8 @@ namespace App\Repositories;
 
 use App\Models\TokenPrice;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TokenPriceRepository
 {
@@ -34,8 +34,9 @@ class TokenPriceRepository
             Log::error('[TokenPriceRepository] 查询代币价格时发生错误', [
                 'symbol' => $symbol,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return null;
         }
     }
@@ -67,8 +68,9 @@ class TokenPriceRepository
                 'symbol' => $symbol,
                 'data_points' => $dataPoints,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return null;
         }
     }
@@ -105,7 +107,7 @@ class TokenPriceRepository
                         'tp1.currency',
                         'tp1.minute_timestamp',
                         'tp1.created_at',
-                        'tp1.updated_at'
+                        'tp1.updated_at',
                     ])
                     ->whereIn('tp1.symbol', $upperSymbols)
                     ->whereRaw('(
@@ -125,7 +127,7 @@ class TokenPriceRepository
 
                 foreach ($results as $row) {
                     $symbol = $row->symbol;
-                    if (!isset($groupedResults[$symbol])) {
+                    if (! isset($groupedResults[$symbol])) {
                         $groupedResults[$symbol] = collect();
                     }
 
@@ -158,7 +160,7 @@ class TokenPriceRepository
                 'symbols' => $symbols,
                 'data_points' => $dataPoints,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             // 降级到单个查询方式
@@ -198,7 +200,7 @@ class TokenPriceRepository
             // 将代币符号转换为大写
             $upperSymbols = array_map('strtoupper', $symbols);
 
-                                                                        // 使用优化的批量查询，每个代币只获取需要的记录数
+            // 使用优化的批量查询，每个代币只获取需要的记录数
             $groupedResults = [];
 
             // 如果代币数量较少，使用循环查询（更简单）
@@ -220,7 +222,7 @@ class TokenPriceRepository
                         'tp1.currency',
                         'tp1.minute_timestamp',
                         'tp1.created_at',
-                        'tp1.updated_at'
+                        'tp1.updated_at',
                     ])
                     ->whereIn('tp1.symbol', $upperSymbols)
                     ->whereRaw('(
@@ -240,7 +242,7 @@ class TokenPriceRepository
 
                 foreach ($results as $row) {
                     $symbol = $row->symbol;
-                    if (!isset($groupedResults[$symbol])) {
+                    if (! isset($groupedResults[$symbol])) {
                         $groupedResults[$symbol] = collect();
                     }
 
@@ -267,7 +269,7 @@ class TokenPriceRepository
             Log::error('[TokenPriceRepository] 批量查询代币价格时发生错误', [
                 'symbols' => $symbols,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             // 降级到单个查询方式
@@ -298,6 +300,7 @@ class TokenPriceRepository
     public function hasEnoughPriceData(string $symbol): bool
     {
         $prices = $this->getLatestPricesForToken($symbol, 2);
+
         return $prices !== null && $prices->count() >= 2;
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Services\Prediction;
 
-use App\Contracts\Prediction\FeatureProviderInterface;
 use App\Contracts\Prediction\MarketDataProviderInterface;
 use App\Contracts\Prediction\NormalizationStrategyInterface;
 use App\Services\AlchemyPriceService;
@@ -23,7 +22,7 @@ class PredictionServiceFactory
         $config = config('prediction');
 
         // 如果策略不存在，使用默认策略
-        if (!isset($config['strategies'][$strategy])) {
+        if (! isset($config['strategies'][$strategy])) {
             $strategy = $config['default_strategy'] ?? 'conservative';
         }
 
@@ -36,7 +35,8 @@ class PredictionServiceFactory
         $featureProviders = self::createFeatureProviders($config['features']);
 
         // 创建标准化策略
-        $normalizationStrategies = self::createNormalizationStrategies($strategyConfig['normalization']);
+        $normalizationConfig = $strategyConfig['feature_normalization'] ?? $strategyConfig['normalization'] ?? [];
+        $normalizationStrategies = self::createNormalizationStrategies($normalizationConfig);
 
         // 创建分数聚合器
         $aggregator = new ScoreAggregator(
@@ -100,9 +100,13 @@ class PredictionServiceFactory
     private static function createNormalizationStrategies(array $normalizationConfig): array
     {
         $strategies = [];
+        $config = config('prediction');
 
-        foreach ($normalizationConfig as $feature => $strategyClass) {
-            $strategies[$feature] = self::createNormalizationStrategy($strategyClass);
+        foreach ($normalizationConfig as $feature => $strategyName) {
+            $strategyClass = $config['normalization_strategies'][$strategyName] ?? null;
+            if ($strategyClass) {
+                $strategies[$feature] = self::createNormalizationStrategy($strategyClass);
+            }
         }
 
         return $strategies;
@@ -169,6 +173,7 @@ class PredictionServiceFactory
     public static function getAvailableStrategies(): array
     {
         $config = config('prediction');
+
         return array_keys($config['strategies'] ?? []);
     }
 
@@ -178,6 +183,7 @@ class PredictionServiceFactory
     public static function validateStrategy(string $strategy): bool
     {
         $config = config('prediction');
+
         return isset($config['strategies'][$strategy]);
     }
 }

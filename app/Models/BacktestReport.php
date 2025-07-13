@@ -149,6 +149,7 @@ class BacktestReport extends Model
         if ($this->started_at && $this->completed_at) {
             return $this->started_at->diffInSeconds($this->completed_at);
         }
+
         return null;
     }
 
@@ -157,7 +158,7 @@ class BacktestReport extends Model
      */
     public function isGridSearch(): bool
     {
-        return !empty($this->param_matrix);
+        return ! empty($this->param_matrix);
     }
 
     /**
@@ -172,7 +173,7 @@ class BacktestReport extends Model
         $config = $this->strategy_config;
         $weights = $config['weights'] ?? [];
         $weightDesc = collect($weights)
-            ->map(fn($weight, $feature) => "{$feature}:{$weight}")
+            ->map(fn ($weight, $feature) => "{$feature}:{$weight}")
             ->join(', ');
 
         return "{$this->strategy_tag} ({$weightDesc})";

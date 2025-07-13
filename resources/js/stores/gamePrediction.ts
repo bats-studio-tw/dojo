@@ -361,7 +361,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
       window.Echo.connector.pusher.connection.bind('connected', () => {
         clearTimeout(connectionTimeout);
         console.log('✅ WebSocket连接成功');
-        isConnected.value = true;
         websocketStatus.value = {
           status: 'connected',
           message: '已连接',
@@ -371,7 +370,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
       window.Echo.connector.pusher.connection.bind('disconnected', () => {
         console.log('❌ WebSocket连接断开');
-        isConnected.value = false;
         websocketStatus.value = {
           status: 'disconnected',
           message: '连接已断开',
@@ -619,7 +617,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         hybridPredictionsChannel = null;
       }
 
-      isConnected.value = false;
       isInitialized = false;
 
       websocketStatus.value = {

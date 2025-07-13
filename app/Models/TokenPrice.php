@@ -13,12 +13,12 @@ class TokenPrice extends Model
         'symbol',
         'price_usd',
         'currency',
-        'minute_timestamp'
+        'minute_timestamp',
     ];
 
     protected $casts = [
         'price_usd' => 'decimal:8',
-        'minute_timestamp' => 'integer'
+        'minute_timestamp' => 'integer',
     ];
 
     /**

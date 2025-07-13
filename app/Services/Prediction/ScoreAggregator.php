@@ -9,7 +9,8 @@ class ScoreAggregator
     public function __construct(
         private array $featureWeights,
         private array $featureNormalizations
-    ) {}
+    ) {
+    }
 
     /**
      * 聚合所有特征分数

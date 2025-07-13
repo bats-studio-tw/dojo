@@ -77,7 +77,7 @@ class TestLinearRegressionMomentum extends Command
 
                 // 显示价格序列
                 $priceValues = $prices->pluck('price_usd')->toArray();
-                $this->line("    价格序列: [" . implode(', ', array_map(fn($p) => number_format($p, 8), $priceValues)) . "]");
+                $this->line("    价格序列: [" . implode(', ', array_map(fn ($p) => number_format($p, 8), $priceValues)) . "]");
             } else {
                 $this->line("  ✗ {$symbol}: 无数据");
             }
@@ -112,7 +112,7 @@ class TestLinearRegressionMomentum extends Command
         }
 
         // 显示斜率排名
-        if (!empty($slopes)) {
+        if (! empty($slopes)) {
             arsort($slopes);
             $this->info("📊 斜率排名:");
             $rank = 1;
@@ -191,7 +191,7 @@ class TestLinearRegressionMomentum extends Command
             'trend_slopes' => $trendSlopes,
             'momentum_scores' => $momentumScores,
             'elo_probabilities' => $eloProb,
-            'predictions' => $predictions
+            'predictions' => $predictions,
         ]);
     }
 
@@ -265,7 +265,7 @@ class TestLinearRegressionMomentum extends Command
         }
 
         foreach ($symbols as $symbol) {
-            if (!isset($momentumScores[$symbol])) {
+            if (! isset($momentumScores[$symbol])) {
                 $momentumScores[$symbol] = 50.0; // 默认中性分数
             }
         }

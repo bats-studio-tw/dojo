@@ -10,14 +10,15 @@ class DexScreenerProvider implements MarketDataProviderInterface
 {
     public function __construct(
         private DexPriceClient $dexPriceClient
-    ) {}
+    ) {
+    }
 
     public function fetchSnapshots(array $symbols, int $timestamp): array
     {
         $snapshots = [];
 
         foreach ($symbols as $symbol) {
-                        try {
+            try {
                 $marketData = $this->dexPriceClient->getTokenMarketData($symbol);
 
                 if ($marketData) {

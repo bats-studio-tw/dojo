@@ -2,12 +2,11 @@
 
 namespace App\Services\Prediction;
 
-use App\Models\PredictionResult;
 use App\Models\ABTestConfig;
 use App\Models\ABTestResult;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ABTestingService
 {
@@ -38,24 +37,24 @@ class ABTestingService
             Log::info('A/B測試已啟動', [
                 'test_id' => $abTestConfig->id,
                 'strategies' => $config['strategies'],
-                'traffic_distribution' => $config['traffic_distribution']
+                'traffic_distribution' => $config['traffic_distribution'],
             ]);
 
             return [
                 'success' => true,
                 'test_id' => $abTestConfig->id,
-                'message' => 'A/B測試已成功啟動'
+                'message' => 'A/B測試已成功啟動',
             ];
 
         } catch (\Exception $e) {
             Log::error('啟動A/B測試失敗', [
                 'error' => $e->getMessage(),
-                'config' => $config
+                'config' => $config,
             ]);
 
             return [
                 'success' => false,
-                'message' => '啟動A/B測試失敗: ' . $e->getMessage()
+                'message' => '啟動A/B測試失敗: ' . $e->getMessage(),
             ];
         }
     }
@@ -68,9 +67,9 @@ class ABTestingService
         try {
             // 從緩存獲取測試配置
             $config = Cache::get("ab_test:{$testId}");
-            if (!$config) {
+            if (! $config) {
                 $config = ABTestConfig::find($testId);
-                if (!$config || $config->status !== 'active') {
+                if (! $config || $config->status !== 'active') {
                     return 'conservative'; // 默認策略
                 }
                 Cache::put("ab_test:{$testId}", $config, now()->addDays(30));
@@ -101,8 +100,9 @@ class ABTestingService
         } catch (\Exception $e) {
             Log::error('選擇A/B測試策略失敗', [
                 'test_id' => $testId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return 'conservative';
         }
     }
@@ -128,7 +128,7 @@ class ABTestingService
             Log::error('記錄A/B測試結果失敗', [
                 'test_id' => $testId,
                 'strategy' => $strategy,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -140,7 +140,7 @@ class ABTestingService
     {
         try {
             $config = ABTestConfig::find($testId);
-            if (!$config) {
+            if (! $config) {
                 throw new \Exception('A/B測試配置不存在');
             }
 
@@ -162,7 +162,7 @@ class ABTestingService
                 DB::raw('SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as correct_predictions'),
                 DB::raw('AVG(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as accuracy_rate'),
                 DB::raw('COUNT(DISTINCT user_id) as unique_users'),
-                DB::raw('COUNT(DISTINCT round_id) as unique_rounds')
+                DB::raw('COUNT(DISTINCT round_id) as unique_rounds'),
             ])
             ->groupBy('strategy')
             ->get();
@@ -172,8 +172,8 @@ class ABTestingService
             foreach ($results as $result) {
                 $strategyResults = ABTestResult::where('ab_test_id', $testId)
                     ->where('strategy', $result->strategy)
-                    ->when($startDate, fn($q) => $q->where('created_at', '>=', $startDate))
-                    ->when($endDate, fn($q) => $q->where('created_at', '<=', $endDate))
+                    ->when($startDate, fn ($q) => $q->where('created_at', '>=', $startDate))
+                    ->when($endDate, fn ($q) => $q->where('created_at', '<=', $endDate))
                     ->get();
 
                 $detailedResults[] = [
@@ -196,19 +196,19 @@ class ABTestingService
                 'summary' => $this->generateSummary($detailedResults),
                 'period' => [
                     'start_date' => $startDate,
-                    'end_date' => $endDate
-                ]
+                    'end_date' => $endDate,
+                ],
             ];
 
         } catch (\Exception $e) {
             Log::error('獲取A/B測試報告失敗', [
                 'test_id' => $testId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'success' => false,
-                'message' => '獲取報告失敗: ' . $e->getMessage()
+                'message' => '獲取報告失敗: ' . $e->getMessage(),
             ];
         }
     }
@@ -220,13 +220,13 @@ class ABTestingService
     {
         try {
             $config = ABTestConfig::find($testId);
-            if (!$config) {
+            if (! $config) {
                 throw new \Exception('A/B測試配置不存在');
             }
 
             $config->update([
                 'status' => 'stopped',
-                'end_date' => now()
+                'end_date' => now(),
             ]);
 
             // 清除緩存
@@ -236,18 +236,18 @@ class ABTestingService
 
             return [
                 'success' => true,
-                'message' => 'A/B測試已成功停止'
+                'message' => 'A/B測試已成功停止',
             ];
 
         } catch (\Exception $e) {
             Log::error('停止A/B測試失敗', [
                 'test_id' => $testId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'success' => false,
-                'message' => '停止A/B測試失敗: ' . $e->getMessage()
+                'message' => '停止A/B測試失敗: ' . $e->getMessage(),
             ];
         }
     }
@@ -261,11 +261,11 @@ class ABTestingService
             throw new \Exception('測試名稱不能為空');
         }
 
-        if (empty($config['strategies']) || !is_array($config['strategies'])) {
+        if (empty($config['strategies']) || ! is_array($config['strategies'])) {
             throw new \Exception('策略列表不能為空');
         }
 
-        if (empty($config['traffic_distribution']) || !is_array($config['traffic_distribution'])) {
+        if (empty($config['traffic_distribution']) || ! is_array($config['traffic_distribution'])) {
             throw new \Exception('流量分配不能為空');
         }
 
@@ -289,7 +289,7 @@ class ABTestingService
      */
     private function isPredictionCorrect(array $predictionData, ?array $actualResult): bool
     {
-        if (!$actualResult) {
+        if (! $actualResult) {
             return false;
         }
 
@@ -343,7 +343,7 @@ class ABTestingService
             'best_accuracy' => $bestStrategy ? $bestStrategy['accuracy_rate'] : 0,
             'worst_strategy' => $worstStrategy ? $worstStrategy['strategy'] : null,
             'worst_accuracy' => $worstStrategy ? $worstStrategy['accuracy_rate'] : 0,
-            'strategy_count' => count($results)
+            'strategy_count' => count($results),
         ];
     }
 }

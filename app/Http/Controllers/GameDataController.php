@@ -3,23 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Models\GameRound;
-use App\Models\RoundResult;
-use App\Models\RoundPredict;
-use Illuminate\Http\Request;
-use App\Services\DexPriceClient;
-use Illuminate\Http\JsonResponse;
 use App\Models\HybridRoundPredict;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
+use App\Services\DexPriceClient;
 use App\Services\GamePredictionService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class GameDataController extends Controller
 {
     public function __construct(
         private GamePredictionService $predictionService,
         private DexPriceClient $dexPriceClient
-    ) {}
+    ) {
+    }
     /**
      * 获取历史游戏数据（最近50局）
      */
@@ -53,6 +51,7 @@ class GameDataController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('获取历史数据失败', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => '获取历史数据失败',
@@ -66,17 +65,19 @@ class GameDataController extends Controller
     public function getTokenMarketData(): JsonResponse
     {
         try {
-                        // 从缓存获取当前局的代币信息
+            // 从缓存获取当前局的代币信息
             $roundInfo = Cache::get('game:current_round');
 
-            if (!$roundInfo) {
+            if (! $roundInfo) {
                 // 如果缓存中没有当前局数据，尝试从数据库获取最新一局作为备用
                 Log::info('缓存中无当前局数据，使用最新已结算局数据作为备用');
+
                 return $this->getLatestSettledRoundTokens();
             }
 
-            if (!is_array($roundInfo) || !isset($roundInfo['tokens']) || !is_array($roundInfo['tokens'])) {
+            if (! is_array($roundInfo) || ! isset($roundInfo['tokens']) || ! is_array($roundInfo['tokens'])) {
                 Log::warning('缓存中的当前局数据格式异常', ['data' => $roundInfo]);
+
                 return $this->getLatestSettledRoundTokens();
             }
 
@@ -88,7 +89,7 @@ class GameDataController extends Controller
                 'round_id' => $roundId,
                 'status' => $status,
                 'tokens' => $tokenSymbols,
-                'token_count' => count($tokenSymbols)
+                'token_count' => count($tokenSymbols),
             ]);
 
             // 使用 DexPriceClient 批量获取市场数据
@@ -120,12 +121,13 @@ class GameDataController extends Controller
                     'round_id' => $roundId,
                     'status' => $status,
                     'source' => 'current_round_cache',
-                    'timestamp' => $roundInfo['timestamp'] ?? null
-                ]
+                    'timestamp' => $roundInfo['timestamp'] ?? null,
+                ],
             ]);
 
         } catch (\Exception $e) {
             Log::error('获取当前局代币市场数据失败', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => '获取市场数据失败',
@@ -143,7 +145,7 @@ class GameDataController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->first();
 
-            if (!$latestRound) {
+            if (! $latestRound) {
                 return response()->json([
                     'success' => false,
                     'message' => '暂无游戏数据',
@@ -181,12 +183,13 @@ class GameDataController extends Controller
                     'round_id' => $latestRound->round_id,
                     'status' => 'settled',
                     'source' => 'latest_settled_round',
-                    'settled_at' => $latestRound->settled_at?->toISOString()
-                ]
+                    'settled_at' => $latestRound->settled_at?->toISOString(),
+                ],
             ]);
 
         } catch (\Exception $e) {
             Log::error('获取备用代币市场数据失败', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => '获取市场数据失败',
@@ -206,7 +209,7 @@ class GameDataController extends Controller
             if ($cachedPrediction) {
                 Log::info('从缓存获取预测分析数据', [
                     'round_id' => $cachedPrediction['round_id'],
-                    'generated_at' => $cachedPrediction['generated_at']
+                    'generated_at' => $cachedPrediction['generated_at'],
                 ]);
 
                 // 获取当前局信息用于meta数据
@@ -223,8 +226,8 @@ class GameDataController extends Controller
                         'prediction_algorithm' => $cachedPrediction['algorithm'] ?? 'cached',
                         'timestamp' => $roundInfo['timestamp'] ?? null,
                         'generated_at' => $cachedPrediction['generated_at'],
-                        'source' => 'cached_prediction'
-                    ]
+                        'source' => 'cached_prediction',
+                    ],
                 ]);
             }
 
@@ -246,7 +249,7 @@ class GameDataController extends Controller
 
             Log::info('开始实时计算当前局代币排名', [
                 'tokens' => $currentTokens,
-                'token_count' => count($currentTokens)
+                'token_count' => count($currentTokens),
             ]);
 
             // 获取最近20局的数据进行分析
@@ -284,7 +287,7 @@ class GameDataController extends Controller
                     $symbol = strtoupper($result->token_symbol);
 
                     // 只统计当前局参与的代币
-                    if (!isset($tokenStats[$symbol])) {
+                    if (! isset($tokenStats[$symbol])) {
                         continue;
                     }
 
@@ -315,7 +318,7 @@ class GameDataController extends Controller
 
                     // 计算最近趋势得分（最近表现更好的得分更高）
                     $trendScore = 0;
-                    if (!empty($stats['recent_trend'])) {
+                    if (! empty($stats['recent_trend'])) {
                         $recentAvg = array_sum($stats['recent_trend']) / count($stats['recent_trend']);
                         $trendScore = ((5 - $recentAvg) / 4) * 100;
                     }
@@ -407,12 +410,13 @@ class GameDataController extends Controller
                     'analysis_rounds' => $recentRounds->count(),
                     'prediction_algorithm' => 'enhanced_market_momentum_v2',
                     'timestamp' => $roundInfo['timestamp'] ?? null,
-                    'source' => 'realtime_calculation'
-                ]
+                    'source' => 'realtime_calculation',
+                ],
             ]);
 
         } catch (\Exception $e) {
             Log::error('获取预测数据失败', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => '获取预测数据失败',
@@ -430,11 +434,11 @@ class GameDataController extends Controller
             $roundInfo = Cache::get('game:current_round');
             $roundId = $roundInfo['round_id'] ?? null;
 
-            if (!$roundId) {
+            if (! $roundId) {
                 return response()->json([
                     'success' => false,
                     'message' => '当前没有活跃的游戏轮次',
-                    'data' => []
+                    'data' => [],
                 ]);
             }
 
@@ -450,8 +454,8 @@ class GameDataController extends Controller
                         'status' => $roundInfo['status'] ?? 'unknown',
                         'prediction_method' => 'hybrid_edge_v1',
                         'timestamp' => $roundInfo['timestamp'] ?? null,
-                        'source' => 'cached_hybrid_prediction'
-                    ]
+                        'source' => 'cached_hybrid_prediction',
+                    ],
                 ]);
             }
 
@@ -459,11 +463,11 @@ class GameDataController extends Controller
             // 首先通过 round_id 找到对应的 GameRound 记录
             $gameRound = GameRound::where('round_id', $roundId)->first();
 
-            if (!$gameRound) {
+            if (! $gameRound) {
                 return response()->json([
                     'success' => false,
                     'message' => '找不到对应的游戏轮次',
-                    'data' => []
+                    'data' => [],
                 ]);
             }
 
@@ -486,7 +490,7 @@ class GameDataController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => '暂无 Hybrid-Edge 预测数据',
-                    'data' => []
+                    'data' => [],
                 ]);
             }
 
@@ -498,16 +502,17 @@ class GameDataController extends Controller
                     'status' => $roundInfo['status'] ?? 'unknown',
                     'prediction_method' => 'hybrid_edge_v1',
                     'timestamp' => $roundInfo['timestamp'] ?? null,
-                    'source' => 'database_hybrid_prediction'
-                ]
+                    'source' => 'database_hybrid_prediction',
+                ],
             ]);
 
         } catch (\Exception $e) {
             Log::error('获取 Hybrid-Edge 预测数据失败', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => '获取 Hybrid-Edge 预测数据失败',
-                'data' => []
+                'data' => [],
             ], 500);
         }
     }
@@ -524,8 +529,9 @@ class GameDataController extends Controller
             if ($roundInfo && isset($roundInfo['tokens']) && is_array($roundInfo['tokens'])) {
                 Log::info('从缓存获取当前局代币', [
                     'round_id' => $roundInfo['round_id'] ?? 'unknown',
-                    'tokens' => $roundInfo['tokens']
+                    'tokens' => $roundInfo['tokens'],
                 ]);
+
                 return array_map('strtoupper', $roundInfo['tokens']);
             }
 
@@ -535,13 +541,13 @@ class GameDataController extends Controller
                 ->first();
 
             if ($latestRound && $latestRound->roundResults->isNotEmpty()) {
-                $tokens = $latestRound->roundResults->pluck('token_symbol')->unique()->map(function($token) {
+                $tokens = $latestRound->roundResults->pluck('token_symbol')->unique()->map(function ($token) {
                     return strtoupper($token);
                 })->toArray();
 
                 Log::info('从数据库获取最新局代币', [
                     'round_id' => $latestRound->round_id,
-                    'tokens' => $tokens
+                    'tokens' => $tokens,
                 ]);
 
                 return $tokens;
@@ -550,6 +556,7 @@ class GameDataController extends Controller
             return [];
         } catch (\Exception $e) {
             Log::error('获取当前局代币失败', ['error' => $e->getMessage()]);
+
             return [];
         }
     }
@@ -697,6 +704,7 @@ class GameDataController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('获取预测历史数据失败', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
                 'message' => '获取预测历史数据失败',
@@ -717,7 +725,7 @@ class GameDataController extends Controller
                 'exact_accuracy' => 0,
                 'close_accuracy' => 0,
                 'avg_rank_difference' => 0,
-                'details' => []
+                'details' => [],
             ];
         }
 
@@ -770,7 +778,7 @@ class GameDataController extends Controller
             'exact_accuracy' => $totalPredictions > 0 ? round(($exactMatches / $totalPredictions) * 100, 1) : 0,
             'close_accuracy' => $totalPredictions > 0 ? round(($closeMatches / $totalPredictions) * 100, 1) : 0,
             'avg_rank_difference' => round($avgRankDifference, 2),
-            'details' => $details
+            'details' => $details,
         ];
     }
 
@@ -784,19 +792,19 @@ class GameDataController extends Controller
             $roundInfo = Cache::get('game:current_round');
             $roundId = $roundInfo['round_id'] ?? null;
 
-            if (!$roundId) {
+            if (! $roundId) {
                 return response()->json([
                     'success' => false,
                     'message' => '当前没有活跃的游戏轮次',
                     'data' => [],
-                    'meta' => null
+                    'meta' => null,
                 ]);
             }
 
             // 从缓存获取 Hybrid-Edge 预测数据
             $hybridPredictions = Cache::get("hybrid_prediction:{$roundId}");
 
-            if (!$hybridPredictions || !is_array($hybridPredictions)) {
+            if (! $hybridPredictions || ! is_array($hybridPredictions)) {
                 // 如果缓存中没有，尝试从数据库获取
                 $gameRound = \App\Models\GameRound::where('round_id', $roundId)->first();
 
@@ -818,12 +826,12 @@ class GameDataController extends Controller
                 }
             }
 
-            if (!$hybridPredictions || !is_array($hybridPredictions) || empty($hybridPredictions)) {
+            if (! $hybridPredictions || ! is_array($hybridPredictions) || empty($hybridPredictions)) {
                 return response()->json([
                     'success' => false,
                     'message' => '暂无Hybrid预测数据',
                     'data' => [],
-                    'meta' => null
+                    'meta' => null,
                 ]);
             }
 
@@ -834,30 +842,30 @@ class GameDataController extends Controller
                 'updated_at' => now()->toISOString(),
                 'prediction_algorithm' => 'Hybrid-Edge v1.0',
                 'source' => 'hybrid_edge_v1',
-                'algorithm_description' => '结合Elo历史评分与5秒动能变化的智能预测算法'
+                'algorithm_description' => '结合Elo历史评分与5秒动能变化的智能预测算法',
             ];
 
             Log::info('获取Hybrid预测分析数据成功', [
                 'round_id' => $roundId,
-                'predictions_count' => count($hybridPredictions)
+                'predictions_count' => count($hybridPredictions),
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => '获取Hybrid预测分析数据成功',
                 'data' => $hybridPredictions,
-                'meta' => $meta
+                'meta' => $meta,
             ]);
 
         } catch (\Exception $e) {
             Log::error('获取Hybrid预测分析数据失败', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => '获取Hybrid预测分析数据失败: ' . $e->getMessage()
+                'message' => '获取Hybrid预测分析数据失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -926,21 +934,21 @@ class GameDataController extends Controller
                         'all_stats' => [
                             'rank1' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
                             'rank2' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
-                            'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0]
+                            'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
                         ],
                         'recent_stats' => [
                             'rank1' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
                             'rank2' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
-                            'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0]
-                        ]
+                            'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
+                        ],
                     ],
-                    'max_rounds' => 0
+                    'max_rounds' => 0,
                 ]);
             }
 
             Log::info('获取动能预测统计数据成功', [
                 'total_rounds' => $totalRounds,
-                'recent_rounds' => $recentRounds
+                'recent_rounds' => $recentRounds,
             ]);
 
             return response()->json([
@@ -954,28 +962,28 @@ class GameDataController extends Controller
                     'all_stats' => [
                         'rank1' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
                         'rank2' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
-                        'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0]
+                        'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
                     ],
                     'recent_stats' => [
                         'rank1' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
                         'rank2' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
-                        'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0]
-                    ]
+                        'rank3' => ['total' => 0, 'breakeven' => 0, 'loss' => 0, 'first_place' => 0, 'breakeven_rate' => 0, 'loss_rate' => 0, 'first_place_rate' => 0],
+                    ],
                 ],
                 'max_rounds' => $maxRounds,
                 // 添加原始数据供前端使用
-                'raw_data' => $rounds->toArray()
+                'raw_data' => $rounds->toArray(),
             ]);
 
         } catch (\Exception $e) {
             Log::error('获取动能预测统计数据失败', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => '获取动能预测统计数据失败: ' . $e->getMessage()
+                'message' => '获取动能预测统计数据失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -998,7 +1006,7 @@ class GameDataController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => '暂无动能预测历史数据',
-                    'data' => []
+                    'data' => [],
                 ]);
             }
 
@@ -1013,7 +1021,7 @@ class GameDataController extends Controller
                             'symbol' => $prediction->token_symbol,
                             'predicted_rank' => $prediction->predicted_rank,
                             'momentum_score' => $prediction->mom_score,
-                            'confidence' => $prediction->confidence
+                            'confidence' => $prediction->confidence,
                         ];
                     })
                     ->values() // 🔧 修复：确保返回数组而不是对象
@@ -1025,49 +1033,49 @@ class GameDataController extends Controller
                     ->map(function ($result) {
                         return [
                             'symbol' => $result->token_symbol,
-                            'actual_rank' => $result->rank
+                            'actual_rank' => $result->rank,
                         ];
                     })
                     ->values() // 🔧 修复：确保返回数组而不是对象
                     ->toArray();
 
                 // 🔧 修复：确保 predictions 和 results 都是数组，且不为空
-                if (is_array($predictions) && is_array($results) && !empty($predictions) && !empty($results)) {
+                if (is_array($predictions) && is_array($results) && ! empty($predictions) && ! empty($results)) {
                     $historyData[] = [
                         'round_id' => $round->round_id,
                         'settled_at' => $round->settled_at?->toISOString(),
                         'predictions' => $predictions,
-                        'results' => $results
+                        'results' => $results,
                     ];
                 } else {
                     // 记录数据不完整的轮次
                     Log::warning('轮次数据不完整，跳过', [
                         'round_id' => $round->round_id,
                         'predictions_count' => is_array($predictions) ? count($predictions) : 'not_array',
-                        'results_count' => is_array($results) ? count($results) : 'not_array'
+                        'results_count' => is_array($results) ? count($results) : 'not_array',
                     ]);
                 }
             }
 
             Log::info('获取动能预测历史数据成功', [
-                'total_rounds' => count($historyData)
+                'total_rounds' => count($historyData),
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => '获取动能预测历史数据成功',
-                'data' => $historyData
+                'data' => $historyData,
             ]);
 
         } catch (\Exception $e) {
             Log::error('获取动能预测历史数据失败', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => '获取动能预测历史数据失败: ' . $e->getMessage()
+                'message' => '获取动能预测历史数据失败: ' . $e->getMessage(),
             ], 500);
         }
     }

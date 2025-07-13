@@ -86,7 +86,7 @@
                 <div class="text-xs text-purple-400">用户ID</div>
                 <div class="flex items-center gap-2">
                   <span class="text-sm text-purple-300 font-mono">{{ userInfo.uid.slice(0, 8) }}...</span>
-                  <n-button
+                  <NButton
                     @click="reconnectToken"
                     :disabled="autoBettingStatus.is_running"
                     type="tertiary"
@@ -94,7 +94,7 @@
                     class="transition-all duration-200 !h-5 !text-xs"
                   >
                     重新验证
-                  </n-button>
+                  </NButton>
                 </div>
               </div>
             </div>

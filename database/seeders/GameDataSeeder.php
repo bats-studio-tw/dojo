@@ -4,8 +4,8 @@ namespace Database\Seeders;
 
 use App\Models\GameRound;
 use App\Models\RoundResult;
-use Illuminate\Database\Seeder;
 use Carbon\Carbon;
+use Illuminate\Database\Seeder;
 
 class GameDataSeeder extends Seeder
 {

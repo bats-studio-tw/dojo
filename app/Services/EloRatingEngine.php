@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 class EloRatingEngine
 {
-    const K_BASE = 32; // 基本 K 值
+    public const K_BASE = 32; // 基本 K 值
 
     /**
      * 計算 K 值衰減因子
@@ -69,15 +69,16 @@ class EloRatingEngine
                     'loser_elo' => round($loserRating->elo, 2),
                     'delta' => round($delta, 2),
                     'k_factor_input' => $kf,
-                    'effective_k_factor' => round($effectiveKFactor, 2)
+                    'effective_k_factor' => round($effectiveKFactor, 2),
                 ]);
             });
         } catch (\Exception $e) {
             Log::error('Elo 評分更新失敗', [
                 'winner' => $win,
                 'loser' => $lose,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             throw $e;
         }
     }
@@ -98,13 +99,14 @@ class EloRatingEngine
 
             Log::info('批量 Elo 評分更新完成', [
                 'results_count' => count($results),
-                'k_factor' => $kf
+                'k_factor' => $kf,
             ]);
         } catch (\Exception $e) {
             Log::error('批量 Elo 評分更新失敗', [
                 'results_count' => count($results),
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             throw $e;
         }
     }
@@ -120,6 +122,7 @@ class EloRatingEngine
 
         if (count($symbols) < 2) {
             Log::warning('代幣數量不足，無法計算 Elo 機率', ['symbols' => $symbols]);
+
             return [];
         }
 
@@ -150,15 +153,16 @@ class EloRatingEngine
 
             Log::info('Elo 機率計算完成', [
                 'symbols' => $symbols,
-                'elo_ratings' => $currentElo
+                'elo_ratings' => $currentElo,
             ]);
 
             return $prob;
         } catch (\Exception $e) {
             Log::error('Elo 機率計算失敗', [
                 'symbols' => $symbols,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return [];
         }
     }
@@ -171,6 +175,7 @@ class EloRatingEngine
     public function getElo(string $symbol): float
     {
         $rating = TokenRating::where('symbol', strtoupper($symbol))->first();
+
         return $rating ? $rating->elo : 1500;
     }
 
@@ -212,8 +217,9 @@ class EloRatingEngine
         } catch (\Exception $e) {
             Log::error('Elo 評分重置失敗', [
                 'symbol' => $symbol,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             throw $e;
         }
     }

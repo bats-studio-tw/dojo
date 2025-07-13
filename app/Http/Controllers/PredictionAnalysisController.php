@@ -2,14 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\PredictionAnalysisService;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use App\Models\AutoBettingRecord;
 use App\Models\GameRound;
-use App\Models\RoundResult;
-use App\Models\RoundPredict;
-use Illuminate\Support\Facades\DB;
+use App\Services\PredictionAnalysisService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -43,7 +40,7 @@ class PredictionAnalysisController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => '参数验证失败',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -61,16 +58,16 @@ class PredictionAnalysisController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => '参数验证失败',
-                        'errors' => ['days' => ['days参数必须为-1（全部历史）或大于0的天数']]
+                        'errors' => ['days' => ['days参数必须为-1（全部历史）或大于0的天数']],
                     ], 422);
                 }
                 $limitRounds = null;
-            } else if ($filterType === 'rounds') {
-                if (!$limitRounds || $limitRounds <= 0) {
+            } elseif ($filterType === 'rounds') {
+                if (! $limitRounds || $limitRounds <= 0) {
                     return response()->json([
                         'success' => false,
                         'message' => '参数验证失败',
-                        'errors' => ['limit_rounds' => ['按局数筛选时，limit_rounds参数必须大于0']]
+                        'errors' => ['limit_rounds' => ['按局数筛选时，limit_rounds参数必须大于0']],
                     ], 422);
                 }
                 $limitRounds = (int) $limitRounds;
@@ -103,19 +100,19 @@ class PredictionAnalysisController extends Controller
                     'prediction_accuracy' => $predictionAnalysis,
                     'strategy_analysis' => $strategyAnalysis,
                     'detailed_records' => $detailedRecords,
-                ]
+                ],
             ]);
 
         } catch (\Exception $e) {
             Log::error('获取用户投注表现分析失败', [
                 'uid' => $uid ?? 'unknown',
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => '获取投注表现分析失败: ' . $e->getMessage()
+                'message' => '获取投注表现分析失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -132,7 +129,7 @@ class PredictionAnalysisController extends Controller
 
         if ($limitRounds !== null) {
             $query->limit($limitRounds);
-        } else if ($days !== null) {
+        } elseif ($days !== null) {
             if ($days > 0) {
                 $query->where('created_at', '>=', now()->subDays($days));
             }
@@ -146,7 +143,7 @@ class PredictionAnalysisController extends Controller
         if ($records->isEmpty()) {
             return [
                 'total_bets' => 0,
-                'message' => '没有找到下注记录'
+                'message' => '没有找到下注记录',
             ];
         }
 
@@ -163,13 +160,19 @@ class PredictionAnalysisController extends Controller
         $betsByRank = [];
 
         foreach ($records as $record) {
-            if (!$record->success) continue;
+            if (! $record->success) {
+                continue;
+            }
             $gameRound = $record->gameRound;
-            if (!$gameRound) continue;
+            if (! $gameRound) {
+                continue;
+            }
             $actualResult = $gameRound->roundResults
                 ->where('token_symbol', strtoupper($record->token_symbol))
                 ->first();
-            if (!$actualResult) continue;
+            if (! $actualResult) {
+                continue;
+            }
             $settledBets++;
             $actualRank = $actualResult->rank;
             $betAmount = (float) $record->bet_amount;
@@ -186,11 +189,11 @@ class PredictionAnalysisController extends Controller
             } else {
                 $losingBets++;
             }
-            if (!isset($betsByRank[$actualRank])) {
+            if (! isset($betsByRank[$actualRank])) {
                 $betsByRank[$actualRank] = [
                     'count' => 0,
                     'total_amount' => 0,
-                    'total_profit' => 0
+                    'total_profit' => 0,
                 ];
             }
             $betsByRank[$actualRank]['count']++;
@@ -200,6 +203,7 @@ class PredictionAnalysisController extends Controller
         $actualROI = $totalAmount > 0 ? ($actualProfitLoss / $totalAmount) * 100 : 0;
         $winRate = $settledBets > 0 ? ($winningBets / $settledBets) * 100 : 0;
         $avgProfitPerBet = $settledBets > 0 ? $actualProfitLoss / $settledBets : 0;
+
         return [
             'total_bets' => $totalBets,
             'successful_bets' => $successfulBets,
@@ -220,7 +224,7 @@ class PredictionAnalysisController extends Controller
                 'bets_per_day' => $days && $days > 0 ? round($totalBets / $days, 2) : null,
                 'amount_per_day' => $days && $days > 0 ? round($totalAmount / $days, 2) : null,
                 'profit_per_day' => $days && $days > 0 ? round($actualProfitLoss / $days, 2) : null,
-            ]
+            ],
         ];
     }
 
@@ -235,7 +239,7 @@ class PredictionAnalysisController extends Controller
             ->orderBy('created_at', 'desc');
         if ($limitRounds !== null) {
             $query->limit($limitRounds);
-        } else if ($days !== null) {
+        } elseif ($days !== null) {
             if ($days > 0) {
                 $query->where('created_at', '>=', now()->subDays($days));
             }
@@ -250,14 +254,18 @@ class PredictionAnalysisController extends Controller
         $rankDifferenceSum = 0;
         foreach ($records as $record) {
             $gameRound = $record->gameRound;
-            if (!$gameRound) continue;
+            if (! $gameRound) {
+                continue;
+            }
             $prediction = $gameRound->roundPredicts
                 ->where('token_symbol', strtoupper($record->token_symbol))
                 ->first();
             $actualResult = $gameRound->roundResults
                 ->where('token_symbol', strtoupper($record->token_symbol))
                 ->first();
-            if (!$prediction || !$actualResult) continue;
+            if (! $prediction || ! $actualResult) {
+                continue;
+            }
             $totalPredictions++;
             $rankDifference = abs($prediction->predicted_rank - $actualResult->rank);
             $rankDifferenceSum += $rankDifference;
@@ -268,6 +276,7 @@ class PredictionAnalysisController extends Controller
                 $closeMatches++;
             }
         }
+
         return [
             'total_predictions_analyzed' => $totalPredictions,
             'exact_matches' => $exactMatches,
@@ -289,7 +298,7 @@ class PredictionAnalysisController extends Controller
             ->orderBy('created_at', 'desc');
         if ($limitRounds !== null) {
             $query->limit($limitRounds);
-        } else if ($days !== null) {
+        } elseif ($days !== null) {
             if ($days > 0) {
                 $query->where('created_at', '>=', now()->subDays($days));
             }
@@ -299,7 +308,7 @@ class PredictionAnalysisController extends Controller
         foreach ($records as $record) {
             $predictionData = $record->prediction_data ?? [];
             $strategy = $predictionData['strategy'] ?? 'unknown';
-            if (!isset($strategyStats[$strategy])) {
+            if (! isset($strategyStats[$strategy])) {
                 $strategyStats[$strategy] = [
                     'strategy_name' => $strategy,
                     'bet_count' => 0,
@@ -333,6 +342,7 @@ class PredictionAnalysisController extends Controller
             $stats['average_profit_per_bet'] = $stats['bet_count'] > 0 ?
                 round($stats['total_profit'] / $stats['bet_count'], 2) : 0;
         }
+
         return array_values($strategyStats);
     }
 

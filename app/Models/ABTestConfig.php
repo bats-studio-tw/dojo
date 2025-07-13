@@ -83,6 +83,7 @@ class ABTestConfig extends Model
         foreach ($this->traffic_distribution as $strategy => $percentage) {
             $summary[] = "{$strategy}: {$percentage}%";
         }
+
         return implode(', ', $summary);
     }
 }

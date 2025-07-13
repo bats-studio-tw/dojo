@@ -28,14 +28,14 @@
 
           <!-- WebSocket 测试按钮 -->
           <div class="flex items-center space-x-2">
-            <n-button size="small" type="info" ghost @click="testWebSocket" :loading="isTestingWebSocket">
+            <NButton size="small" type="info" ghost @click="testWebSocket" :loading="isTestingWebSocket">
               测试 WebSocket
-            </n-button>
+            </NButton>
           </div>
         </div>
 
         <!-- 错误提示 -->
-        <n-alert
+        <NAlert
           v-if="store.error"
           type="error"
           :title="'操作失败'"
@@ -71,7 +71,7 @@
             <h3 class="text-lg text-gray-900 font-semibold">历史预测记录</h3>
             <div class="flex items-center space-x-4">
               <!-- 策略筛选 -->
-              <n-select
+              <NSelect
                 v-model:value="historyFilter.strategy_tag"
                 :options="strategyFilterOptions"
                 placeholder="选择策略"
@@ -81,7 +81,7 @@
               />
 
               <!-- 时间范围筛选 -->
-              <n-date-picker
+              <NDatePicker
                 v-model:value="historyFilter.dateRange"
                 type="daterange"
                 placeholder="选择时间范围"
@@ -90,19 +90,19 @@
                 @update:value="refreshHistory"
               />
 
-              <n-button @click="refreshHistory" :loading="store.isLoading">
+              <NButton @click="refreshHistory" :loading="store.isLoading">
                 <template #icon>
-                  <n-icon><Refresh /></n-icon>
+                  <NIcon><RefreshOutline /></NIcon>
                 </template>
                 刷新
-              </n-button>
+              </NButton>
 
-              <n-button @click="showHistory = false">
+              <NButton @click="showHistory = false">
                 <template #icon>
-                  <n-icon><TimeOutline /></n-icon>
+                  <NIcon><TimeOutline /></NIcon>
                 </template>
                 隐藏历史
-              </n-button>
+              </NButton>
             </div>
           </div>
 
@@ -111,12 +111,12 @@
 
         <!-- 显示历史按钮 -->
         <div v-else class="mt-6">
-          <n-button @click="showHistory = true">
+          <NButton @click="showHistory = true">
             <template #icon>
               <TimeOutline />
             </template>
             查看历史预测记录
-          </n-button>
+          </NButton>
         </div>
       </div>
     </DefaultLayout>
@@ -125,8 +125,8 @@
 
 <script setup lang="ts">
   import { ref, computed, onMounted, onUnmounted } from 'vue';
-  import { useMessage } from 'naive-ui';
-  import { Refresh, TimeOutline } from '@vicons/ionicons5';
+  import { useMessage, NButton, NAlert, NSelect, NDatePicker, NIcon } from 'naive-ui';
+  import { RefreshOutline, TimeOutline } from '@vicons/ionicons5';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import StrategySelector from './StrategySelector.vue';
   import PredictionResultTable from './PredictionResultTable.vue';
@@ -142,7 +142,7 @@
   const showHistory = ref(false);
   const historyFilter = ref({
     strategy_tag: null as string | null,
-    dateRange: null as [string, string] | null
+    dateRange: null as [number, number] | null
   });
 
   // WebSocket 相关变量
@@ -162,8 +162,8 @@
     try {
       await store.runPrediction(strategy, tokens);
       message.success('预测执行成功');
-    } catch (error: any) {
-      message.error(error.message || '预测执行失败');
+    } catch (err: any) {
+      message.error(err.message || '预测执行失败');
     }
   };
 
@@ -174,8 +174,8 @@
         rounds: 100 // 默认回测100轮
       });
       message.success('回测执行成功');
-    } catch (error: any) {
-      message.error(error.message || '回测执行失败');
+    } catch (err: any) {
+      message.error(err.message || '回测执行失败');
     }
   };
 
@@ -191,7 +191,7 @@
       }
 
       await store.fetchPredictionHistory(options);
-    } catch (error: any) {
+    } catch (err: any) {
       message.error('获取历史记录失败');
     }
   };

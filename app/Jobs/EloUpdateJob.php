@@ -2,20 +2,22 @@
 
 namespace App\Jobs;
 
+use App\Models\RoundResult;
+use App\Models\TokenRating;
+use App\Services\EloRatingEngine;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use App\Services\EloRatingEngine;
-use App\Models\RoundResult;
-use App\Models\TokenRating;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class EloUpdateJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
 
     protected $gameRoundId;
 
@@ -47,9 +49,10 @@ class EloUpdateJob implements ShouldQueue
                     'game_round_id' => $this->gameRoundId,
                     'query_conditions' => [
                         'game_round_id' => $this->gameRoundId,
-                        'order_by' => 'rank'
-                    ]
+                        'order_by' => 'rank',
+                    ],
                 ]);
+
                 return;
             }
 
@@ -89,7 +92,7 @@ class EloUpdateJob implements ShouldQueue
                             'loser' => $loserSymbol,
                             'k_factor' => $averageKFactor,
                             'winner_old_elo' => $winnerRating->elo,
-                            'loser_old_elo' => $loserRating->elo
+                            'loser_old_elo' => $loserRating->elo,
                         ];
 
                     } catch (\Exception $updateError) {
@@ -98,7 +101,7 @@ class EloUpdateJob implements ShouldQueue
                             'combination' => "{$errorCombinationNumber}",
                             'winner' => $winnerSymbol,
                             'loser' => $loserSymbol,
-                            'error' => $updateError->getMessage()
+                            'error' => $updateError->getMessage(),
                         ];
 
                         $errors[] = $errorInfo;
@@ -107,10 +110,10 @@ class EloUpdateJob implements ShouldQueue
                 }
             }
 
-            if (!empty($errors)) {
+            if (! empty($errors)) {
                 Log::warning('[EloUpdateJob] 部分对战组合更新失败', [
                     'game_round_id' => $this->gameRoundId,
-                    'errors' => $errors
+                    'errors' => $errors,
                 ]);
             }
 
@@ -122,12 +125,12 @@ class EloUpdateJob implements ShouldQueue
                     $finalRatings[$symbol] = [
                         'rank' => $index + 1, // 使用索引+1作为显示排名
                         'elo' => round($rating->elo, 2),
-                        'games' => $rating->games
+                        'games' => $rating->games,
                     ];
                 } else {
                     Log::warning('[EloUpdateJob] 未找到代币评分记录', [
                         'symbol' => $symbol,
-                        'index' => $index
+                        'index' => $index,
                     ]);
                 }
             }
@@ -136,8 +139,9 @@ class EloUpdateJob implements ShouldQueue
             Log::error('[EloUpdateJob] 任务执行时发生严重错误', [
                 'game_round_id' => $this->gameRoundId,
                 'error_message' => $e->getMessage(),
-                'error_trace' => $e->getTraceAsString()
+                'error_trace' => $e->getTraceAsString(),
             ]);
+
             // 重新抛出异常，让 Worker 知道任务失败了
             throw $e;
         }
@@ -167,7 +171,7 @@ class EloUpdateJob implements ShouldQueue
             'game_round_id' => $this->gameRoundId,
             'queue_name' => $this->queue,
             'exception' => $exception->getMessage(),
-            'trace' => $exception->getTraceAsString()
+            'trace' => $exception->getTraceAsString(),
         ]);
     }
 }

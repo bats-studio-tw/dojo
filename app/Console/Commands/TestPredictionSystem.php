@@ -54,7 +54,7 @@ class TestPredictionSystem extends Command
                 999 // 测试游戏回合ID
             );
 
-            if (!empty($result)) {
+            if (! empty($result)) {
                 $this->info("预测成功，结果:");
                 foreach ($result as $item) {
                     $this->line("  {$item['rank']}. {$item['symbol']} - 分数: {$item['score']}");
@@ -108,6 +108,7 @@ class TestPredictionSystem extends Command
         } catch (\Exception $e) {
             $this->error("测试失败: " . $e->getMessage());
             $this->error("错误详情: " . $e->getTraceAsString());
+
             return 1;
         }
 

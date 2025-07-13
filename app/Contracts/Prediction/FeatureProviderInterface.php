@@ -2,8 +2,6 @@
 
 namespace App\Contracts\Prediction;
 
-use App\Models\TokenPrice;
-
 interface FeatureProviderInterface
 {
     /**

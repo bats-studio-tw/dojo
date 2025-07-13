@@ -86,7 +86,7 @@
 
           <n-button type="dashed" block @click="addStrategy" :disabled="formData.strategies.length >= 5">
             <template #icon>
-              <n-icon><Plus /></n-icon>
+              <n-icon><Add /></n-icon>
             </template>
             添加策略 (最多5個)
           </n-button>
@@ -125,7 +125,7 @@
 <script setup lang="ts">
   import { ref, reactive, computed, onMounted } from 'vue';
   import { useMessage } from 'naive-ui';
-  import { Plus } from '@vicons/ionicons5';
+  import { Add } from '@vicons/ionicons5';
   import api from '@/utils/api';
 
   // 定義事件
@@ -157,7 +157,7 @@
     traffic_distribution: {
       策略A: 50,
       策略B: 50
-    }
+    } as Record<string, number>
   });
 
   // 表單驗證規則

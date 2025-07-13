@@ -10,14 +10,15 @@ class AlchemyProvider implements MarketDataProviderInterface
 {
     public function __construct(
         private AlchemyPriceService $alchemyPriceService
-    ) {}
+    ) {
+    }
 
     public function fetchSnapshots(array $symbols, int $timestamp): array
     {
         $snapshots = [];
 
         foreach ($symbols as $symbol) {
-                        try {
+            try {
                 $priceData = $this->alchemyPriceService->getTokenPriceData($symbol);
 
                 if ($priceData) {

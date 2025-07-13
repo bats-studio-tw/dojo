@@ -4,7 +4,6 @@ namespace App\Listeners;
 
 use App\Events\NewRoundStarted;
 use App\Jobs\CalculateMomentumJob;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 
@@ -33,24 +32,26 @@ class PredictRoundJobDispatcher
                     'event_data' => [
                         'round_id' => $event->roundId,
                         'symbols' => $event->symbols,
-                        'chain_id' => $event->chainId
-                    ]
+                        'chain_id' => $event->chainId,
+                    ],
                 ]);
+
                 return;
             }
 
-            if (empty($event->symbols) || !is_array($event->symbols)) {
+            if (empty($event->symbols) || ! is_array($event->symbols)) {
                 Log::error('❌ NewRoundStarted 事件缺少或无效的 symbols', [
                     'symbols' => $event->symbols,
-                    'symbols_type' => gettype($event->symbols)
+                    'symbols_type' => gettype($event->symbols),
                 ]);
+
                 return;
             }
 
             Log::info('🚀 开始同步执行预测计算 Job', [
                 'round_id' => $event->roundId,
                 'symbols' => $event->symbols,
-                'chain_id' => $event->chainId
+                'chain_id' => $event->chainId,
             ]);
 
             // 使用 dispatchSync() 同步执行Job，避免队列延迟
@@ -62,7 +63,7 @@ class PredictRoundJobDispatcher
             );
 
             Log::info('✅ 同步执行预测计算 Job 完成', [
-                'round_id' => $event->roundId
+                'round_id' => $event->roundId,
             ]);
 
         } catch (\Exception $e) {
@@ -71,7 +72,7 @@ class PredictRoundJobDispatcher
                 'symbols' => $event->symbols ?? [],
                 'chain_id' => $event->chainId ?? 'unknown',
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
@@ -88,7 +89,7 @@ class PredictRoundJobDispatcher
             'symbols' => $event->symbols ?? [],
             'chain_id' => $event->chainId ?? 'unknown',
             'exception' => $exception->getMessage(),
-            'trace' => $exception->getTraceAsString()
+            'trace' => $exception->getTraceAsString(),
         ]);
     }
 }

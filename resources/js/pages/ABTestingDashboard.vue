@@ -8,25 +8,25 @@
       </div>
 
       <!-- 標籤頁導航 -->
-      <n-tabs v-model:value="activeTab" type="line" size="large" class="mb-6">
-        <n-tab-pane name="create" tab="創建測試">
+      <NTabs v-model:value="activeTab" type="line" size="large" class="mb-6">
+        <NTabPane name="create" tab="創建測試">
           <div class="tab-content">
             <CreateABTestForm @test-created="handleTestCreated" />
           </div>
-        </n-tab-pane>
+        </NTabPane>
 
-        <n-tab-pane name="monitor" tab="測試監控">
+        <NTabPane name="monitor" tab="測試監控">
           <div class="tab-content">
             <ABTestMonitor @test-selected="handleTestSelected" />
           </div>
-        </n-tab-pane>
+        </NTabPane>
 
-        <n-tab-pane name="reports" tab="測試報告">
+        <NTabPane name="reports" tab="測試報告">
           <div class="tab-content">
             <ABTestReports :selected-test="selectedTest" />
           </div>
-        </n-tab-pane>
-      </n-tabs>
+        </NTabPane>
+      </NTabs>
     </div>
   </DefaultLayout>
 </template>

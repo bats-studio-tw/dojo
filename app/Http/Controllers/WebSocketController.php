@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Events\GameDataUpdated;
 use App\Events\PredictionUpdated;
 use App\Events\UserNotification;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -38,24 +38,24 @@ class WebSocketController extends Controller
 
             Log::info('游戏数据广播成功', [
                 'type' => $type,
-                'data_keys' => array_keys($gameData)
+                'data_keys' => array_keys($gameData),
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => '游戏数据广播成功',
-                'type' => $type
+                'type' => $type,
             ]);
 
         } catch (\Exception $e) {
             Log::error('广播游戏数据失败', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => '广播失败: ' . $e->getMessage()
+                'message' => '广播失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -90,25 +90,25 @@ class WebSocketController extends Controller
             Log::info('预测数据广播成功', [
                 'round_id' => $roundId,
                 'type' => $type,
-                'prediction_keys' => array_keys($predictionData)
+                'prediction_keys' => array_keys($predictionData),
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => '预测数据广播成功',
                 'round_id' => $roundId,
-                'type' => $type
+                'type' => $type,
             ]);
 
         } catch (\Exception $e) {
             Log::error('广播预测数据失败', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => '广播失败: ' . $e->getMessage()
+                'message' => '广播失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -137,25 +137,25 @@ class WebSocketController extends Controller
             Log::info('用户通知发送成功', [
                 'user_id' => $userId,
                 'type' => $type,
-                'message' => $message
+                'message' => $message,
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => '通知发送成功',
                 'user_id' => $userId,
-                'type' => $type
+                'type' => $type,
             ]);
 
         } catch (\Exception $e) {
             Log::error('发送用户通知失败', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => '发送失败: ' . $e->getMessage()
+                'message' => '发送失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -175,17 +175,17 @@ class WebSocketController extends Controller
                     'latest_game_data' => $latestGameData,
                     'current_round' => $currentRound,
                     'server_time' => now()->toISOString(),
-                ]
+                ],
             ]);
 
         } catch (\Exception $e) {
             Log::error('获取最新数据失败', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => '获取数据失败: ' . $e->getMessage()
+                'message' => '获取数据失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -200,14 +200,14 @@ class WebSocketController extends Controller
                 'success' => true,
                 'status' => 'connected',
                 'server_time' => now()->toISOString(),
-                'message' => 'WebSocket服务器运行正常'
+                'message' => 'WebSocket服务器运行正常',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'status' => 'error',
-                'message' => 'WebSocket服务器连接失败: ' . $e->getMessage()
+                'message' => 'WebSocket服务器连接失败: ' . $e->getMessage(),
             ], 500);
         }
     }

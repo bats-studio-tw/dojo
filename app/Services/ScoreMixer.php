@@ -16,12 +16,13 @@ class ScoreMixer
     {
         if (empty($eloProb)) {
             Log::warning('Elo 機率數據為空，無法進行分數混合');
+
             return [];
         }
 
         try {
             // 檢查動能分數是否有效，用於決定權重
-            $momOk = $momScore && count(array_filter($momScore, fn($v) => $v !== null && is_numeric($v)));
+            $momOk = $momScore && count(array_filter($momScore, fn ($v) => $v !== null && is_numeric($v)));
 
             // 從配置中獲取權重，如果動能無效則 wElo=1, wMom=0 (自動降級)
             $wElo = $momOk ? config('prediction.w_elo', 0.65) : 1.0;
@@ -31,7 +32,7 @@ class ScoreMixer
                 'elo_symbols' => array_keys($eloProb),
                 'momentum_available' => $momOk,
                 'weight_elo' => $wElo,
-                'weight_momentum' => $wMom
+                'weight_momentum' => $wMom,
             ]);
 
             $scores = [];
@@ -59,7 +60,7 @@ class ScoreMixer
                     'weight_mom' => $wMom,
                     'base_score' => $baseScore,
                     'random_factor' => $randomFactor,
-                    'final_score' => $scores[$s]
+                    'final_score' => $scores[$s],
                 ]);
             }
 
@@ -90,7 +91,7 @@ class ScoreMixer
 
             Log::info('分數混合完成', [
                 'results_count' => count($out),
-                'top_prediction' => $out[0] ?? null
+                'top_prediction' => $out[0] ?? null,
             ]);
 
             return $out;
@@ -99,8 +100,9 @@ class ScoreMixer
             Log::error('分數混合失敗', [
                 'elo_prob_count' => count($eloProb),
                 'mom_score_count' => $momScore ? count($momScore) : 0,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return [];
         }
     }
@@ -119,10 +121,11 @@ class ScoreMixer
             } else {
                 Log::warning('無效的 Elo 機率數據', [
                     'symbol' => $symbol,
-                    'prob' => $prob
+                    'prob' => $prob,
                 ]);
             }
         }
+
         return $cleaned;
     }
 
@@ -133,7 +136,7 @@ class ScoreMixer
      */
     public function validateMomScore(?array $momScore): ?array
     {
-        if (!$momScore) {
+        if (! $momScore) {
             return null;
         }
 
@@ -146,11 +149,12 @@ class ScoreMixer
             } else {
                 Log::warning('無效的動能分數數據', [
                     'symbol' => $symbol,
-                    'score' => $score
+                    'score' => $score,
                 ]);
                 $cleaned[strtoupper($symbol)] = 50; // 使用預設值
             }
         }
+
         return $cleaned;
     }
 
@@ -208,7 +212,7 @@ class ScoreMixer
                 'total_tokens' => 0,
                 'prediction_method' => 'none',
                 'avg_confidence' => 0,
-                'top_prediction' => null
+                'top_prediction' => null,
             ];
         }
 
@@ -222,8 +226,8 @@ class ScoreMixer
             'top_prediction' => $predictions[0],
             'confidence_range' => [
                 'min' => min($confidences),
-                'max' => max($confidences)
-            ]
+                'max' => max($confidences),
+            ],
         ];
     }
 }

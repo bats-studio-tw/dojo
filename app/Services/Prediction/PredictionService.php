@@ -15,7 +15,8 @@ class PredictionService
         private array $featureProviders,
         private ScoreAggregator $aggregator,
         private string $strategyTag = 'default'
-    ) {}
+    ) {
+    }
 
     /**
      * 执行预测
@@ -35,8 +36,9 @@ class PredictionService
             if (empty($snapshots)) {
                 Log::warning('无法获取市场数据快照', [
                     'symbols' => $symbols,
-                    'timestamp' => $timestamp
+                    'timestamp' => $timestamp,
                 ]);
+
                 return [];
             }
 
@@ -94,13 +96,13 @@ class PredictionService
                         'round_id' => $gameRoundId,
                         'symbol' => $symbol,
                         'rank' => $rank,
-                        'score' => $scoreDetails['final_score'] ?? 0
+                        'score' => $scoreDetails['final_score'] ?? 0,
                     ]);
                 } catch (\Exception $broadcastError) {
                     Log::error('广播预测结果失败', [
                         'round_id' => $gameRoundId,
                         'symbol' => $symbol,
-                        'error' => $broadcastError->getMessage()
+                        'error' => $broadcastError->getMessage(),
                     ]);
                 }
 
@@ -119,7 +121,7 @@ class PredictionService
                 'round_id' => $gameRoundId,
                 'symbols_count' => count($symbols),
                 'predictions_count' => count($predictionsToReturn),
-                'strategy' => $this->strategyTag
+                'strategy' => $this->strategyTag,
             ]);
 
             return $predictionsToReturn;
@@ -129,7 +131,7 @@ class PredictionService
                 'round_id' => $gameRoundId,
                 'symbols' => $symbols,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [];

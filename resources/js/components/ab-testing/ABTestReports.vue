@@ -4,7 +4,7 @@
     <div v-if="!selectedTest" class="test-selector mb-6">
       <n-card title="選擇測試">
         <p class="text-gray-600 mb-4">請從監控頁面選擇一個測試來查看報告</p>
-        <n-button type="primary" @click="$emit('back-to-monitor')">返回監控頁面</n-button>
+        <n-button type="primary" @click="$emit('backToMonitor')">返回監控頁面</n-button>
       </n-card>
     </div>
 
@@ -401,7 +401,7 @@
       result.unique_rounds
     ]);
 
-    return [headers, ...rows].map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n');
+    return [headers, ...rows].map((row) => row.map((cell: any) => `"${cell}"`).join(',')).join('\n');
   };
 
   const getStatusType = (status: string) => {

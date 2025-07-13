@@ -16,7 +16,7 @@ class VolumeFeatureProvider implements FeatureProviderInterface
             $symbol = $snapshot['symbol'] ?? $snapshot->symbol ?? '';
             $volume = $snapshot['volume_24h'] ?? $snapshot->volume_24h ?? 0;
 
-            if (!empty($symbol) && $volume > 0) {
+            if (! empty($symbol) && $volume > 0) {
                 $volumes[$symbol] = $volume;
             }
         }

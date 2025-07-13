@@ -9,8 +9,8 @@
 
       <!-- 回測配置區域 -->
       <div class="config-section">
-        <n-card title="回測配置" class="mb-6">
-          <n-form
+        <NCard title="回測配置" class="mb-6">
+          <NForm
             ref="formRef"
             :model="formData"
             :rules="formRules"
@@ -18,58 +18,58 @@
             label-width="auto"
             require-mark-placement="right-hanging"
           >
-            <n-grid :cols="24" :x-gap="24">
+            <NGrid :cols="24" :x-gap="24">
               <!-- 回測類型選擇 -->
-              <n-form-item-gi :span="12" label="回測類型" path="backtestType">
-                <n-radio-group v-model:value="formData.backtestType">
-                  <n-space>
-                    <n-radio value="single">單策略回測</n-radio>
-                    <n-radio value="grid">Grid Search 參數優化</n-radio>
-                  </n-space>
-                </n-radio-group>
-              </n-form-item-gi>
+              <NFormItemGi :span="12" label="回測類型" path="backtestType">
+                <NRadioGroup v-model:value="formData.backtestType">
+                  <NSpace>
+                    <NRadio value="single">單策略回測</NRadio>
+                    <NRadio value="grid">Grid Search 參數優化</NRadio>
+                  </NSpace>
+                </NRadioGroup>
+              </NFormItemGi>
 
               <!-- 策略選擇 -->
-              <n-form-item-gi :span="12" label="策略" path="strategyTag">
-                <n-select
+              <NFormItemGi :span="12" label="策略" path="strategyTag">
+                <NSelect
                   v-model:value="formData.strategyTag"
                   :options="strategyOptions"
                   placeholder="選擇策略"
                   :disabled="formData.backtestType === 'grid'"
                 />
-              </n-form-item-gi>
+              </NFormItemGi>
 
               <!-- 歷史數據範圍 -->
-              <n-form-item-gi :span="12" label="歷史範圍" path="historyRange">
-                <n-select
+              <NFormItemGi :span="12" label="歷史範圍" path="historyRange">
+                <NSelect
                   v-model:value="formData.historyRange"
                   :options="historyRangeOptions"
                   placeholder="選擇歷史數據範圍"
                 />
-              </n-form-item-gi>
+              </NFormItemGi>
 
               <!-- 自定義回合數 -->
-              <n-form-item-gi :span="12" label="回測回合數" path="customRounds">
-                <n-input-number
+              <NFormItemGi :span="12" label="回測回合數" path="customRounds">
+                <NInputNumber
                   v-model:value="formData.customRounds"
                   :min="10"
                   :max="1000"
                   placeholder="自定義回合數"
                   :disabled="formData.historyRange !== 'custom'"
                 />
-              </n-form-item-gi>
-            </n-grid>
+              </NFormItemGi>
+            </NGrid>
 
             <!-- Grid Search 參數配置 -->
             <div v-if="formData.backtestType === 'grid'" class="mt-6">
-              <n-divider>Grid Search 參數矩陣</n-divider>
-              <n-grid :cols="24" :x-gap="24">
-                <n-form-item-gi :span="12" label="權重組合">
-                  <n-dynamic-input v-model:value="formData.gridSearch.weights" :on-create="onCreateWeight">
+              <NDivider>Grid Search 參數矩陣</NDivider>
+              <NGrid :cols="24" :x-gap="24">
+                <NFormItemGi :span="12" label="權重組合">
+                  <NDynamicInput v-model:value="formData.gridSearch.weights" :on-create="onCreateWeight">
                     <template #default="{ value }">
-                      <n-space vertical>
-                        <n-input-group>
-                          <n-input
+                      <NSpace vertical>
+                        <NInputGroup>
+                          <NInput
                             v-model:value="value.elo"
                             placeholder="ELO權重"
                             type="number"
@@ -77,7 +77,7 @@
                             :max="1"
                             :step="0.1"
                           />
-                          <n-input
+                          <NInput
                             v-model:value="value.momentum"
                             placeholder="動能權重"
                             type="number"
@@ -85,7 +85,7 @@
                             :max="1"
                             :step="0.1"
                           />
-                          <n-input
+                          <NInput
                             v-model:value="value.volume"
                             placeholder="成交量權重"
                             type="number"
@@ -93,62 +93,62 @@
                             :max="1"
                             :step="0.1"
                           />
-                        </n-input-group>
-                      </n-space>
+                        </NInputGroup>
+                      </NSpace>
                     </template>
-                  </n-dynamic-input>
-                </n-form-item-gi>
+                  </NDynamicInput>
+                </NFormItemGi>
 
-                <n-form-item-gi :span="12" label="標準化策略">
-                  <n-dynamic-input v-model:value="formData.gridSearch.normalization" :on-create="onCreateNormalization">
+                <NFormItemGi :span="12" label="標準化策略">
+                  <NDynamicInput v-model:value="formData.gridSearch.normalization" :on-create="onCreateNormalization">
                     <template #default="{ value }">
-                      <n-space vertical>
-                        <n-select v-model:value="value.elo" :options="normalizationOptions" placeholder="ELO標準化" />
-                        <n-select
+                      <NSpace vertical>
+                        <NSelect v-model:value="value.elo" :options="normalizationOptions" placeholder="ELO標準化" />
+                        <NSelect
                           v-model:value="value.momentum"
                           :options="normalizationOptions"
                           placeholder="動能標準化"
                         />
-                        <n-select
+                        <NSelect
                           v-model:value="value.volume"
                           :options="normalizationOptions"
                           placeholder="成交量標準化"
                         />
-                      </n-space>
+                      </NSpace>
                     </template>
-                  </n-dynamic-input>
-                </n-form-item-gi>
-              </n-grid>
+                  </NDynamicInput>
+                </NFormItemGi>
+              </NGrid>
             </div>
 
             <!-- 操作按鈕 -->
             <div class="mt-6 flex justify-end space-x-4">
-              <n-button @click="resetForm">重置</n-button>
-              <n-button type="primary" :loading="isSubmitting" @click="submitBacktest">
+              <NButton @click="resetForm">重置</NButton>
+              <NButton type="primary" :loading="isSubmitting" @click="submitBacktest">
                 {{ formData.backtestType === 'grid' ? '開始 Grid Search' : '開始回測' }}
-              </n-button>
+              </NButton>
             </div>
-          </n-form>
-        </n-card>
+          </NForm>
+        </NCard>
       </div>
 
       <!-- 任務進度監控 -->
       <div v-if="currentBatch" class="progress-section">
-        <n-card title="任務進度" class="mb-6">
-          <n-space vertical>
+        <NCard title="任務進度" class="mb-6">
+          <NSpace vertical>
             <div class="flex items-center justify-between">
               <span class="text-sm text-gray-600">批次ID: {{ currentBatch.id }}</span>
-              <n-tag :type="getBatchStatusType(currentBatch.status)">
+              <NTag :type="getBatchStatusType(currentBatch.status)">
                 {{ getBatchStatusText(currentBatch.status) }}
-              </n-tag>
+              </NTag>
             </div>
 
-            <n-progress
+            <NProgress
               :percentage="getBatchProgress(currentBatch)"
               :status="getBatchProgressStatus(currentBatch.status)"
             />
 
-            <n-grid :cols="4" :x-gap="16">
+            <NGrid :cols="4" :x-gap="16">
               <div class="text-center">
                 <div class="text-lg font-semibold">{{ currentBatch.total_jobs }}</div>
                 <div class="text-sm text-gray-500">總任務</div>
@@ -165,23 +165,23 @@
                 <div class="text-lg text-red-600 font-semibold">{{ currentBatch.failed_jobs }}</div>
                 <div class="text-sm text-gray-500">失敗</div>
               </div>
-            </n-grid>
+            </NGrid>
 
             <div class="flex justify-end space-x-2">
-              <n-button size="small" @click="refreshBatchStatus">刷新狀態</n-button>
-              <n-button size="small" type="primary" @click="viewResults" :disabled="currentBatch.status !== 'finished'">
+              <NButton size="small" @click="refreshBatchStatus">刷新狀態</NButton>
+              <NButton size="small" type="primary" @click="viewResults" :disabled="currentBatch.status !== 'finished'">
                 查看結果
-              </n-button>
+              </NButton>
             </div>
-          </n-space>
-        </n-card>
+          </NSpace>
+        </NCard>
       </div>
 
       <!-- 回測結果展示 -->
       <div v-if="backtestReports.length > 0" class="results-section">
-        <n-card title="回測結果">
-          <n-data-table :columns="reportColumns" :data="backtestReports" :pagination="pagination" :bordered="false" />
-        </n-card>
+        <NCard title="回測結果">
+          <NDataTable :columns="reportColumns" :data="backtestReports" :pagination="pagination" :bordered="false" />
+        </NCard>
       </div>
     </div>
   </DefaultLayout>
@@ -266,7 +266,7 @@
           failed: { text: '失败', type: 'error' }
         };
         const status = statusMap[row.status as keyof typeof statusMap] || { text: row.status, type: 'default' };
-        return h('n-tag', { type: status.type, size: 'small' }, { default: () => status.text });
+        return h('NTag', { type: status.type, size: 'small' }, { default: () => status.text });
       }
     },
     {
@@ -343,7 +343,7 @@
       render: (row: BacktestReport) => {
         return h('div', { class: 'flex space-x-2' }, [
           h(
-            'n-button',
+            'NButton',
             {
               size: 'small',
               type: 'primary',
@@ -352,7 +352,7 @@
             { default: () => '详情' }
           ),
           h(
-            'n-button',
+            'NButton',
             {
               size: 'small',
               type: 'info',

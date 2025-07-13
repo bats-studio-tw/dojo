@@ -9,7 +9,7 @@
           <h1 class="text-2xl text-white font-bold">📊 数据分析面板</h1>
           <div class="flex space-x-3">
             <!-- 回測中心入口 -->
-            <n-button
+            <NButton
               type="primary"
               size="small"
               ghost
@@ -18,7 +18,7 @@
             >
               <span>📈</span>
               <span>回測中心</span>
-            </n-button>
+            </NButton>
 
             <!-- WebSocket状态指示器 -->
             <div class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2" :class="getWebSocketStatusClass()">
@@ -47,14 +47,14 @@
           size="large"
         >
           <template #header-extra>
-            <n-button
+            <NButton
               :loading="predictionHistoryLoading"
               @click="refreshPredictionHistoryData"
               type="primary"
               size="small"
             >
               🔄 刷新预测历史
-            </n-button>
+            </NButton>
           </template>
 
           <NSpin :show="predictionHistoryLoading">
@@ -74,7 +74,7 @@
                 <div class="flex items-center space-x-3">
                   <span class="whitespace-nowrap text-xs text-gray-300 font-medium">局数:</span>
                   <div class="min-w-0 flex-1">
-                    <n-slider
+                    <NSlider
                       v-model:value="recentRoundsCount"
                       :min="1"
                       :max="Math.min(300, predictionHistoryData?.length || 0)"
@@ -189,9 +189,9 @@
           size="large"
         >
           <template #header-extra>
-            <n-button :loading="historyLoading" @click="refreshHistoryData" type="primary" size="small">
+            <NButton :loading="historyLoading" @click="refreshHistoryData" type="primary" size="small">
               🔄 刷新历史
-            </n-button>
+            </NButton>
           </template>
 
           <NSpin :show="historyLoading">

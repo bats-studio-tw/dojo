@@ -1,10 +1,8 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AutoBettingController;
-use App\Http\Controllers\WebSocketController;
 use App\Http\Controllers\GameDataController;
-use Illuminate\Foundation\Application;
+use App\Http\Controllers\WebSocketController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 

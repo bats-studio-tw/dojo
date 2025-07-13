@@ -14,17 +14,22 @@ use Illuminate\Support\Facades\Log;
 
 class RunBacktestJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
 
     public $timeout = 3600;
     public $tries = 1;
+    public $queue = 'high'; // 使用高優先級隊列
 
     public function __construct(
         private array $rounds,
         private array $strategyConfig,
         private ?int $userId = null,
         private ?string $batchId = null
-    ) {}
+    ) {
+    }
 
     public function handle(): void
     {
@@ -54,7 +59,7 @@ class RunBacktestJob implements ShouldQueue
                         $round['history'] ?? [],
                         $round['id'] ?? 0
                     );
-                    if (!empty($prediction)) {
+                    if (! empty($prediction)) {
                         $actualResult = $this->getActualResult($round['id'] ?? 0);
                         if ($actualResult) {
                             $results[] = [
@@ -69,7 +74,7 @@ class RunBacktestJob implements ShouldQueue
                     Log::error('Backtest round failed', [
                         'round_id' => $round['id'] ?? 0,
                         'error' => $e->getMessage(),
-                        'report_id' => $report->id
+                        'report_id' => $report->id,
                     ]);
                 }
             }
@@ -98,13 +103,14 @@ class RunBacktestJob implements ShouldQueue
             Log::error('Backtest job failed', [
                 'report_id' => $report->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             $report->update([
                 'status' => 'failed',
                 'error_message' => $e->getMessage(),
                 'completed_at' => now(),
             ]);
+
             throw $e;
         }
     }
@@ -152,7 +158,9 @@ class RunBacktestJob implements ShouldQueue
             $actualResult = $result['actual_result'];
             $prediction = $result['prediction'];
 
-            if (empty($actualResult) || empty($prediction)) continue;
+            if (empty($actualResult) || empty($prediction)) {
+                continue;
+            }
 
             $predictedWinner = $prediction[0]['symbol'] ?? '';
             $actualWinner = $actualResult['winner'] ?? '';
@@ -174,7 +182,9 @@ class RunBacktestJob implements ShouldQueue
             $profits[] = $profit;
             $totalProfit += $profit;
 
-            if ($profit >= 0) $breakevens++;
+            if ($profit >= 0) {
+                $breakevens++;
+            }
 
             $maxProfit = max($maxProfit, $profit);
             $maxLoss = min($maxLoss, $profit);
@@ -197,7 +207,7 @@ class RunBacktestJob implements ShouldQueue
         // 优化夏普比率计算（使用年化收益率）
         $sharpeRatio = 0;
         $volatility = 0;
-        if (!empty($profits) && count($profits) > 1) {
+        if (! empty($profits) && count($profits) > 1) {
             $avgProfit = array_sum($profits) / count($profits);
             $variance = 0;
             foreach ($profits as $profit) {
@@ -214,7 +224,7 @@ class RunBacktestJob implements ShouldQueue
 
         // 计算Sortino比率（只考虑下行风险）
         $sortinoRatio = 0;
-        if (!empty($profits) && count($profits) > 1) {
+        if (! empty($profits) && count($profits) > 1) {
             $avgProfit = array_sum($profits) / count($profits);
             $downsideVariance = 0;
             $downsideCount = 0;
@@ -243,10 +253,10 @@ class RunBacktestJob implements ShouldQueue
         }
 
         // 计算盈亏比
-        $positiveProfits = array_filter($profits, fn($p) => $p > 0);
-        $negativeProfits = array_filter($profits, fn($p) => $p < 0);
-        $avgPositiveProfit = !empty($positiveProfits) ? array_sum($positiveProfits) / count($positiveProfits) : 0;
-        $avgNegativeProfit = !empty($negativeProfits) ? array_sum($negativeProfits) / count($negativeProfits) : 0;
+        $positiveProfits = array_filter($profits, fn ($p) => $p > 0);
+        $negativeProfits = array_filter($profits, fn ($p) => $p < 0);
+        $avgPositiveProfit = ! empty($positiveProfits) ? array_sum($positiveProfits) / count($positiveProfits) : 0;
+        $avgNegativeProfit = ! empty($negativeProfits) ? array_sum($negativeProfits) / count($negativeProfits) : 0;
         $avgProfitLossRatio = $avgNegativeProfit != 0 ? abs($avgPositiveProfit / $avgNegativeProfit) : 0;
 
         // 计算盈利因子（总盈利/总亏损）
@@ -275,20 +285,61 @@ class RunBacktestJob implements ShouldQueue
 
     private function getActualResult(int $roundId): ?array
     {
-        $roundResult = RoundResult::where('game_round_id', $roundId)->first();
-        if (!$roundResult) return null;
+        // 獲取該輪次的所有結果，按排名排序
+        $roundResults = RoundResult::where('game_round_id', $roundId)
+            ->orderBy('rank')
+            ->get();
+
+        if ($roundResults->isEmpty()) {
+            return null;
+        }
+
+        // 獲取第一名（獲勝者）
+        $winner = $roundResults->first();
+
+        // 獲取所有代幣的排名信息
+        $rankings = [];
+        foreach ($roundResults as $result) {
+            $rankings[$result->token_symbol] = [
+                'rank' => $result->rank,
+                'value' => $result->value,
+            ];
+        }
+
         return [
-            'winner' => $roundResult->winner,
-            'loser' => $roundResult->loser,
-            'winner_score' => $roundResult->winner_score,
-            'loser_score' => $roundResult->loser_score,
+            'winner' => $winner->token_symbol,
+            'winner_rank' => $winner->rank,
+            'winner_value' => $winner->value,
+            'rankings' => $rankings,
+            'total_tokens' => $roundResults->count(),
         ];
     }
 
     private function calculateProfit(array $prediction, array $actualResult): float
     {
+        if (empty($prediction) || empty($actualResult)) {
+            return 0.0;
+        }
+
         $predictedWinner = $prediction[0]['symbol'] ?? '';
         $actualWinner = $actualResult['winner'] ?? '';
-        return $predictedWinner === $actualWinner ? 1.0 : -1.0;
+
+        // 基本勝負判斷：預測第一名是否正確
+        if ($predictedWinner === $actualWinner) {
+            return 1.0; // 預測正確，獲利1分
+        }
+
+        // 如果預測錯誤，根據預測排名給予不同的懲罰
+        $rankings = $actualResult['rankings'] ?? [];
+        $predictedRank = $rankings[$predictedWinner]['rank'] ?? 999;
+
+        // 根據預測排名給予懲罰：排名越靠後，懲罰越重
+        if ($predictedRank <= 3) {
+            return -0.5; // 前三名，輕微懲罰
+        } elseif ($predictedRank <= 5) {
+            return -0.8; // 前五名，中等懲罰
+        } else {
+            return -1.0; // 其他排名，重懲罰
+        }
     }
 }

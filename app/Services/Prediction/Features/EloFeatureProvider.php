@@ -10,7 +10,8 @@ class EloFeatureProvider implements FeatureProviderInterface
 {
     public function __construct(
         private EloRatingEngine $eloRatingEngine
-    ) {}
+    ) {
+    }
 
     public function extractFeatures(array $snapshots, array $history): array
     {

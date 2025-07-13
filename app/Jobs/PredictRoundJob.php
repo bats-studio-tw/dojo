@@ -11,7 +11,10 @@ use Illuminate\Support\Facades\Log;
 
 class PredictRoundJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
 
     protected $roundId;
     protected $symbols;
@@ -47,7 +50,7 @@ class PredictRoundJob implements ShouldQueue
             'symbols' => $this->symbols,
             'chain_id' => $this->chainId,
             'exception' => $exception->getMessage(),
-            'trace' => $exception->getTraceAsString()
+            'trace' => $exception->getTraceAsString(),
         ]);
     }
 }

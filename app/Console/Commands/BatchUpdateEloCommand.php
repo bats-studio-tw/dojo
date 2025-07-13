@@ -2,12 +2,11 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\GameRound;
 use App\Models\RoundResult;
 use App\Models\TokenRating;
 use App\Services\EloRatingEngine;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
 class BatchUpdateEloCommand extends Command
@@ -76,6 +75,7 @@ class BatchUpdateEloCommand extends Command
 
             if ($rounds->isEmpty()) {
                 $this->warn("⚠️ 没有找到符合条件的游戏轮次数据");
+
                 return;
             }
 
@@ -91,12 +91,14 @@ class BatchUpdateEloCommand extends Command
             $this->error("❌ 批量更新失败: " . $e->getMessage());
             Log::error('批量更新Elo评分失败', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return 1;
         }
 
         $this->info("✅ 批量更新Elo评分完成");
+
         return 0;
     }
 
@@ -109,6 +111,7 @@ class BatchUpdateEloCommand extends Command
 
         if ($dryRun) {
             $this->line("  [试运行] 将重置所有代币评分到1500");
+
             return;
         }
 
@@ -166,7 +169,7 @@ class BatchUpdateEloCommand extends Command
                 $errorCount++;
                 Log::error('处理轮次失败', [
                     'round_id' => $round->round_id,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]);
             }
 
@@ -207,6 +210,7 @@ class BatchUpdateEloCommand extends Command
                         $matches++;
                     }
                 }
+
                 break;
 
             case 'top3-vs-all':
@@ -226,6 +230,7 @@ class BatchUpdateEloCommand extends Command
                         }
                     }
                 }
+
                 break;
 
             case 'all-vs-all':
@@ -245,6 +250,7 @@ class BatchUpdateEloCommand extends Command
                         }
                     }
                 }
+
                 break;
         }
 
@@ -258,6 +264,7 @@ class BatchUpdateEloCommand extends Command
     {
         if ($dryRun) {
             $this->info("📋 试运行完成，未实际更新数据库");
+
             return;
         }
 
@@ -268,6 +275,7 @@ class BatchUpdateEloCommand extends Command
 
         if ($ratings->isEmpty()) {
             $this->warn("⚠️ 没有找到代币评分数据");
+
             return;
         }
 
@@ -279,7 +287,7 @@ class BatchUpdateEloCommand extends Command
                 $index + 1,
                 $rating->symbol,
                 round($rating->elo, 2),
-                $rating->games
+                $rating->games,
             ];
         }
 

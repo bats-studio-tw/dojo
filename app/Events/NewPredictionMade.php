@@ -5,21 +5,23 @@ namespace App\Events;
 use App\Models\PredictionResult;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
 class NewPredictionMade implements ShouldBroadcastNow
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable;
+    use InteractsWithSockets;
+    use SerializesModels;
 
     public function __construct(
         public PredictionResult $predictionResult,
         public string $roundId,
         public string $type = 'new_prediction',
         public ?string $source = 'prediction_service'
-    ) {}
+    ) {
+    }
 
     /**
      * 获取事件应该广播到的频道

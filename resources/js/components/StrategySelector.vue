@@ -1,94 +1,62 @@
 <template>
-  <div class="strategy-selector">
-    <n-card title="预测策略选择" class="mb-4">
-      <div class="flex flex-col gap-4">
-        <!-- 策略选择下拉框 -->
-        <div class="flex items-center gap-3">
-          <label class="text-sm font-medium text-gray-700 min-w-20">策略类型:</label>
-          <n-select
-            v-model:value="selectedStrategy"
-            :options="strategyOptions"
-            placeholder="请选择预测策略"
-            class="flex-1"
-            :disabled="!strategies.length"
-            @update:value="handleStrategyChange"
-          />
-        </div>
+  <NCard title="策略选择与执行" class="mb-6">
+    <div class="space-y-4">
+      <!-- 策略选择 -->
+      <div class="flex items-center space-x-4">
+        <label class="text-sm font-medium text-gray-700">选择策略:</label>
+        <NSelect
+          v-model:value="selectedStrategy"
+          :options="strategyOptions"
+          placeholder="请选择预测策略"
+          class="w-64"
+          :loading="isLoading"
+        />
+      </div>
 
-        <!-- 当前策略信息 -->
-        <div v-if="currentStrategyInfo" class="bg-blue-50 p-3 rounded-lg">
-          <h4 class="font-medium text-blue-900 mb-2">{{ currentStrategyInfo.name }}</h4>
-          <p class="text-sm text-blue-700">{{ currentStrategyInfo.description }}</p>
+      <!-- 代币输入 -->
+      <div class="flex items-center space-x-4">
+        <label class="text-sm font-medium text-gray-700">预测代币:</label>
+        <NInput
+          v-model:value="tokenInput"
+          placeholder="输入代币符号，用逗号分隔 (如: BTC,ETH,SOL)"
+          class="flex-1"
+          :disabled="!selectedStrategy"
+        />
+      </div>
 
-          <!-- 权重信息 -->
-          <div v-if="currentStrategyInfo.weights" class="mt-3">
-            <h5 class="text-xs font-medium text-blue-800 mb-1">特征权重:</h5>
-            <div class="flex flex-wrap gap-2">
-              <n-tag v-for="(weight, feature) in currentStrategyInfo.weights" :key="feature" type="info" size="small">
-                {{ feature }}: {{ (weight * 100).toFixed(0) }}%
-              </n-tag>
-            </div>
-          </div>
+      <!-- 操作按钮 -->
+      <div class="flex items-center space-x-4">
+        <NButton type="primary" @click="executePrediction" :loading="isLoading" :disabled="!canExecute">
+          执行预测
+        </NButton>
 
-          <!-- 标准化方法 -->
-          <div v-if="currentStrategyInfo.normalization" class="mt-2">
-            <h5 class="text-xs font-medium text-blue-800 mb-1">标准化方法:</h5>
-            <div class="flex flex-wrap gap-2">
-              <n-tag
-                v-for="(method, feature) in currentStrategyInfo.normalization"
-                :key="feature"
-                type="success"
-                size="small"
-              >
-                {{ feature }}: {{ method }}
-              </n-tag>
-            </div>
-          </div>
-        </div>
+        <NButton type="info" @click="executeBacktest" :loading="isLoading" :disabled="!selectedStrategy">
+          执行回测
+        </NButton>
 
-        <!-- 代币选择 -->
-        <div class="flex items-center gap-3">
-          <label class="text-sm font-medium text-gray-700 min-w-20">代币列表:</label>
-          <n-select
-            v-model:value="selectedTokens"
-            :options="tokenOptions"
-            placeholder="请选择要预测的代币"
-            multiple
-            class="flex-1"
-            :disabled="!selectedStrategy"
-          />
-        </div>
+        <NButton type="success" @click="toggleStrategyInfo" :disabled="!selectedStrategy">策略详情</NButton>
+      </div>
 
-        <!-- 操作按钮 -->
-        <div class="flex gap-3">
-          <n-button type="primary" :loading="isLoading" :disabled="!canExecute" @click="handleExecute">
-            <template #icon>
-              <n-icon><PlayCircleOutline /></n-icon>
-            </template>
-            执行预测
-          </n-button>
-
-          <n-button type="info" :disabled="!selectedStrategy" @click="handleBacktest">
-            <template #icon>
-              <n-icon><AnalyticsOutline /></n-icon>
-            </template>
-            执行回测
-          </n-button>
+      <!-- 策略信息展示 -->
+      <div v-if="showStrategyInfoFlag" class="mt-4 p-4 bg-gray-50 rounded-lg">
+        <h4 class="font-medium text-gray-900 mb-2">{{ selectedStrategyInfo?.name }}</h4>
+        <p class="text-sm text-gray-600 mb-2">{{ selectedStrategyInfo?.description }}</p>
+        <div class="text-xs text-gray-500">
+          <div>权重配置: {{ JSON.stringify(selectedStrategyInfo?.weights) }}</div>
+          <div>标准化方式: {{ JSON.stringify(selectedStrategyInfo?.normalization) }}</div>
         </div>
       </div>
-    </n-card>
-  </div>
+    </div>
+  </NCard>
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted } from 'vue';
-  import { useMessage } from 'naive-ui';
-  import { PlayCircleOutline, AnalyticsOutline } from '@vicons/ionicons5';
-  import type { StrategyDTO } from '@/types/prediction';
+  import { ref, computed, watch } from 'vue';
+  import { useMessage, NButton, NSelect, NInput, NCard } from 'naive-ui';
 
   // Props
   interface Props {
-    strategies: StrategyDTO[];
+    strategies: any[];
     isLoading?: boolean;
   }
 
@@ -103,76 +71,60 @@
   }>();
 
   // 响应式数据
-  const selectedStrategy = ref<string>('');
-  const selectedTokens = ref<string[]>([]);
-
-  // 常用代币列表
-  const commonTokens = [
-    'BTC',
-    'ETH',
-    'SOL',
-    'DOGE',
-    'ADA',
-    'DOT',
-    'LINK',
-    'UNI',
-    'MATIC',
-    'AVAX',
-    'ATOM',
-    'LTC',
-    'BCH',
-    'XRP',
-    'TRX',
-    'ETC'
-  ];
+  const selectedStrategy = ref<string | null>(null);
+  const tokenInput = ref('');
+  const showStrategyInfoFlag = ref(false);
+  const message = useMessage();
 
   // 计算属性
   const strategyOptions = computed(() =>
     props.strategies.map((strategy) => ({
       label: strategy.name,
-      value: strategy.tag,
-      description: strategy.description
+      value: strategy.tag
     }))
   );
 
-  const tokenOptions = computed(() =>
-    commonTokens.map((token) => ({
-      label: token,
-      value: token
-    }))
-  );
+  const selectedStrategyInfo = computed(() => {
+    if (!selectedStrategy.value) return null;
+    return props.strategies.find((s) => s.tag === selectedStrategy.value);
+  });
 
-  const currentStrategyInfo = computed(() => props.strategies.find((s) => s.tag === selectedStrategy.value));
-
-  const canExecute = computed(() => selectedStrategy.value && selectedTokens.value.length > 0);
+  const canExecute = computed(() => {
+    return selectedStrategy.value && tokenInput.value.trim();
+  });
 
   // 方法
-  const handleStrategyChange = (value: string) => {
-    selectedStrategy.value = value;
-    // 可以在这里触发策略变更事件
-  };
+  const executePrediction = () => {
+    if (!canExecute.value) return;
 
-  const handleExecute = () => {
-    if (!canExecute.value) {
-      useMessage().warning('请选择策略和代币');
+    const tokens = tokenInput.value
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t);
+
+    if (tokens.length === 0) {
+      message.error('请输入有效的代币符号');
       return;
     }
 
-    emit('execute', selectedStrategy.value, selectedTokens.value);
+    emit('execute', selectedStrategy.value!, tokens);
   };
 
-  const handleBacktest = () => {
-    if (!selectedStrategy.value) {
-      useMessage().warning('请先选择策略');
-      return;
-    }
-
+  const executeBacktest = () => {
+    if (!selectedStrategy.value) return;
     emit('backtest', selectedStrategy.value);
   };
 
-  // 生命周期
-  onMounted(() => {
-    // 如果有默认策略，可以在这里设置
+  const toggleStrategyInfo = () => {
+    if (!selectedStrategy.value) return;
+    showStrategyInfoFlag.value = !showStrategyInfoFlag.value;
+  };
+
+  // 监听策略变化
+  watch(selectedStrategy, (newStrategy) => {
+    if (newStrategy) {
+      message.info(`已选择策略: ${strategyOptions.value.find((s) => s.value === newStrategy)?.label}`);
+    }
   });
 </script>
 

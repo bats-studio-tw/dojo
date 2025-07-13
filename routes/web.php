@@ -40,4 +40,8 @@ Route::prefix('game')->name('game.')->group(function () {
     Route::get('/hybrid-analysis', [GameDataController::class, 'getHybridAnalysis'])->name('hybrid-analysis');
 });
 
+Route::get('/ab-testing', function () {
+    return Inertia::render('ABTestingDashboard');
+})->middleware(['auth', 'verified'])->name('ab-testing');
+
 require __DIR__.'/auth.php';

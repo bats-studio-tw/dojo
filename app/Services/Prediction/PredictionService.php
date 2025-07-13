@@ -4,6 +4,7 @@ namespace App\Services\Prediction;
 
 use App\Contracts\Prediction\FeatureProviderInterface;
 use App\Contracts\Prediction\MarketDataProviderInterface;
+use App\Events\NewPredictionMade;
 use App\Models\PredictionResult;
 use Illuminate\Support\Facades\Log;
 
@@ -28,50 +29,107 @@ class PredictionService
     public function predict(array $symbols, int $timestamp, array $history, int $gameRoundId): array
     {
         try {
-            // 1. 获取行情数据
+            // 获取市场数据快照
             $snapshots = $this->dataProvider->fetchSnapshots($symbols, $timestamp);
 
             if (empty($snapshots)) {
-                Log::warning("No market data available for prediction");
+                Log::warning('无法获取市场数据快照', [
+                    'symbols' => $symbols,
+                    'timestamp' => $timestamp
+                ]);
                 return [];
             }
 
-            // 2. 提取各特征分数
+            // 计算各特征分数
             $allFeatureScores = [];
-            $rawFeatureScores = [];
-
             foreach ($this->featureProviders as $featureName => $provider) {
                 if ($provider instanceof FeatureProviderInterface) {
                     $featureScores = $provider->extractFeatures($snapshots, $history);
                     $allFeatureScores[$featureName] = $featureScores;
-                    $rawFeatureScores[$featureName] = $featureScores;
                 }
             }
 
-            if (empty($allFeatureScores)) {
-                Log::warning("No feature scores extracted");
-                return [];
-            }
-
-            // 3. 聚合分数
+            // 聚合分数
             $finalScores = $this->aggregator->aggregate($allFeatureScores);
-            $normalizedScores = $this->aggregator->getNormalizedScores($rawFeatureScores);
 
-            // 4. 排序
+            // 按分数排序
             arsort($finalScores);
 
-            // 5. 保存预测结果到数据库
-            $this->savePredictionResults($gameRoundId, $finalScores, $rawFeatureScores, $normalizedScores);
+            $predictionsToReturn = [];
+            $rank = 1;
 
-            // 6. 返回格式化的结果
-            return $this->formatResults($finalScores);
+            foreach ($finalScores as $symbol => $scoreDetails) {
+                // 创建预测结果记录
+                $predictionRecord = PredictionResult::create([
+                    'game_round_id' => $gameRoundId,
+                    'token' => $symbol,
+                    'predict_rank' => $rank,
+                    'predict_score' => $scoreDetails['final_score'] ?? 0,
+                    'elo_score' => $scoreDetails['elo_score'] ?? 0,
+                    'momentum_score' => $scoreDetails['momentum_score'] ?? 0,
+                    'volume_score' => $scoreDetails['volume_score'] ?? 0,
+                    'norm_elo' => $scoreDetails['norm_elo'] ?? 0,
+                    'norm_momentum' => $scoreDetails['norm_momentum'] ?? 0,
+                    'norm_volume' => $scoreDetails['norm_volume'] ?? 0,
+                    'used_weights' => $scoreDetails['weights'] ?? [],
+                    'used_normalization' => $scoreDetails['normalization'] ?? [],
+                    'strategy_tag' => $this->strategyTag,
+                    'config_snapshot' => [
+                        'strategy_tag' => $this->strategyTag,
+                        'feature_scores' => $allFeatureScores,
+                        'timestamp' => $timestamp,
+                    ],
+                ]);
+
+                // 广播新预测结果事件
+                try {
+                    broadcast(new NewPredictionMade(
+                        $predictionRecord,
+                        (string) $gameRoundId,
+                        'new_prediction',
+                        'prediction_service'
+                    ));
+
+                    Log::info('新预测结果已广播', [
+                        'round_id' => $gameRoundId,
+                        'symbol' => $symbol,
+                        'rank' => $rank,
+                        'score' => $scoreDetails['final_score'] ?? 0
+                    ]);
+                } catch (\Exception $broadcastError) {
+                    Log::error('广播预测结果失败', [
+                        'round_id' => $gameRoundId,
+                        'symbol' => $symbol,
+                        'error' => $broadcastError->getMessage()
+                    ]);
+                }
+
+                $predictionsToReturn[] = [
+                    'symbol' => $symbol,
+                    'rank' => $rank,
+                    'score' => $scoreDetails['final_score'] ?? 0,
+                    'details' => $scoreDetails,
+                    'prediction_id' => $predictionRecord->id,
+                ];
+
+                $rank++;
+            }
+
+            Log::info('预测完成', [
+                'round_id' => $gameRoundId,
+                'symbols_count' => count($symbols),
+                'predictions_count' => count($predictionsToReturn),
+                'strategy' => $this->strategyTag
+            ]);
+
+            return $predictionsToReturn;
 
         } catch (\Exception $e) {
-            Log::error("Prediction failed: " . $e->getMessage(), [
+            Log::error('预测执行失败', [
+                'round_id' => $gameRoundId,
                 'symbols' => $symbols,
-                'timestamp' => $timestamp,
-                'game_round_id' => $gameRoundId,
-                'exception' => $e
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
 
             return [];
@@ -79,82 +137,17 @@ class PredictionService
     }
 
     /**
-     * 保存预测结果到数据库
+     * 为回测执行预测（不广播事件）
+     *
+     * @param array $symbols 代币符号数组
+     * @param int $timestamp 时间戳
+     * @param array $history 历史数据
+     * @param int $gameRoundId 游戏回合ID
+     * @return array 预测结果
      */
-    private function savePredictionResults(int $gameRoundId, array $finalScores, array $rawScores, array $normalizedScores): void
+    public function predictForBacktest(array $symbols, int $timestamp, array $history, int $gameRoundId): array
     {
-        $rank = 1;
-
-        foreach ($finalScores as $symbol => $finalScore) {
-            $predictionData = [
-                'game_round_id' => $gameRoundId,
-                'token' => $symbol,
-                'predict_rank' => $rank++,
-                'predict_score' => $finalScore,
-                'elo_score' => $rawScores['elo'][$symbol] ?? null,
-                'momentum_score' => $rawScores['momentum'][$symbol] ?? null,
-                'volume_score' => $rawScores['volume'][$symbol] ?? null,
-                'norm_elo' => $normalizedScores['elo'][$symbol] ?? null,
-                'norm_momentum' => $normalizedScores['momentum'][$symbol] ?? null,
-                'norm_volume' => $normalizedScores['volume'][$symbol] ?? null,
-                'used_weights' => $this->getAggregatorWeights(),
-                'used_normalization' => $this->getAggregatorNormalizations(),
-                'strategy_tag' => $this->strategyTag,
-                'config_snapshot' => [
-                    'feature_weights' => $this->getAggregatorWeights(),
-                    'feature_normalizations' => $this->getAggregatorNormalizations(),
-                ],
-            ];
-
-            PredictionResult::create($predictionData);
-        }
-    }
-
-    /**
-     * 格式化预测结果
-     */
-    private function formatResults(array $finalScores): array
-    {
-        $results = [];
-        $rank = 1;
-
-        foreach ($finalScores as $symbol => $score) {
-            $results[] = [
-                'symbol' => $symbol,
-                'score' => $score,
-                'rank' => $rank++,
-            ];
-        }
-
-        return $results;
-    }
-
-    /**
-     * 获取聚合器的权重配置
-     */
-    private function getAggregatorWeights(): array
-    {
-        // 通过反射获取私有属性
-        $reflection = new \ReflectionClass($this->aggregator);
-        $weightsProperty = $reflection->getProperty('featureWeights');
-        $weightsProperty->setAccessible(true);
-        return $weightsProperty->getValue($this->aggregator) ?? [];
-    }
-
-    /**
-     * 获取聚合器的标准化策略配置
-     */
-    private function getAggregatorNormalizations(): array
-    {
-        // 通过反射获取私有属性
-        $reflection = new \ReflectionClass($this->aggregator);
-        $normalizationsProperty = $reflection->getProperty('featureNormalizations');
-        $normalizationsProperty->setAccessible(true);
-        $normalizations = $normalizationsProperty->getValue($this->aggregator) ?? [];
-
-        return array_map(
-            fn($strategy) => get_class($strategy),
-            $normalizations
-        );
+        // 回测时不广播事件，避免干扰
+        return $this->predict($symbols, $timestamp, $history, $gameRoundId);
     }
 }

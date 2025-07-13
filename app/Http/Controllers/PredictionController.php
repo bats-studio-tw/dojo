@@ -536,4 +536,95 @@ class PredictionController extends Controller
             'code' => 200
         ]);
     }
+
+    /**
+     * 测试 WebSocket 广播功能
+     */
+    public function testWebSocketBroadcast(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'round_id' => 'required|string',
+                'symbols' => 'required|array|min:1',
+                'symbols.*' => 'required|string|max:10',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '参数验证失败',
+                    'errors' => $validator->errors(),
+                    'code' => 400
+                ], 400);
+            }
+
+            $validated = $validator->validated();
+            $roundId = $validated['round_id'];
+            $symbols = $validated['symbols'];
+
+            // 创建测试预测结果
+            $testPredictions = [];
+            foreach ($symbols as $index => $symbol) {
+                $predictionResult = PredictionResult::create([
+                    'game_round_id' => 999, // 测试轮次ID
+                    'token' => $symbol,
+                    'predict_rank' => $index + 1,
+                    'predict_score' => rand(50, 100) / 100, // 随机分数
+                    'elo_score' => rand(50, 100) / 100,
+                    'momentum_score' => rand(50, 100) / 100,
+                    'volume_score' => rand(50, 100) / 100,
+                    'norm_elo' => rand(50, 100) / 100,
+                    'norm_momentum' => rand(50, 100) / 100,
+                    'norm_volume' => rand(50, 100) / 100,
+                    'used_weights' => ['elo' => 0.6, 'momentum' => 0.3, 'volume' => 0.1],
+                    'used_normalization' => ['elo' => 'z-score', 'momentum' => 'min-max', 'volume' => 'z-score'],
+                    'strategy_tag' => 'test_strategy',
+                    'config_snapshot' => [
+                        'strategy_tag' => 'test_strategy',
+                        'test_mode' => true,
+                        'timestamp' => time(),
+                    ],
+                ]);
+
+                // 广播事件
+                broadcast(new \App\Events\NewPredictionMade(
+                    $predictionResult,
+                    $roundId,
+                    'test_prediction',
+                    'test_controller'
+                ));
+
+                $testPredictions[] = $predictionResult;
+            }
+
+            Log::info('WebSocket 测试广播完成', [
+                'round_id' => $roundId,
+                'predictions_count' => count($testPredictions)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'WebSocket 测试广播完成',
+                'data' => [
+                    'round_id' => $roundId,
+                    'predictions_count' => count($testPredictions),
+                    'predictions' => $testPredictions
+                ],
+                'code' => 200
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('WebSocket 测试广播失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'WebSocket 测试广播失败: ' . $e->getMessage(),
+                'code' => 500
+            ], 500);
+        }
+    }
 }

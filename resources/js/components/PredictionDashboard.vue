@@ -1,11 +1,37 @@
 <template>
   <div class="prediction-dashboard">
     <DefaultLayout>
-      <div class="container mx-auto px-4 py-6">
+      <div class="mx-auto px-4 py-6 container">
         <!-- 页面标题 -->
         <div class="mb-6">
-          <h1 class="text-3xl font-bold text-gray-900 mb-2">AI预测系统</h1>
+          <h1 class="mb-2 text-3xl text-gray-900 font-bold">AI预测系统</h1>
           <p class="text-gray-600">新一代多特征融合预测引擎，支持策略切换与A/B测试</p>
+        </div>
+
+        <!-- WebSocket 连接状态指示器 -->
+        <div class="mb-4 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <div class="realtime-indicator">
+              <span :class="{ connected: store.isConnected }" class="status-dot"></span>
+              <span class="ml-2 text-sm">
+                {{ store.isConnected ? '🔗 实时监听中' : '❌ 未连接' }}
+              </span>
+            </div>
+            <button
+              v-if="!store.isConnected"
+              @click="reconnectWebSocket"
+              class="text-xs text-blue-600 underline hover:text-blue-800"
+            >
+              重连
+            </button>
+          </div>
+
+          <!-- WebSocket 测试按钮 -->
+          <div class="flex items-center space-x-2">
+            <n-button size="small" type="info" ghost @click="testWebSocket" :loading="isTestingWebSocket">
+              测试 WebSocket
+            </n-button>
+          </div>
         </div>
 
         <!-- 错误提示 -->
@@ -40,51 +66,56 @@
         <BacktestResultDisplay v-if="store.backtestResults" :backtest-result="store.backtestResults" />
 
         <!-- 历史预测记录 -->
-        <div v-if="showHistory" class="mt-6">
-          <n-card title="历史预测记录" class="mb-4">
-            <div class="flex justify-between items-center mb-4">
-              <div class="flex gap-2">
-                <n-select
-                  v-model:value="historyFilter.strategy_tag"
-                  :options="strategyFilterOptions"
-                  placeholder="选择策略"
-                  clearable
-                  class="w-40"
-                />
-                <n-date-picker
-                  v-model:value="historyFilter.dateRange"
-                  type="daterange"
-                  placeholder="选择日期范围"
-                  clearable
-                  class="w-60"
-                />
-              </div>
-              <n-button @click="loadHistory">
+        <div v-if="showHistory" class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg text-gray-900 font-semibold">历史预测记录</h3>
+            <div class="flex items-center space-x-4">
+              <!-- 策略筛选 -->
+              <n-select
+                v-model:value="historyFilter.strategy_tag"
+                :options="strategyFilterOptions"
+                placeholder="选择策略"
+                clearable
+                class="w-48"
+                @update:value="refreshHistory"
+              />
+
+              <!-- 时间范围筛选 -->
+              <n-date-picker
+                v-model:value="historyFilter.dateRange"
+                type="daterange"
+                placeholder="选择时间范围"
+                clearable
+                class="w-64"
+                @update:value="refreshHistory"
+              />
+
+              <n-button @click="refreshHistory" :loading="store.isLoading">
                 <template #icon>
                   <n-icon><Refresh /></n-icon>
                 </template>
-                刷新历史
+                刷新
+              </n-button>
+
+              <n-button @click="showHistory = false">
+                <template #icon>
+                  <n-icon><TimeOutline /></n-icon>
+                </template>
+                隐藏历史
               </n-button>
             </div>
+          </div>
 
-            <PredictionResultTable :results="store.predictionHistory" :is-loading="false" />
-          </n-card>
+          <PredictionResultTable :results="store.predictionHistory" :is-loading="store.isLoading" />
         </div>
 
-        <!-- 操作按钮 -->
-        <div class="flex gap-3 mt-6">
-          <n-button type="info" ghost @click="toggleHistory">
+        <!-- 显示历史按钮 -->
+        <div v-else class="mt-6">
+          <n-button @click="showHistory = true">
             <template #icon>
-              <n-icon><TimeOutline /></n-icon>
+              <TimeOutline />
             </template>
-            {{ showHistory ? '隐藏历史' : '查看历史' }}
-          </n-button>
-
-          <n-button type="warning" ghost @click="clearAll">
-            <template #icon>
-              <n-icon><TrashOutline /></n-icon>
-            </template>
-            清除所有
+            查看历史预测记录
           </n-button>
         </div>
       </div>
@@ -93,9 +124,9 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted } from 'vue';
-  import { useMessage, useDialog } from 'naive-ui';
-  import { Refresh, TimeOutline, TrashOutline } from '@vicons/ionicons5';
+  import { ref, computed, onMounted, onUnmounted } from 'vue';
+  import { useMessage } from 'naive-ui';
+  import { Refresh, TimeOutline } from '@vicons/ionicons5';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import StrategySelector from './StrategySelector.vue';
   import PredictionResultTable from './PredictionResultTable.vue';
@@ -106,7 +137,6 @@
   // 使用store
   const store = usePredictionStore();
   const message = useMessage();
-  const dialog = useDialog();
 
   // 响应式数据
   const showHistory = ref(false);
@@ -114,6 +144,10 @@
     strategy_tag: null as string | null,
     dateRange: null as [string, string] | null
   });
+
+  // WebSocket 相关变量
+  let predictionsChannel: any = null;
+  const isTestingWebSocket = ref(false);
 
   // 计算属性
   const strategyFilterOptions = computed(() =>
@@ -145,60 +179,201 @@
     }
   };
 
-  const loadHistory = async () => {
+  const refreshHistory = async () => {
     try {
       const options: any = {};
-
       if (historyFilter.value.strategy_tag) {
         options.strategy_tag = historyFilter.value.strategy_tag;
       }
-
       if (historyFilter.value.dateRange) {
         options.start_date = historyFilter.value.dateRange[0];
         options.end_date = historyFilter.value.dateRange[1];
       }
 
       await store.fetchPredictionHistory(options);
-      message.success('历史数据加载成功');
     } catch (error: any) {
-      message.error(error.message || '历史数据加载失败');
+      message.error('获取历史记录失败');
     }
   };
 
-  const toggleHistory = () => {
-    showHistory.value = !showHistory.value;
-    if (showHistory.value && store.predictionHistory.length === 0) {
-      loadHistory();
-    }
-  };
+  // WebSocket 相关方法
+  const initializeWebSocket = () => {
+    try {
+      // @ts-ignore
+      if (window.Echo) {
+        console.log('🔌 初始化 WebSocket 连接...');
 
-  const clearAll = () => {
-    dialog.warning({
-      title: '确认清除',
-      content: '确定要清除所有预测结果和回测数据吗？此操作不可撤销。',
-      positiveText: '确定',
-      negativeText: '取消',
-      onPositiveClick: () => {
-        store.clearResults();
-        store.backtestResults = null;
-        message.success('数据已清除');
+        // 监听连接状态变化
+        // @ts-ignore
+        window.Echo.connector.pusher.connection.bind('connected', () => {
+          console.log('✅ WebSocket 连接成功');
+          store.setConnectionStatus(true);
+        });
+
+        // @ts-ignore
+        window.Echo.connector.pusher.connection.bind('disconnected', () => {
+          console.log('❌ WebSocket 连接断开');
+          store.setConnectionStatus(false);
+        });
+
+        // @ts-ignore
+        window.Echo.connector.pusher.connection.bind('error', (error: any) => {
+          console.error('❌ WebSocket 连接错误:', error);
+          store.setConnectionStatus(false);
+        });
+
+        // 监听预测数据更新频道
+        // @ts-ignore
+        predictionsChannel = window.Echo.channel('predictions');
+
+        predictionsChannel
+          .subscribed(() => {
+            console.log('✅ 成功订阅 predictions 频道');
+          })
+          .listen('.NewPredictionMade', (event: any) => {
+            console.log('🔮 收到新的预测数据:', event);
+
+            try {
+              // 解析预测数据
+              const predictionData = event.prediction;
+              if (predictionData) {
+                // 转换为 PredictionResultDTO 格式
+                const predictionResult: any = {
+                  id: predictionData.id,
+                  game_round_id: predictionData.game_round_id,
+                  token: predictionData.token,
+                  predict_rank: predictionData.predict_rank,
+                  predict_score: predictionData.predict_score,
+                  elo_score: predictionData.elo_score,
+                  momentum_score: predictionData.momentum_score,
+                  volume_score: predictionData.volume_score,
+                  norm_elo: predictionData.norm_elo,
+                  norm_momentum: predictionData.norm_momentum,
+                  norm_volume: predictionData.norm_volume,
+                  used_weights: predictionData.used_weights,
+                  used_normalization: predictionData.used_normalization,
+                  strategy_tag: predictionData.strategy_tag,
+                  config_snapshot: predictionData.config_snapshot,
+                  created_at: predictionData.created_at
+                };
+
+                // 添加到 store
+                store.addRealtimePrediction(predictionResult);
+
+                // 显示通知
+                message.success(`新预测: ${predictionData.token} 排名第${predictionData.predict_rank}`);
+              }
+            } catch (err: any) {
+              console.error('处理预测数据失败:', err);
+            }
+          })
+          .error((error: any) => {
+            console.error('❌ predictions 频道错误:', error);
+          });
+
+        // 设置初始连接状态
+        // @ts-ignore
+        store.setConnectionStatus(window.Echo.connector.pusher.connection.state === 'connected');
+      } else {
+        console.warn('⚠️ WebSocket 客户端未初始化');
       }
-    });
+    } catch (error: any) {
+      console.error('初始化 WebSocket 失败:', error);
+    }
+  };
+
+  const reconnectWebSocket = () => {
+    try {
+      // @ts-ignore
+      if (window.Echo) {
+        // @ts-ignore
+        window.Echo.connector.pusher.connection.connect();
+        message.info('正在重新连接...');
+      }
+    } catch (error: any) {
+      console.error('重连失败:', error);
+      message.error('重连失败');
+    }
+  };
+
+  const cleanupWebSocket = () => {
+    try {
+      if (predictionsChannel) {
+        // @ts-ignore
+        window.Echo.leaveChannel('predictions');
+        predictionsChannel = null;
+        console.log('🔌 WebSocket 连接已清理');
+      }
+    } catch (err: any) {
+      console.error('清理 WebSocket 失败:', err);
+    }
+  };
+
+  const testWebSocket = async () => {
+    try {
+      isTestingWebSocket.value = true;
+
+      const response = await fetch('/api/v2/websocket/test-broadcast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        },
+        body: JSON.stringify({
+          round_id: `test_${Date.now()}`,
+          symbols: ['BTC', 'ETH', 'SOL', 'DOGE', 'ADA']
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        message.success('WebSocket 测试数据已发送，请查看实时更新');
+      } else {
+        message.error(`WebSocket 测试失败: ${result.message}`);
+      }
+    } catch (err: any) {
+      console.error('WebSocket 测试失败:', err);
+      message.error('WebSocket 测试失败');
+    } finally {
+      isTestingWebSocket.value = false;
+    }
   };
 
   // 生命周期
   onMounted(async () => {
-    try {
-      await store.fetchStrategies();
-    } catch (error: any) {
-      message.error('加载策略列表失败');
-    }
+    // 获取可用策略列表
+    await store.fetchStrategies();
+
+    // 初始化 WebSocket
+    initializeWebSocket();
+  });
+
+  onUnmounted(() => {
+    // 清理 WebSocket 连接
+    cleanupWebSocket();
   });
 </script>
 
 <style scoped>
+  .realtime-indicator {
+    @apply flex items-center;
+  }
+
+  .status-dot {
+    @apply w-3 h-3 rounded-full bg-red-500;
+    transition: background-color 0.3s ease;
+  }
+
+  .status-dot.connected {
+    @apply bg-green-500;
+  }
+
   .prediction-dashboard {
-    min-height: 100vh;
-    background-color: #f8fafc;
+    @apply min-h-screen bg-gray-50;
+  }
+
+  .container {
+    @apply max-w-7xl;
   }
 </style>

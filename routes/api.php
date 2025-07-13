@@ -6,6 +6,7 @@ use App\Http\Controllers\GameDataController;
 use App\Http\Controllers\AutoBettingController;
 use App\Http\Controllers\PredictionAnalysisController;
 use App\Http\Controllers\PredictionController;
+use App\Http\Controllers\ABTestingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -76,6 +77,9 @@ Route::prefix('v2')->group(function () {
     Route::post('/backtest/report-detail', [PredictionController::class, 'getBacktestReportDetail'])->name('api.v2.backtest.report-detail');
     Route::get('/predictions/history', [PredictionController::class, 'getPredictionHistory'])->name('api.v2.predictions.history');
     Route::get('/strategies/performance', [PredictionController::class, 'getStrategyPerformance'])->name('api.v2.strategies.performance');
+
+    // WebSocket 测试端点
+    Route::post('/websocket/test-broadcast', [PredictionController::class, 'testWebSocketBroadcast'])->name('api.v2.websocket.test-broadcast');
 });
 
 // 旧版预测API路由组 (已弃用，保留兼容性)
@@ -85,4 +89,14 @@ Route::prefix('prediction')->group(function () {
     Route::post('/grid-search', [PredictionController::class, 'gridSearch'])->name('api.prediction.grid-search');
     Route::get('/strategies', [PredictionController::class, 'getStrategies'])->name('api.prediction.strategies');
     Route::get('/history', [PredictionController::class, 'getHistory'])->name('api.prediction.history');
+});
+
+// A/B測試API路由組
+Route::prefix('ab-testing')->group(function () {
+    Route::post('/start', [ABTestingController::class, 'startABTest'])->name('api.ab-testing.start');
+    Route::get('/list', [ABTestingController::class, 'listABTests'])->name('api.ab-testing.list');
+    Route::post('/report', [ABTestingController::class, 'getABTestReport'])->name('api.ab-testing.report');
+    Route::post('/stop', [ABTestingController::class, 'stopABTest'])->name('api.ab-testing.stop');
+    Route::get('/active', [ABTestingController::class, 'getActiveABTests'])->name('api.ab-testing.active');
+    Route::get('/detail', [ABTestingController::class, 'getABTestDetail'])->name('api.ab-testing.detail');
 });

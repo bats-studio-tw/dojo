@@ -2,8 +2,6 @@
 
 use App\Http\Controllers\ABTestingController;
 use App\Http\Controllers\AutoBettingController;
-use App\Http\Controllers\GameDataController;
-use App\Http\Controllers\PredictionAnalysisController;
 use App\Http\Controllers\PredictionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -80,15 +78,19 @@ Route::prefix('ab-testing')->group(function () {
     Route::get('/detail', [ABTestingController::class, 'getABTestDetail'])->name('api.ab-testing.detail');
 });
 
-// 已弃用的旧API路由 (返回404)
-Route::prefix('game')->group(function () {
-    Route::any('{any}', function () {
-        return response()->json(['error' => 'API已弃用，请使用 /api/v2 端点'], 404);
-    })->where('any', '.*');
-});
-
-Route::prefix('prediction-analysis')->group(function () {
-    Route::any('{any}', function () {
-        return response()->json(['error' => 'API已弃用，请使用 /api/v2 端点'], 404);
-    })->where('any', '.*');
+// 已移除的旧API路由 - 统一返回404错误
+Route::fallback(function () {
+    return response()->json([
+        'error' => 'API端点不存在',
+        'message' => '请使用 /api/v2 端点访问新一代预测系统API',
+        'available_endpoints' => [
+            '/api/v2/predictions',
+            '/api/v2/strategies',
+            '/api/v2/backtest',
+            '/api/v2/analysis',
+            '/api/auto-betting',
+            '/api/ab-testing'
+        ],
+        'code' => 404
+    ], 404);
 });

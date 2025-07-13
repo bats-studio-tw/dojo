@@ -250,64 +250,53 @@ class BacktestService
     }
 
     /**
-     * 獲取實際結果數據
-     * @param int $roundId 回合ID
-     * @return array|null 實際結果
+     * 獲取實際結果
      */
     private function getActualResult(int $roundId): ?array
     {
-        $roundResults = RoundResult::where('game_round_id', $roundId)
-            ->orderBy('rank')
-            ->get();
-
-        if ($roundResults->isEmpty()) {
+        $gameRound = GameRound::find($roundId);
+        if (! $gameRound) {
             return null;
         }
 
-        $winner = $roundResults->first();
-        $rankings = [];
+        $results = RoundResult::where('game_round_id', $roundId)
+            ->orderBy('rank')
+            ->get();
 
-        foreach ($roundResults as $result) {
+        if ($results->isEmpty()) {
+            return null;
+        }
+
+        $rankings = [];
+        $winner = null;
+
+        foreach ($results as $result) {
             $rankings[$result->token_symbol] = [
                 'rank' => $result->rank,
                 'value' => $result->value,
             ];
+
+            if ($result->rank === 1) {
+                $winner = $result->token_symbol;
+            }
         }
 
         return [
-            'winner' => $winner->token_symbol,
-            'winner_rank' => $winner->rank,
-            'winner_value' => $winner->value,
+            'winner' => $winner,
             'rankings' => $rankings,
-            'total_tokens' => $roundResults->count(),
+            'total_tokens' => count($rankings),
         ];
     }
 
     /**
-     * 計算回測指標
+     * 計算完整的回測指標
      * @param array $results 回測結果
      * @return array 指標數據
      */
     private function calculateBacktestMetrics(array $results): array
     {
         if (empty($results)) {
-            return [
-                'win_rate' => 0,
-                'breakeven_rate' => 0,
-                'profit_rate' => 0,
-                'sharpe_ratio' => 0,
-                'sortino_ratio' => 0,
-                'calmar_ratio' => 0,
-                'max_drawdown' => 0,
-                'max_profit' => 0,
-                'max_loss' => 0,
-                'avg_profit_loss_ratio' => 0,
-                'total_profit' => 0,
-                'volatility' => 0,
-                'profit_factor' => 0,
-                'consecutive_wins' => 0,
-                'consecutive_losses' => 0,
-            ];
+            return $this->getEmptyMetrics();
         }
 
         $wins = 0;
@@ -323,6 +312,9 @@ class BacktestService
         $maxConsecutiveLosses = 0;
         $currentConsecutiveWins = 0;
         $currentConsecutiveLosses = 0;
+        $equityCurve = [0]; // 起始資金為0
+        $winningStreaks = [];
+        $losingStreaks = [];
 
         foreach ($results as $result) {
             $actualResult = $result['actual_result'];
@@ -361,6 +353,8 @@ class BacktestService
 
             // 計算累積盈虧和最大回撤
             $cumulativeProfit += $profit;
+            $equityCurve[] = $cumulativeProfit;
+
             if ($cumulativeProfit > $peak) {
                 $peak = $cumulativeProfit;
             }
@@ -374,41 +368,73 @@ class BacktestService
         $breakevenRate = $totalRounds > 0 ? $breakevens / $totalRounds : 0;
         $profitRate = $totalRounds > 0 ? $totalProfit / $totalRounds : 0;
 
-        // 計算夏普比率
+        // 計算專業指標
         $sharpeRatio = $this->calculateSharpeRatio($profits);
-
-        // 計算Sortino比率
         $sortinoRatio = $this->calculateSortinoRatio($profits);
-
-        // 計算Calmar比率
         $calmarRatio = $this->calculateCalmarRatio($profitRate, $maxDrawdown);
-
-        // 計算其他指標
         $volatility = $this->calculateVolatility($profits);
         $profitFactor = $this->calculateProfitFactor($profits);
         $avgProfitLossRatio = $this->calculateAvgProfitLossRatio($profits);
 
+        // 新增專業指標
+        $kellyCriterion = $this->calculateKellyCriterion($profits);
+        $expectancy = $this->calculateExpectancy($profits);
+        $recoveryFactor = $this->calculateRecoveryFactor($totalProfit, $maxDrawdown);
+        $riskRewardRatio = $this->calculateRiskRewardRatio($maxProfit, abs($maxLoss));
+        $hitRate = $this->calculateHitRate($profits);
+        $averageWin = $this->calculateAverageWin($profits);
+        $averageLoss = $this->calculateAverageLoss($profits);
+        $largestWin = $this->calculateLargestWin($profits);
+        $largestLoss = $this->calculateLargestLoss($profits);
+        $totalTrades = count($profits);
+        $winningTrades = count(array_filter($profits, fn($p) => $p > 0));
+        $losingTrades = count(array_filter($profits, fn($p) => $p < 0));
+
         return [
+            // 基礎指標
             'win_rate' => $winRate,
             'breakeven_rate' => $breakevenRate,
             'profit_rate' => $profitRate,
+            'total_profit' => $totalProfit,
+            'max_profit' => $maxProfit,
+            'max_loss' => abs($maxLoss),
+            'max_drawdown' => $maxDrawdown,
+
+            // 風險調整指標
             'sharpe_ratio' => $sharpeRatio,
             'sortino_ratio' => $sortinoRatio,
             'calmar_ratio' => $calmarRatio,
-            'max_drawdown' => $maxDrawdown,
-            'max_profit' => $maxProfit,
-            'max_loss' => abs($maxLoss),
-            'avg_profit_loss_ratio' => $avgProfitLossRatio,
-            'total_profit' => $totalProfit,
             'volatility' => $volatility,
             'profit_factor' => $profitFactor,
+            'avg_profit_loss_ratio' => $avgProfitLossRatio,
+
+            // 新增專業指標
+            'kelly_criterion' => $kellyCriterion,
+            'expectancy' => $expectancy,
+            'recovery_factor' => $recoveryFactor,
+            'risk_reward_ratio' => $riskRewardRatio,
+            'hit_rate' => $hitRate,
+            'average_win' => $averageWin,
+            'average_loss' => $averageLoss,
+            'largest_win' => $largestWin,
+            'largest_loss' => $largestLoss,
+
+            // 連續性指標
             'consecutive_wins' => $maxConsecutiveWins,
             'consecutive_losses' => $maxConsecutiveLosses,
+
+            // 交易統計
+            'total_trades' => $totalTrades,
+            'winning_trades' => $winningTrades,
+            'losing_trades' => $losingTrades,
+
+            // 權益曲線數據（用於繪圖）
+            'equity_curve' => $equityCurve,
         ];
     }
 
     /**
-     * 計算夏普比率
+     * 計算夏普比率（改進版）
      */
     private function calculateSharpeRatio(array $profits): float
     {
@@ -433,7 +459,7 @@ class BacktestService
     }
 
     /**
-     * 計算Sortino比率
+     * 計算Sortino比率（改進版）
      */
     private function calculateSortinoRatio(array $profits): float
     {
@@ -524,7 +550,160 @@ class BacktestService
     }
 
     /**
-     * 計算盈虧
+     * 計算凱利準則
+     */
+    private function calculateKellyCriterion(array $profits): float
+    {
+        $positiveProfits = array_filter($profits, fn ($p) => $p > 0);
+        $negativeProfits = array_filter($profits, fn ($p) => $p < 0);
+
+        if (empty($positiveProfits) || empty($negativeProfits)) {
+            return 0.0;
+        }
+
+        $winRate = count($positiveProfits) / count($profits);
+        $avgWin = array_sum($positiveProfits) / count($positiveProfits);
+        $avgLoss = abs(array_sum($negativeProfits) / count($negativeProfits));
+
+        if ($avgLoss == 0) {
+            return 0.0;
+        }
+
+        $kelly = ($winRate * $avgWin - (1 - $winRate) * $avgLoss) / $avgWin;
+        return max(0, min(1, $kelly)); // 限制在0-1之間
+    }
+
+    /**
+     * 計算期望值
+     */
+    private function calculateExpectancy(array $profits): float
+    {
+        if (empty($profits)) {
+            return 0.0;
+        }
+
+        $positiveProfits = array_filter($profits, fn ($p) => $p > 0);
+        $negativeProfits = array_filter($profits, fn ($p) => $p < 0);
+
+        $winRate = count($positiveProfits) / count($profits);
+        $avgWin = ! empty($positiveProfits) ? array_sum($positiveProfits) / count($positiveProfits) : 0;
+        $avgLoss = ! empty($negativeProfits) ? abs(array_sum($negativeProfits) / count($negativeProfits)) : 0;
+
+        return ($winRate * $avgWin) - ((1 - $winRate) * $avgLoss);
+    }
+
+    /**
+     * 計算恢復因子
+     */
+    private function calculateRecoveryFactor(float $totalProfit, float $maxDrawdown): float
+    {
+        if ($maxDrawdown <= 0) {
+            return 0.0;
+        }
+
+        return $totalProfit / $maxDrawdown;
+    }
+
+    /**
+     * 計算風險回報比
+     */
+    private function calculateRiskRewardRatio(float $maxProfit, float $maxLoss): float
+    {
+        if ($maxLoss <= 0) {
+            return 0.0;
+        }
+
+        return $maxProfit / $maxLoss;
+    }
+
+    /**
+     * 計算命中率
+     */
+    private function calculateHitRate(array $profits): float
+    {
+        if (empty($profits)) {
+            return 0.0;
+        }
+
+        $winningTrades = count(array_filter($profits, fn ($p) => $p > 0));
+        return $winningTrades / count($profits);
+    }
+
+    /**
+     * 計算平均盈利
+     */
+    private function calculateAverageWin(array $profits): float
+    {
+        $positiveProfits = array_filter($profits, fn ($p) => $p > 0);
+        return ! empty($positiveProfits) ? array_sum($positiveProfits) / count($positiveProfits) : 0;
+    }
+
+    /**
+     * 計算平均虧損
+     */
+    private function calculateAverageLoss(array $profits): float
+    {
+        $negativeProfits = array_filter($profits, fn ($p) => $p < 0);
+        return ! empty($negativeProfits) ? array_sum($negativeProfits) / count($negativeProfits) : 0;
+    }
+
+    /**
+     * 計算最大單次盈利
+     */
+    private function calculateLargestWin(array $profits): float
+    {
+        $positiveProfits = array_filter($profits, fn ($p) => $p > 0);
+        return ! empty($positiveProfits) ? max($positiveProfits) : 0;
+    }
+
+    /**
+     * 計算最大單次虧損
+     */
+    private function calculateLargestLoss(array $profits): float
+    {
+        $negativeProfits = array_filter($profits, fn ($p) => $p < 0);
+        return ! empty($negativeProfits) ? min($negativeProfits) : 0;
+    }
+
+    /**
+     * 獲取空指標數據
+     */
+    private function getEmptyMetrics(): array
+    {
+        return [
+            'win_rate' => 0,
+            'breakeven_rate' => 0,
+            'profit_rate' => 0,
+            'total_profit' => 0,
+            'max_profit' => 0,
+            'max_loss' => 0,
+            'max_drawdown' => 0,
+            'sharpe_ratio' => 0,
+            'sortino_ratio' => 0,
+            'calmar_ratio' => 0,
+            'volatility' => 0,
+            'profit_factor' => 0,
+            'avg_profit_loss_ratio' => 0,
+            'kelly_criterion' => 0,
+            'expectancy' => 0,
+            'recovery_factor' => 0,
+            'risk_reward_ratio' => 0,
+            'hit_rate' => 0,
+            'average_win' => 0,
+            'average_loss' => 0,
+            'largest_win' => 0,
+            'largest_loss' => 0,
+            'consecutive_wins' => 0,
+            'consecutive_losses' => 0,
+            'total_trades' => 0,
+            'winning_trades' => 0,
+            'losing_trades' => 0,
+            'equity_curve' => [0],
+        ];
+    }
+
+    /**
+     * 計算盈虧（改進版）
      */
     private function calculateProfit(array $prediction, array $actualResult): float
     {

@@ -189,7 +189,7 @@
 
 <script setup lang="ts">
   import { ref, reactive, onMounted, onUnmounted, h } from 'vue';
-  import { useMessage, useDialog } from 'naive-ui';
+  import { useDialog } from 'naive-ui';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import api from '@/utils/api';
   import type { BacktestReport, BacktestBatchStatus, StrategyDTO, GridSearchParamMatrix } from '@/types/prediction';
@@ -559,12 +559,12 @@
       const reportData = {
         id: report.id,
         strategy_tag: report.strategy_tag,
-        win_rate: (report.win_rate * 100).toFixed(2) + '%',
-        breakeven_rate: (report.breakeven_rate * 100).toFixed(2) + '%',
+        win_rate: `${(report.win_rate * 100).toFixed(2)}%`,
+        breakeven_rate: `${(report.breakeven_rate * 100).toFixed(2)}%`,
         sharpe_ratio: report.sharpe_ratio.toFixed(2),
         sortino_ratio: report.sortino_ratio.toFixed(2),
         calmar_ratio: report.calmar_ratio.toFixed(2),
-        max_drawdown: (report.max_drawdown * 100).toFixed(2) + '%',
+        max_drawdown: `${(report.max_drawdown * 100).toFixed(2)}%`,
         profit_factor: report.profit_factor.toFixed(2),
         total_profit: report.total_profit.toFixed(2),
         consecutive_wins: report.consecutive_wins,

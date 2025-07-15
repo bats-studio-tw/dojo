@@ -58,5 +58,3 @@ Route::prefix('game')->name('game.')->group(function () {
     })->name('hybrid-analysis');
 });
 
-// 注释掉auth路由，因为使用dojo JWT认证
-// require __DIR__.'/auth.php';

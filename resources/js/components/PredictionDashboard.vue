@@ -90,19 +90,9 @@
                 @update:value="refreshHistory"
               />
 
-              <NButton @click="refreshHistory" :loading="store.isLoading">
-                <template #icon>
-                  <NIcon><RefreshOutline /></NIcon>
-                </template>
-                刷新
-              </NButton>
+              <NButton @click="refreshHistory" :loading="store.isLoading">刷新</NButton>
 
-              <NButton @click="showHistory = false">
-                <template #icon>
-                  <NIcon><TimeOutline /></NIcon>
-                </template>
-                隐藏历史
-              </NButton>
+              <NButton @click="showHistory = false">隐藏历史</NButton>
             </div>
           </div>
 
@@ -125,8 +115,7 @@
 
 <script setup lang="ts">
   import { ref, computed, onMounted, onUnmounted } from 'vue';
-  import { useMessage, NButton, NAlert, NSelect, NDatePicker, NIcon } from 'naive-ui';
-  import { RefreshOutline, TimeOutline } from '@vicons/ionicons5';
+  import { NButton, NAlert, NSelect, NDatePicker } from 'naive-ui';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import StrategySelector from './StrategySelector.vue';
   import PredictionResultTable from './PredictionResultTable.vue';
@@ -136,7 +125,14 @@
 
   // 使用store
   const store = usePredictionStore();
-  const message = useMessage();
+
+  // 使用全局的 message 实例，而不是 useMessage()
+  const message = (window as any).$message;
+
+  // 确保 message 存在
+  if (!message) {
+    console.error('Message provider not found');
+  }
 
   // 响应式数据
   const showHistory = ref(false);
@@ -191,8 +187,8 @@
       }
 
       await store.fetchPredictionHistory(options);
-    } catch (err: any) {
-      message.error('获取历史记录失败');
+    } catch {
+      message?.error('获取历史记录失败');
     }
   };
 

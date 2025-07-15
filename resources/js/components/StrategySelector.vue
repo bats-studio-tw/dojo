@@ -3,7 +3,7 @@
     <div class="space-y-4">
       <!-- 策略选择 -->
       <div class="flex items-center space-x-4">
-        <label class="text-sm font-medium text-gray-700">选择策略:</label>
+        <label class="text-sm text-gray-700 font-medium">选择策略:</label>
         <NSelect
           v-model:value="selectedStrategy"
           :options="strategyOptions"
@@ -15,7 +15,7 @@
 
       <!-- 代币输入 -->
       <div class="flex items-center space-x-4">
-        <label class="text-sm font-medium text-gray-700">预测代币:</label>
+        <label class="text-sm text-gray-700 font-medium">预测代币:</label>
         <NInput
           v-model:value="tokenInput"
           placeholder="输入代币符号，用逗号分隔 (如: BTC,ETH,SOL)"
@@ -38,9 +38,9 @@
       </div>
 
       <!-- 策略信息展示 -->
-      <div v-if="showStrategyInfoFlag" class="mt-4 p-4 bg-gray-50 rounded-lg">
-        <h4 class="font-medium text-gray-900 mb-2">{{ selectedStrategyInfo?.name }}</h4>
-        <p class="text-sm text-gray-600 mb-2">{{ selectedStrategyInfo?.description }}</p>
+      <div v-if="showStrategyInfoFlag" class="mt-4 rounded-lg bg-gray-50 p-4">
+        <h4 class="mb-2 text-gray-900 font-medium">{{ selectedStrategyInfo?.name }}</h4>
+        <p class="mb-2 text-sm text-gray-600">{{ selectedStrategyInfo?.description }}</p>
         <div class="text-xs text-gray-500">
           <div>权重配置: {{ JSON.stringify(selectedStrategyInfo?.weights) }}</div>
           <div>标准化方式: {{ JSON.stringify(selectedStrategyInfo?.normalization) }}</div>
@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
   import { ref, computed, watch } from 'vue';
-  import { useMessage, NButton, NSelect, NInput, NCard } from 'naive-ui';
+  import { NButton, NSelect, NInput, NCard } from 'naive-ui';
 
   // Props
   interface Props {
@@ -74,7 +74,7 @@
   const selectedStrategy = ref<string | null>(null);
   const tokenInput = ref('');
   const showStrategyInfoFlag = ref(false);
-  const message = useMessage();
+  const message = (window as any).$message;
 
   // 计算属性
   const strategyOptions = computed(() =>

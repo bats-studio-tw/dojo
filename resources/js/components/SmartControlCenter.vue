@@ -1478,7 +1478,7 @@
   const fetchInitialPredictionData = async () => {
     console.log('🔮 SmartControlCenter: 获取初始预测数据...');
     try {
-      const response = await api.get('/game/current-analysis');
+      const response = await api.get('/v2/predictions/current-analysis');
       if (response.data.success) {
         console.log(`✅ SmartControlCenter: 成功获取初始预测数据: ${response.data.data?.length || 0} 个Token`);
         // 通知父组件更新数据，这里我们通过emit通知父组件刷新

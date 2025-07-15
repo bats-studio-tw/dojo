@@ -689,7 +689,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     analysisError.value = null;
 
     try {
-      const response = await api.get('/game/current-analysis');
+      const response = await api.get('/v2/predictions/current-analysis');
       if (response.data.success) {
         currentAnalysis.value = response.data.data || [];
         analysisMeta.value = response.data.meta || null;
@@ -712,7 +712,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
     try {
       console.log('🔄 获取预测历史数据...');
-      const response = await api.get('/game/prediction-history');
+      const response = await api.get('/v2/predictions/history');
       if (response.data.success) {
         // 更新store中的预测历史数据
         predictionHistory.value = response.data.data || [];
@@ -735,7 +735,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     hybridAnalysisError.value = null;
 
     try {
-      const response = await api.get('/game/hybrid-analysis');
+      const response = await api.get('/v2/predictions/hybrid');
       if (response.data.success) {
         const rawData = response.data.data || [];
 

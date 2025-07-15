@@ -384,7 +384,7 @@
     // 在页面初始化时获取预测数据，避免等待WebSocket
     console.log('🔮 获取初始预测数据...');
     try {
-      const response = await api.get('/game/current-analysis');
+      const response = await api.get('/v2/predictions/current-analysis');
       if (response.data.success) {
         currentAnalysis.value = response.data.data || [];
         analysisMeta.value = response.data.meta || null;
@@ -400,7 +400,7 @@
   const fetchHistoryData = async () => {
     historyLoading.value = true;
     try {
-      const response = await api.get('/game/history');
+      const response = await api.get('/v2/backtest/historical-rounds');
       if (response.data.success) {
         historyData.value = response.data.data;
       } else {
@@ -417,7 +417,7 @@
   const fetchPredictionHistoryData = async () => {
     predictionHistoryLoading.value = true;
     try {
-      const response = await api.get('/game/prediction-history');
+      const response = await api.get('/v2/predictions/history');
       if (response.data.success) {
         // 更新store中的预测历史数据
         predictionHistory.value = response.data.data;

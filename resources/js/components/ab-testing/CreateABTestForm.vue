@@ -48,14 +48,14 @@
 
         <!-- 策略配置 -->
         <div class="mt-6">
-          <h3 class="text-lg font-semibold mb-4">策略配置</h3>
+          <h3 class="mb-4 text-lg font-semibold">策略配置</h3>
 
           <div
             v-for="(strategy, index) in formData.strategies"
             :key="index"
-            class="strategy-item mb-4 p-4 border rounded-lg"
+            class="strategy-item mb-4 border rounded-lg p-4"
           >
-            <div class="flex items-center justify-between mb-3">
+            <div class="mb-3 flex items-center justify-between">
               <h4 class="font-medium">策略 {{ index + 1 }}</h4>
               <n-button v-if="formData.strategies.length > 2" type="error" size="small" @click="removeStrategy(index)">
                 刪除
@@ -93,8 +93,8 @@
         </div>
 
         <!-- 流量分配摘要 -->
-        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
-          <h4 class="font-medium mb-2">流量分配摘要</h4>
+        <div class="mt-6 rounded-lg bg-gray-50 p-4">
+          <h4 class="mb-2 font-medium">流量分配摘要</h4>
           <div class="flex flex-wrap gap-2">
             <n-tag
               v-for="(percentage, strategy) in formData.traffic_distribution"
@@ -124,7 +124,7 @@
 
 <script setup lang="ts">
   import { ref, reactive, computed, onMounted } from 'vue';
-  import { useMessage } from 'naive-ui';
+
   import { Add } from '@vicons/ionicons5';
   import api from '@/utils/api';
 
@@ -135,7 +135,7 @@
 
   // 響應式數據
   const formRef = ref();
-  const message = useMessage();
+  const message = (window as any).$message;
   const isSubmitting = ref(false);
   const availableStrategies = ref([
     { label: '保守策略', value: 'conservative' },

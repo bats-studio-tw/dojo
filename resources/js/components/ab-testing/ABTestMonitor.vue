@@ -3,7 +3,7 @@
     <NCard title="A/B 测试监控" class="mb-6">
       <!-- 测试状态概览 -->
       <div class="mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
           <NStatistic label="活跃测试" :value="activeTestsCount" />
           <NStatistic label="总测试数" :value="tests.length" />
           <NStatistic label="今日新增" :value="todayNewTests" />
@@ -60,7 +60,7 @@
 
 <script setup lang="ts">
   import { ref, computed, onMounted, h } from 'vue';
-  import { useMessage, NButton, NCard, NDataTable, NTag, NModal, NSelect, NInput, NStatistic } from 'naive-ui';
+  import { NButton, NCard, NDataTable, NTag, NModal, NSelect, NInput, NStatistic } from 'naive-ui';
   import { Add, RefreshOutline } from '@vicons/ionicons5';
   import CreateABTestForm from './CreateABTestForm.vue';
   import api from '@/utils/api';
@@ -71,7 +71,7 @@
   const showCreateForm = ref(false);
   const statusFilter = ref<string | null>(null);
   const searchKeyword = ref('');
-  const message = useMessage();
+  const message = (window as any).$message;
 
   // 分页
   const pagination = ref({
@@ -221,7 +221,7 @@
       tests.value = response.data.data || [];
       pagination.value.itemCount = tests.value.length;
     } catch (error: any) {
-      message.error('获取测试列表失败: ' + error.message);
+      message.error(`获取测试列表失败: ${error.message}`);
     } finally {
       isLoading.value = false;
     }
@@ -253,7 +253,7 @@
       test.status = newStatus;
       message.success(`测试已${newStatus === 'active' ? '启动' : '暂停'}`);
     } catch (error: any) {
-      message.error('操作失败: ' + error.message);
+      message.error(`操作失败: ${error.message}`);
     }
   };
 

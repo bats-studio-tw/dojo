@@ -33,7 +33,7 @@
 
 <script setup lang="ts">
   import { ref } from 'vue';
-  import { useMessage } from 'naive-ui';
+
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import CreateABTestForm from '@/components/ab-testing/CreateABTestForm.vue';
   import ABTestMonitor from '@/components/ab-testing/ABTestMonitor.vue';
@@ -42,7 +42,7 @@
   // 響應式數據
   const activeTab = ref('create');
   const selectedTest = ref<any>(null);
-  const message = useMessage();
+  const message = (window as any).$message;
 
   // 事件處理
   const handleTestCreated = (testId: number) => {

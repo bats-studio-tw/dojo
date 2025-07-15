@@ -196,7 +196,7 @@
 
   // 響應式數據
   const formRef = ref();
-  const message = useMessage();
+  const message = (window as any).$message;
   const dialog = useDialog();
 
   const formData = reactive({

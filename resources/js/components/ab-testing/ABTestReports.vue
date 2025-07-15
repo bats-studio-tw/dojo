@@ -3,7 +3,7 @@
     <!-- 測試選擇器 -->
     <div v-if="!selectedTest" class="test-selector mb-6">
       <n-card title="選擇測試">
-        <p class="text-gray-600 mb-4">請從監控頁面選擇一個測試來查看報告</p>
+        <p class="mb-4 text-gray-600">請從監控頁面選擇一個測試來查看報告</p>
         <n-button type="primary" @click="$emit('backToMonitor')">返回監控頁面</n-button>
       </n-card>
     </div>
@@ -122,7 +122,7 @@
 
 <script setup lang="ts">
   import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue';
-  import { useMessage } from 'naive-ui';
+
   import { Download } from '@vicons/ionicons5';
   import api from '@/utils/api';
 
@@ -136,7 +136,7 @@
   }>();
 
   // 響應式數據
-  const message = useMessage();
+  const message = (window as any).$message;
   const isLoading = ref(false);
   const reportData = ref<any>(null);
   const accuracyChartRef = ref<HTMLCanvasElement>();

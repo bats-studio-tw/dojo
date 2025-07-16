@@ -117,15 +117,6 @@
               </template>
 
               <div class="border border-white/10 rounded-xl bg-black/20 p-6 backdrop-blur-md">
-                <!-- 调试信息 -->
-                <div class="mb-4 rounded bg-gray-800/50 p-2 text-xs text-gray-300">
-                  <div>🔍 调试信息:</div>
-                  <div>currentAnalysis长度: {{ currentAnalysis?.length || 0 }}</div>
-                  <div>currentRoundId: {{ currentRoundId }}</div>
-                  <div>currentGameStatus: {{ currentGameStatus }}</div>
-                  <div>analysisLoading: {{ analysisLoading }}</div>
-                </div>
-
                 <SmartControlCenter
                   :auto-betting-status="autoBettingStatus"
                   :current-analysis="currentAnalysis"
@@ -859,10 +850,8 @@
 
   // 获取 Hybrid-Edge 動能預測數據
   const fetchHybridPredictions = async () => {
-    console.log('⚡ AutoBetting: 获取 Hybrid-Edge 動能預測數據');
     try {
       await fetchHybridAnalysis();
-      console.log(`✅ 成功获取 Hybrid-Edge 預測數據: ${hybridPredictions.value.length} 个Token`);
     } catch (error) {
       console.error('❌ 获取 Hybrid-Edge 預測數據失败:', error);
     }
@@ -870,11 +859,9 @@
 
   // 刷新分析数据
   const refreshAnalysis = async () => {
-    console.log('🔄 AutoBetting: 刷新分析数据');
     try {
       // 使用store的方法来获取数据，确保数据正确更新到store中
       await predictionStore.fetchCurrentAnalysis();
-      console.log(`✅ 成功刷新预测数据: ${currentAnalysis.value.length} 个Token`);
 
       // 同时刷新 Hybrid-Edge 預測數據
       await fetchHybridPredictions();
@@ -889,19 +876,16 @@
 
   // 刷新预测历史数据
   const refreshPredictionHistory = async () => {
-    console.log('🔄 AutoBetting: 刷新预测历史数据');
     await predictionStore.fetchPredictionHistory();
   };
 
   // 刷新动能预测历史数据
   const refreshMomentumHistory = async () => {
-    console.log('🔄 AutoBetting: 刷新动能预测历史数据');
     momentumHistoryLoading.value = true;
     try {
       const response = await gameApi.getMomentumPredictionHistory();
       if (response.data.success) {
         momentumPredictionHistory.value = response.data.data || [];
-        console.log(`✅ 成功获取动能预测历史数据: ${momentumPredictionHistory.value.length} 轮`);
       } else {
         window.$message?.error(response.data.message || '获取动能预测历史数据失败');
       }
@@ -915,22 +899,11 @@
 
   // 🔌 设置WebSocket频道监听
   const setupWebSocketListeners = () => {
-    console.log('🔌 AutoBetting: 设置WebSocket频道监听...');
-
     // 监听游戏数据更新
     websocketManager.listenToGameUpdates((event: any) => {
-      console.log('🎮 AutoBetting: 收到游戏数据更新:', event);
-      console.log('🔍 事件数据结构:', {
-        hasData: !!event.data,
-        dataType: typeof event.data,
-        eventKeys: Object.keys(event),
-        dataKeys: event.data ? Object.keys(event.data) : null
-      });
-
       // 更新游戏状态和轮次信息
       if (event.data) {
         const gameData = event.data;
-        console.log('🔍 准备更新游戏数据:', gameData);
 
         // 使用store的更新方法
         predictionStore.updateGameData(gameData);
@@ -939,74 +912,43 @@
         if (gameData.status === 'bet') {
           validateCurrentStrategy();
         }
-      } else {
-        console.warn('⚠️ 游戏数据更新事件缺少data字段');
       }
     });
 
     // 监听预测数据更新
     websocketManager.listenToPredictions((event: any) => {
-      console.log('🔮 AutoBetting: 收到预测数据更新:', event);
-      console.log('🔍 预测事件数据结构:', {
-        hasData: !!event.data,
-        dataType: typeof event.data,
-        eventKeys: Object.keys(event),
-        dataKeys: event.data ? Object.keys(event.data) : null
-      });
-
       // 更新预测数据 - 根据后端广播的数据结构
       if (event.data && Array.isArray(event.data)) {
         // 这是完整的分析数据数组
-        console.log('🔍 收到完整预测分析数据:', event.data.length, '个Token');
-
         // 直接更新store中的currentAnalysis
         currentAnalysis.value = event.data;
         analysisMeta.value = event.meta || null;
-
-        console.log('✅ 预测数据已更新到store');
 
         // 触发策略验证
         validateCurrentStrategy();
       } else if (event.prediction) {
         // 兼容旧的单个预测数据格式
         const predictionData = event.prediction;
-        console.log('🔍 收到单个预测数据:', predictionData);
 
         // 使用store的更新方法
         predictionStore.updatePredictionData(predictionData);
 
         // 触发策略验证
         validateCurrentStrategy();
-      } else {
-        console.warn('⚠️ 预测数据更新事件格式不匹配');
       }
     });
 
     // 监听Hybrid预测数据更新
     websocketManager.listenToHybridPredictions((event: any) => {
-      console.log('⚡ AutoBetting: 收到Hybrid预测数据更新:', event);
-      console.log('🔍 Hybrid预测事件数据结构:', {
-        hasData: !!event.data,
-        dataType: typeof event.data,
-        eventKeys: Object.keys(event),
-        dataKeys: event.data ? Object.keys(event.data) : null
-      });
-
       // 更新Hybrid预测数据
       if (event.data && Array.isArray(event.data)) {
-        console.log('🔍 收到Hybrid预测数据:', event.data.length, '个Token');
-
         // 使用store的更新方法
         predictionStore.updateHybridPredictions(event.data, event.meta);
 
         // 触发策略验证
         validateCurrentStrategy();
-      } else {
-        console.warn('⚠️ Hybrid预测数据更新事件格式不匹配');
       }
     });
-
-    console.log('✅ AutoBetting: WebSocket频道监听设置完成');
   };
 
   // ==================== 响应式自动下注逻辑 ====================
@@ -1262,7 +1204,6 @@
           const tokenData = JSON.parse(savedTokenData);
           if (tokenData.jwt_token && !config.jwt_token) {
             config.jwt_token = tokenData.jwt_token;
-            console.log('🔧 从localStorage恢复JWT Token到配置中');
           }
         } catch (error) {
           console.warn('恢复JWT Token失败:', error);
@@ -1274,19 +1215,14 @@
       }
     }
 
-    // 🔮 获取初始预测数据 - 确保与Dashboard行为一致
-    console.log('🔮 自动下注页面：获取初始预测数据...');
-
     // 使用store的方法获取初始数据
     await predictionStore.fetchInitialData();
 
     // 获取动能预测历史数据
     await refreshMomentumHistory();
 
-    // 🔌 设置WebSocket频道监听
+    // 设置WebSocket频道监听
     setupWebSocketListeners();
-
-    console.log('🤖 自动下注页面已加载，包含初始数据获取和WebSocket实时数据模式');
   });
 
   // 组件卸载时清理资源
@@ -1298,8 +1234,6 @@
     isMonitoringRounds.value = false;
     debugInfo.lastBetResults = [];
     processedRounds.value.clear();
-
-    console.log('🧹 自动下注页面已卸载，已清理所有监听器');
   });
 </script>
 

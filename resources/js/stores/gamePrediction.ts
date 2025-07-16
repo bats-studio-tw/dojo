@@ -355,8 +355,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
         currentAnalysis.value = mappedData;
         analysisMeta.value = response.data.meta || null;
-        console.log(`✅ 成功获取当前分析数据: ${currentAnalysis.value.length} 个Token`);
-        console.log('🔍 映射后的数据样本:', mappedData.slice(0, 2));
       } else {
         throw new Error(response.data.message || '获取当前分析数据失败');
       }
@@ -379,7 +377,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
       if (response.data.success) {
         // 更新store中的预测历史数据
         predictionHistory.value = response.data.data || [];
-        console.log(`✅ 成功获取预测历史数据: ${predictionHistory.value.length} 轮`);
       } else {
         window.$message?.error(response.data.message || '获取预测历史数据失败');
       }
@@ -432,14 +429,11 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         if (finalPredictions.length > 0) {
           hybridPredictions.value = finalPredictions;
           hybridAnalysisMeta.value = response.data.meta || null;
-          console.log(`⚡ 成功获取Hybrid分析数据: ${finalPredictions.length} 个Token (去重后)`);
         } else {
-          console.warn('⚠️ Hybrid分析数据验证失败，所有数据都被过滤');
           hybridPredictions.value = [];
           hybridAnalysisMeta.value = null;
         }
       } else {
-        console.warn('⚠️ Hybrid分析数据获取失败:', response.data.message);
         hybridPredictions.value = [];
         hybridAnalysisMeta.value = null;
       }
@@ -455,7 +449,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   };
 
   const fetchInitialData = async () => {
-    console.log('🔄 获取初始数据...');
     await Promise.all([
       fetchCurrentAnalysis().catch(console.error),
       fetchPredictionHistory().catch(console.error),
@@ -464,7 +457,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   };
 
   const refreshAllPredictionData = async () => {
-    console.log('🔄 刷新所有预测数据...');
     await fetchInitialData();
   };
 
@@ -480,9 +472,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
    * 更新游戏数据
    */
   const updateGameData = (gameData: GameData) => {
-    console.log('🔍 updateGameData 被调用，原始数据:', gameData);
-    console.log('🔍 当前 latestGameData:', latestGameData.value);
-
     latestGameData.value = gameData;
 
     // 同时更新分析元数据
@@ -495,10 +484,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         ...restGameData
       };
     }
-
-    console.log('🎮 游戏数据已更新:', gameData.status, gameData.rdId);
-    console.log('🔍 更新后 latestGameData:', latestGameData.value);
-    console.log('🔍 更新后 currentGameStatus:', currentGameStatus.value);
   };
 
   /**
@@ -553,8 +538,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         ...(predictionData.volume_score && { final_prediction_score: predictionData.volume_score })
       });
     }
-
-    console.log('🔮 预测数据已更新:', predictionData.token, predictionData.predict_rank);
   };
 
   /**
@@ -597,20 +580,16 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         updated_at: new Date().toISOString(),
         ...meta
       };
-
-      console.log('⚡ Hybrid预测数据已更新:', finalPredictions.length, '个Token');
     }
   };
 
   // ==================== 初始化 ====================
   const initialize = async () => {
-    console.log('🏗️ 初始化游戏预测数据store...');
     // WebSocket初始化已移至独立的WebSocket管理器
   };
 
   // ==================== 清理 ====================
   const cleanup = () => {
-    console.log('🧹 清理游戏预测数据store资源...');
     // WebSocket清理已移至独立的WebSocket管理器
   };
 

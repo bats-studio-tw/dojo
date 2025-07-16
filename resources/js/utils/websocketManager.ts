@@ -20,16 +20,28 @@ export class WebSocketManager {
 
   public isConnected = computed(() => this.websocketStatus.value.status === 'connected');
 
+  // 频道引用
+  private gameUpdatesChannel: any = null;
+  private predictionsChannel: any = null;
+  private hybridPredictionsChannel: any = null;
+
+  // 事件回调存储
+  private eventCallbacks: {
+    gameUpdates?: (data: any) => void;
+    predictions?: (data: any) => void;
+    hybridPredictions?: (data: any) => void;
+  } = {};
+
   /**
-   * 初始化WebSocket状态监控
+   * 初始化WebSocket连接和状态监控
    */
   public initialize(): void {
     if (this.isInitialized) {
-      console.log('⚠️ WebSocket状态监控器已经初始化，跳过重复初始化');
+      console.log('⚠️ WebSocket管理器已经初始化，跳过重复初始化');
       return;
     }
 
-    console.log('🔄 初始化WebSocket状态监控器...');
+    console.log('🔄 初始化WebSocket管理器...');
 
     if (!window.Echo) {
       console.error('❌ Echo WebSocket未初始化');
@@ -38,8 +50,9 @@ export class WebSocketManager {
     }
 
     this.setupStatusMonitoring();
+    this.setupChannels();
     this.isInitialized = true;
-    console.log('✅ WebSocket状态监控器初始化完成');
+    console.log('✅ WebSocket管理器初始化完成');
   }
 
   /**
@@ -76,6 +89,73 @@ export class WebSocketManager {
 
     // 立即检查一次当前状态
     this.checkConnectionStatus();
+  }
+
+  /**
+   * 设置频道监听
+   */
+  private setupChannels(): void {
+    if (!window.Echo) return;
+
+    // 游戏数据更新频道
+    this.gameUpdatesChannel = window.Echo.channel('game-updates');
+    this.gameUpdatesChannel
+      .subscribed(() => console.log('✅ 成功订阅 game-updates 频道'))
+      .error((error: any) => console.error('❌ game-updates 频道错误:', error));
+
+    // 预测数据更新频道
+    this.predictionsChannel = window.Echo.channel('predictions');
+    this.predictionsChannel
+      .subscribed(() => console.log('✅ 成功订阅 predictions 频道'))
+      .error((error: any) => console.error('❌ predictions 频道错误:', error));
+
+    // Hybrid预测数据更新频道
+    this.hybridPredictionsChannel = window.Echo.channel('hybrid-predictions');
+    this.hybridPredictionsChannel
+      .subscribed(() => console.log('✅ 成功订阅 hybrid-predictions 频道'))
+      .error((error: any) => console.error('❌ hybrid-predictions 频道错误:', error));
+  }
+
+  /**
+   * 监听游戏数据更新
+   */
+  public listenToGameUpdates(callback: (data: any) => void): void {
+    this.eventCallbacks.gameUpdates = callback;
+
+    if (this.gameUpdatesChannel) {
+      this.gameUpdatesChannel.listen('.GameDataUpdated', (event: any) => {
+        console.log('🎮 收到游戏数据更新:', event);
+        callback(event);
+      });
+    }
+  }
+
+  /**
+   * 监听预测数据更新
+   */
+  public listenToPredictions(callback: (data: any) => void): void {
+    this.eventCallbacks.predictions = callback;
+
+    if (this.predictionsChannel) {
+      this.predictionsChannel.listen('.NewPredictionMade', (event: any) => {
+        console.log('🔮 收到预测数据更新:', event);
+        callback(event);
+      });
+    }
+  }
+
+  /**
+   * 监听Hybrid预测数据更新
+   */
+  public listenToHybridPredictions(callback: (data: any) => void): void {
+    this.eventCallbacks.hybridPredictions = callback;
+
+    if (this.hybridPredictionsChannel) {
+      this.hybridPredictionsChannel.listen('.HybridPredictionUpdated', (event: any) => {
+        console.log('⚡ 收到Hybrid预测数据更新:', event);
+        callback(event);
+      });
+    }
   }
 
   /**
@@ -146,12 +226,31 @@ export class WebSocketManager {
    * 清理资源
    */
   public cleanup(): void {
-    console.log('🧹 清理WebSocket状态监控器资源...');
+    console.log('🧹 清理WebSocket管理器资源...');
 
     if (this.statusCheckInterval) {
       clearInterval(this.statusCheckInterval);
       this.statusCheckInterval = null;
     }
+
+    // 清理频道
+    if (this.gameUpdatesChannel) {
+      window.Echo?.leaveChannel('game-updates');
+      this.gameUpdatesChannel = null;
+    }
+
+    if (this.predictionsChannel) {
+      window.Echo?.leaveChannel('predictions');
+      this.predictionsChannel = null;
+    }
+
+    if (this.hybridPredictionsChannel) {
+      window.Echo?.leaveChannel('hybrid-predictions');
+      this.hybridPredictionsChannel = null;
+    }
+
+    // 清理回调
+    this.eventCallbacks = {};
 
     this.isInitialized = false;
     this.updateStatus('disconnected', '已清理');
@@ -170,6 +269,17 @@ export class WebSocketManager {
   public checkIfConnected(): boolean {
     if (!window.Echo) return false;
     return window.Echo.connector.pusher.connection.state === 'connected';
+  }
+
+  /**
+   * 获取频道引用（用于高级用法）
+   */
+  public getChannels() {
+    return {
+      gameUpdates: this.gameUpdatesChannel,
+      predictions: this.predictionsChannel,
+      hybridPredictions: this.hybridPredictionsChannel
+    };
   }
 }
 

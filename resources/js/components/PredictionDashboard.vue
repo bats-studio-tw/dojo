@@ -143,7 +143,6 @@
   });
 
   // WebSocket 相关变量
-  let predictionsChannel: any = null;
   const isTestingWebSocket = ref(false);
 
   // 计算属性
@@ -196,64 +195,49 @@
   // WebSocket 相关方法
   const initializeWebSocket = () => {
     try {
-      // @ts-ignore
-      if (window.Echo) {
-        console.log('🔌 设置 WebSocket 频道监听...');
+      console.log('🔌 设置 WebSocket 频道监听...');
 
-        // 监听预测数据更新频道
-        // @ts-ignore
-        predictionsChannel = window.Echo.channel('predictions');
+      // 使用全局WebSocket管理器监听预测数据更新
+      websocketManager.listenToPredictions((event: any) => {
+        console.log('🔮 收到新的预测数据:', event);
 
-        predictionsChannel
-          .subscribed(() => {
-            console.log('✅ 成功订阅 predictions 频道');
-          })
-          .listen('.NewPredictionMade', (event: any) => {
-            console.log('🔮 收到新的预测数据:', event);
+        try {
+          // 解析预测数据
+          const predictionData = event.prediction;
+          if (predictionData) {
+            // 转换为 PredictionResultDTO 格式
+            const predictionResult: any = {
+              id: predictionData.id,
+              game_round_id: predictionData.game_round_id,
+              token: predictionData.token,
+              predict_rank: predictionData.predict_rank,
+              predict_score: predictionData.predict_score,
+              elo_score: predictionData.elo_score,
+              momentum_score: predictionData.momentum_score,
+              volume_score: predictionData.volume_score,
+              norm_elo: predictionData.norm_elo,
+              norm_momentum: predictionData.norm_momentum,
+              norm_volume: predictionData.norm_volume,
+              used_weights: predictionData.used_weights,
+              used_normalization: predictionData.used_normalization,
+              strategy_tag: predictionData.strategy_tag,
+              config_snapshot: predictionData.config_snapshot,
+              created_at: predictionData.created_at
+            };
 
-            try {
-              // 解析预测数据
-              const predictionData = event.prediction;
-              if (predictionData) {
-                // 转换为 PredictionResultDTO 格式
-                const predictionResult: any = {
-                  id: predictionData.id,
-                  game_round_id: predictionData.game_round_id,
-                  token: predictionData.token,
-                  predict_rank: predictionData.predict_rank,
-                  predict_score: predictionData.predict_score,
-                  elo_score: predictionData.elo_score,
-                  momentum_score: predictionData.momentum_score,
-                  volume_score: predictionData.volume_score,
-                  norm_elo: predictionData.norm_elo,
-                  norm_momentum: predictionData.norm_momentum,
-                  norm_volume: predictionData.norm_volume,
-                  used_weights: predictionData.used_weights,
-                  used_normalization: predictionData.used_normalization,
-                  strategy_tag: predictionData.strategy_tag,
-                  config_snapshot: predictionData.config_snapshot,
-                  created_at: predictionData.created_at
-                };
+            // 添加到 store
+            store.addRealtimePrediction(predictionResult);
 
-                // 添加到 store
-                store.addRealtimePrediction(predictionResult);
+            // 显示通知
+            message.success(`新预测: ${predictionData.token} 排名第${predictionData.predict_rank}`);
+          }
+        } catch (err: any) {
+          console.error('处理预测数据失败:', err);
+        }
+      });
 
-                // 显示通知
-                message.success(`新预测: ${predictionData.token} 排名第${predictionData.predict_rank}`);
-              }
-            } catch (err: any) {
-              console.error('处理预测数据失败:', err);
-            }
-          })
-          .error((error: any) => {
-            console.error('❌ predictions 频道错误:', error);
-          });
-
-        // 使用全局WebSocket管理器的状态
-        store.setConnectionStatus(websocketManager.checkIfConnected());
-      } else {
-        console.warn('⚠️ WebSocket 客户端未初始化');
-      }
+      // 使用全局WebSocket管理器的状态
+      store.setConnectionStatus(websocketManager.checkIfConnected());
     } catch (error: any) {
       console.error('初始化 WebSocket 失败:', error);
     }
@@ -271,12 +255,7 @@
 
   const cleanupWebSocket = () => {
     try {
-      if (predictionsChannel) {
-        // @ts-ignore
-        window.Echo.leaveChannel('predictions');
-        predictionsChannel = null;
-        console.log('🔌 WebSocket 连接已清理');
-      }
+      console.log('🔌 WebSocket 频道监听已清理');
     } catch (err: any) {
       console.error('清理 WebSocket 失败:', err);
     }

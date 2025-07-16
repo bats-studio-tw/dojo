@@ -910,6 +910,47 @@
     }
   };
 
+  // 🔌 设置WebSocket频道监听
+  const setupWebSocketListeners = () => {
+    console.log('🔌 AutoBetting: 设置WebSocket频道监听...');
+
+    // 监听游戏数据更新
+    websocketManager.listenToGameUpdates((event: any) => {
+      console.log('🎮 AutoBetting: 收到游戏数据更新:', event);
+
+      // 更新游戏状态和轮次信息
+      if (event.data) {
+        const gameData = event.data;
+        // 这里可以根据需要更新store中的游戏状态
+        console.log('🎮 游戏状态更新:', gameData.status, gameData.rdId);
+      }
+    });
+
+    // 监听预测数据更新
+    websocketManager.listenToPredictions((event: any) => {
+      console.log('🔮 AutoBetting: 收到预测数据更新:', event);
+
+      // 更新预测数据
+      if (event.prediction) {
+        // 这里可以根据需要更新store中的预测数据
+        console.log('🔮 预测数据更新:', event.prediction.token, event.prediction.predict_rank);
+      }
+    });
+
+    // 监听Hybrid预测数据更新
+    websocketManager.listenToHybridPredictions((event: any) => {
+      console.log('⚡ AutoBetting: 收到Hybrid预测数据更新:', event);
+
+      // 更新Hybrid预测数据
+      if (event.data) {
+        // 这里可以根据需要更新store中的Hybrid预测数据
+        console.log('⚡ Hybrid预测数据更新:', event.data.length, '个Token');
+      }
+    });
+
+    console.log('✅ AutoBetting: WebSocket频道监听设置完成');
+  };
+
   // ==================== 响应式自动下注逻辑 ====================
 
   // 记录已处理的轮次，避免重复下注
@@ -1187,6 +1228,9 @@
 
     // 获取 Hybrid-Edge 動能預測數據
     await fetchHybridPredictions();
+
+    // 🔌 设置WebSocket频道监听
+    setupWebSocketListeners();
 
     console.log('🤖 自动下注页面已加载，包含初始数据获取和WebSocket实时数据模式');
   });

@@ -2,18 +2,19 @@
 
 namespace App\Jobs;
 
-use App\Events\HybridPredictionUpdated;
 use App\Models\GameRound;
-use App\Models\HybridRoundPredict;
-use App\Repositories\TokenPriceRepository;
-use App\Services\EloRatingEngine;
 use App\Services\ScoreMixer;
 use Illuminate\Bus\Queueable;
+use App\Services\EloRatingEngine;
+use App\Models\HybridRoundPredict;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Queue\SerializesModels;
+use App\Events\HybridPredictionUpdated;
+use Illuminate\Queue\InteractsWithQueue;
+use App\Repositories\TokenPriceRepository;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 
 class CalculateMomentumJob implements ShouldQueue
 {
@@ -96,7 +97,7 @@ class CalculateMomentumJob implements ShouldQueue
             }
 
             // 缓存预测结果
-            \Illuminate\Support\Facades\Cache::put("hybrid_prediction:{$this->roundId}", $predictions, 30);
+            Cache::put("hybrid_prediction:{$this->roundId}", $predictions, 30);
 
             // 广播事件
             $this->broadcastPredictionEvent($predictions);

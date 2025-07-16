@@ -107,6 +107,9 @@ class GamePredictionService
 
             Cache::put('game:current_prediction', $cacheData, now()->addMinutes(self::CACHE_DURATION_MINUTES));
 
+            // 同时保存到 PredictionResult 表
+            $this->saveToPredictionResultTable($analysisData, $roundId);
+
             Log::info("預測分析完成並已快取", [
                 'round_id' => $roundId,
                 'algorithm' => $cacheData['algorithm'],
@@ -205,6 +208,64 @@ class GamePredictionService
         $analysisData = $this->enrichWithMarketData($tokenStats, $h2hCoverageRatio);
 
         return $analysisData;
+    }
+
+    /**
+     * 保存预测数据到 PredictionResult 表
+     */
+    private function saveToPredictionResultTable(array $analysisData, string $roundId): void
+    {
+        try {
+            // 获取或创建游戏轮次记录
+            $gameRound = \App\Models\GameRound::where('round_id', $roundId)->first();
+            if (!$gameRound) {
+                $gameRound = \App\Models\GameRound::create([
+                    'round_id' => $roundId,
+                ]);
+            }
+
+            // 删除该轮次的旧预测数据（如果存在）
+            \App\Models\PredictionResult::where('game_round_id', $gameRound->id)->delete();
+
+            // 批量插入新的预测数据
+            $predictionRecords = [];
+            foreach ($analysisData as $tokenData) {
+                $predictionRecords[] = [
+                    'game_round_id' => $gameRound->id,
+                    'token' => $tokenData['symbol'],
+                    'predict_rank' => $tokenData['predicted_rank'],
+                    'predict_score' => $tokenData['predicted_final_value'] ?? $tokenData['absolute_score'] ?? 0,
+                    'elo_score' => $tokenData['absolute_score'] ?? 0,
+                    'momentum_score' => $tokenData['market_momentum_score'] ?? 0,
+                    'volume_score' => $tokenData['final_prediction_score'] ?? 0,
+                    'norm_elo' => $tokenData['absolute_score'] ?? 0,
+                    'norm_momentum' => $tokenData['market_momentum_score'] ?? 0,
+                    'norm_volume' => $tokenData['final_prediction_score'] ?? 0,
+                    'used_weights' => ['elo' => 0.6, 'momentum' => 0.3, 'volume' => 0.1], // 默认权重
+                    'used_normalization' => ['elo' => 'z-score', 'momentum' => 'min-max', 'volume' => 'z-score'], // 默认标准化
+                    'strategy_tag' => 'game_prediction_service',
+                    'config_snapshot' => [
+                        'strategy_tag' => 'game_prediction_service',
+                        'round_id' => $roundId,
+                        'timestamp' => now()->toISOString(),
+                    ],
+                ];
+            }
+
+            \App\Models\PredictionResult::insert($predictionRecords);
+
+            Log::info('✅ 预测数据已保存到 PredictionResult 表', [
+                'round_id' => $roundId,
+                'game_round_id' => $gameRound->id,
+                'predictions_count' => count($predictionRecords),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('保存预测数据到 PredictionResult 表失败', [
+                'round_id' => $roundId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

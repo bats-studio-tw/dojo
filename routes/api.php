@@ -54,6 +54,9 @@ Route::prefix('v2')->group(function () {
 
     // WebSocket 测试端点
     Route::post('/websocket/test-broadcast', [PredictionController::class, 'testWebSocketBroadcast'])->name('api.v2.websocket.test-broadcast');
+
+    // 手动触发预测计算（测试用）
+    Route::post('/predictions/trigger-calculation', [PredictionController::class, 'triggerPredictionCalculation'])->name('api.v2.predictions.trigger-calculation');
 });
 
 // 自动下注API路由组 (保持兼容性)

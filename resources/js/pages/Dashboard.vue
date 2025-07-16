@@ -626,8 +626,8 @@
       .slice()
       .sort((a, b) => {
         // 🔧 修复：处理 round_id 可能为 undefined 或 null 的情况
-        const aId = a.round_id || '';
-        const bId = b.round_id || '';
+        const aId = String(a.round_id || '');
+        const bId = String(b.round_id || '');
         return bId.localeCompare(aId);
       })
       .slice(0, recentRoundsCount.value);
@@ -744,7 +744,7 @@
 
           detailedData.push({
             key: `${round.round_id}-${prediction.symbol}`,
-            round_id: round.round_id || '',
+            round_id: String(round.round_id || ''),
             symbol: prediction.symbol,
             predicted_rank: prediction.predicted_rank,
             actual_rank: actualResult.actual_rank,
@@ -759,8 +759,8 @@
 
     return detailedData.sort((a, b) => {
       // 🔧 修复：处理 round_id 可能为 undefined 或 null 的情况
-      const aId = a.round_id || '';
-      const bId = b.round_id || '';
+      const aId = String(a.round_id || '');
+      const bId = String(b.round_id || '');
       return bId.localeCompare(aId);
     });
   });

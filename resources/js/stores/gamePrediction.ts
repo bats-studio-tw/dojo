@@ -753,7 +753,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     if (finalPredictions.length > 0) {
       hybridPredictions.value = finalPredictions;
       hybridAnalysisMeta.value = {
-        round_id: meta?.round_id || currentRoundId.value || '',
+        round_id: String(meta?.round_id || currentRoundId.value || ''),
         status: meta?.status || 'unknown',
         updated_at: new Date().toISOString(),
         ...meta

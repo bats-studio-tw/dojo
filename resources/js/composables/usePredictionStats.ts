@@ -172,8 +172,8 @@ export function usePredictionStats(
       .slice()
       .sort((a, b) => {
         // 🔧 修复：处理 round_id 可能为 undefined 或 null 的情况
-        const aId = a.round_id || '';
-        const bId = b.round_id || '';
+        const aId = String(a.round_id || '');
+        const bId = String(b.round_id || '');
         return bId.localeCompare(aId);
       })
       .slice(0, recentRoundsCount.value);
@@ -259,7 +259,7 @@ export function usePredictionStats(
           const rankDifference = Math.abs(prediction.predicted_rank - actualResult.actual_rank);
 
           detailedData.push({
-            round_id: round.round_id || '',
+            round_id: String(round.round_id || ''),
             symbol: prediction.symbol,
             predicted_rank: prediction.predicted_rank,
             actual_rank: actualResult.actual_rank,
@@ -275,8 +275,8 @@ export function usePredictionStats(
     // 按轮次倒序排列，最新的在前面
     return detailedData.sort((a, b) => {
       // 🔧 修复：处理 round_id 可能为 undefined 或 null 的情况
-      const aId = a.round_id || '';
-      const bId = b.round_id || '';
+      const aId = String(a.round_id || '');
+      const bId = String(b.round_id || '');
       return bId.localeCompare(aId);
     });
   });

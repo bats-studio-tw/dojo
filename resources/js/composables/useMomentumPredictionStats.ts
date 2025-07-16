@@ -239,8 +239,8 @@ export function useMomentumPredictionStats(
       .slice()
       .sort((a, b) => {
         // 🔧 修复：处理 round_id 可能为 undefined 或 null 的情况
-        const aId = a.round_id || '';
-        const bId = b.round_id || '';
+        const aId = String(a.round_id || '');
+        const bId = String(b.round_id || '');
         return bId.localeCompare(aId);
       })
       .slice(0, currentRecentRoundsCount);

@@ -171,18 +171,143 @@
 
               <div class="border border-white/10 rounded-xl bg-black/20 p-6 backdrop-blur-md">
                 <HistoryAnalysisTab
-                  :exact-rate="predictionStats.calculateRoundBasedStats.value.exactRate"
-                  :total-rounds="predictionStats.calculatePortfolioStats.value.totalRounds"
-                  :all-stats="predictionStats.calculateRankBasedStats.value"
-                  :recent-stats="predictionStats.calculateRecentRankBasedStats.value"
+                  :exact-rate="predictionStats.calculateRoundBasedStats.value?.exactRate || 0"
+                  :total-rounds="predictionStats.calculatePortfolioStats.value?.totalRounds || 0"
+                  :all-stats="
+                    predictionStats.calculateRankBasedStats.value || {
+                      rank1: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      },
+                      rank2: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      },
+                      rank3: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      }
+                    }
+                  "
+                  :recent-stats="
+                    predictionStats.calculateRecentRankBasedStats.value || {
+                      rank1: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      },
+                      rank2: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      },
+                      rank3: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      }
+                    }
+                  "
                   :recent-rounds-count="recentRoundsCount"
-                  :max-rounds="predictionHistory.length"
+                  :max-rounds="predictionHistory.length || 0"
                   :history-loading="predictionStore.historyLoading"
-                  :prediction-comparison-data="predictionStats.getPredictionComparisonData.value"
-                  :momentum-stats="momentumStats.stats.value"
+                  :prediction-comparison-data="predictionStats.getPredictionComparisonData.value || []"
+                  :momentum-stats="
+                    momentumStats.stats.value || {
+                      momentumAccuracy: 0,
+                      totalRounds: 0,
+                      allStats: {
+                        rank1: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        },
+                        rank2: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        },
+                        rank3: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        }
+                      },
+                      recentStats: {
+                        rank1: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        },
+                        rank2: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        },
+                        rank3: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        }
+                      },
+                      averageMomentumScore: 0,
+                      averageConfidence: 0
+                    }
+                  "
                   :momentum-loading="momentumHistoryLoading"
                   :momentum-recent-rounds-count="momentumRecentRoundsCount"
-                  :momentum-max-rounds="momentumPredictionHistory.length"
+                  :momentum-max-rounds="momentumPredictionHistory.length || 0"
                   @refresh-prediction-history="refreshPredictionHistory"
                   @refresh-momentum-history="refreshMomentumHistory"
                   @update:recent-rounds-count="updateRecentRoundsCount"

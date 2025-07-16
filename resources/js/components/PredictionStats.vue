@@ -72,7 +72,7 @@
               <div class="mt-2 space-y-1">
                 <!-- 全部历史数据 -->
                 <div class="border-b border-yellow-400/20 pb-2">
-                  <div class="mb-1 text-xs text-yellow-200/50">最新{{ allStats.rank1.total }}局</div>
+                  <div class="mb-1 text-xs text-yellow-200/50">最新{{ allStats?.rank1?.total || 0 }}局</div>
                   <div class="flex items-center justify-between">
                     <span class="text-base text-yellow-400 font-bold sm:text-lg">
                       {{ (allStats.rank1.breakevenRate || 0).toFixed(1) }}%
@@ -114,7 +114,7 @@
               <div class="mt-2 space-y-1">
                 <!-- 全部历史数据 -->
                 <div class="border-b border-slate-400/20 pb-2">
-                  <div class="mb-1 text-xs text-slate-200/50">最新{{ allStats.rank2.total }}局</div>
+                  <div class="mb-1 text-xs text-slate-200/50">最新{{ allStats?.rank2?.total || 0 }}局</div>
                   <div class="flex items-center justify-between">
                     <span class="text-base text-slate-400 font-bold sm:text-lg">
                       {{ (allStats.rank2.breakevenRate || 0).toFixed(1) }}%
@@ -156,7 +156,7 @@
               <div class="mt-2 space-y-1">
                 <!-- 全部历史数据 -->
                 <div class="border-b border-orange-400/20 pb-2">
-                  <div class="mb-1 text-xs text-orange-200/50">最新{{ allStats.rank3.total }}局</div>
+                  <div class="mb-1 text-xs text-orange-200/50">最新{{ allStats?.rank3?.total || 0 }}局</div>
                   <div class="flex items-center justify-between">
                     <span class="text-base text-orange-400 font-bold sm:text-lg">
                       {{ (allStats.rank3.breakevenRate || 0).toFixed(1) }}%

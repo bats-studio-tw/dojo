@@ -146,7 +146,7 @@ export interface Accuracy {
 
 export interface PredictionHistoryRound {
   id: number;
-  round_id: string;
+  round_id: string | null | undefined;
   settled_at: string | null;
   predictions: PredictionData[];
   results: ResultData[];

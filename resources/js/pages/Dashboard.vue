@@ -611,7 +611,12 @@
     // 获取最新N局数据
     const recentRounds = predictionHistoryData.value
       .slice()
-      .sort((a, b) => b.round_id.localeCompare(a.round_id))
+      .sort((a, b) => {
+        // 🔧 修复：处理 round_id 可能为 undefined 或 null 的情况
+        const aId = a.round_id || '';
+        const bId = b.round_id || '';
+        return bId.localeCompare(aId);
+      })
       .slice(0, recentRoundsCount.value);
 
     recentRounds.forEach((round) => {
@@ -739,7 +744,12 @@
       });
     });
 
-    return detailedData.sort((a, b) => b.round_id.localeCompare(a.round_id));
+    return detailedData.sort((a, b) => {
+      // 🔧 修复：处理 round_id 可能为 undefined 或 null 的情况
+      const aId = a.round_id || '';
+      const bId = b.round_id || '';
+      return bId.localeCompare(aId);
+    });
   });
 
   const getPredictionRankIcon = (rank: number) => {

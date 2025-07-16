@@ -215,6 +215,38 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   const historyError = ref<string | null>(null);
   const hybridAnalysisError = ref<string | null>(null);
 
+  // ==================== 缓存和去重机制 ====================
+  const fetchCache = ref<Map<string, { data: any; timestamp: number; ttl: number }>>(new Map());
+
+  // 缓存时间配置（毫秒）
+  const CACHE_TTL = {
+    currentAnalysis: 30000, // 30秒
+    predictionHistory: 60000, // 1分钟
+    hybridAnalysis: 45000 // 45秒
+  };
+
+  // 检查缓存是否有效
+  const isCacheValid = (key: string, ttl: number) => {
+    const cached = fetchCache.value.get(key);
+    if (!cached) return false;
+    return Date.now() - cached.timestamp < ttl;
+  };
+
+  // 设置缓存
+  const setCache = (key: string, data: any, ttl: number) => {
+    fetchCache.value.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    });
+  };
+
+  // 获取缓存
+  const getCache = (key: string) => {
+    const cached = fetchCache.value.get(key);
+    return cached?.data || null;
+  };
+
   // ==================== 计算属性 ====================
   const isConnected = computed(() => websocketStatus.value.status === 'connected');
 
@@ -312,7 +344,24 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   });
 
   // ==================== API调用方法 ====================
-  const fetchCurrentAnalysis = async () => {
+  const fetchCurrentAnalysis = async (forceRefresh = false) => {
+    // 检查缓存
+    if (!forceRefresh && isCacheValid('currentAnalysis', CACHE_TTL.currentAnalysis)) {
+      const cachedData = getCache('currentAnalysis');
+      if (cachedData) {
+        console.log('📦 使用缓存的当前分析数据');
+        currentAnalysis.value = cachedData.analysis;
+        analysisMeta.value = cachedData.meta;
+        return;
+      }
+    }
+
+    // 防止重复请求
+    if (analysisLoading.value) {
+      console.log('⏳ 当前分析数据正在加载中，跳过重复请求');
+      return;
+    }
+
     analysisLoading.value = true;
     analysisError.value = null;
 
@@ -366,6 +415,16 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         currentAnalysis.value = mappedData;
         analysisMeta.value = response.data.meta || null;
 
+        // 设置缓存
+        setCache(
+          'currentAnalysis',
+          {
+            analysis: mappedData,
+            meta: response.data.meta
+          },
+          CACHE_TTL.currentAnalysis
+        );
+
         console.log('✅ 数据设置完成，currentAnalysis.value长度:', currentAnalysis.value.length);
         console.log('✅ analysisMeta.value:', analysisMeta.value);
       } else {
@@ -381,7 +440,23 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     }
   };
 
-  const fetchPredictionHistory = async () => {
+  const fetchPredictionHistory = async (forceRefresh = false) => {
+    // 检查缓存
+    if (!forceRefresh && isCacheValid('predictionHistory', CACHE_TTL.predictionHistory)) {
+      const cachedData = getCache('predictionHistory');
+      if (cachedData) {
+        console.log('📦 使用缓存的预测历史数据');
+        predictionHistory.value = cachedData;
+        return;
+      }
+    }
+
+    // 防止重复请求
+    if (historyLoading.value) {
+      console.log('⏳ 预测历史数据正在加载中，跳过重复请求');
+      return;
+    }
+
     historyLoading.value = true;
     historyError.value = null;
 
@@ -391,6 +466,9 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
       if (response.data.success) {
         // 更新store中的预测历史数据
         predictionHistory.value = response.data.data || [];
+
+        // 设置缓存
+        setCache('predictionHistory', response.data.data || [], CACHE_TTL.predictionHistory);
       } else {
         window.$message?.error(response.data.message || '获取预测历史数据失败');
       }
@@ -404,7 +482,24 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     }
   };
 
-  const fetchHybridAnalysis = async () => {
+  const fetchHybridAnalysis = async (forceRefresh = false) => {
+    // 检查缓存
+    if (!forceRefresh && isCacheValid('hybridAnalysis', CACHE_TTL.hybridAnalysis)) {
+      const cachedData = getCache('hybridAnalysis');
+      if (cachedData) {
+        console.log('📦 使用缓存的Hybrid分析数据');
+        hybridPredictions.value = cachedData.predictions;
+        hybridAnalysisMeta.value = cachedData.meta;
+        return;
+      }
+    }
+
+    // 防止重复请求
+    if (hybridAnalysisLoading.value) {
+      console.log('⏳ Hybrid分析数据正在加载中，跳过重复请求');
+      return;
+    }
+
     hybridAnalysisLoading.value = true;
     hybridAnalysisError.value = null;
 
@@ -443,6 +538,16 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         if (finalPredictions.length > 0) {
           hybridPredictions.value = finalPredictions;
           hybridAnalysisMeta.value = response.data.meta || null;
+
+          // 设置缓存
+          setCache(
+            'hybridAnalysis',
+            {
+              predictions: finalPredictions,
+              meta: response.data.meta
+            },
+            CACHE_TTL.hybridAnalysis
+          );
         } else {
           hybridPredictions.value = [];
           hybridAnalysisMeta.value = null;
@@ -478,6 +583,24 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     analysisError.value = null;
     historyError.value = null;
     hybridAnalysisError.value = null;
+  };
+
+  // 清除缓存
+  const clearCache = (key?: string) => {
+    if (key) {
+      fetchCache.value.delete(key);
+      console.log(`🗑️ 已清除缓存: ${key}`);
+    } else {
+      fetchCache.value.clear();
+      console.log('🗑️ 已清除所有缓存');
+    }
+  };
+
+  // 强制刷新所有数据
+  const forceRefreshAll = async () => {
+    console.log('🔄 强制刷新所有数据...');
+    clearCache();
+    await Promise.all([fetchCurrentAnalysis(true), fetchPredictionHistory(true), fetchHybridAnalysis(true)]);
   };
 
   // ==================== 实时数据更新方法 ====================
@@ -656,6 +779,8 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     fetchInitialData,
     refreshAllPredictionData,
     clearErrors,
+    clearCache,
+    forceRefreshAll,
 
     // ==================== 实时数据更新方法导出 ====================
     updateGameData,

@@ -43,22 +43,12 @@ export function usePredictionDisplay() {
     return 'text-purple-400';
   };
 
-  // 获取预测图标
-  const getPredictionIcon = (index: number) => {
-    if (index === 0) return '🥇';
-    if (index === 1) return '🥈';
-    if (index === 2) return '🥉';
-    return '📊';
-  };
-
-  // 获取排名对应的图标
-  const getPredictionRankIcon = (rank: number) => {
+  // 获取预测图标 (统一使用排名参数)
+  const getPredictionIcon = (rank: number) => {
     if (rank === 1) return '🥇';
     if (rank === 2) return '🥈';
     if (rank === 3) return '🥉';
-    if (rank === 4) return '4️⃣';
-    if (rank === 5) return '5️⃣';
-    return '📊';
+    return '🏅';
   };
 
   // 状态标签类型（使用统一的状态工具）
@@ -152,7 +142,6 @@ export function usePredictionDisplay() {
 
     // 图标函数
     getPredictionIcon,
-    getPredictionRankIcon,
 
     // 状态函数
     getStatusTagType,

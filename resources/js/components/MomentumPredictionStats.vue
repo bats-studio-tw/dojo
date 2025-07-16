@@ -70,7 +70,7 @@
 
           <!-- 动能预测第一名 -->
           <div :class="getCombinedCardClass(getRankStatsCardClass(1))">
-            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥇</div>
+            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">{{ getPredictionIcon(1) }}</div>
             <div class="relative">
               <div class="text-xs font-medium sm:text-sm" :class="getRankStatsCardClass(1).textColor">预测第一名</div>
               <div class="mt-2 space-y-1">
@@ -112,7 +112,7 @@
 
           <!-- 动能预测第二名 -->
           <div :class="getCombinedCardClass(getRankStatsCardClass(2))">
-            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥈</div>
+            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">{{ getPredictionIcon(2) }}</div>
             <div class="relative">
               <div class="text-xs font-medium sm:text-sm" :class="getRankStatsCardClass(2).textColor">预测第二名</div>
               <div class="mt-2 space-y-1">
@@ -154,7 +154,7 @@
 
           <!-- 动能预测第三名 -->
           <div :class="getCombinedCardClass(getRankStatsCardClass(3))">
-            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥉</div>
+            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">{{ getPredictionIcon(3) }}</div>
             <div class="relative">
               <div class="text-xs font-medium sm:text-sm" :class="getRankStatsCardClass(3).textColor">预测第三名</div>
               <div class="mt-2 space-y-1">
@@ -232,8 +232,13 @@
   }>();
 
   // 使用预测显示工具
-  const { getCombinedCardClass, getRankStatsCardClass, getAccuracyCardClass, getTotalRoundsCardClass } =
-    usePredictionDisplay();
+  const {
+    getCombinedCardClass,
+    getRankStatsCardClass,
+    getAccuracyCardClass,
+    getTotalRoundsCardClass,
+    getPredictionIcon
+  } = usePredictionDisplay();
 
   // 计算属性
   const hasData = computed(() => props.totalRounds > 0);

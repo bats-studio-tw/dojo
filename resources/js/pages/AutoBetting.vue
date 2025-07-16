@@ -851,7 +851,7 @@
   // 获取 Hybrid-Edge 動能預測數據
   const fetchHybridPredictions = async () => {
     try {
-      await fetchHybridAnalysis();
+      await fetchHybridAnalysis(true);
     } catch (error) {
       console.error('❌ 获取 Hybrid-Edge 預測數據失败:', error);
     }
@@ -860,10 +860,10 @@
   // 刷新分析数据
   const refreshAnalysis = async () => {
     try {
-      // 使用store的方法来获取数据，确保数据正确更新到store中
-      await predictionStore.fetchCurrentAnalysis();
+      // 使用store的方法来获取数据，确保数据正确更新到store中，强制刷新
+      await predictionStore.fetchCurrentAnalysis(true);
 
-      // 同时刷新 Hybrid-Edge 預測數據
+      // 同时刷新 Hybrid-Edge 預測數據，强制刷新
       await fetchHybridPredictions();
 
       // 刷新后重新验证策略

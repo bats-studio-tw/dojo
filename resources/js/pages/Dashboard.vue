@@ -130,7 +130,7 @@
                   class="prediction-stat-card"
                   :class="getRankCardClass(rank)"
                 >
-                  <div class="stat-icon">{{ getRankIcon(rank) }}</div>
+                  <div class="stat-icon">{{ getPredictionIcon(rank) }}</div>
                   <div class="stat-content">
                     <div class="stat-label" :class="getRankLabelClass(rank)">预测第{{ rank }}名</div>
                     <div class="stat-multi-value">
@@ -225,6 +225,7 @@
   import { storeToRefs } from 'pinia';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
+  import { usePredictionDisplay } from '@/composables/usePredictionDisplay';
   import api from '@/utils/api';
 
   // 导入游戏预测store - 统一的数据管理
@@ -324,12 +325,7 @@
     }
   };
 
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return '📊';
-  };
+  const { getPredictionIcon } = usePredictionDisplay();
 
   // 排名卡片样式
   const getRankCardClass = (rank: number) => {
@@ -426,8 +422,8 @@
   // ==================== 刷新函数 ====================
 
   const refreshAnalysis = () => {
-    // 只调用store方法
-    gamePredictionStore.fetchCurrentAnalysis();
+    // 只调用store方法，强制刷新
+    gamePredictionStore.fetchCurrentAnalysis(true);
   };
 
   const refreshHistoryData = () => fetchHistoryData();
@@ -769,15 +765,6 @@
     });
   });
 
-  const getPredictionRankIcon = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    if (rank === 4) return '4️⃣';
-    if (rank === 5) return '5️⃣';
-    return '📊';
-  };
-
   const getTokenPredictionAnalysis = (predictedRank: number, actualRank: number) => {
     if (predictedRank === actualRank) {
       return { status: 'exact', text: '精准预测', icon: '🎯', color: 'text-green-400', bgColor: 'bg-green-500/20' };
@@ -810,7 +797,7 @@
       width: 100,
       render: (row: PredictionComparisonRow) =>
         h('div', { class: 'flex items-center justify-center' }, [
-          h('span', { class: 'text-lg mr-1' }, getPredictionRankIcon(row.predicted_rank)),
+          h('span', { class: 'text-lg mr-1' }, getPredictionIcon(row.predicted_rank)),
           h('span', { class: 'font-medium' }, `#${row.predicted_rank}`)
         ])
     },
@@ -820,7 +807,7 @@
       width: 100,
       render: (row: PredictionComparisonRow) =>
         h('div', { class: 'flex items-center justify-center' }, [
-          h('span', { class: 'text-lg mr-1' }, getPredictionRankIcon(row.actual_rank)),
+          h('span', { class: 'text-lg mr-1' }, getPredictionIcon(row.actual_rank)),
           h('span', { class: 'font-medium' }, `#${row.actual_rank}`)
         ])
     },

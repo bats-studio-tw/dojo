@@ -152,7 +152,7 @@
               <!-- 第一行：图标 + Token符号 + 排名 -->
               <div class="mb-2 flex items-center justify-between">
                 <div class="flex items-center space-x-2">
-                  <span class="text-lg">{{ getPredictionIcon(index) }}</span>
+                  <span class="text-lg">{{ getPredictionIcon(index + 1) }}</span>
                   <span class="text-sm text-white font-bold">{{ token.symbol }}</span>
                   <span class="text-xs text-gray-400">#{{ token.predicted_rank || index + 1 }}</span>
                 </div>
@@ -1269,6 +1269,7 @@
   import type { AutoBettingStatus, DebugInfo } from '@/composables/useAutoBettingControl';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
   import { optimizedDefaultConfig } from '@/composables/useAutoBettingConfig';
+  import { usePredictionDisplay } from '@/composables/usePredictionDisplay';
   import api from '@/utils/api';
 
   // Props
@@ -1320,13 +1321,7 @@
 
   // ==================== 工具函数 ====================
 
-  // 预测图标
-  const getPredictionIcon = (index: number) => {
-    if (index === 0) return '🥇';
-    if (index === 1) return '🥈';
-    if (index === 2) return '🥉';
-    return '📊';
-  };
+  const { getPredictionIcon } = usePredictionDisplay();
 
   // 🔍 检查是否有激活的高级过滤器
   const hasActiveAdvancedFilters = (): boolean => {

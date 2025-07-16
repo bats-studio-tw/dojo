@@ -4,6 +4,8 @@ namespace App\Listeners;
 
 use App\Events\NewRoundStarted;
 use App\Jobs\CalculateMomentumJob;
+use App\Services\Prediction\PredictionServiceFactory;
+use App\Models\GameRound;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 
@@ -54,13 +56,23 @@ class PredictRoundJobDispatcher
                 'chain_id' => $event->chainId,
             ]);
 
-            // 使用 dispatchSync() 同步执行Job，避免队列延迟
-            // 这会立即执行 Job 的 handle 方法，而不是将它推入队列
+            // 获取或创建游戏轮次记录
+            $gameRound = GameRound::where('round_id', $event->roundId)->first();
+            if (!$gameRound) {
+                $gameRound = GameRound::create([
+                    'round_id' => $event->roundId,
+                ]);
+            }
+
+            // 1. 执行原有的 CalculateMomentumJob（存储到 hybrid_round_predicts）
             CalculateMomentumJob::dispatchSync(
                 $event->roundId,
                 $event->symbols,
                 $event->chainId
             );
+
+            // 2. 新增：执行 PredictionService（存储到 prediction_results）
+            $this->executePredictionService($event->roundId, $event->symbols, $gameRound->id);
 
             Log::info('✅ 同步执行预测计算 Job 完成', [
                 'round_id' => $event->roundId,
@@ -77,7 +89,45 @@ class PredictRoundJobDispatcher
         }
     }
 
+    /**
+     * 执行 PredictionService 预测计算
+     */
+    private function executePredictionService(string $roundId, array $symbols, int $gameRoundId): void
+    {
+        try {
+            Log::info('🧠 开始执行 PredictionService 预测计算', [
+                'round_id' => $roundId,
+                'symbols' => $symbols,
+                'game_round_id' => $gameRoundId,
+            ]);
 
+            // 创建保守策略的预测服务
+            $conservativeService = PredictionServiceFactory::create('conservative');
+
+            // 执行预测（这会自动存储到 prediction_results 表）
+            $predictions = $conservativeService->predict(
+                $symbols,
+                time(),
+                [], // 历史数据（暂时为空）
+                $gameRoundId
+            );
+
+            Log::info('✅ PredictionService 预测计算完成', [
+                'round_id' => $roundId,
+                'predictions_count' => count($predictions),
+                'strategy' => 'conservative',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('❌ PredictionService 预测计算失败', [
+                'round_id' => $roundId,
+                'symbols' => $symbols,
+                'game_round_id' => $gameRoundId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+        }
+    }
 
     /**
      * 监听器失败时的处理

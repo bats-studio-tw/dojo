@@ -195,6 +195,10 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     lastConnectedAt: null
   });
 
+  // 🔧 新增：初始化状态管理
+  const isInitialized = ref(false);
+  const initializationPromise = ref<Promise<void> | null>(null);
+
   // ==================== 数据状态管理 ====================
   const currentAnalysis = ref<TokenAnalysis[]>([]);
   const analysisMeta = ref<AnalysisMeta | null>(null);
@@ -568,11 +572,39 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   };
 
   const fetchInitialData = async () => {
-    await Promise.all([
-      fetchCurrentAnalysis().catch(console.error),
-      fetchPredictionHistory().catch(console.error),
-      fetchHybridAnalysis().catch(console.error)
-    ]);
+    // 🔧 优化：避免重复初始化
+    if (isInitialized.value) {
+      console.log('📦 数据已初始化，跳过重复请求');
+      return;
+    }
+
+    // 🔧 优化：如果正在初始化，等待完成
+    if (initializationPromise.value) {
+      console.log('⏳ 正在初始化中，等待完成...');
+      await initializationPromise.value;
+      return;
+    }
+
+    // 创建初始化Promise
+    initializationPromise.value = (async () => {
+      try {
+        console.log('🚀 开始初始化数据...');
+        await Promise.all([
+          fetchCurrentAnalysis().catch(console.error),
+          fetchPredictionHistory().catch(console.error),
+          fetchHybridAnalysis().catch(console.error)
+        ]);
+        isInitialized.value = true;
+        console.log('✅ 数据初始化完成');
+      } catch (error) {
+        console.error('❌ 数据初始化失败:', error);
+        throw error;
+      } finally {
+        initializationPromise.value = null;
+      }
+    })();
+
+    await initializationPromise.value;
   };
 
   const refreshAllPredictionData = async () => {
@@ -600,7 +632,16 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   const forceRefreshAll = async () => {
     console.log('🔄 强制刷新所有数据...');
     clearCache();
+    // 🔧 重置初始化状态，允许重新初始化
+    isInitialized.value = false;
     await Promise.all([fetchCurrentAnalysis(true), fetchPredictionHistory(true), fetchHybridAnalysis(true)]);
+  };
+
+  // 🔧 新增：重置初始化状态
+  const resetInitialization = () => {
+    isInitialized.value = false;
+    initializationPromise.value = null;
+    console.log('🔄 初始化状态已重置');
   };
 
   // ==================== 实时数据更新方法 ====================
@@ -735,6 +776,10 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     websocketStatus,
     isConnected,
 
+    // 🔧 新增：初始化状态导出
+    isInitialized,
+    initializationPromise,
+
     // ==================== 数据状态导出 ====================
     currentAnalysis,
     analysisMeta,
@@ -781,6 +826,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     clearErrors,
     clearCache,
     forceRefreshAll,
+    resetInitialization,
 
     // ==================== 实时数据更新方法导出 ====================
     updateGameData,

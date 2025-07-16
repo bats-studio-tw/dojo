@@ -1192,37 +1192,43 @@
 
   // 组件挂载时初始化
   onMounted(async () => {
+    console.log('🚀 AutoBetting: 页面开始初始化...');
+
+    // 恢复认证状态
+    await restoreAuthState();
+
+    // 初始化配置
     await initializeConfig();
 
-    // 🔧 重要：恢复认证状态时同时恢复JWT Token到配置
-    const restored = await restoreAuthState();
-    if (restored) {
-      // 从localStorage恢复JWT Token到配置中
-      const savedTokenData = localStorage.getItem('tokenSetupData');
-      if (savedTokenData) {
-        try {
-          const tokenData = JSON.parse(savedTokenData);
-          if (tokenData.jwt_token && !config.jwt_token) {
-            config.jwt_token = tokenData.jwt_token;
-          }
-        } catch (error) {
-          console.warn('恢复JWT Token失败:', error);
+    // 从localStorage恢复JWT Token到配置中
+    const savedTokenData = localStorage.getItem('tokenSetupData');
+    if (savedTokenData) {
+      try {
+        const tokenData = JSON.parse(savedTokenData);
+        if (tokenData.jwt_token && !config.jwt_token) {
+          config.jwt_token = tokenData.jwt_token;
         }
-      }
-
-      if (!isMonitoringRounds.value) {
-        isMonitoringRounds.value = true;
+      } catch (error) {
+        console.warn('恢复JWT Token失败:', error);
       }
     }
 
-    // 使用store的方法获取初始数据
+    if (!isMonitoringRounds.value) {
+      isMonitoringRounds.value = true;
+    }
+
+    // 🔧 优化：使用store的方法获取初始数据，并添加调试日志
+    console.log('📡 AutoBetting: 开始获取初始数据...');
     await predictionStore.fetchInitialData();
+    console.log('✅ AutoBetting: 初始数据获取完成');
 
     // 获取动能预测历史数据
     await refreshMomentumHistory();
 
     // 设置WebSocket频道监听
     setupWebSocketListeners();
+
+    console.log('🎉 AutoBetting: 页面初始化完成');
   });
 
   // 组件卸载时清理资源

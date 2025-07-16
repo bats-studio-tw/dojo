@@ -315,7 +315,7 @@ class PredictionController extends Controller
             $validated = $validator->validated();
 
             $query = PredictionResult::query()
-                ->with('gameRound')
+                ->with(['gameRound.roundResults'])
                 ->orderBy('created_at', 'desc');
 
             // 应用筛选条件
@@ -334,30 +334,51 @@ class PredictionController extends Controller
             $limit = $validated['limit'] ?? 100;
             $results = $query->limit($limit)->get();
 
-            $formattedResults = $results->map(function ($result) {
-                return [
-                    'id' => $result->id,
-                    'game_round_id' => $result->game_round_id,
-                    'token' => $result->token,
-                    'predict_rank' => $result->predict_rank,
-                    'predict_score' => $result->predict_score,
-                    'elo_score' => $result->elo_score,
-                    'momentum_score' => $result->momentum_score,
-                    'volume_score' => $result->volume_score,
-                    'norm_elo' => $result->norm_elo,
-                    'norm_momentum' => $result->norm_momentum,
-                    'norm_volume' => $result->norm_volume,
-                    'used_weights' => $result->used_weights,
-                    'used_normalization' => $result->used_normalization,
-                    'strategy_tag' => $result->strategy_tag,
-                    'config_snapshot' => $result->config_snapshot,
-                    'created_at' => $result->created_at->toISOString(),
+            // 按轮次分组数据
+            $groupedByRound = $results->groupBy('game_round_id');
+
+            $formattedRounds = [];
+            foreach ($groupedByRound as $roundId => $predictions) {
+                $gameRound = $predictions->first()->gameRound;
+
+                // 格式化预测数据
+                $formattedPredictions = $predictions->map(function ($prediction) {
+                    return [
+                        'symbol' => $prediction->token,
+                        'predicted_rank' => $prediction->predict_rank,
+                        'prediction_score' => $prediction->predict_score,
+                        'predicted_at' => $prediction->created_at->toISOString(),
+                    ];
+                })->toArray();
+
+                // 格式化结果数据
+                $formattedResults = [];
+                if ($gameRound && $gameRound->roundResults) {
+                    $formattedResults = $gameRound->roundResults->map(function ($result) {
+                        return [
+                            'symbol' => $result->token_symbol,
+                            'actual_rank' => $result->rank,
+                            'value' => $result->value ?? '',
+                        ];
+                    })->toArray();
+                }
+
+                // 计算准确率
+                $accuracy = $this->calculateAccuracy($formattedPredictions, $formattedResults);
+
+                $formattedRounds[] = [
+                    'id' => $predictions->first()->id,
+                    'round_id' => $roundId,
+                    'settled_at' => $gameRound ? $gameRound->settled_at?->toISOString() : null,
+                    'predictions' => $formattedPredictions,
+                    'results' => $formattedResults,
+                    'accuracy' => $accuracy,
                 ];
-            })->toArray();
+            }
 
             return response()->json([
                 'success' => true,
-                'data' => $formattedResults,
+                'data' => $formattedRounds,
                 'message' => '历史数据获取成功',
                 'code' => 200,
             ]);
@@ -375,6 +396,56 @@ class PredictionController extends Controller
                 'code' => 500,
             ], 500);
         }
+    }
+
+    /**
+     * 计算预测准确率
+     */
+    private function calculateAccuracy(array $predictions, array $results): array
+    {
+        $totalPredictions = count($predictions);
+        $exactMatches = 0;
+        $closeMatches = 0;
+        $totalRankDifference = 0;
+        $details = [];
+
+        foreach ($predictions as $prediction) {
+            $actualResult = collect($results)->firstWhere('symbol', $prediction['symbol']);
+
+            if ($actualResult) {
+                $rankDifference = abs($prediction['predicted_rank'] - $actualResult['actual_rank']);
+                $totalRankDifference += $rankDifference;
+
+                $isExactMatch = $prediction['predicted_rank'] === $actualResult['actual_rank'];
+                $isCloseMatch = $rankDifference <= 1;
+
+                if ($isExactMatch) {
+                    $exactMatches++;
+                }
+                if ($isCloseMatch) {
+                    $closeMatches++;
+                }
+
+                $details[] = [
+                    'symbol' => $prediction['symbol'],
+                    'predicted_rank' => $prediction['predicted_rank'],
+                    'actual_rank' => $actualResult['actual_rank'],
+                    'rank_difference' => $rankDifference,
+                    'is_exact_match' => $isExactMatch,
+                    'is_close_match' => $isCloseMatch,
+                ];
+            }
+        }
+
+        return [
+            'total_predictions' => $totalPredictions,
+            'exact_matches' => $exactMatches,
+            'close_matches' => $closeMatches,
+            'exact_accuracy' => $totalPredictions > 0 ? ($exactMatches / $totalPredictions) * 100 : 0,
+            'close_accuracy' => $totalPredictions > 0 ? ($closeMatches / $totalPredictions) * 100 : 0,
+            'avg_rank_difference' => $totalPredictions > 0 ? $totalRankDifference / $totalPredictions : 0,
+            'details' => $details,
+        ];
     }
 
     /**
@@ -912,7 +983,7 @@ class PredictionController extends Controller
             $offset = $validated['offset'] ?? 0;
 
             // 获取动量预测历史
-            $history = \App\Models\HybridRoundPredict::with('gameRound')
+            $history = \App\Models\HybridRoundPredict::with(['gameRound.roundResults'])
                 ->orderBy('created_at', 'desc')
                 ->offset($offset)
                 ->limit($limit)
@@ -921,19 +992,36 @@ class PredictionController extends Controller
 
             $formattedHistory = [];
             foreach ($history as $roundId => $predictions) {
+                $gameRound = $predictions->first()->gameRound;
+
+                // 格式化预测数据
+                $formattedPredictions = $predictions->map(function ($prediction) {
+                    return [
+                        'symbol' => $prediction->token_symbol,
+                        'predicted_rank' => $prediction->predicted_rank,
+                        'momentum_score' => $prediction->mom_score,
+                        'confidence' => $prediction->confidence,
+                        'created_at' => $prediction->created_at->toISOString(),
+                    ];
+                })->values()->toArray();
+
+                // 格式化结果数据
+                $formattedResults = [];
+                if ($gameRound && $gameRound->roundResults) {
+                    $formattedResults = $gameRound->roundResults->map(function ($result) {
+                        return [
+                            'symbol' => $result->token_symbol,
+                            'actual_rank' => $result->rank,
+                            'value' => $result->value ?? '',
+                        ];
+                    })->toArray();
+                }
+
                 $formattedHistory[] = [
                     'round_id' => $roundId,
-                    'predictions' => $predictions->map(function ($prediction) {
-                        return [
-                            'symbol' => $prediction->token_symbol,
-                            'predicted_rank' => $prediction->predicted_rank,
-                            'mom_score' => $prediction->mom_score,
-                            'elo_prob' => $prediction->elo_prob,
-                            'final_score' => $prediction->final_score,
-                            'confidence' => $prediction->confidence,
-                            'created_at' => $prediction->created_at->toISOString(),
-                        ];
-                    })->values()->toArray(),
+                    'settled_at' => $gameRound ? $gameRound->settled_at?->toISOString() : null,
+                    'predictions' => $formattedPredictions,
+                    'results' => $formattedResults,
                     'total_predictions' => $predictions->count(),
                     'created_at' => $predictions->first()->created_at->toISOString(),
                 ];

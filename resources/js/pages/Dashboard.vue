@@ -275,7 +275,7 @@
   } = storeToRefs(gamePredictionStore);
 
   // 从store中获取方法
-  const { reconnectWebSocket } = gamePredictionStore;
+  // const { manualReconnect } = gamePredictionStore;
 
   // 本地状态管理
   const historyData = ref<HistoryRound[]>([]);
@@ -441,6 +441,14 @@
 
   const refreshHistoryData = () => fetchHistoryData();
   const refreshPredictionHistoryData = () => fetchPredictionHistoryData();
+
+  // WebSocket重连方法
+  const reconnectWebSocket = () => {
+    console.log('🔄 手动重连WebSocket...');
+    // 这里可以调用WebSocket管理器的重连方法
+    // 暂时只是刷新页面数据
+    refreshAnalysis();
+  };
 
   // ==================== 历史数据表格 ====================
 
@@ -731,7 +739,7 @@
 
           detailedData.push({
             key: `${round.round_id}-${prediction.symbol}`,
-            round_id: round.round_id,
+            round_id: round.round_id || '',
             symbol: prediction.symbol,
             predicted_rank: prediction.predicted_rank,
             actual_rank: actualResult.actual_rank,

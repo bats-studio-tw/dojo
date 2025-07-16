@@ -259,7 +259,7 @@ export function usePredictionStats(
           const rankDifference = Math.abs(prediction.predicted_rank - actualResult.actual_rank);
 
           detailedData.push({
-            round_id: round.round_id,
+            round_id: round.round_id || '',
             symbol: prediction.symbol,
             predicted_rank: prediction.predicted_rank,
             actual_rank: actualResult.actual_rank,

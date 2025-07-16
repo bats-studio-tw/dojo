@@ -317,9 +317,15 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     analysisError.value = null;
 
     try {
+      console.log('🔄 开始获取当前分析数据...');
       const response = await api.get('/v2/predictions/current-analysis');
+      console.log('📡 API响应状态:', response.status);
+      console.log('📡 API响应数据:', response.data);
+
       if (response.data.success) {
         const rawData = response.data.data || [];
+        console.log('📊 原始数据长度:', rawData.length);
+        console.log('📊 原始数据样本:', rawData.slice(0, 3));
 
         // 数据映射：将API返回的数据转换为TokenAnalysis格式
         const mappedData = rawData.map((item: any) => ({
@@ -353,9 +359,17 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
           avg_value: item.avg_value || 0
         }));
 
+        console.log('🔄 映射后数据长度:', mappedData.length);
+        console.log('🔄 映射后数据样本:', mappedData.slice(0, 3));
+        console.log('🔄 设置currentAnalysis.value:', mappedData);
+
         currentAnalysis.value = mappedData;
         analysisMeta.value = response.data.meta || null;
+
+        console.log('✅ 数据设置完成，currentAnalysis.value长度:', currentAnalysis.value.length);
+        console.log('✅ analysisMeta.value:', analysisMeta.value);
       } else {
+        console.error('❌ API返回失败:', response.data.message);
         throw new Error(response.data.message || '获取当前分析数据失败');
       }
     } catch (error) {

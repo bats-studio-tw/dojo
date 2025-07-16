@@ -20,6 +20,12 @@
               <span>回測中心</span>
             </NButton>
 
+            <!-- 调试按钮 -->
+            <NButton type="info" size="small" ghost @click="debugDataFlow" class="flex items-center space-x-1">
+              <span>🐛</span>
+              <span>调试数据</span>
+            </NButton>
+
             <!-- WebSocket状态指示器 -->
             <div class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2" :class="getWebSocketStatusClass()">
               <span>{{ getWebSocketStatusIcon() }}</span>
@@ -435,6 +441,24 @@
     refreshAnalysis();
   };
 
+  // 调试数据流
+  const debugDataFlow = () => {
+    console.log('🐛 === 调试数据流开始 ===');
+    console.log('🐛 currentAnalysis:', currentAnalysis.value);
+    console.log('🐛 currentAnalysis长度:', currentAnalysis.value?.length);
+    console.log('🐛 analysisMeta:', analysisMeta.value);
+    console.log('🐛 currentRoundId:', currentRoundId.value);
+    console.log('🐛 currentGameStatus:', currentGameStatus.value);
+    console.log('🐛 currentGameTokensWithRanks:', currentGameTokensWithRanks.value);
+    console.log('🐛 currentGameTokensWithRanks长度:', currentGameTokensWithRanks.value?.length);
+    console.log('🐛 analysisLoading:', analysisLoading.value);
+    console.log('🐛 === 调试数据流结束 ===');
+
+    // 手动触发数据刷新
+    console.log('🔄 手动触发数据刷新...');
+    gamePredictionStore.fetchCurrentAnalysis();
+  };
+
   // ==================== 历史数据表格 ====================
 
   const getTokensByRank = (tokens: RoundToken[], rank: number): string => {
@@ -819,9 +843,20 @@
 
   // 页面初始化时只调用store
   onMounted(() => {
+    console.log('🚀 Dashboard页面初始化开始...');
+    console.log('🚀 当前store状态 - currentAnalysis:', currentAnalysis.value);
+    console.log('🚀 当前store状态 - analysisMeta:', analysisMeta.value);
+
     gamePredictionStore.fetchCurrentAnalysis();
     fetchHistoryData();
     fetchPredictionHistoryData();
+
+    // 添加一个延时检查，确认数据是否正确加载
+    setTimeout(() => {
+      console.log('⏰ 延时检查 - currentAnalysis:', currentAnalysis.value);
+      console.log('⏰ 延时检查 - analysisMeta:', analysisMeta.value);
+      console.log('⏰ 延时检查 - currentAnalysis长度:', currentAnalysis.value?.length);
+    }, 2000);
   });
 </script>
 

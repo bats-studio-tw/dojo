@@ -154,14 +154,18 @@
   const sortedPredictionsByRank = computed(() => {
     console.log('🔮 AIPredictionRanking: 接收到currentAnalysis数据:', props.currentAnalysis);
     console.log('🔮 AIPredictionRanking: 数据长度:', props.currentAnalysis?.length);
+    console.log('🔮 AIPredictionRanking: 数据类型:', typeof props.currentAnalysis);
+    console.log('🔮 AIPredictionRanking: 是否为数组:', Array.isArray(props.currentAnalysis));
 
     if (!props.currentAnalysis || props.currentAnalysis.length === 0) {
       console.warn('⚠️ AIPredictionRanking: currentAnalysis为空或长度为0');
+      console.warn('⚠️ AIPredictionRanking: currentAnalysis值:', props.currentAnalysis);
       return [];
     }
 
     const sorted = [...props.currentAnalysis].sort((a, b) => a.predicted_rank - b.predicted_rank);
     console.log('🔮 AIPredictionRanking: 排序后的数据:', sorted.slice(0, 3)); // 只显示前3个
+    console.log('🔮 AIPredictionRanking: 排序后总长度:', sorted.length);
     return sorted;
   });
 
@@ -253,6 +257,6 @@
     if (index === 0) return '🥇';
     if (index === 1) return '🥈';
     if (index === 2) return '🥉';
-    return '🏅';
+    return '��';
   };
 </script>

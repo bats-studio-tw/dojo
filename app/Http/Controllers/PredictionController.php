@@ -847,10 +847,33 @@ class PredictionController extends Controller
     public function getCurrentAnalysis(): JsonResponse
     {
         try {
-            // 优先从缓存获取预测数据，直接原样返回
+            // 优先从缓存获取预测数据
             $cachedPrediction = Cache::get('game:current_prediction');
+
             if ($cachedPrediction && is_array($cachedPrediction)) {
-                return response()->json($cachedPrediction);
+                // 确保返回与WebSocket推送一致的数据结构
+                $analysisData = $cachedPrediction['analysis_data'] ?? [];
+                $roundId = $cachedPrediction['round_id'] ?? 'unknown';
+                $generatedAt = $cachedPrediction['generated_at'] ?? now()->toISOString();
+
+                // 构造与WebSocket推送完全一致的数据结构
+                return response()->json([
+                    'success' => true,
+                    'data' => $analysisData,
+                    'meta' => [
+                        'round_id' => $roundId,
+                        'status' => 'current',
+                        'current_tokens' => array_column($analysisData, 'symbol'),
+                        'analysis_rounds_count' => count($analysisData),
+                        'prediction_algorithm' => $cachedPrediction['algorithm'] ?? 'hybrid_edge_v1',
+                        'algorithm_description' => $cachedPrediction['algorithm_description'] ?? 'Hybrid Edge v1.0',
+                        'timestamp' => $generatedAt,
+                        'generated_at' => $generatedAt,
+                        'source' => 'api_current_analysis',
+                    ],
+                    'message' => '当前分析数据获取成功（来自缓存）',
+                    'code' => 200,
+                ]);
             }
 
             // 如果缓存中没有数据，尝试从数据库获取

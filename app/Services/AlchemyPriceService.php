@@ -24,7 +24,13 @@ class AlchemyPriceService
      */
     private function getApiKey(): string
     {
-        return env('ALCHEMY_API_KEY');
+        $apiKey = env('ALCHEMY_API_KEY');
+
+        if (empty($apiKey)) {
+            throw new Exception('ALCHEMY_API_KEY 环境变量未设置或为空');
+        }
+
+        return $apiKey;
     }
 
     /**

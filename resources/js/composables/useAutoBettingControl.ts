@@ -330,7 +330,7 @@ export const useAutoBettingControl = () => {
 
     try {
       addDebugLog('info', '📡 测试基本API连接...');
-      const basicResponse = await api.get('/api/v2/predictions/current-analysis');
+      const basicResponse = await api.get('/v2/predictions/current-analysis');
       addDebugLog('info', `📡 基本连接状态: ${basicResponse.status} ${basicResponse.statusText}`);
 
       if (basicResponse.status === 200) {

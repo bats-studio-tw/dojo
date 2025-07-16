@@ -265,7 +265,7 @@
     try {
       isTestingWebSocket.value = true;
 
-      const response = await fetch('/api/v2/websocket/test-broadcast', {
+      const response = await fetch('/v2/websocket/test-broadcast', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

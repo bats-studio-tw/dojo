@@ -401,7 +401,7 @@
   // 獲取策略列表
   const fetchStrategies = async () => {
     try {
-      const response = await api.get('/api/v2/strategies');
+      const response = await api.get('/v2/strategies');
       if (response.data.success) {
         availableStrategies.value = response.data.data;
         strategyOptions.value = availableStrategies.value.map((s) => ({
@@ -436,7 +436,7 @@
       };
 
       // 發送請求
-      const endpoint = formData.backtestType === 'single' ? '/api/v2/backtest/async' : '/api/v2/backtest/grid-search';
+      const endpoint = formData.backtestType === 'single' ? '/v2/backtest/async' : '/v2/backtest/grid-search';
 
       const response = await api.post(endpoint, requestData);
 
@@ -489,7 +489,7 @@
     if (!currentBatch.value?.id) return;
 
     try {
-      const response = await api.post('/api/v2/backtest/batch-status', {
+      const response = await api.post('/v2/backtest/batch-status', {
         batch_id: currentBatch.value.id
       });
 
@@ -528,7 +528,7 @@
   // 查看報告詳情
   const viewReportDetail = async (reportId: number) => {
     try {
-      const response = await api.post('/api/v2/backtest/report-detail', { id: reportId });
+      const response = await api.post('/v2/backtest/report-detail', { id: reportId });
       if (response.data.success) {
         const report = response.data.data;
         dialog.info({

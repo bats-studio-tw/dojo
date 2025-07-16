@@ -217,7 +217,7 @@
   const fetchTests = async () => {
     isLoading.value = true;
     try {
-      const response = await api.get('/api/v2/ab-tests');
+      const response = await api.get('/ab-testing/list');
       tests.value = response.data.data || [];
       pagination.value.itemCount = tests.value.length;
     } catch (error: any) {
@@ -249,7 +249,7 @@
   const toggleTestStatus = async (test: any) => {
     try {
       const newStatus = test.status === 'active' ? 'paused' : 'active';
-      await api.put(`/api/v2/ab-tests/${test.id}/status`, { status: newStatus });
+      await api.post('/ab-testing/stop', { test_id: test.id, status: newStatus });
       test.status = newStatus;
       message.success(`测试已${newStatus === 'active' ? '启动' : '暂停'}`);
     } catch (error: any) {

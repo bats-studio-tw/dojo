@@ -194,7 +194,7 @@ export const bettingAnalysisApi = {
 
     console.log('🔧 API实际发送的参数:', params);
 
-    return api.get('/betting-analysis/performance', {
+    return api.get('/v2/analysis/betting-performance', {
       params
     });
   }

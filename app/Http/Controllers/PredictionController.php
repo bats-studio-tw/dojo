@@ -1348,29 +1348,95 @@ class PredictionController extends Controller
     /**
      * 获取用户投注表现
      */
-    public function getUserBettingPerformance(): JsonResponse
+    public function getUserBettingPerformance(Request $request): JsonResponse
     {
         try {
-            // 获取用户投注表现数据
-            $performance = \App\Models\AutoBettingRecord::selectRaw('
-                COUNT(*) as total_bets,
-                SUM(CASE WHEN profit_loss > 0 THEN 1 ELSE 0 END) as winning_bets,
-                SUM(profit_loss) as total_profit_loss,
-                AVG(profit_loss) as avg_profit_loss
-            ')->first();
+            // 验证请求参数
+            $validator = Validator::make($request->all(), [
+                'uid' => 'required|string',
+                'filter_type' => 'nullable|in:days,rounds',
+                'days' => 'nullable|integer|min:-1',
+                'limit_rounds' => 'nullable|integer|min:1|max:10000',
+            ]);
 
-            $winRate = $performance->total_bets > 0
-                ? ($performance->winning_bets / $performance->total_bets) * 100
-                : 0;
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '参数验证失败',
+                    'errors' => $validator->errors(),
+                    'code' => 400,
+                ], 400);
+            }
+
+            $uid = $request->input('uid');
+            $filterType = $request->input('filter_type', 'days');
+            $days = $request->input('days', -1);
+            $limitRounds = $request->input('limit_rounds', 100);
+
+            // 构建查询
+            $query = \App\Models\AutoBettingRecord::where('uid', $uid);
+
+            // 根据筛选方式应用过滤条件
+            if ($filterType === 'days') {
+                if ($days > 0) {
+                    $query->where('created_at', '>=', now()->subDays($days));
+                }
+                // 如果 days = -1，则不添加时间过滤，显示全部历史
+            } else {
+                // 按局数筛选：获取最新的N局
+                $query->orderBy('created_at', 'desc')->limit($limitRounds);
+            }
+
+            // 获取详细记录
+            $records = $query->orderBy('created_at', 'desc')->get();
+
+            // 计算统计数据
+            $totalBets = $records->count();
+            $settledBets = $records->where('success', true)->count();
+
+            // 获取实际排名数据（从result_data中提取）
+            $recordsWithRank = $records->map(function ($record) {
+                $actualRank = null;
+                if ($record->result_data && isset($record->result_data['rank'])) {
+                    $actualRank = $record->result_data['rank'];
+                }
+
+                return [
+                    'id' => $record->id,
+                    'created_at' => $record->created_at->toISOString(),
+                    'round_id' => $record->round_id,
+                    'token_symbol' => $record->token_symbol,
+                    'predicted_rank' => $record->prediction_data['predicted_rank'] ?? null,
+                    'actual_rank' => $actualRank,
+                    'success' => $record->success,
+                    'bet_amount' => $record->bet_amount,
+                    'profit_loss' => $record->profit_loss,
+                ];
+            });
+
+            // 计算胜率（前三名算成功）
+            $settledRecords = $recordsWithRank->where('actual_rank', '!==', null);
+            $successfulBets = $settledRecords->where('actual_rank', '<=', 3)->count();
+            $failedBets = $settledRecords->where('actual_rank', '>', 3)->count();
+            $successRate = $settledRecords->count() > 0 ? ($successfulBets / $settledRecords->count()) * 100 : 0;
+
+            // 计算投注分布
+            $bettingDistribution = [
+                'winning_bets' => $successfulBets,
+                'losing_bets' => $failedBets,
+                'break_even_bets' => 0, // 暂时设为0，后续可以根据需要调整
+            ];
 
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'total_bets' => $performance->total_bets,
-                    'winning_bets' => $performance->winning_bets,
-                    'win_rate' => round($winRate, 2),
-                    'total_profit_loss' => round($performance->total_profit_loss, 2),
-                    'avg_profit_loss' => round($performance->avg_profit_loss, 2),
+                    'betting_performance' => [
+                        'total_bets' => $totalBets,
+                        'settled_bets' => $settledRecords->count(),
+                        'win_rate_percentage' => round($successRate, 2),
+                        'betting_distribution' => $bettingDistribution,
+                    ],
+                    'detailed_records' => $recordsWithRank->values(),
                 ],
                 'message' => '用户投注表现获取成功',
                 'code' => 200,
@@ -1380,6 +1446,7 @@ class PredictionController extends Controller
             Log::error('获取用户投注表现失败', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all(),
             ]);
 
             return response()->json([

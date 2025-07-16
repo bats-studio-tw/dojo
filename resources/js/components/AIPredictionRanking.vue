@@ -40,11 +40,12 @@
 
         <!-- 核心评分 -->
         <div class="mb-3 text-center">
-          <div class="text-xs text-gray-400">预测分数</div>
-          <div class="text-lg font-bold" :class="getScoreTextClass(index)">
-            {{ (token.final_prediction_score || token.risk_adjusted_score || token.prediction_score || 0).toFixed(1) }}
+          <div class="text-xs text-gray-400">预测排名</div>
+          <div class="text-lg font-bold" :class="getScoreTextClass(index)">#{{ token.predicted_rank }}</div>
+          <div v-if="token.prediction_score > 0" class="text-xs text-gray-400">
+            分数 {{ (token.prediction_score || 0).toFixed(1) }}
           </div>
-          <div v-if="token.rank_confidence" class="text-xs text-gray-400">
+          <div v-if="token.rank_confidence > 0" class="text-xs text-gray-400">
             置信度 {{ (token.rank_confidence || 0).toFixed(0) }}%
           </div>
         </div>
@@ -54,14 +55,14 @@
           <div class="flex justify-between">
             <span class="text-gray-400">绝对分数:</span>
             <span class="text-purple-400 font-bold">
-              {{ token.absolute_score ? (token.absolute_score || 0).toFixed(1) : '-' }}
+              {{ token.absolute_score && token.absolute_score > 0 ? (token.absolute_score || 0).toFixed(1) : '-' }}
             </span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-400">相对分数:</span>
             <span class="text-orange-400 font-bold">
               {{
-                token.relative_score || token.h2h_score
+                (token.relative_score && token.relative_score > 0) || (token.h2h_score && token.h2h_score > 0)
                   ? (token.relative_score || token.h2h_score || 0).toFixed(1)
                   : '-'
               }}
@@ -70,13 +71,13 @@
           <div class="flex justify-between">
             <span class="text-gray-400">保本率:</span>
             <span class="text-green-400 font-bold">
-              {{ token.top3_rate ? (token.top3_rate || 0).toFixed(1) + '%' : '-' }}
+              {{ token.top3_rate && token.top3_rate > 0 ? (token.top3_rate || 0).toFixed(1) + '%' : '-' }}
             </span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-400">胜率:</span>
             <span class="text-yellow-400 font-bold">
-              {{ token.win_rate ? (token.win_rate || 0).toFixed(1) + '%' : '-' }}
+              {{ token.win_rate && token.win_rate > 0 ? (token.win_rate || 0).toFixed(1) + '%' : '-' }}
             </span>
           </div>
 

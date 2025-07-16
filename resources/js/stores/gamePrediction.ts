@@ -319,9 +319,44 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     try {
       const response = await api.get('/v2/predictions/current-analysis');
       if (response.data.success) {
-        currentAnalysis.value = response.data.data || [];
+        const rawData = response.data.data || [];
+
+        // 数据映射：将API返回的数据转换为TokenAnalysis格式
+        const mappedData = rawData.map((item: any) => ({
+          symbol: item.symbol,
+          name: item.symbol, // 使用symbol作为name
+          change_5m: null,
+          change_1h: null,
+          change_4h: null,
+          change_24h: null,
+          volume_24h: '0',
+          market_cap: null,
+          logo: null,
+          prediction_score: item.prediction_score || 0,
+          win_rate: 0, // 默认值
+          top3_rate: 0, // 默认值
+          avg_rank: 3, // 默认值
+          total_games: 0, // 默认值
+          wins: 0, // 默认值
+          top3: 0, // 默认值
+          predicted_rank: item.predicted_rank || 999,
+          // 映射可选字段
+          absolute_score: item.elo_score || 0,
+          relative_score: item.h2h_score || 0,
+          h2h_score: item.h2h_score || 0,
+          risk_adjusted_score: item.risk_adjusted_score || 0,
+          rank_confidence: item.confidence || 0,
+          final_prediction_score: item.volume_score || 0,
+          market_momentum_score: item.momentum_score || 0,
+          value_stddev: item.value_stddev || 0,
+          recent_avg_value: item.recent_avg_value || 0,
+          avg_value: item.avg_value || 0
+        }));
+
+        currentAnalysis.value = mappedData;
         analysisMeta.value = response.data.meta || null;
         console.log(`✅ 成功获取当前分析数据: ${currentAnalysis.value.length} 个Token`);
+        console.log('🔍 映射后的数据样本:', mappedData.slice(0, 2));
       } else {
         throw new Error(response.data.message || '获取当前分析数据失败');
       }

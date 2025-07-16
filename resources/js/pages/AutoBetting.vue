@@ -117,6 +117,15 @@
               </template>
 
               <div class="border border-white/10 rounded-xl bg-black/20 p-6 backdrop-blur-md">
+                <!-- 调试信息 -->
+                <div class="mb-4 rounded bg-gray-800/50 p-2 text-xs text-gray-300">
+                  <div>🔍 调试信息:</div>
+                  <div>currentAnalysis长度: {{ currentAnalysis?.length || 0 }}</div>
+                  <div>currentRoundId: {{ currentRoundId }}</div>
+                  <div>currentGameStatus: {{ currentGameStatus }}</div>
+                  <div>analysisLoading: {{ analysisLoading }}</div>
+                </div>
+
                 <SmartControlCenter
                   :auto-betting-status="autoBettingStatus"
                   :current-analysis="currentAnalysis"
@@ -863,21 +872,15 @@
   const refreshAnalysis = async () => {
     console.log('🔄 AutoBetting: 刷新分析数据');
     try {
-      const response = await gameApi.getCurrentAnalysis();
-      if (response.data.success) {
-        currentAnalysis.value = response.data.data || [];
-        analysisMeta.value = response.data.meta || null;
-        console.log(`✅ 成功刷新预测数据: ${currentAnalysis.value.length} 个Token`);
+      // 使用store的方法来获取数据，确保数据正确更新到store中
+      await predictionStore.fetchCurrentAnalysis();
+      console.log(`✅ 成功刷新预测数据: ${currentAnalysis.value.length} 个Token`);
 
-        // 同时刷新 Hybrid-Edge 預測數據
-        await fetchHybridPredictions();
+      // 同时刷新 Hybrid-Edge 預測數據
+      await fetchHybridPredictions();
 
-        // 刷新后重新验证策略
-        validateCurrentStrategy();
-      } else {
-        console.warn('⚠️ 刷新预测数据失败:', response.data.message);
-        window.$message?.warning('刷新预测数据失败');
-      }
+      // 刷新后重新验证策略
+      validateCurrentStrategy();
     } catch (error) {
       console.error('❌ 刷新预测数据失败:', error);
       window.$message?.error('刷新预测数据失败');
@@ -1232,16 +1235,12 @@
 
     // 🔮 获取初始预测数据 - 确保与Dashboard行为一致
     console.log('🔮 自动下注页面：获取初始预测数据...');
-    await refreshAnalysis();
 
-    // 获取预测历史数据，用于历史分析标签页
-    await predictionStore.fetchPredictionHistory();
+    // 使用store的方法获取初始数据
+    await predictionStore.fetchInitialData();
 
     // 获取动能预测历史数据
     await refreshMomentumHistory();
-
-    // 获取 Hybrid-Edge 動能預測數據
-    await fetchHybridPredictions();
 
     // 🔌 设置WebSocket频道监听
     setupWebSocketListeners();

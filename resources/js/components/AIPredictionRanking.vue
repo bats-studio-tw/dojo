@@ -151,7 +151,17 @@
 
   // 预测Token按排名排序
   const sortedPredictionsByRank = computed(() => {
-    return [...props.currentAnalysis].sort((a, b) => a.predicted_rank - b.predicted_rank);
+    console.log('🔮 AIPredictionRanking: 接收到currentAnalysis数据:', props.currentAnalysis);
+    console.log('🔮 AIPredictionRanking: 数据长度:', props.currentAnalysis?.length);
+
+    if (!props.currentAnalysis || props.currentAnalysis.length === 0) {
+      console.warn('⚠️ AIPredictionRanking: currentAnalysis为空或长度为0');
+      return [];
+    }
+
+    const sorted = [...props.currentAnalysis].sort((a, b) => a.predicted_rank - b.predicted_rank);
+    console.log('🔮 AIPredictionRanking: 排序后的数据:', sorted.slice(0, 3)); // 只显示前3个
+    return sorted;
   });
 
   // ==================== 工具函数 ====================
@@ -242,6 +252,6 @@
     if (index === 0) return '🥇';
     if (index === 1) return '🥈';
     if (index === 2) return '🥉';
-    return '🏅';
+    return '��';
   };
 </script>

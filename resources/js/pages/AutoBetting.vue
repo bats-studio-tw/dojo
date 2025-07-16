@@ -920,10 +920,17 @@
     // 监听游戏数据更新
     websocketManager.listenToGameUpdates((event: any) => {
       console.log('🎮 AutoBetting: 收到游戏数据更新:', event);
+      console.log('🔍 事件数据结构:', {
+        hasData: !!event.data,
+        dataType: typeof event.data,
+        eventKeys: Object.keys(event),
+        dataKeys: event.data ? Object.keys(event.data) : null
+      });
 
       // 更新游戏状态和轮次信息
       if (event.data) {
         const gameData = event.data;
+        console.log('🔍 准备更新游戏数据:', gameData);
 
         // 使用store的更新方法
         predictionStore.updateGameData(gameData);
@@ -932,36 +939,70 @@
         if (gameData.status === 'bet') {
           validateCurrentStrategy();
         }
+      } else {
+        console.warn('⚠️ 游戏数据更新事件缺少data字段');
       }
     });
 
     // 监听预测数据更新
     websocketManager.listenToPredictions((event: any) => {
       console.log('🔮 AutoBetting: 收到预测数据更新:', event);
+      console.log('🔍 预测事件数据结构:', {
+        hasData: !!event.data,
+        dataType: typeof event.data,
+        eventKeys: Object.keys(event),
+        dataKeys: event.data ? Object.keys(event.data) : null
+      });
 
-      // 更新预测数据
-      if (event.prediction) {
+      // 更新预测数据 - 根据后端广播的数据结构
+      if (event.data && Array.isArray(event.data)) {
+        // 这是完整的分析数据数组
+        console.log('🔍 收到完整预测分析数据:', event.data.length, '个Token');
+
+        // 直接更新store中的currentAnalysis
+        currentAnalysis.value = event.data;
+        analysisMeta.value = event.meta || null;
+
+        console.log('✅ 预测数据已更新到store');
+
+        // 触发策略验证
+        validateCurrentStrategy();
+      } else if (event.prediction) {
+        // 兼容旧的单个预测数据格式
         const predictionData = event.prediction;
+        console.log('🔍 收到单个预测数据:', predictionData);
 
         // 使用store的更新方法
         predictionStore.updatePredictionData(predictionData);
 
         // 触发策略验证
         validateCurrentStrategy();
+      } else {
+        console.warn('⚠️ 预测数据更新事件格式不匹配');
       }
     });
 
     // 监听Hybrid预测数据更新
     websocketManager.listenToHybridPredictions((event: any) => {
       console.log('⚡ AutoBetting: 收到Hybrid预测数据更新:', event);
+      console.log('🔍 Hybrid预测事件数据结构:', {
+        hasData: !!event.data,
+        dataType: typeof event.data,
+        eventKeys: Object.keys(event),
+        dataKeys: event.data ? Object.keys(event.data) : null
+      });
 
       // 更新Hybrid预测数据
       if (event.data && Array.isArray(event.data)) {
+        console.log('🔍 收到Hybrid预测数据:', event.data.length, '个Token');
+
         // 使用store的更新方法
         predictionStore.updateHybridPredictions(event.data, event.meta);
 
         // 触发策略验证
         validateCurrentStrategy();
+      } else {
+        console.warn('⚠️ Hybrid预测数据更新事件格式不匹配');
       }
     });
 

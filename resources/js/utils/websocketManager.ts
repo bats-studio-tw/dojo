@@ -123,7 +123,7 @@ export class WebSocketManager {
     this.eventCallbacks.gameUpdates = callback;
 
     if (this.gameUpdatesChannel) {
-      this.gameUpdatesChannel.listen('.GameDataUpdated', (event: any) => {
+      this.gameUpdatesChannel.listen('.game.data.updated', (event: any) => {
         console.log('🎮 收到游戏数据更新:', event);
         callback(event);
       });
@@ -137,7 +137,7 @@ export class WebSocketManager {
     this.eventCallbacks.predictions = callback;
 
     if (this.predictionsChannel) {
-      this.predictionsChannel.listen('.NewPredictionMade', (event: any) => {
+      this.predictionsChannel.listen('.prediction.updated', (event: any) => {
         console.log('🔮 收到预测数据更新:', event);
         callback(event);
       });
@@ -151,7 +151,7 @@ export class WebSocketManager {
     this.eventCallbacks.hybridPredictions = callback;
 
     if (this.hybridPredictionsChannel) {
-      this.hybridPredictionsChannel.listen('.HybridPredictionUpdated', (event: any) => {
+      this.hybridPredictionsChannel.listen('.hybrid.prediction.updated', (event: any) => {
         console.log('⚡ 收到Hybrid预测数据更新:', event);
         callback(event);
       });

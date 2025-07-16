@@ -480,6 +480,9 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
    * 更新游戏数据
    */
   const updateGameData = (gameData: GameData) => {
+    console.log('🔍 updateGameData 被调用，原始数据:', gameData);
+    console.log('🔍 当前 latestGameData:', latestGameData.value);
+
     latestGameData.value = gameData;
 
     // 同时更新分析元数据
@@ -494,6 +497,8 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     }
 
     console.log('🎮 游戏数据已更新:', gameData.status, gameData.rdId);
+    console.log('🔍 更新后 latestGameData:', latestGameData.value);
+    console.log('🔍 更新后 currentGameStatus:', currentGameStatus.value);
   };
 
   /**

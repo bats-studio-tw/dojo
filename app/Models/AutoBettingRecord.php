@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class AutoBettingRecord extends Model
 {
@@ -47,7 +47,9 @@ class AutoBettingRecord extends Model
     public function getActualResult()
     {
         $gameRound = \App\Models\GameRound::where('round_id', $this->round_id)->first();
-        if (!$gameRound) return null;
+        if (! $gameRound) {
+            return null;
+        }
 
         return \App\Models\RoundResult::where('game_round_id', $gameRound->id)
             ->where('token_symbol', strtoupper($this->token_symbol))
@@ -60,7 +62,9 @@ class AutoBettingRecord extends Model
     public function getPrediction()
     {
         $gameRound = \App\Models\GameRound::where('round_id', $this->round_id)->first();
-        if (!$gameRound) return null;
+        if (! $gameRound) {
+            return null;
+        }
 
         return \App\Models\RoundPredict::where('game_round_id', $gameRound->id)
             ->where('token_symbol', strtoupper($this->token_symbol))

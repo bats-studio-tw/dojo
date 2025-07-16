@@ -152,7 +152,7 @@
               <!-- 第一行：图标 + Token符号 + 排名 -->
               <div class="mb-2 flex items-center justify-between">
                 <div class="flex items-center space-x-2">
-                  <span class="text-lg">{{ getPredictionIcon(index) }}</span>
+                  <span class="text-lg">{{ getPredictionIcon(index + 1) }}</span>
                   <span class="text-sm text-white font-bold">{{ token.symbol }}</span>
                   <span class="text-xs text-gray-400">#{{ token.predicted_rank || index + 1 }}</span>
                 </div>
@@ -1262,14 +1262,15 @@
 </template>
 
 <script setup lang="ts">
-  import { onMounted, watch, computed } from 'vue';
+  import { onMounted, watch, computed, onUnmounted } from 'vue';
   import { NEmpty, NTag, NCollapse, NCollapseItem, NSwitch, NInputNumber, NTooltip } from 'naive-ui';
   import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
   import MomentumPredictionDisplay from '@/components/MomentumPredictionDisplay.vue';
   import type { AutoBettingStatus, DebugInfo } from '@/composables/useAutoBettingControl';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
   import { optimizedDefaultConfig } from '@/composables/useAutoBettingConfig';
-  import api from '@/utils/api';
+  import { usePredictionDisplay } from '@/composables/usePredictionDisplay';
+  import { useGamePredictionStore } from '@/stores/gamePrediction';
 
   // Props
   interface Props {
@@ -1320,13 +1321,7 @@
 
   // ==================== 工具函数 ====================
 
-  // 预测图标
-  const getPredictionIcon = (index: number) => {
-    if (index === 0) return '🥇';
-    if (index === 1) return '🥈';
-    if (index === 2) return '🥉';
-    return '📊';
-  };
+  const { getPredictionIcon } = usePredictionDisplay();
 
   // 🔍 检查是否有激活的高级过滤器
   const hasActiveAdvancedFilters = (): boolean => {
@@ -1477,15 +1472,25 @@
   // 获取初始预测数据
   const fetchInitialPredictionData = async () => {
     console.log('🔮 SmartControlCenter: 获取初始预测数据...');
+
+    // 🔧 优化：检查store的初始化状态
+    const predictionStore = useGamePredictionStore();
+    if (predictionStore.isInitialized) {
+      console.log('📦 SmartControlCenter: Store已初始化，跳过重复请求');
+      return;
+    }
+
+    // 🔧 关键修复：如果store正在初始化，等待完成而不是重复请求
+    if (predictionStore.initializationPromise) {
+      console.log('⏳ SmartControlCenter: Store正在初始化，等待完成...');
+      await predictionStore.initializationPromise;
+      return;
+    }
+
+    // 🔧 关键修复：使用store的方法而不是直接调用API
     try {
-      const response = await api.get('/game/current-analysis');
-      if (response.data.success) {
-        console.log(`✅ SmartControlCenter: 成功获取初始预测数据: ${response.data.data?.length || 0} 个Token`);
-        // 通知父组件更新数据，这里我们通过emit通知父组件刷新
-        emit('refreshAnalysis');
-      } else {
-        console.warn('⚠️ SmartControlCenter: 获取初始预测数据失败:', response.data.message);
-      }
+      await predictionStore.fetchCurrentAnalysis();
+      console.log(`✅ SmartControlCenter: 通过store成功获取初始预测数据`);
     } catch (error) {
       console.error('❌ SmartControlCenter: 获取初始预测数据失败:', error);
     }
@@ -1512,27 +1517,76 @@
   onMounted(() => {
     console.log('🎛️ SmartControlCenter: 组件已挂载');
 
-    // 检查是否有预测数据，如果没有则主动获取
-    if (!props.currentAnalysis || props.currentAnalysis.length === 0) {
-      console.log('🔮 SmartControlCenter: 未检测到预测数据，主动获取中...');
-      fetchInitialPredictionData();
-    } else {
-      console.log(`✅ SmartControlCenter: 已有预测数据: ${props.currentAnalysis.length} 个Token`);
-    }
+    // 🔧 优化：检查store的初始化状态
+    const predictionStore = useGamePredictionStore();
+
+    // 🔧 关键修复：增加更长的延迟，确保父组件的数据获取完成
+    setTimeout(() => {
+      // 如果store已初始化，直接检查数据
+      if (predictionStore.isInitialized) {
+        if (!props.currentAnalysis || props.currentAnalysis.length === 0) {
+          console.log('🔮 SmartControlCenter: Store已初始化但无数据，主动获取中...');
+          fetchInitialPredictionData();
+        } else {
+          console.log(`✅ SmartControlCenter: Store已初始化且有数据: ${props.currentAnalysis.length} 个Token`);
+        }
+      } else {
+        // 如果store未初始化，等待初始化完成后再检查
+        console.log('⏳ SmartControlCenter: Store未初始化，等待初始化完成...');
+        let waitCount = 0;
+        const maxWaitCount = 50; // 最大等待5秒 (50 * 100ms)
+        const checkData = () => {
+          if (predictionStore.isInitialized) {
+            if (!props.currentAnalysis || props.currentAnalysis.length === 0) {
+              console.log('🔮 SmartControlCenter: Store初始化完成但无数据，主动获取中...');
+              fetchInitialPredictionData();
+            } else {
+              console.log(`✅ SmartControlCenter: Store初始化完成且有数据: ${props.currentAnalysis.length} 个Token`);
+            }
+          } else {
+            // 继续等待，但增加最大等待时间限制
+            waitCount++;
+            if (waitCount < maxWaitCount) {
+              setTimeout(checkData, 100);
+            } else {
+              console.warn('⚠️ SmartControlCenter: 等待store初始化超时，跳过数据获取');
+            }
+          }
+        };
+        checkData();
+      }
+    }, 500); // 🔧 关键修复：延迟500ms，确保父组件的数据获取完成
   });
 
-  // 监听预测数据变化，当数据清空时主动重新获取
+  // 🔧 优化：监听预测数据变化，当数据清空时主动重新获取
+  // 但增加防抖机制，避免频繁触发
+  let dataCheckTimeout: NodeJS.Timeout | null = null;
   watch(
     () => props.currentAnalysis,
     (newAnalysis, oldAnalysis) => {
-      // 如果从有数据变为无数据，或者一直没有数据，则主动获取
-      if ((!newAnalysis || newAnalysis.length === 0) && (!oldAnalysis || oldAnalysis.length === 0)) {
-        console.log('🔮 SmartControlCenter: 检测到预测数据缺失，尝试获取...');
-        fetchInitialPredictionData();
+      // 清除之前的定时器
+      if (dataCheckTimeout) {
+        clearTimeout(dataCheckTimeout);
       }
+
+      // 延迟检查，避免与父组件的数据获取冲突
+      dataCheckTimeout = setTimeout(() => {
+        // 如果从有数据变为无数据，或者一直没有数据，则主动获取
+        if ((!newAnalysis || newAnalysis.length === 0) && (!oldAnalysis || oldAnalysis.length === 0)) {
+          console.log('🔮 SmartControlCenter: 检测到预测数据缺失，尝试获取...');
+          fetchInitialPredictionData();
+        }
+      }, 200); // 延迟200ms，确保父组件的数据获取完成
     },
     { immediate: false }
   );
+
+  // 组件卸载时清理定时器
+  onUnmounted(() => {
+    if (dataCheckTimeout) {
+      clearTimeout(dataCheckTimeout);
+    }
+  });
 
   // ==================== 调试面板状态和函数 ====================
 

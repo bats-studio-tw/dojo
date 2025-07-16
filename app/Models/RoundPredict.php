@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
 
 class RoundPredict extends Model
 {
@@ -120,7 +120,7 @@ class RoundPredict extends Model
             'rank_difference' => $rankDifference,
             'is_exact_match' => $rankDifference === 0,
             'is_close_match' => $rankDifference <= 1, // 排名差距在1以内算接近
-            'accuracy_score' => max(0, 100 - ($rankDifference * 20)) // 简单的准确度评分
+            'accuracy_score' => max(0, 100 - ($rankDifference * 20)), // 简单的准确度评分
         ];
     }
 }

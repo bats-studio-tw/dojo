@@ -4,10 +4,9 @@ namespace App\Console\Commands;
 
 use App\Services\GameWebSocketService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ListenGameWebSocket extends Command
 {
@@ -51,7 +50,7 @@ class ListenGameWebSocket extends Command
         $this->setupSignalHandlers();
 
         // 设置控制台输出回调
-        $this->webSocketService->setConsoleOutput(function($message, $level = 'info') {
+        $this->webSocketService->setConsoleOutput(function ($message, $level = 'info') {
             match($level) {
                 'error' => $this->error($message),
                 'warn' => $this->warn($message),
@@ -71,8 +70,9 @@ class ListenGameWebSocket extends Command
             $this->error("❌ WebSocket 监听器发生致命错误: " . $e->getMessage());
             Log::error("WebSocket监听器致命错误", [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return Command::FAILURE;
         }
     }
@@ -84,7 +84,7 @@ class ListenGameWebSocket extends Command
             return;
         }
 
-        if (!function_exists('pcntl_signal')) {
+        if (! function_exists('pcntl_signal')) {
             return;
         }
 
@@ -100,7 +100,9 @@ class ListenGameWebSocket extends Command
 
     private function gracefulShutdown(): void
     {
-        if ($this->shouldStop) return; // 防止重複執行
+        if ($this->shouldStop) {
+            return;
+        } // 防止重複執行
 
         $this->shouldStop = true;
         $this->webSocketService->stopListening();

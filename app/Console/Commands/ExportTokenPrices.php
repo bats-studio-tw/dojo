@@ -2,10 +2,10 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
 use App\Models\TokenPrice;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Storage;
 
 class ExportTokenPrices extends Command
 {
@@ -26,7 +26,7 @@ class ExportTokenPrices extends Command
     /**
      * Execute the console command.
      */
-        public function handle()
+    public function handle()
     {
         $hours = (int) $this->option('hours');
         $exportAll = $this->option('all');
@@ -65,6 +65,7 @@ class ExportTokenPrices extends Command
 
         if ($totalRecords === 0) {
             $this->warn("No token price data found for the specified time range.");
+
             return 1;
         }
 
@@ -86,7 +87,7 @@ class ExportTokenPrices extends Command
             'currency',
             'minute_timestamp',
             'datetime',
-            'hour_timestamp'
+            'hour_timestamp',
         ];
         fputcsv($fileHandle, $headers);
 
@@ -96,28 +97,28 @@ class ExportTokenPrices extends Command
         $query = TokenPrice::orderBy('minute_timestamp', 'asc')
             ->orderBy('symbol', 'asc');
 
-        if (!$exportAll) {
+        if (! $exportAll) {
             $query->whereBetween('minute_timestamp', [$startTimestamp, $endTimestamp]);
         }
 
         $query->chunk(1000, function ($prices) use ($fileHandle, &$processedRecords) {
-                foreach ($prices as $price) {
-                    $datetime = Carbon::createFromTimestamp($price->minute_timestamp);
-                    $hourTimestamp = (int) ($price->minute_timestamp / 3600) * 3600;
+            foreach ($prices as $price) {
+                $datetime = Carbon::createFromTimestamp($price->minute_timestamp);
+                $hourTimestamp = (int) ($price->minute_timestamp / 3600) * 3600;
 
-                    $rowData = [
-                        $price->symbol,
-                        $price->price_usd,
-                        $price->currency,
-                        $price->minute_timestamp,
-                        $datetime->toDateTimeString(),
-                        $hourTimestamp
-                    ];
+                $rowData = [
+                    $price->symbol,
+                    $price->price_usd,
+                    $price->currency,
+                    $price->minute_timestamp,
+                    $datetime->toDateTimeString(),
+                    $hourTimestamp,
+                ];
 
-                    fputcsv($fileHandle, $rowData);
-                    $processedRecords++;
-                }
-            });
+                fputcsv($fileHandle, $rowData);
+                $processedRecords++;
+            }
+        });
 
         fclose($fileHandle);
 

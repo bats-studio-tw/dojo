@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Exception;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class DexPriceClient
 {
@@ -39,7 +39,7 @@ class DexPriceClient
             foreach ($symbols as $symbol) {
                 try {
                     $marketData = $this->getTokenMarketData($symbol);
-                    if (!empty($marketData)) {
+                    if (! empty($marketData)) {
                         $priceData[$symbol] = (float) ($marketData['price'] ?? 0);
                     }
 
@@ -97,24 +97,24 @@ class DexPriceClient
     {
         try {
             $response = Http::timeout(self::API_TIMEOUT)->get(self::API_BASE_URL, [
-                'q' => $symbol
+                'q' => $symbol,
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 throw new Exception("DexScreener API returned error: " . $response->status());
             }
 
             $data = $response->json();
 
             // 确保返回的数据结构符合预期
-            if (!isset($data['pairs']) || !is_array($data['pairs']) || empty($data['pairs'])) {
+            if (! isset($data['pairs']) || ! is_array($data['pairs']) || empty($data['pairs'])) {
                 throw new Exception("Invalid response format from DexScreener API or no pairs found.");
             }
 
             // 使用智能匹配找到最适合的代币
             $bestMatch = $this->findBestTokenMatch($data['pairs'], $symbol);
 
-            if (!$bestMatch) {
+            if (! $bestMatch) {
                 throw new Exception("No suitable token match found for {$symbol}");
             }
 
@@ -135,6 +135,7 @@ class DexPriceClient
 
         } catch (Exception $e) {
             Log::error("Error fetching market data from DexScreener for {$symbol}: " . $e->getMessage());
+
             return $this->getDefaultMarketData($symbol);
         }
     }
@@ -151,18 +152,20 @@ class DexPriceClient
 
         try {
             // 验证输入数据
-            if (!is_array($pairs)) {
+            if (! is_array($pairs)) {
                 Log::error("findBestTokenMatch: pairs 参数不是数组", [
                     'target_symbol' => $targetSymbol,
-                    'pairs_type' => gettype($pairs)
+                    'pairs_type' => gettype($pairs),
                 ]);
+
                 return null;
             }
 
             if (empty($pairs)) {
                 Log::warning("findBestTokenMatch: pairs 数组为空", [
-                    'target_symbol' => $targetSymbol
+                    'target_symbol' => $targetSymbol,
                 ]);
+
                 return null;
             }
 
@@ -178,7 +181,7 @@ class DexPriceClient
                     $invalidPairs[] = [
                         'index' => $index,
                         'reason' => $validationResult['reason'],
-                        'symbol' => $pair['baseToken']['symbol'] ?? 'Unknown'
+                        'symbol' => $pair['baseToken']['symbol'] ?? 'Unknown',
                     ];
                 }
             }
@@ -189,13 +192,13 @@ class DexPriceClient
                 'total_pairs' => count($pairs),
                 'valid_pairs' => count($validPairs),
                 'invalid_pairs' => count($invalidPairs),
-                'invalid_reasons' => array_count_values(array_column($invalidPairs, 'reason'))
+                'invalid_reasons' => array_count_values(array_column($invalidPairs, 'reason')),
             ]);
 
             // 如果没有完全有效的交易对，尝试使用部分有效的交易对
             if (empty($validPairs)) {
                 Log::warning("findBestTokenMatch: 没有完全有效的交易对，尝试使用部分有效的交易对", [
-                    'target_symbol' => $targetSymbol
+                    'target_symbol' => $targetSymbol,
                 ]);
 
                 $validPairs = $this->getPartiallyValidPairs($pairs);
@@ -203,8 +206,9 @@ class DexPriceClient
                 if (empty($validPairs)) {
                     Log::error("findBestTokenMatch: 没有找到任何可用的交易对", [
                         'target_symbol' => $targetSymbol,
-                        'total_pairs' => count($pairs)
+                        'total_pairs' => count($pairs),
                     ]);
+
                     return null;
                 }
             }
@@ -213,6 +217,7 @@ class DexPriceClient
             usort($validPairs, function ($a, $b) {
                 $liquidityA = floatval($a['liquidity']['usd'] ?? 0);
                 $liquidityB = floatval($b['liquidity']['usd'] ?? 0);
+
                 return $liquidityB <=> $liquidityA;
             });
 
@@ -238,8 +243,9 @@ class DexPriceClient
                     Log::info("findBestTokenMatch: 找到精确匹配", [
                         'target_symbol' => $targetSymbol,
                         'matched_symbol' => $pairSymbol,
-                        'liquidity' => $pair['liquidity']['usd'] ?? 0
+                        'liquidity' => $pair['liquidity']['usd'] ?? 0,
                     ]);
+
                     return $pair;
                 }
             }
@@ -251,8 +257,9 @@ class DexPriceClient
                     Log::info("findBestTokenMatch: 找到名称匹配", [
                         'target_symbol' => $targetSymbol,
                         'matched_name' => $tokenName,
-                        'liquidity' => $pair['liquidity']['usd'] ?? 0
+                        'liquidity' => $pair['liquidity']['usd'] ?? 0,
                     ]);
+
                     return $pair;
                 }
             }
@@ -264,8 +271,9 @@ class DexPriceClient
                     Log::info("findBestTokenMatch: 找到模糊匹配", [
                         'target_symbol' => $targetSymbol,
                         'matched_symbol' => $pairSymbol,
-                        'liquidity' => $pair['liquidity']['usd'] ?? 0
+                        'liquidity' => $pair['liquidity']['usd'] ?? 0,
                     ]);
+
                     return $pair;
                 }
             }
@@ -275,8 +283,9 @@ class DexPriceClient
             Log::info("findBestTokenMatch: 使用最高流动性交易对", [
                 'target_symbol' => $targetSymbol,
                 'selected_symbol' => $bestPair['baseToken']['symbol'] ?? 'Unknown',
-                'liquidity' => $bestPair['liquidity']['usd'] ?? 0
+                'liquidity' => $bestPair['liquidity']['usd'] ?? 0,
             ]);
+
             return $bestPair;
 
         } catch (\Throwable $e) {
@@ -284,8 +293,9 @@ class DexPriceClient
                 'target_symbol' => $targetSymbol,
                 'pairs_count' => count($pairs),
                 'error_message' => $e->getMessage(),
-                'error_trace' => $e->getTraceAsString()
+                'error_trace' => $e->getTraceAsString(),
             ]);
+
             return null;
         }
     }
@@ -301,12 +311,12 @@ class DexPriceClient
 
         foreach ($pairs as $index => $pair) {
             // 检查是否为数组
-            if (!is_array($pair)) {
+            if (! is_array($pair)) {
                 continue;
             }
 
             // 检查基本字段是否存在
-            if (!isset($pair['baseToken']) || !is_array($pair['baseToken'])) {
+            if (! isset($pair['baseToken']) || ! is_array($pair['baseToken'])) {
                 continue;
             }
 
@@ -316,12 +326,12 @@ class DexPriceClient
             }
 
             // 检查价格（允许为0，但必须存在）
-            if (!isset($pair['priceUsd'])) {
+            if (! isset($pair['priceUsd'])) {
                 continue;
             }
 
             // 检查流动性（允许为0，但必须存在）
-            if (!isset($pair['liquidity']) || !is_array($pair['liquidity'])) {
+            if (! isset($pair['liquidity']) || ! is_array($pair['liquidity'])) {
                 continue;
             }
 
@@ -336,14 +346,14 @@ class DexPriceClient
                     Log::info("findBestTokenMatch: 使用交易量估算流动性", [
                         'symbol' => $pair['baseToken']['symbol'],
                         'volume_24h' => $volume,
-                        'estimated_liquidity' => $pair['liquidity']['usd']
+                        'estimated_liquidity' => $pair['liquidity']['usd'],
                     ]);
                 } else {
                     // 设置最小流动性值
                     $pair['liquidity']['usd'] = 1000;
                     Log::info("findBestTokenMatch: 设置最小流动性值", [
                         'symbol' => $pair['baseToken']['symbol'],
-                        'min_liquidity' => 1000
+                        'min_liquidity' => 1000,
                     ]);
                 }
             }
@@ -392,25 +402,25 @@ class DexPriceClient
     {
         try {
             // 检查是否为数组
-            if (!is_array($pair)) {
+            if (! is_array($pair)) {
                 return ['valid' => false, 'reason' => 'not_array'];
             }
 
             // 检查必需字段
             $requiredFields = ['baseToken', 'priceUsd', 'liquidity'];
             foreach ($requiredFields as $field) {
-                if (!isset($pair[$field])) {
+                if (! isset($pair[$field])) {
                     return ['valid' => false, 'reason' => "missing_{$field}"];
                 }
             }
 
             // 检查 baseToken 是否为数组
-            if (!is_array($pair['baseToken'])) {
+            if (! is_array($pair['baseToken'])) {
                 return ['valid' => false, 'reason' => 'baseToken_not_array'];
             }
 
             // 检查 liquidity 是否为数组
-            if (!is_array($pair['liquidity'])) {
+            if (! is_array($pair['liquidity'])) {
                 return ['valid' => false, 'reason' => 'liquidity_not_array'];
             }
 
@@ -448,6 +458,7 @@ class DexPriceClient
         usort($pairs, function ($a, $b) {
             $liquidityA = floatval($a['liquidity']['usd'] ?? 0);
             $liquidityB = floatval($b['liquidity']['usd'] ?? 0);
+
             return $liquidityB <=> $liquidityA;
         });
 
@@ -463,7 +474,7 @@ class DexPriceClient
     {
         Log::warning("使用默认市场数据", [
             'symbol' => $symbol,
-            'reason' => 'API失败或无匹配交易对'
+            'reason' => 'API失败或无匹配交易对',
         ]);
 
         return [
@@ -508,9 +519,11 @@ class DexPriceClient
     {
         try {
             $response = Http::timeout(5)->get(self::API_BASE_URL, ['q' => 'BTC']);
+
             return $response->successful();
         } catch (Exception $e) {
             Log::error("DexScreener API status check failed: " . $e->getMessage());
+
             return false;
         }
     }

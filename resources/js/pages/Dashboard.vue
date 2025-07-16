@@ -8,6 +8,24 @@
         <div class="mb-6 flex items-center justify-between">
           <h1 class="text-2xl text-white font-bold">📊 数据分析面板</h1>
           <div class="flex space-x-3">
+            <!-- 回測中心入口 -->
+            <NButton
+              type="primary"
+              size="small"
+              ghost
+              @click="$inertia.visit('/backtest')"
+              class="flex items-center space-x-1"
+            >
+              <span>📈</span>
+              <span>回測中心</span>
+            </NButton>
+
+            <!-- 调试按钮 -->
+            <NButton type="info" size="small" ghost @click="debugDataFlow" class="flex items-center space-x-1">
+              <span>🐛</span>
+              <span>调试数据</span>
+            </NButton>
+
             <!-- WebSocket状态指示器 -->
             <div class="flex items-center rounded-lg px-3 py-2 text-sm space-x-2" :class="getWebSocketStatusClass()">
               <span>{{ getWebSocketStatusIcon() }}</span>
@@ -35,14 +53,14 @@
           size="large"
         >
           <template #header-extra>
-            <n-button
+            <NButton
               :loading="predictionHistoryLoading"
               @click="refreshPredictionHistoryData"
               type="primary"
               size="small"
             >
               🔄 刷新预测历史
-            </n-button>
+            </NButton>
           </template>
 
           <NSpin :show="predictionHistoryLoading">
@@ -62,7 +80,7 @@
                 <div class="flex items-center space-x-3">
                   <span class="whitespace-nowrap text-xs text-gray-300 font-medium">局数:</span>
                   <div class="min-w-0 flex-1">
-                    <n-slider
+                    <NSlider
                       v-model:value="recentRoundsCount"
                       :min="1"
                       :max="Math.min(300, predictionHistoryData?.length || 0)"
@@ -112,7 +130,7 @@
                   class="prediction-stat-card"
                   :class="getRankCardClass(rank)"
                 >
-                  <div class="stat-icon">{{ getRankIcon(rank) }}</div>
+                  <div class="stat-icon">{{ getPredictionIcon(rank) }}</div>
                   <div class="stat-content">
                     <div class="stat-label" :class="getRankLabelClass(rank)">预测第{{ rank }}名</div>
                     <div class="stat-multi-value">
@@ -177,9 +195,9 @@
           size="large"
         >
           <template #header-extra>
-            <n-button :loading="historyLoading" @click="refreshHistoryData" type="primary" size="small">
+            <NButton :loading="historyLoading" @click="refreshHistoryData" type="primary" size="small">
               🔄 刷新历史
-            </n-button>
+            </NButton>
           </template>
 
           <NSpin :show="historyLoading">
@@ -207,6 +225,7 @@
   import { storeToRefs } from 'pinia';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
+  import { usePredictionDisplay } from '@/composables/usePredictionDisplay';
   import api from '@/utils/api';
 
   // 导入游戏预测store - 统一的数据管理
@@ -263,7 +282,7 @@
   } = storeToRefs(gamePredictionStore);
 
   // 从store中获取方法
-  const { reconnectWebSocket } = gamePredictionStore;
+  // const { manualReconnect } = gamePredictionStore;
 
   // 本地状态管理
   const historyData = ref<HistoryRound[]>([]);
@@ -306,12 +325,7 @@
     }
   };
 
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return '📊';
-  };
+  const { getPredictionIcon } = usePredictionDisplay();
 
   // 排名卡片样式
   const getRankCardClass = (rank: number) => {
@@ -368,27 +382,12 @@
 
   // ==================== API调用函数 ====================
 
-  const fetchInitialPredictionData = async () => {
-    // 在页面初始化时获取预测数据，避免等待WebSocket
-    console.log('🔮 获取初始预测数据...');
-    try {
-      const response = await api.get('/game/current-analysis');
-      if (response.data.success) {
-        currentAnalysis.value = response.data.data || [];
-        analysisMeta.value = response.data.meta || null;
-        console.log(`✅ 成功获取初始预测数据: ${currentAnalysis.value.length} 个Token`);
-      } else {
-        console.warn('⚠️ 获取初始预测数据失败:', response.data.message);
-      }
-    } catch (error) {
-      console.error('❌ 获取初始预测数据失败:', error);
-    }
-  };
+  // 删除fetchInitialPredictionData，页面只用store
 
   const fetchHistoryData = async () => {
     historyLoading.value = true;
     try {
-      const response = await api.get('/game/history');
+      const response = await api.get('/v2/backtest/historical-rounds');
       if (response.data.success) {
         historyData.value = response.data.data;
       } else {
@@ -405,7 +404,7 @@
   const fetchPredictionHistoryData = async () => {
     predictionHistoryLoading.value = true;
     try {
-      const response = await api.get('/game/prediction-history');
+      const response = await api.get('/v2/predictions/history');
       if (response.data.success) {
         // 更新store中的预测历史数据
         predictionHistory.value = response.data.data;
@@ -423,12 +422,38 @@
   // ==================== 刷新函数 ====================
 
   const refreshAnalysis = () => {
-    // 手动刷新预测分析数据
-    fetchInitialPredictionData();
+    // 只调用store方法，强制刷新
+    gamePredictionStore.fetchCurrentAnalysis(true);
   };
 
   const refreshHistoryData = () => fetchHistoryData();
   const refreshPredictionHistoryData = () => fetchPredictionHistoryData();
+
+  // WebSocket重连方法
+  const reconnectWebSocket = () => {
+    console.log('🔄 手动重连WebSocket...');
+    // 这里可以调用WebSocket管理器的重连方法
+    // 暂时只是刷新页面数据
+    refreshAnalysis();
+  };
+
+  // 调试数据流
+  const debugDataFlow = () => {
+    console.log('🐛 === 调试数据流开始 ===');
+    console.log('🐛 currentAnalysis:', currentAnalysis.value);
+    console.log('🐛 currentAnalysis长度:', currentAnalysis.value?.length);
+    console.log('🐛 analysisMeta:', analysisMeta.value);
+    console.log('🐛 currentRoundId:', currentRoundId.value);
+    console.log('🐛 currentGameStatus:', currentGameStatus.value);
+    console.log('🐛 currentGameTokensWithRanks:', currentGameTokensWithRanks.value);
+    console.log('🐛 currentGameTokensWithRanks长度:', currentGameTokensWithRanks.value?.length);
+    console.log('🐛 analysisLoading:', analysisLoading.value);
+    console.log('🐛 === 调试数据流结束 ===');
+
+    // 手动触发数据刷新
+    console.log('🔄 手动触发数据刷新...');
+    gamePredictionStore.fetchCurrentAnalysis();
+  };
 
   // ==================== 历史数据表格 ====================
 
@@ -599,7 +624,12 @@
     // 获取最新N局数据
     const recentRounds = predictionHistoryData.value
       .slice()
-      .sort((a, b) => b.round_id.localeCompare(a.round_id))
+      .sort((a, b) => {
+        // 🔧 修复：处理 round_id 可能为 undefined 或 null 的情况
+        const aId = String(a.round_id || '');
+        const bId = String(b.round_id || '');
+        return bId.localeCompare(aId);
+      })
       .slice(0, recentRoundsCount.value);
 
     recentRounds.forEach((round) => {
@@ -714,7 +744,7 @@
 
           detailedData.push({
             key: `${round.round_id}-${prediction.symbol}`,
-            round_id: round.round_id,
+            round_id: String(round.round_id || ''),
             symbol: prediction.symbol,
             predicted_rank: prediction.predicted_rank,
             actual_rank: actualResult.actual_rank,
@@ -727,17 +757,13 @@
       });
     });
 
-    return detailedData.sort((a, b) => b.round_id.localeCompare(a.round_id));
+    return detailedData.sort((a, b) => {
+      // 🔧 修复：处理 round_id 可能为 undefined 或 null 的情况
+      const aId = String(a.round_id || '');
+      const bId = String(b.round_id || '');
+      return bId.localeCompare(aId);
+    });
   });
-
-  const getPredictionRankIcon = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    if (rank === 4) return '4️⃣';
-    if (rank === 5) return '5️⃣';
-    return '📊';
-  };
 
   const getTokenPredictionAnalysis = (predictedRank: number, actualRank: number) => {
     if (predictedRank === actualRank) {
@@ -771,7 +797,7 @@
       width: 100,
       render: (row: PredictionComparisonRow) =>
         h('div', { class: 'flex items-center justify-center' }, [
-          h('span', { class: 'text-lg mr-1' }, getPredictionRankIcon(row.predicted_rank)),
+          h('span', { class: 'text-lg mr-1' }, getPredictionIcon(row.predicted_rank)),
           h('span', { class: 'font-medium' }, `#${row.predicted_rank}`)
         ])
     },
@@ -781,7 +807,7 @@
       width: 100,
       render: (row: PredictionComparisonRow) =>
         h('div', { class: 'flex items-center justify-center' }, [
-          h('span', { class: 'text-lg mr-1' }, getPredictionRankIcon(row.actual_rank)),
+          h('span', { class: 'text-lg mr-1' }, getPredictionIcon(row.actual_rank)),
           h('span', { class: 'font-medium' }, `#${row.actual_rank}`)
         ])
     },
@@ -802,21 +828,22 @@
 
   // ==================== 页面初始化 ====================
 
+  // 页面初始化时只调用store
   onMounted(() => {
-    console.log('📊 Dashboard页面初始化，加载历史数据...');
+    console.log('🚀 Dashboard页面初始化开始...');
+    console.log('🚀 当前store状态 - currentAnalysis:', currentAnalysis.value);
+    console.log('🚀 当前store状态 - analysisMeta:', analysisMeta.value);
 
-    // 获取初始预测数据（优先执行，避免等待WebSocket）
-    fetchInitialPredictionData();
-
-    // 获取历史数据
+    gamePredictionStore.fetchCurrentAnalysis();
     fetchHistoryData();
     fetchPredictionHistoryData();
 
-    // 设置定时刷新（历史数据更新频率较低）
-    setInterval(() => {
-      fetchHistoryData();
-      fetchPredictionHistoryData();
-    }, 30000); // 30秒刷新一次
+    // 添加一个延时检查，确认数据是否正确加载
+    setTimeout(() => {
+      console.log('⏰ 延时检查 - currentAnalysis:', currentAnalysis.value);
+      console.log('⏰ 延时检查 - analysisMeta:', analysisMeta.value);
+      console.log('⏰ 延时检查 - currentAnalysis长度:', currentAnalysis.value?.length);
+    }, 2000);
   });
 </script>
 

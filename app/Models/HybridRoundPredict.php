@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class HybridRoundPredict extends Model
 {
@@ -21,9 +22,9 @@ class HybridRoundPredict extends Model
         'confidence',
     ];
 
-    // 如果需要，定義與 GameRound 的關聯
-    // public function gameRound()
-    // {
-    //     return $this->belongsTo(GameRound::class, 'game_round_id');
-    // }
+    // 定义与 GameRound 的关联
+    public function gameRound(): BelongsTo
+    {
+        return $this->belongsTo(GameRound::class, 'game_round_id');
+    }
 }

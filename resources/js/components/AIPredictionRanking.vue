@@ -32,7 +32,7 @@
         <!-- 预测排名头部 -->
         <div class="mb-2 flex items-center justify-between">
           <div class="flex items-center space-x-2">
-            <div class="text-lg">{{ getPredictionIcon(index) }}</div>
+            <div class="text-lg">{{ getPredictionIcon(index + 1) }}</div>
             <div class="text-sm text-white font-bold">{{ token.symbol }}</div>
           </div>
           <div class="text-xs text-gray-400">#{{ token.predicted_rank }}</div>
@@ -40,13 +40,10 @@
 
         <!-- 核心评分 -->
         <div class="mb-3 text-center">
-          <div class="text-xs text-gray-400">预测分数</div>
           <div class="text-lg font-bold" :class="getScoreTextClass(index)">
-            {{ (token.final_prediction_score || token.risk_adjusted_score || token.prediction_score || 0).toFixed(1) }}
+            {{ (token.prediction_score || 0).toFixed(1) }}
           </div>
-          <div v-if="token.rank_confidence" class="text-xs text-gray-400">
-            置信度 {{ (token.rank_confidence || 0).toFixed(0) }}%
-          </div>
+          <div class="text-xs text-gray-400">置信度 {{ (token.rank_confidence || 0).toFixed(0) }}%</div>
         </div>
 
         <!-- 详细数据参数 -->
@@ -54,14 +51,14 @@
           <div class="flex justify-between">
             <span class="text-gray-400">绝对分数:</span>
             <span class="text-purple-400 font-bold">
-              {{ token.absolute_score ? (token.absolute_score || 0).toFixed(1) : '-' }}
+              {{ token.absolute_score && token.absolute_score > 0 ? (token.absolute_score || 0).toFixed(1) : '-' }}
             </span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-400">相对分数:</span>
             <span class="text-orange-400 font-bold">
               {{
-                token.relative_score || token.h2h_score
+                (token.relative_score && token.relative_score > 0) || (token.h2h_score && token.h2h_score > 0)
                   ? (token.relative_score || token.h2h_score || 0).toFixed(1)
                   : '-'
               }}
@@ -70,13 +67,13 @@
           <div class="flex justify-between">
             <span class="text-gray-400">保本率:</span>
             <span class="text-green-400 font-bold">
-              {{ token.top3_rate ? (token.top3_rate || 0).toFixed(1) + '%' : '-' }}
+              {{ token.top3_rate && token.top3_rate > 0 ? (token.top3_rate || 0).toFixed(1) + '%' : '-' }}
             </span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-400">胜率:</span>
             <span class="text-yellow-400 font-bold">
-              {{ token.win_rate ? (token.win_rate || 0).toFixed(1) + '%' : '-' }}
+              {{ token.win_rate && token.win_rate > 0 ? (token.win_rate || 0).toFixed(1) + '%' : '-' }}
             </span>
           </div>
 
@@ -125,6 +122,7 @@
 <script setup lang="ts">
   import { computed } from 'vue';
   import { NCard, NTag, NEmpty } from 'naive-ui';
+  import { usePredictionDisplay } from '@/composables/usePredictionDisplay';
 
   // Props
   interface Props {
@@ -151,7 +149,21 @@
 
   // 预测Token按排名排序
   const sortedPredictionsByRank = computed(() => {
-    return [...props.currentAnalysis].sort((a, b) => a.predicted_rank - b.predicted_rank);
+    console.log('🔮 AIPredictionRanking: 接收到currentAnalysis数据:', props.currentAnalysis);
+    console.log('🔮 AIPredictionRanking: 数据长度:', props.currentAnalysis?.length);
+    console.log('🔮 AIPredictionRanking: 数据类型:', typeof props.currentAnalysis);
+    console.log('🔮 AIPredictionRanking: 是否为数组:', Array.isArray(props.currentAnalysis));
+
+    if (!props.currentAnalysis || props.currentAnalysis.length === 0) {
+      console.warn('⚠️ AIPredictionRanking: currentAnalysis为空或长度为0');
+      console.warn('⚠️ AIPredictionRanking: currentAnalysis值:', props.currentAnalysis);
+      return [];
+    }
+
+    const sorted = [...props.currentAnalysis].sort((a, b) => a.predicted_rank - b.predicted_rank);
+    console.log('🔮 AIPredictionRanking: 排序后的数据:', sorted.slice(0, 3)); // 只显示前3个
+    console.log('🔮 AIPredictionRanking: 排序后总长度:', sorted.length);
+    return sorted;
   });
 
   // ==================== 工具函数 ====================
@@ -218,30 +230,5 @@
 
   // ==================== 样式相关函数 ====================
 
-  const getUnifiedCardClass = (index: number) => {
-    if (index === 0)
-      return 'border-yellow-400/30 bg-gradient-to-br from-yellow-500/10 to-amber-600/5 hover:border-yellow-400/50 hover:shadow-yellow-500/20';
-    if (index === 1)
-      return 'border-slate-400/30 bg-gradient-to-br from-slate-500/10 to-gray-600/5 hover:border-slate-400/50 hover:shadow-slate-500/20';
-    if (index === 2)
-      return 'border-orange-400/30 bg-gradient-to-br from-orange-500/10 to-red-600/5 hover:border-orange-400/50 hover:shadow-orange-500/20';
-    if (index === 3)
-      return 'border-blue-400/30 bg-gradient-to-br from-blue-500/10 to-indigo-600/5 hover:border-blue-400/50 hover:shadow-blue-500/20';
-    return 'border-purple-400/30 bg-gradient-to-br from-purple-500/10 to-pink-600/5 hover:border-purple-400/50 hover:shadow-purple-500/20';
-  };
-
-  const getScoreTextClass = (index: number) => {
-    if (index === 0) return 'text-yellow-400';
-    if (index === 1) return 'text-slate-400';
-    if (index === 2) return 'text-orange-400';
-    if (index === 3) return 'text-blue-400';
-    return 'text-purple-400';
-  };
-
-  const getPredictionIcon = (index: number) => {
-    if (index === 0) return '🥇';
-    if (index === 1) return '🥈';
-    if (index === 2) return '🥉';
-    return '🏅';
-  };
+  const { getUnifiedCardClass, getScoreTextClass, getPredictionIcon } = usePredictionDisplay();
 </script>

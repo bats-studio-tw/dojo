@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use App\Repositories\TokenPriceRepository;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
 
 class TestTokenPricePerformance extends Command
 {

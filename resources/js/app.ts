@@ -19,6 +19,9 @@ import zhCN from './locales/zh-CN.json';
 // Import store for initialization
 import { useGamePredictionStore } from '@/stores/gamePrediction';
 
+// Import WebSocket manager
+import { websocketManager } from '@/utils/websocketManager';
+
 /* 套用naiveui樣式 */
 const meta = document.createElement('meta');
 meta.name = 'naive-ui-style';
@@ -51,28 +54,22 @@ createInertiaApp({
       .use(naive)
       .use(ZiggyVue);
 
-    // 初始化游戏预测数据store - 建立统一的WebSocket连接和数据管理
-    // 这确保了在应用启动时就建立连接，避免每次切换页面都重新连接
-    const gamePredictionStore = useGamePredictionStore();
-
-    // 在应用mount后初始化store，确保DOM和所有服务都已准备好
+    // 在应用mount后初始化，确保DOM和所有服务都已准备好
     app.mount(el);
 
     // 延迟初始化，确保应用完全启动
     setTimeout(async () => {
       try {
-        console.log('🚀 应用启动完成，初始化游戏数据store...');
+        // 初始化WebSocket状态监控器
+        websocketManager.initialize();
+
+        // 初始化游戏数据store
+        const gamePredictionStore = useGamePredictionStore();
         await gamePredictionStore.initialize();
-        console.log('✅ 游戏数据store初始化完成');
       } catch (error) {
-        console.error('❌ 游戏数据store初始化失败:', error);
+        console.error('❌ 服务初始化失败:', error);
       }
     }, 2000);
-
-    // 监听页面卸载，清理资源
-    window.addEventListener('beforeunload', () => {
-      gamePredictionStore.cleanup();
-    });
   },
   progress: {
     color: '#4B5563'

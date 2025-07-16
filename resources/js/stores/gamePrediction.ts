@@ -146,7 +146,7 @@ export interface Accuracy {
 
 export interface PredictionHistoryRound {
   id: number;
-  round_id: string;
+  round_id: string | null | undefined;
   settled_at: string | null;
   predictions: PredictionData[];
   results: ResultData[];
@@ -195,6 +195,10 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     lastConnectedAt: null
   });
 
+  // 🔧 新增：初始化状态管理
+  const isInitialized = ref(false);
+  const initializationPromise = ref<Promise<void> | null>(null);
+
   // ==================== 数据状态管理 ====================
   const currentAnalysis = ref<TokenAnalysis[]>([]);
   const analysisMeta = ref<AnalysisMeta | null>(null);
@@ -215,11 +219,37 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   const historyError = ref<string | null>(null);
   const hybridAnalysisError = ref<string | null>(null);
 
-  // WebSocket连接引用和状态控制
-  let gameUpdatesChannel: any = null;
-  let predictionsChannel: any = null;
-  let hybridPredictionsChannel: any = null;
-  let isInitialized = false; // 防止重复初始化
+  // ==================== 缓存和去重机制 ====================
+  const fetchCache = ref<Map<string, { data: any; timestamp: number; ttl: number }>>(new Map());
+
+  // 缓存时间配置（毫秒）
+  const CACHE_TTL = {
+    currentAnalysis: 30000, // 30秒
+    predictionHistory: 60000, // 1分钟
+    hybridAnalysis: 45000 // 45秒
+  };
+
+  // 检查缓存是否有效
+  const isCacheValid = (key: string, ttl: number) => {
+    const cached = fetchCache.value.get(key);
+    if (!cached) return false;
+    return Date.now() - cached.timestamp < ttl;
+  };
+
+  // 设置缓存
+  const setCache = (key: string, data: any, ttl: number) => {
+    fetchCache.value.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    });
+  };
+
+  // 获取缓存
+  const getCache = (key: string) => {
+    const cached = fetchCache.value.get(key);
+    return cached?.data || null;
+  };
 
   // ==================== 计算属性 ====================
   const isConnected = computed(() => websocketStatus.value.status === 'connected');
@@ -317,303 +347,92 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     return status === 'lock';
   });
 
-  // ==================== WebSocket初始化 ====================
-  const initializeWebSocket = () => {
-    // 防止重复初始化
-    if (isInitialized) {
-      console.log('⚠️ WebSocket已经初始化，跳过重复初始化');
-      return;
-    }
-
-    console.log('🔄 初始化WebSocket连接...');
-
-    if (!window.Echo) {
-      console.error('❌ Echo WebSocket未初始化');
-      websocketStatus.value = {
-        status: 'error',
-        message: 'WebSocket Echo未初始化',
-        lastConnectedAt: null
-      };
-      return;
-    }
-
-    websocketStatus.value = {
-      status: 'connecting',
-      message: '正在连接WebSocket...',
-      lastConnectedAt: null
-    };
-
-    try {
-      // 1. 监听游戏数据更新
-      gameUpdatesChannel = window.Echo.channel('game-updates');
-
-      gameUpdatesChannel
-        .subscribed(() => {
-          console.log('✅ 成功订阅 game-updates 频道');
-        })
-        .listen('.game.data.updated', (event: GameDataUpdateEvent) => {
-          console.log(`📨 收到游戏数据更新: ${event.data.status} - 轮次 ${event.data.rdId}`);
-
-          // 更新游戏数据
-          if (event.data) {
-            latestGameData.value = { ...event.data };
-          }
-        })
-        .error((error: any) => {
-          console.error('❌ game-updates 频道错误:', error);
-        });
-
-      // 2. 监听预测数据更新
-      predictionsChannel = window.Echo.channel('predictions');
-
-      predictionsChannel
-        .subscribed(() => {
-          console.log('✅ 成功订阅 predictions 频道');
-        })
-        .listen('.prediction.updated', (rawEvent: any) => {
-          console.log('🔮 收到预测数据更新');
-
-          // 解析WebSocket数据
-          try {
-            let actualData: any;
-
-            // WebSocket的data字段可能是JSON字符串，需要解析
-            if (typeof rawEvent.data === 'string') {
-              actualData = JSON.parse(rawEvent.data);
-            } else {
-              actualData = rawEvent.data;
-            }
-
-            // 检查数据格式并适配不同的数据结构
-            let predictionArray: TokenAnalysis[] = [];
-            let metaInfo: AnalysisMeta | null = null;
-
-            if (Array.isArray(actualData)) {
-              // 直接是数组格式的预测数据
-              predictionArray = actualData;
-
-              // 从当前游戏数据或其他地方获取meta信息
-              if (latestGameData.value?.rdId) {
-                metaInfo = {
-                  round_id: latestGameData.value.rdId,
-                  status: latestGameData.value.status || 'unknown',
-                  updated_at: new Date().toISOString(),
-                  prediction_algorithm: 'websocket_direct'
-                };
-              }
-            } else if (actualData && typeof actualData === 'object') {
-              // 检查是否是包装格式 {success, data, meta}
-              if (actualData.success !== undefined && actualData.data) {
-                if (actualData.success && Array.isArray(actualData.data)) {
-                  predictionArray = actualData.data;
-                  metaInfo = actualData.meta || null;
-                }
-              } else if (actualData.data && Array.isArray(actualData.data)) {
-                // 可能是 {data: []} 格式
-                predictionArray = actualData.data;
-                metaInfo = actualData.meta || null;
-              } else {
-                console.warn('⚠️ 未识别的预测数据格式');
-              }
-            }
-
-            // 更新预测数据
-            if (predictionArray && Array.isArray(predictionArray) && predictionArray.length > 0) {
-              currentAnalysis.value = [...predictionArray];
-              analysisMeta.value = metaInfo;
-              console.log(`🔮 更新预测数据: ${predictionArray.length} 个Token`);
-            } else {
-              console.warn('⚠️ 预测数据为空或格式不正确');
-            }
-          } catch (error) {
-            console.error('❌ 解析预测数据失败:', error);
-          }
-        })
-        .error((error: any) => {
-          console.error('❌ predictions 频道错误:', error);
-        });
-
-      // 3. 监听Hybrid预测数据更新
-      hybridPredictionsChannel = window.Echo.channel('hybrid-predictions');
-
-      hybridPredictionsChannel
-        .subscribed(() => {
-          console.log('✅ 成功订阅 hybrid-predictions 频道');
-        })
-        .listen('.hybrid.prediction.updated', (rawEvent: any) => {
-          console.log('⚡ 收到Hybrid预测数据更新');
-
-          // 解析WebSocket数据
-          try {
-            let actualData: any;
-
-            // WebSocket的data字段可能是JSON字符串，需要解析
-            if (typeof rawEvent.data === 'string') {
-              actualData = JSON.parse(rawEvent.data);
-            } else {
-              actualData = rawEvent.data;
-            }
-
-            // 检查数据格式并适配Hybrid预测数据结构
-            let predictionArray: any[] = [];
-            let metaInfo: AnalysisMeta | null = null;
-
-            if (Array.isArray(actualData)) {
-              // 直接是数组格式的Hybrid预测数据
-              predictionArray = actualData;
-
-              // 从当前游戏数据或其他地方获取meta信息
-              if (latestGameData.value?.rdId) {
-                metaInfo = {
-                  round_id: latestGameData.value.rdId,
-                  status: latestGameData.value.status || 'unknown',
-                  updated_at: new Date().toISOString(),
-                  prediction_algorithm: 'Hybrid-Edge v1.0',
-                  source: 'hybrid_edge_v1'
-                };
-              }
-            } else if (actualData && typeof actualData === 'object') {
-              // 检查是否是包装格式 {data: []}
-              if (actualData.data && Array.isArray(actualData.data)) {
-                predictionArray = actualData.data;
-                metaInfo = {
-                  round_id: actualData.round_id || latestGameData.value?.rdId || 'unknown',
-                  status: latestGameData.value?.status || 'unknown',
-                  updated_at: actualData.timestamp || new Date().toISOString(),
-                  prediction_algorithm: actualData.algorithm || 'Hybrid-Edge v1.0',
-                  source: actualData.source || 'hybrid_edge_v1'
-                };
-              } else {
-                console.warn('⚠️ 未识别的Hybrid预测数据格式');
-              }
-            }
-
-            // 更新Hybrid预测数据
-            if (predictionArray && Array.isArray(predictionArray) && predictionArray.length > 0) {
-              // 数据验证和去重
-              const validatedPredictions = predictionArray.filter((prediction) => {
-                // 验证必要字段
-                return (
-                  prediction &&
-                  typeof prediction === 'object' &&
-                  prediction.symbol &&
-                  typeof prediction.symbol === 'string' &&
-                  typeof prediction.predicted_rank === 'number' &&
-                  prediction.predicted_rank > 0
-                );
-              });
-
-              // 基于symbol去重，保留排名最高的记录
-              const uniquePredictions = new Map<string, HybridPrediction>();
-              validatedPredictions.forEach((prediction: HybridPrediction) => {
-                const symbol = prediction.symbol.toUpperCase();
-                if (
-                  !uniquePredictions.has(symbol) ||
-                  prediction.predicted_rank < uniquePredictions.get(symbol)!.predicted_rank
-                ) {
-                  uniquePredictions.set(symbol, prediction);
-                }
-              });
-
-              const finalPredictions = Array.from(uniquePredictions.values());
-
-              if (finalPredictions.length > 0) {
-                hybridPredictions.value = finalPredictions;
-                hybridAnalysisMeta.value = metaInfo;
-                console.log(`⚡ 更新Hybrid预测数据: ${finalPredictions.length} 个Token (去重后)`);
-              } else {
-                console.warn('⚠️ Hybrid预测数据验证失败，所有数据都被过滤');
-              }
-            } else {
-              console.warn('⚠️ Hybrid预测数据为空或格式不正确');
-            }
-          } catch (error) {
-            console.error('❌ 解析Hybrid预测数据失败:', error);
-          }
-        })
-        .error((error: any) => {
-          console.error('❌ hybrid-predictions 频道错误:', error);
-        });
-
-      // 连接成功
-      websocketStatus.value = {
-        status: 'connected',
-        message: '已连接',
-        lastConnectedAt: new Date().toISOString()
-      };
-
-      isInitialized = true; // 标记为已初始化
-      console.log('✅ WebSocket连接成功建立');
-    } catch (error) {
-      console.error('❌ WebSocket连接失败:', error);
-      websocketStatus.value = {
-        status: 'error',
-        message: `连接失败: ${error instanceof Error ? error.message : String(error)}`,
-        lastConnectedAt: null
-      };
-    }
-  };
-
-  // ==================== 断开连接 ====================
-  const disconnectWebSocket = () => {
-    console.log('🔌 断开WebSocket连接');
-
-    if (gameUpdatesChannel) {
-      try {
-        window.Echo.leaveChannel('game-updates');
-        gameUpdatesChannel = null;
-      } catch (error) {
-        console.error('❌ 断开 game-updates 频道失败:', error);
-      }
-    }
-
-    if (predictionsChannel) {
-      try {
-        window.Echo.leaveChannel('predictions');
-        predictionsChannel = null;
-      } catch (error) {
-        console.error('❌ 断开 predictions 频道失败:', error);
-      }
-    }
-
-    if (hybridPredictionsChannel) {
-      try {
-        window.Echo.leaveChannel('hybrid-predictions');
-        hybridPredictionsChannel = null;
-      } catch (error) {
-        console.error('❌ 断开 hybrid-predictions 频道失败:', error);
-      }
-    }
-
-    isInitialized = false; // 重置初始化状态
-    websocketStatus.value = {
-      status: 'disconnected',
-      message: '已断开连接',
-      lastConnectedAt: null
-    };
-  };
-
-  // ==================== 重连 ====================
-  const reconnectWebSocket = () => {
-    console.log('🔄 重连WebSocket...');
-    disconnectWebSocket();
-    setTimeout(() => {
-      initializeWebSocket();
-    }, 1000);
-  };
-
   // ==================== API调用方法 ====================
-  const fetchCurrentAnalysis = async () => {
+  const fetchCurrentAnalysis = async (forceRefresh = false) => {
+    // 检查缓存
+    if (!forceRefresh && isCacheValid('currentAnalysis', CACHE_TTL.currentAnalysis)) {
+      const cachedData = getCache('currentAnalysis');
+      if (cachedData) {
+        console.log('📦 使用缓存的当前分析数据');
+        currentAnalysis.value = cachedData.analysis;
+        analysisMeta.value = cachedData.meta;
+        return;
+      }
+    }
+
+    // 防止重复请求
+    if (analysisLoading.value) {
+      console.log('⏳ 当前分析数据正在加载中，跳过重复请求');
+      return;
+    }
+
     analysisLoading.value = true;
     analysisError.value = null;
 
     try {
-      const response = await api.get('/game/current-analysis');
+      console.log('🔄 开始获取当前分析数据...');
+      const response = await api.get('/v2/predictions/current-analysis');
+      console.log('📡 API响应状态:', response.status);
+      console.log('📡 API响应数据:', response.data);
+
       if (response.data.success) {
-        currentAnalysis.value = response.data.data || [];
+        const rawData = response.data.data || [];
+        console.log('📊 原始数据长度:', rawData.length);
+        console.log('📊 原始数据样本:', rawData.slice(0, 3));
+
+        // 数据映射：将API返回的数据转换为TokenAnalysis格式
+        const mappedData = rawData.map((item: any) => ({
+          symbol: item.symbol,
+          name: item.symbol, // 使用symbol作为name
+          change_5m: item.change_5m,
+          change_1h: item.change_1h,
+          change_4h: item.change_4h,
+          change_24h: item.change_24h,
+          volume_24h: '0', // API中没有这个字段，保持默认值
+          market_cap: null, // API中没有这个字段，保持默认值
+          logo: null, // API中没有这个字段，保持默认值
+          prediction_score: item.predicted_final_value || item.h2h_score || 0,
+          win_rate: item.win_rate || 0,
+          top3_rate: item.top3_rate || 0,
+          avg_rank: item.avg_rank || 3,
+          total_games: item.total_games || 0,
+          wins: item.wins || 0,
+          top3: item.top3 || 0,
+          predicted_rank: item.predicted_rank || 999,
+          // 映射可选字段
+          absolute_score: item.absolute_score || 0,
+          relative_score: item.relative_score || 0,
+          h2h_score: item.h2h_score || 0,
+          risk_adjusted_score: item.risk_adjusted_score || 0,
+          rank_confidence: item.rank_confidence || 0,
+          final_prediction_score: item.predicted_final_value || 0,
+          market_momentum_score: item.market_momentum_score || 0,
+          value_stddev: item.value_stddev || 0,
+          recent_avg_value: item.avg_value || 0,
+          avg_value: item.avg_value || 0
+        }));
+
+        console.log('🔄 映射后数据长度:', mappedData.length);
+        console.log('🔄 映射后数据样本:', mappedData.slice(0, 3));
+        console.log('🔄 设置currentAnalysis.value:', mappedData);
+
+        currentAnalysis.value = mappedData;
         analysisMeta.value = response.data.meta || null;
-        console.log(`✅ 成功获取当前分析数据: ${currentAnalysis.value.length} 个Token`);
+
+        // 设置缓存
+        setCache(
+          'currentAnalysis',
+          {
+            analysis: mappedData,
+            meta: response.data.meta
+          },
+          CACHE_TTL.currentAnalysis
+        );
+
+        console.log('✅ 数据设置完成，currentAnalysis.value长度:', currentAnalysis.value.length);
+        console.log('✅ analysisMeta.value:', analysisMeta.value);
       } else {
+        console.error('❌ API返回失败:', response.data.message);
         throw new Error(response.data.message || '获取当前分析数据失败');
       }
     } catch (error) {
@@ -625,17 +444,35 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     }
   };
 
-  const fetchPredictionHistory = async () => {
+  const fetchPredictionHistory = async (forceRefresh = false) => {
+    // 检查缓存
+    if (!forceRefresh && isCacheValid('predictionHistory', CACHE_TTL.predictionHistory)) {
+      const cachedData = getCache('predictionHistory');
+      if (cachedData) {
+        console.log('📦 使用缓存的预测历史数据');
+        predictionHistory.value = cachedData;
+        return;
+      }
+    }
+
+    // 防止重复请求
+    if (historyLoading.value) {
+      console.log('⏳ 预测历史数据正在加载中，跳过重复请求');
+      return;
+    }
+
     historyLoading.value = true;
     historyError.value = null;
 
     try {
       console.log('🔄 获取预测历史数据...');
-      const response = await api.get('/game/prediction-history');
+      const response = await api.get('/v2/predictions/history');
       if (response.data.success) {
         // 更新store中的预测历史数据
         predictionHistory.value = response.data.data || [];
-        console.log(`✅ 成功获取预测历史数据: ${predictionHistory.value.length} 轮`);
+
+        // 设置缓存
+        setCache('predictionHistory', response.data.data || [], CACHE_TTL.predictionHistory);
       } else {
         window.$message?.error(response.data.message || '获取预测历史数据失败');
       }
@@ -649,12 +486,29 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     }
   };
 
-  const fetchHybridAnalysis = async () => {
+  const fetchHybridAnalysis = async (forceRefresh = false) => {
+    // 检查缓存
+    if (!forceRefresh && isCacheValid('hybridAnalysis', CACHE_TTL.hybridAnalysis)) {
+      const cachedData = getCache('hybridAnalysis');
+      if (cachedData) {
+        console.log('📦 使用缓存的Hybrid分析数据');
+        hybridPredictions.value = cachedData.predictions;
+        hybridAnalysisMeta.value = cachedData.meta;
+        return;
+      }
+    }
+
+    // 防止重复请求
+    if (hybridAnalysisLoading.value) {
+      console.log('⏳ Hybrid分析数据正在加载中，跳过重复请求');
+      return;
+    }
+
     hybridAnalysisLoading.value = true;
     hybridAnalysisError.value = null;
 
     try {
-      const response = await api.get('/game/hybrid-analysis');
+      const response = await api.get('/v2/predictions/hybrid');
       if (response.data.success) {
         const rawData = response.data.data || [];
 
@@ -688,14 +542,21 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         if (finalPredictions.length > 0) {
           hybridPredictions.value = finalPredictions;
           hybridAnalysisMeta.value = response.data.meta || null;
-          console.log(`⚡ 成功获取Hybrid分析数据: ${finalPredictions.length} 个Token (去重后)`);
+
+          // 设置缓存
+          setCache(
+            'hybridAnalysis',
+            {
+              predictions: finalPredictions,
+              meta: response.data.meta
+            },
+            CACHE_TTL.hybridAnalysis
+          );
         } else {
-          console.warn('⚠️ Hybrid分析数据验证失败，所有数据都被过滤');
           hybridPredictions.value = [];
           hybridAnalysisMeta.value = null;
         }
       } else {
-        console.warn('⚠️ Hybrid分析数据获取失败:', response.data.message);
         hybridPredictions.value = [];
         hybridAnalysisMeta.value = null;
       }
@@ -711,16 +572,42 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
   };
 
   const fetchInitialData = async () => {
-    console.log('🔄 获取初始数据...');
-    await Promise.all([
-      fetchCurrentAnalysis().catch(console.error),
-      fetchPredictionHistory().catch(console.error),
-      fetchHybridAnalysis().catch(console.error)
-    ]);
+    // 🔧 优化：避免重复初始化
+    if (isInitialized.value) {
+      console.log('📦 数据已初始化，跳过重复请求');
+      return;
+    }
+
+    // 🔧 优化：如果正在初始化，等待完成
+    if (initializationPromise.value) {
+      console.log('⏳ 正在初始化中，等待完成...');
+      await initializationPromise.value;
+      return;
+    }
+
+    // 创建初始化Promise
+    initializationPromise.value = (async () => {
+      try {
+        console.log('🚀 开始初始化数据...');
+        await Promise.all([
+          fetchCurrentAnalysis().catch(console.error),
+          fetchPredictionHistory().catch(console.error),
+          fetchHybridAnalysis().catch(console.error)
+        ]);
+        isInitialized.value = true;
+        console.log('✅ 数据初始化完成');
+      } catch (error) {
+        console.error('❌ 数据初始化失败:', error);
+        throw error;
+      } finally {
+        initializationPromise.value = null;
+      }
+    })();
+
+    await initializationPromise.value;
   };
 
   const refreshAllPredictionData = async () => {
-    console.log('🔄 刷新所有预测数据...');
     await fetchInitialData();
   };
 
@@ -730,31 +617,168 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     hybridAnalysisError.value = null;
   };
 
-  // ==================== 初始化 ====================
-  const initialize = async () => {
-    if (isInitialized) {
-      console.log('⚠️ store已经初始化，跳过重复初始化');
+  // 清除缓存
+  const clearCache = (key?: string) => {
+    if (key) {
+      fetchCache.value.delete(key);
+      console.log(`🗑️ 已清除缓存: ${key}`);
+    } else {
+      fetchCache.value.clear();
+      console.log('🗑️ 已清除所有缓存');
+    }
+  };
+
+  // 强制刷新所有数据
+  const forceRefreshAll = async () => {
+    console.log('🔄 强制刷新所有数据...');
+    clearCache();
+    // 🔧 重置初始化状态，允许重新初始化
+    isInitialized.value = false;
+    await Promise.all([fetchCurrentAnalysis(true), fetchPredictionHistory(true), fetchHybridAnalysis(true)]);
+  };
+
+  // 🔧 新增：重置初始化状态
+  const resetInitialization = () => {
+    isInitialized.value = false;
+    initializationPromise.value = null;
+    console.log('🔄 初始化状态已重置');
+  };
+
+  // ==================== 实时数据更新方法 ====================
+
+  /**
+   * 更新游戏数据
+   */
+  const updateGameData = (gameData: GameData) => {
+    latestGameData.value = gameData;
+
+    // 同时更新分析元数据
+    if (gameData.rdId) {
+      const { status, ...restGameData } = gameData;
+      analysisMeta.value = {
+        round_id: gameData.rdId,
+        status: status || 'unknown',
+        updated_at: new Date().toISOString(),
+        ...restGameData
+      };
+    }
+  };
+
+  /**
+   * 更新预测数据
+   */
+  const updatePredictionData = (predictionData: any) => {
+    if (!currentAnalysis.value) {
+      currentAnalysis.value = [];
+    }
+
+    // 查找并更新现有预测，或添加新预测
+    const existingIndex = currentAnalysis.value.findIndex(
+      (item: TokenAnalysis) => item.symbol === predictionData.token
+    );
+
+    if (existingIndex >= 0) {
+      // 更新现有预测
+      currentAnalysis.value[existingIndex] = {
+        ...currentAnalysis.value[existingIndex],
+        predicted_rank: predictionData.predict_rank,
+        prediction_score: predictionData.predict_score,
+        rank_confidence: predictionData.confidence || 0,
+        // 使用可选字段，如果存在的话
+        ...(predictionData.elo_score && { absolute_score: predictionData.elo_score }),
+        ...(predictionData.momentum_score && { market_momentum_score: predictionData.momentum_score }),
+        ...(predictionData.volume_score && { final_prediction_score: predictionData.volume_score })
+      };
+    } else {
+      // 添加新预测
+      currentAnalysis.value.push({
+        symbol: predictionData.token,
+        name: predictionData.token,
+        predicted_rank: predictionData.predict_rank,
+        prediction_score: predictionData.predict_score,
+        rank_confidence: predictionData.confidence || 0,
+        win_rate: 0,
+        top3_rate: 0,
+        avg_rank: 3,
+        total_games: 0,
+        wins: 0,
+        top3: 0,
+        change_5m: null,
+        change_1h: null,
+        change_4h: null,
+        change_24h: null,
+        volume_24h: '0',
+        market_cap: null,
+        logo: null,
+        // 使用可选字段，如果存在的话
+        ...(predictionData.elo_score && { absolute_score: predictionData.elo_score }),
+        ...(predictionData.momentum_score && { market_momentum_score: predictionData.momentum_score }),
+        ...(predictionData.volume_score && { final_prediction_score: predictionData.volume_score })
+      });
+    }
+  };
+
+  /**
+   * 更新Hybrid预测数据
+   */
+  const updateHybridPredictions = (data: any[], meta?: any) => {
+    if (!Array.isArray(data)) {
+      console.warn('⚠️ Hybrid预测数据格式错误，期望数组');
       return;
     }
 
-    console.log('🏗️ 初始化游戏预测数据store...');
+    // 数据验证和去重
+    const validatedPredictions = data.filter((prediction: any) => {
+      return (
+        prediction &&
+        typeof prediction === 'object' &&
+        prediction.symbol &&
+        typeof prediction.symbol === 'string' &&
+        typeof prediction.predicted_rank === 'number' &&
+        prediction.predicted_rank > 0
+      );
+    });
 
-    // 延迟初始化WebSocket，确保Echo已准备好
-    setTimeout(() => {
-      initializeWebSocket();
-    }, 1000);
+    // 基于symbol去重，保留排名最高的记录
+    const uniquePredictions = new Map<string, HybridPrediction>();
+    validatedPredictions.forEach((prediction: HybridPrediction) => {
+      const symbol = prediction.symbol.toUpperCase();
+      if (!uniquePredictions.has(symbol) || prediction.predicted_rank < uniquePredictions.get(symbol)!.predicted_rank) {
+        uniquePredictions.set(symbol, prediction);
+      }
+    });
+
+    const finalPredictions = Array.from(uniquePredictions.values());
+
+    if (finalPredictions.length > 0) {
+      hybridPredictions.value = finalPredictions;
+      hybridAnalysisMeta.value = {
+        round_id: String(meta?.round_id || currentRoundId.value || ''),
+        status: meta?.status || 'unknown',
+        updated_at: new Date().toISOString(),
+        ...meta
+      };
+    }
+  };
+
+  // ==================== 初始化 ====================
+  const initialize = async () => {
+    // WebSocket初始化已移至独立的WebSocket管理器
   };
 
   // ==================== 清理 ====================
   const cleanup = () => {
-    console.log('🧹 清理游戏预测数据store资源...');
-    disconnectWebSocket();
+    // WebSocket清理已移至独立的WebSocket管理器
   };
 
   return {
     // ==================== 状态导出 ====================
     websocketStatus,
     isConnected,
+
+    // 🔧 新增：初始化状态导出
+    isInitialized,
+    initializationPromise,
 
     // ==================== 数据状态导出 ====================
     currentAnalysis,
@@ -790,9 +814,6 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     isSettling,
 
     // ==================== 方法导出 ====================
-    initializeWebSocket,
-    disconnectWebSocket,
-    reconnectWebSocket,
     initialize,
     cleanup,
 
@@ -802,6 +823,14 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     fetchHybridAnalysis,
     fetchInitialData,
     refreshAllPredictionData,
-    clearErrors
+    clearErrors,
+    clearCache,
+    forceRefreshAll,
+    resetInitialization,
+
+    // ==================== 实时数据更新方法导出 ====================
+    updateGameData,
+    updatePredictionData,
+    updateHybridPredictions
   };
 });

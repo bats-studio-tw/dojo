@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
+use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Exception;
 
 class AlchemyPriceService
 {
@@ -36,6 +36,7 @@ class AlchemyPriceService
     public function batchPrice(array $symbols, bool $forceFresh = false): array
     {
         $symbols = array_unique(array_map('strtoupper', $symbols));
+
         return $this->fetchBatchPrices($symbols);
     }
 
@@ -48,6 +49,7 @@ class AlchemyPriceService
     public function batchPriceData(array $symbols, bool $forceFresh = false): array
     {
         $symbols = array_unique(array_map('strtoupper', $symbols));
+
         return $this->fetchBatchPriceData($symbols);
     }
 
@@ -63,9 +65,11 @@ class AlchemyPriceService
 
         try {
             $priceData = $this->fetchBatchPrices([$symbol]);
+
             return $priceData[$symbol] ?? 0.0;
         } catch (Exception $e) {
             Log::error("获取{$symbol}价格失败", ['error' => $e->getMessage()]);
+
             return 0.0;
         }
     }
@@ -82,9 +86,11 @@ class AlchemyPriceService
 
         try {
             $priceData = $this->fetchBatchPriceData([$symbol]);
+
             return $priceData[$symbol] ?? $this->getDefaultPriceData($symbol);
         } catch (Exception $e) {
             Log::error("获取{$symbol}价格数据失败", ['error' => $e->getMessage()]);
+
             return $this->getDefaultPriceData($symbol);
         }
     }
@@ -108,13 +114,13 @@ class AlchemyPriceService
                     $symbol = strtoupper($token['symbol'] ?? '');
                     $prices = $token['prices'] ?? [];
 
-                    if (!empty($prices) && isset($prices[0]['value'])) {
+                    if (! empty($prices) && isset($prices[0]['value'])) {
                         $priceData[$symbol] = (float) $prices[0]['value'];
                     } else {
                         // Alchemy API没有价格数据，尝试使用DexScreener
                         Log::info("Alchemy API未找到{$symbol}价格，尝试使用DexScreener", [
                             'symbol' => $symbol,
-                            'error' => $token['error'] ?? null
+                            'error' => $token['error'] ?? null,
                         ]);
 
                         $dexPrice = $this->getDexPrice($symbol);
@@ -124,7 +130,7 @@ class AlchemyPriceService
             } catch (Exception $e) {
                 Log::error("批量获取价格失败", [
                     'symbols' => $chunk,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]);
 
                 // 为失败的代币尝试使用DexScreener
@@ -156,20 +162,20 @@ class AlchemyPriceService
                     $symbol = strtoupper($token['symbol'] ?? '');
                     $prices = $token['prices'] ?? [];
 
-                    if (!empty($prices) && isset($prices[0])) {
+                    if (! empty($prices) && isset($prices[0])) {
                         $priceInfo = $prices[0];
                         $priceData[$symbol] = [
                             'symbol' => $symbol,
                             'price_usd' => (float) ($priceInfo['value'] ?? 0),
                             'currency' => $priceInfo['currency'] ?? 'usd',
                             'timestamp' => time(),
-                            'source' => 'alchemy'
+                            'source' => 'alchemy',
                         ];
                     } else {
                         // Alchemy API没有价格数据，尝试使用DexScreener
                         Log::info("Alchemy API未找到{$symbol}价格数据，尝试使用DexScreener", [
                             'symbol' => $symbol,
-                            'error' => $token['error'] ?? null
+                            'error' => $token['error'] ?? null,
                         ]);
 
                         $priceData[$symbol] = $this->getDexPriceData($symbol);
@@ -178,7 +184,7 @@ class AlchemyPriceService
             } catch (Exception $e) {
                 Log::error("批量获取价格数据失败", [
                     'symbols' => $chunk,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]);
 
                 // 为失败的代币尝试使用DexScreener
@@ -204,15 +210,16 @@ class AlchemyPriceService
 
             Log::info("使用DexScreener获取{$symbol}价格成功", [
                 'symbol' => $symbol,
-                'price' => $price
+                'price' => $price,
             ]);
 
             return $price;
         } catch (Exception $e) {
             Log::warning("DexScreener获取{$symbol}价格失败", [
                 'symbol' => $symbol,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return 0.0;
         }
     }
@@ -239,20 +246,21 @@ class AlchemyPriceService
                 'change_24h' => $marketData['change_24h'] ?? null,
                 'volume_24h' => $marketData['volume_24h'] ?? null,
                 'market_cap' => $marketData['market_cap'] ?? null,
-                'liquidity' => $marketData['liquidity'] ?? null
+                'liquidity' => $marketData['liquidity'] ?? null,
             ];
 
             Log::info("使用DexScreener获取{$symbol}价格数据成功", [
                 'symbol' => $symbol,
-                'price' => $priceData['price_usd']
+                'price' => $priceData['price_usd'],
             ]);
 
             return $priceData;
         } catch (Exception $e) {
             Log::warning("DexScreener获取{$symbol}价格数据失败", [
                 'symbol' => $symbol,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return $this->getDefaultPriceData($symbol);
         }
     }
@@ -269,13 +277,13 @@ class AlchemyPriceService
 
         $response = Http::timeout(self::API_TIMEOUT)->get($url);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new Exception("Alchemy API请求失败: HTTP " . $response->status());
         }
 
         $data = $response->json();
 
-        if (!isset($data['data']) || !is_array($data['data'])) {
+        if (! isset($data['data']) || ! is_array($data['data'])) {
             throw new Exception("Alchemy API返回数据格式错误");
         }
 
@@ -313,7 +321,7 @@ class AlchemyPriceService
             '' => null,
             'timestamp' => time(),
             'source' => 'fallback',
-            'error' => true
+            'error' => true,
         ];
     }
 }

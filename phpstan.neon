@@ -1,0 +1,18 @@
+parameters:
+    level: 6
+    paths:
+        - app
+        - config
+        - database
+        - routes
+    excludePaths:
+        - app/Console/Kernel.php (?)
+        - app/Exceptions/Handler.php (?)
+    checkMissingIterableValueType: false
+    checkGenericClassInNonGenericObjectType: false
+    ignoreErrors:
+        - '#Call to an undefined method Illuminate\\Database\\Eloquent\\Builder::#'
+        - '#Call to an undefined method Illuminate\\Database\\Eloquent\\Model::#'
+        - '#Call to an undefined method Illuminate\\Support\\Collection::#'
+    extensions:
+        - PHPStan\Extensions\Laravel\EloquentExtension

@@ -26,7 +26,7 @@ export interface AllMomentumRankStats {
 }
 
 export interface MomentumPredictionHistoryRound {
-  round_id: string;
+  round_id: string | null | undefined;
   settled_at?: string;
   predictions: Array<{
     symbol: string;
@@ -237,7 +237,12 @@ export function useMomentumPredictionStats(
     // 获取最新N局数据（按轮次ID倒序排列后取前N个）
     const recentRounds = momentumPredictionHistory.value
       .slice()
-      .sort((a, b) => b.round_id.localeCompare(a.round_id))
+      .sort((a, b) => {
+        // 🔧 修复：处理 round_id 可能为 undefined 或 null 的情况
+        const aId = String(a.round_id || '');
+        const bId = String(b.round_id || '');
+        return bId.localeCompare(aId);
+      })
       .slice(0, currentRecentRoundsCount);
 
     recentRounds.forEach((round) => {

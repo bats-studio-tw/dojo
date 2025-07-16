@@ -86,7 +86,7 @@
                 <div class="text-xs text-purple-400">用户ID</div>
                 <div class="flex items-center gap-2">
                   <span class="text-sm text-purple-300 font-mono">{{ userInfo.uid.slice(0, 8) }}...</span>
-                  <n-button
+                  <NButton
                     @click="reconnectToken"
                     :disabled="autoBettingStatus.is_running"
                     type="tertiary"
@@ -94,7 +94,7 @@
                     class="transition-all duration-200 !h-5 !text-xs"
                   >
                     重新验证
-                  </n-button>
+                  </NButton>
                 </div>
               </div>
             </div>
@@ -171,18 +171,143 @@
 
               <div class="border border-white/10 rounded-xl bg-black/20 p-6 backdrop-blur-md">
                 <HistoryAnalysisTab
-                  :exact-rate="predictionStats.calculateRoundBasedStats.value.exactRate"
-                  :total-rounds="predictionStats.calculatePortfolioStats.value.totalRounds"
-                  :all-stats="predictionStats.calculateRankBasedStats.value"
-                  :recent-stats="predictionStats.calculateRecentRankBasedStats.value"
+                  :exact-rate="predictionStats.calculateRoundBasedStats.value?.exactRate || 0"
+                  :total-rounds="predictionStats.calculatePortfolioStats.value?.totalRounds || 0"
+                  :all-stats="
+                    predictionStats.calculateRankBasedStats.value || {
+                      rank1: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      },
+                      rank2: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      },
+                      rank3: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      }
+                    }
+                  "
+                  :recent-stats="
+                    predictionStats.calculateRecentRankBasedStats.value || {
+                      rank1: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      },
+                      rank2: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      },
+                      rank3: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      }
+                    }
+                  "
                   :recent-rounds-count="recentRoundsCount"
-                  :max-rounds="predictionHistory.length"
+                  :max-rounds="predictionHistory.length || 0"
                   :history-loading="predictionStore.historyLoading"
-                  :prediction-comparison-data="predictionStats.getPredictionComparisonData.value"
-                  :momentum-stats="momentumStats.stats.value"
+                  :prediction-comparison-data="predictionStats.getPredictionComparisonData.value || []"
+                  :momentum-stats="
+                    momentumStats.stats.value || {
+                      momentumAccuracy: 0,
+                      totalRounds: 0,
+                      allStats: {
+                        rank1: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        },
+                        rank2: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        },
+                        rank3: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        }
+                      },
+                      recentStats: {
+                        rank1: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        },
+                        rank2: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        },
+                        rank3: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        }
+                      },
+                      averageMomentumScore: 0,
+                      averageConfidence: 0
+                    }
+                  "
                   :momentum-loading="momentumHistoryLoading"
                   :momentum-recent-rounds-count="momentumRecentRoundsCount"
-                  :momentum-max-rounds="momentumPredictionHistory.length"
+                  :momentum-max-rounds="momentumPredictionHistory.length || 0"
                   @refresh-prediction-history="refreshPredictionHistory"
                   @refresh-momentum-history="refreshMomentumHistory"
                   @update:recent-rounds-count="updateRecentRoundsCount"
@@ -219,13 +344,14 @@
   import { handleError, createConfirmDialog, handleAsyncOperation } from '@/utils/errorHandler';
   import { autoBettingApi, gameApi } from '@/utils/api';
   import { canBet } from '@/utils/statusUtils';
+  import { websocketManager } from '@/utils/websocketManager';
 
   // 初始化composables和stores
   const configComposable = useAutoBettingConfig();
   const controlComposable = useAutoBettingControl();
   const predictionStore = useGamePredictionStore();
 
-  // 从store中获取响应式数据 (统一数据管理，类似Dashboard)
+  // 从store中获取响应式数据
   const {
     predictionHistory,
     currentAnalysis,
@@ -233,13 +359,15 @@
     currentRoundId,
     currentGameStatus,
     currentGameTokensWithRanks,
-    websocketStatus,
-    isConnected,
     analysisLoading,
     hybridPredictions,
     hybridAnalysisMeta,
     hybridAnalysisLoading
   } = storeToRefs(predictionStore);
+
+  // 使用新的WebSocket管理器
+  const websocketStatus = websocketManager.websocketStatus;
+  const isConnected = websocketManager.isConnected;
 
   // 从store中获取方法
   const { fetchHybridAnalysis } = predictionStore;
@@ -306,8 +434,10 @@
     console.log('✅ Token验证和配置同步完成');
   };
 
-  // 从store中获取WebSocket重连方法
-  const { reconnectWebSocket } = predictionStore;
+  // 使用新的WebSocket管理器重连方法
+  const reconnectWebSocket = () => {
+    websocketManager.manualReconnect();
+  };
 
   // 标签页状态
   const activeTab = ref('control');
@@ -720,10 +850,8 @@
 
   // 获取 Hybrid-Edge 動能預測數據
   const fetchHybridPredictions = async () => {
-    console.log('⚡ AutoBetting: 获取 Hybrid-Edge 動能預測數據');
     try {
-      await fetchHybridAnalysis();
-      console.log(`✅ 成功获取 Hybrid-Edge 預測數據: ${hybridPredictions.value.length} 个Token`);
+      await fetchHybridAnalysis(true);
     } catch (error) {
       console.error('❌ 获取 Hybrid-Edge 預測數據失败:', error);
     }
@@ -731,23 +859,15 @@
 
   // 刷新分析数据
   const refreshAnalysis = async () => {
-    console.log('🔄 AutoBetting: 刷新分析数据');
     try {
-      const response = await gameApi.getCurrentAnalysis();
-      if (response.data.success) {
-        currentAnalysis.value = response.data.data || [];
-        analysisMeta.value = response.data.meta || null;
-        console.log(`✅ 成功刷新预测数据: ${currentAnalysis.value.length} 个Token`);
+      // 使用store的方法来获取数据，确保数据正确更新到store中，强制刷新
+      await predictionStore.fetchCurrentAnalysis(true);
 
-        // 同时刷新 Hybrid-Edge 預測數據
-        await fetchHybridPredictions();
+      // 同时刷新 Hybrid-Edge 預測數據，强制刷新
+      await fetchHybridPredictions();
 
-        // 刷新后重新验证策略
-        validateCurrentStrategy();
-      } else {
-        console.warn('⚠️ 刷新预测数据失败:', response.data.message);
-        window.$message?.warning('刷新预测数据失败');
-      }
+      // 刷新后重新验证策略
+      validateCurrentStrategy();
     } catch (error) {
       console.error('❌ 刷新预测数据失败:', error);
       window.$message?.error('刷新预测数据失败');
@@ -756,19 +876,16 @@
 
   // 刷新预测历史数据
   const refreshPredictionHistory = async () => {
-    console.log('🔄 AutoBetting: 刷新预测历史数据');
     await predictionStore.fetchPredictionHistory();
   };
 
   // 刷新动能预测历史数据
   const refreshMomentumHistory = async () => {
-    console.log('🔄 AutoBetting: 刷新动能预测历史数据');
     momentumHistoryLoading.value = true;
     try {
       const response = await gameApi.getMomentumPredictionHistory();
       if (response.data.success) {
         momentumPredictionHistory.value = response.data.data || [];
-        console.log(`✅ 成功获取动能预测历史数据: ${momentumPredictionHistory.value.length} 轮`);
       } else {
         window.$message?.error(response.data.message || '获取动能预测历史数据失败');
       }
@@ -778,6 +895,60 @@
     } finally {
       momentumHistoryLoading.value = false;
     }
+  };
+
+  // 🔌 设置WebSocket频道监听
+  const setupWebSocketListeners = () => {
+    // 监听游戏数据更新
+    websocketManager.listenToGameUpdates((event: any) => {
+      // 更新游戏状态和轮次信息
+      if (event.data) {
+        const gameData = event.data;
+
+        // 使用store的更新方法
+        predictionStore.updateGameData(gameData);
+
+        // 如果游戏状态变为bet，触发策略验证
+        if (gameData.status === 'bet') {
+          validateCurrentStrategy();
+        }
+      }
+    });
+
+    // 监听预测数据更新
+    websocketManager.listenToPredictions((event: any) => {
+      // 更新预测数据 - 根据后端广播的数据结构
+      if (event.data && Array.isArray(event.data)) {
+        // 这是完整的分析数据数组
+        // 直接更新store中的currentAnalysis
+        currentAnalysis.value = event.data;
+        analysisMeta.value = event.meta || null;
+
+        // 触发策略验证
+        validateCurrentStrategy();
+      } else if (event.prediction) {
+        // 兼容旧的单个预测数据格式
+        const predictionData = event.prediction;
+
+        // 使用store的更新方法
+        predictionStore.updatePredictionData(predictionData);
+
+        // 触发策略验证
+        validateCurrentStrategy();
+      }
+    });
+
+    // 监听Hybrid预测数据更新
+    websocketManager.listenToHybridPredictions((event: any) => {
+      // 更新Hybrid预测数据
+      if (event.data && Array.isArray(event.data)) {
+        // 使用store的更新方法
+        predictionStore.updateHybridPredictions(event.data, event.meta);
+
+        // 触发策略验证
+        validateCurrentStrategy();
+      }
+    });
   };
 
   // ==================== 响应式自动下注逻辑 ====================
@@ -1021,44 +1192,43 @@
 
   // 组件挂载时初始化
   onMounted(async () => {
+    console.log('🚀 AutoBetting: 页面开始初始化...');
+
+    // 恢复认证状态
+    await restoreAuthState();
+
+    // 初始化配置
     await initializeConfig();
 
-    // 🔧 重要：恢复认证状态时同时恢复JWT Token到配置
-    const restored = await restoreAuthState();
-    if (restored) {
-      // 从localStorage恢复JWT Token到配置中
-      const savedTokenData = localStorage.getItem('tokenSetupData');
-      if (savedTokenData) {
-        try {
-          const tokenData = JSON.parse(savedTokenData);
-          if (tokenData.jwt_token && !config.jwt_token) {
-            config.jwt_token = tokenData.jwt_token;
-            console.log('🔧 从localStorage恢复JWT Token到配置中');
-          }
-        } catch (error) {
-          console.warn('恢复JWT Token失败:', error);
+    // 从localStorage恢复JWT Token到配置中
+    const savedTokenData = localStorage.getItem('tokenSetupData');
+    if (savedTokenData) {
+      try {
+        const tokenData = JSON.parse(savedTokenData);
+        if (tokenData.jwt_token && !config.jwt_token) {
+          config.jwt_token = tokenData.jwt_token;
         }
-      }
-
-      if (!isMonitoringRounds.value) {
-        isMonitoringRounds.value = true;
+      } catch (error) {
+        console.warn('恢复JWT Token失败:', error);
       }
     }
 
-    // 🔮 获取初始预测数据 - 确保与Dashboard行为一致
-    console.log('🔮 自动下注页面：获取初始预测数据...');
-    await refreshAnalysis();
+    if (!isMonitoringRounds.value) {
+      isMonitoringRounds.value = true;
+    }
 
-    // 获取预测历史数据，用于历史分析标签页
-    await predictionStore.fetchPredictionHistory();
+    // 🔧 优化：使用store的方法获取初始数据，并添加调试日志
+    console.log('📡 AutoBetting: 开始获取初始数据...');
+    await predictionStore.fetchInitialData();
+    console.log('✅ AutoBetting: 初始数据获取完成');
 
     // 获取动能预测历史数据
     await refreshMomentumHistory();
 
-    // 获取 Hybrid-Edge 動能預測數據
-    await fetchHybridPredictions();
+    // 设置WebSocket频道监听
+    setupWebSocketListeners();
 
-    console.log('🤖 自动下注页面已加载，包含初始数据获取和WebSocket实时数据模式');
+    console.log('🎉 AutoBetting: 页面初始化完成');
   });
 
   // 组件卸载时清理资源
@@ -1070,8 +1240,6 @@
     isMonitoringRounds.value = false;
     debugInfo.lastBetResults = [];
     processedRounds.value.clear();
-
-    console.log('🧹 自动下注页面已卸载，已清理所有监听器');
   });
 </script>
 

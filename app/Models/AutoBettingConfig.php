@@ -63,7 +63,7 @@ class AutoBettingConfig extends Model
             'rank_betting_rank1_amount' => 200,
             'rank_betting_rank2_amount' => 200,
             'rank_betting_rank3_amount' => 200,
-            'rank_betting_max_ranks' => 5
+            'rank_betting_max_ranks' => 5,
         ];
     }
 
@@ -76,7 +76,7 @@ class AutoBettingConfig extends Model
             ['uid' => $uid],
             [
                 'config_payload' => self::getDefaultConfig(),
-                'is_active' => false
+                'is_active' => false,
             ]
         );
     }

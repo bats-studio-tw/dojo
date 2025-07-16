@@ -2,6 +2,7 @@ import { ref, reactive, computed } from 'vue';
 import { getUserInfo, autoBettingApi, gameApi } from '@/utils/api';
 import { getGameStatusTagType } from '@/utils/statusUtils';
 import type { UserInfo } from '@/types';
+import api from '@/utils/api';
 
 export interface AutoBettingStatus {
   is_running: boolean;
@@ -329,30 +330,20 @@ export const useAutoBettingControl = () => {
 
     try {
       addDebugLog('info', '📡 测试基本API连接...');
-      const basicResponse = await fetch('/api/game/current-analysis');
+      const basicResponse = await api.get('/api/v2/predictions/current-analysis');
       addDebugLog('info', `📡 基本连接状态: ${basicResponse.status} ${basicResponse.statusText}`);
 
-      if (basicResponse.ok) {
-        const responseText = await basicResponse.text();
-        addDebugLog('info', `📡 响应长度: ${responseText.length} 字符`);
+      if (basicResponse.status === 200) {
+        const data = basicResponse.data;
+        addDebugLog('info', `📊 JSON解析成功: success=${data.success}, message=${data.message || '无'}`);
 
-        try {
-          const data = JSON.parse(responseText);
-          addDebugLog('info', `📊 JSON解析成功: success=${data.success}, message=${data.message || '无'}`);
-
-          if (data.success && data.data) {
-            addDebugLog('success', `✅ API响应正常: 获取到${data.data.length || 0}条数据`);
-            if (data.meta) {
-              addDebugLog('info', `🎮 元数据: round_id=${data.meta.round_id}, status=${data.meta.status}`);
-            }
-          } else {
-            addDebugLog('warn', `⚠️ API返回失败: ${data.message || '未知原因'}`);
+        if (data.success && data.data) {
+          addDebugLog('success', `✅ API响应正常: 获取到${data.data.length || 0}条数据`);
+          if (data.meta) {
+            addDebugLog('info', `🎮 元数据: round_id=${data.meta.round_id}, status=${data.meta.status}`);
           }
-        } catch (jsonError) {
-          addDebugLog(
-            'error',
-            `❌ JSON解析失败: ${jsonError instanceof Error ? jsonError.message : String(jsonError)}`
-          );
+        } else {
+          addDebugLog('warn', `⚠️ API返回失败: ${data.message || '未知原因'}`);
         }
       }
 
@@ -406,7 +397,8 @@ export const useAutoBettingControl = () => {
     }
 
     await loadStatus();
-    await fetchAnalysisData();
+    // 🔧 关键修复：移除重复的数据获取，让父组件统一管理
+    // await fetchAnalysisData();
   };
 
   // 检查并恢复认证状态
@@ -452,7 +444,8 @@ export const useAutoBettingControl = () => {
         }
 
         await loadStatus();
-        await fetchAnalysisData();
+        // 🔧 关键修复：移除重复的数据获取，让父组件统一管理
+        // await fetchAnalysisData();
         return true;
       } catch (error) {
         console.error('恢复验证状态失败:', error);

@@ -4,15 +4,14 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class () extends Migration {
     /**
      * Run the migrations.
      */
     public function up(): void
     {
         Schema::table('auto_betting_records', function (Blueprint $table) {
-            $table->string('uid')->nullable()->after('id')->index(); // 用户唯一标识符
+            // uid列已经在之前的迁移中添加，这里不需要重复添加
 
             $table->dropIndex(['wallet_address']);
             $table->dropIndex(['wallet_address', 'created_at']);
@@ -34,8 +33,6 @@ return new class extends Migration
             $table->index(['wallet_address', 'created_at']);
             $table->index(['round_id', 'wallet_address']);
             $table->index(['wallet_address', 'status']);
-
-            $table->dropColumn('uid');
         });
     }
 };

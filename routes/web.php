@@ -1,33 +1,62 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ABTestingController;
 use App\Http\Controllers\AutoBettingController;
-use App\Http\Controllers\WebSocketController;
-use App\Http\Controllers\GameDataController;
+use App\Http\Controllers\PredictionController;
+use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// 首页路由
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| contains the "web" middleware group. Now create something great!
+|
+*/
+
 Route::get('/', function () {
     return Inertia::render('Dashboard');
 })->name('dashboard');
 
-// 自动下注控制页面路由
-Route::get('/auto-betting', [AutoBettingController::class, 'index'])->name('auto-betting');
+// 预测系统页面路由 - 移除auth中间件，使用dojo JWT认证
+Route::get('/prediction', function () {
+    return Inertia::render('Prediction');
+})->name('prediction');
 
-// WebSocket 相关路由
-Route::prefix('websocket')->name('websocket.')->group(function () {
-    Route::post('/broadcast/game-data', [WebSocketController::class, 'broadcastGameData'])->name('broadcast.game-data');
-    Route::post('/broadcast/prediction', [WebSocketController::class, 'broadcastPrediction'])->name('broadcast.prediction');
-    Route::post('/notification', [WebSocketController::class, 'sendUserNotification'])->name('notification');
-});
+Route::get('/auto-betting', function () {
+    return Inertia::render('AutoBetting');
+})->name('auto-betting');
 
-// 游戏数据相关路由
+Route::get('/backtest-dashboard', function () {
+    return Inertia::render('BacktestDashboard');
+})->name('backtest-dashboard');
+
+Route::get('/ab-testing-dashboard', function () {
+    return Inertia::render('ABTestingDashboard');
+})->name('ab-testing-dashboard');
+
+
+
+// 已移除的旧路由 - 重定向到新页面
 Route::prefix('game')->name('game.')->group(function () {
-    Route::get('/current-analysis', [GameDataController::class, 'getCurrentAnalysis'])->name('current-analysis');
-    Route::get('/prediction-history', [GameDataController::class, 'getPredictionHistory'])->name('prediction-history');
-    Route::get('/hybrid-analysis', [GameDataController::class, 'getHybridAnalysis'])->name('hybrid-analysis');
+    Route::get('/current-analysis', function () {
+        return redirect()->route('prediction');
+    })->name('current-analysis');
+
+    Route::get('/prediction-history', function () {
+        return redirect()->route('prediction');
+    })->name('prediction-history');
+
+    Route::get('/hybrid-analysis', function () {
+        return redirect()->route('prediction');
+    })->name('hybrid-analysis');
 });
 
-require __DIR__.'/auth.php';

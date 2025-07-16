@@ -17,16 +17,28 @@
     <!-- 动能预测统计分析 -->
     <MomentumPredictionStats
       class="mb-6"
-      :momentum-accuracy="momentumStats.momentumAccuracy"
-      :total-rounds="momentumStats.totalRounds"
-      :all-stats="momentumStats.allStats"
-      :recent-stats="momentumStats.recentStats"
+      :momentum-accuracy="momentumStats?.momentumAccuracy || 0"
+      :total-rounds="momentumStats?.totalRounds || 0"
+      :all-stats="
+        momentumStats?.allStats || {
+          rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+          rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+          rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
+        }
+      "
+      :recent-stats="
+        momentumStats?.recentStats || {
+          rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+          rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+          rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
+        }
+      "
       :recent-rounds-count="props.momentumRecentRoundsCount"
       @update:recent-rounds-count="updateMomentumRecentRoundsCount"
       :max-rounds="props.momentumMaxRounds"
       :loading="momentumLoading"
-      :average-momentum-score="momentumStats.averageMomentumScore"
-      :average-confidence="momentumStats.averageConfidence"
+      :average-momentum-score="momentumStats?.averageMomentumScore || 0"
+      :average-confidence="momentumStats?.averageConfidence || 0"
       @refresh="$emit('refreshMomentumHistory')"
     />
 

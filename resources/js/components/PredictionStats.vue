@@ -66,13 +66,13 @@
 
           <!-- 预测第一名 -->
           <div :class="getCombinedCardClass(getRankStatsCardClass(1))">
-            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥇</div>
+            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">{{ getPredictionIcon(1) }}</div>
             <div class="relative">
               <div class="text-xs font-medium sm:text-sm" :class="getRankStatsCardClass(1).textColor">预测第一名</div>
               <div class="mt-2 space-y-1">
                 <!-- 全部历史数据 -->
                 <div class="border-b border-yellow-400/20 pb-2">
-                  <div class="mb-1 text-xs text-yellow-200/50">最新{{ allStats.rank1.total }}局</div>
+                  <div class="mb-1 text-xs text-yellow-200/50">最新{{ allStats?.rank1?.total || 0 }}局</div>
                   <div class="flex items-center justify-between">
                     <span class="text-base text-yellow-400 font-bold sm:text-lg">
                       {{ (allStats.rank1.breakevenRate || 0).toFixed(1) }}%
@@ -108,13 +108,13 @@
 
           <!-- 预测第二名 -->
           <div :class="getCombinedCardClass(getRankStatsCardClass(2))">
-            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥈</div>
+            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">{{ getPredictionIcon(2) }}</div>
             <div class="relative">
               <div class="text-xs font-medium sm:text-sm" :class="getRankStatsCardClass(2).textColor">预测第二名</div>
               <div class="mt-2 space-y-1">
                 <!-- 全部历史数据 -->
                 <div class="border-b border-slate-400/20 pb-2">
-                  <div class="mb-1 text-xs text-slate-200/50">最新{{ allStats.rank2.total }}局</div>
+                  <div class="mb-1 text-xs text-slate-200/50">最新{{ allStats?.rank2?.total || 0 }}局</div>
                   <div class="flex items-center justify-between">
                     <span class="text-base text-slate-400 font-bold sm:text-lg">
                       {{ (allStats.rank2.breakevenRate || 0).toFixed(1) }}%
@@ -150,13 +150,13 @@
 
           <!-- 预测第三名 -->
           <div :class="getCombinedCardClass(getRankStatsCardClass(3))">
-            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">🥉</div>
+            <div class="absolute right-2 top-2 text-xl opacity-20 sm:text-2xl">{{ getPredictionIcon(3) }}</div>
             <div class="relative">
               <div class="text-xs font-medium sm:text-sm" :class="getRankStatsCardClass(3).textColor">预测第三名</div>
               <div class="mt-2 space-y-1">
                 <!-- 全部历史数据 -->
                 <div class="border-b border-orange-400/20 pb-2">
-                  <div class="mb-1 text-xs text-orange-200/50">最新{{ allStats.rank3.total }}局</div>
+                  <div class="mb-1 text-xs text-orange-200/50">最新{{ allStats?.rank3?.total || 0 }}局</div>
                   <div class="flex items-center justify-between">
                     <span class="text-base text-orange-400 font-bold sm:text-lg">
                       {{ (allStats.rank3.breakevenRate || 0).toFixed(1) }}%
@@ -228,8 +228,13 @@
   }>();
 
   // 使用预测显示工具
-  const { getCombinedCardClass, getRankStatsCardClass, getAccuracyCardClass, getTotalRoundsCardClass } =
-    usePredictionDisplay();
+  const {
+    getCombinedCardClass,
+    getRankStatsCardClass,
+    getAccuracyCardClass,
+    getTotalRoundsCardClass,
+    getPredictionIcon
+  } = usePredictionDisplay();
 
   // 计算属性
   const hasData = computed(() => props.totalRounds > 0);

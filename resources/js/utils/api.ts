@@ -204,24 +204,24 @@ export const bettingAnalysisApi = {
 export const gameApi = {
   // 获取当前分析数据
   getCurrentAnalysis: () => {
-    return api.get('/game/current-analysis');
+    return api.get('/v2/predictions/current-analysis');
   },
 
   // 获取 Hybrid-Edge 動能預測數據
   getHybridPredictions: () => {
-    return api.get('/game/hybrid-predictions');
+    return api.get('/v2/predictions/hybrid');
   },
 
   // 获取动能预测统计数据
   getMomentumPredictionStats: (recentRounds?: number) => {
-    return api.get('/game/momentum-prediction-stats', {
+    return api.get('/v2/predictions/momentum-stats', {
       params: { recent_rounds: recentRounds }
     });
   },
 
   // 获取动能预测历史数据
   getMomentumPredictionHistory: () => {
-    return api.get('/game/momentum-prediction-history');
+    return api.get('/v2/predictions/momentum-history');
   },
 
   // 获取下注ID

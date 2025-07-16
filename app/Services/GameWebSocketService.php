@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\GameRound; // 雖然這裡不用，但你的舊版有，我先保留
+// 雖然這裡不用，但你的舊版有，我先保留
 use App\Events\GameDataUpdated;
 use App\Events\NewRoundStarted;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Ratchet\Client\Connector;
 use Ratchet\RFC6455\Messaging\MessageInterface;
 use React\EventLoop\Loop;
@@ -23,7 +23,8 @@ class GameWebSocketService
     public function __construct(
         private GameDataProcessorService $dataProcessor,
         private GamePredictionService $predictionService
-    ) {}
+    ) {
+    }
 
     /**
      * 设置控制台输出回调
@@ -53,15 +54,16 @@ class GameWebSocketService
         $connector = new Connector($loop);
 
         // 添加心跳定时器，每60秒显示一次状态
-        $heartbeatTimer = $loop->addPeriodicTimer(60, function() {
+        $heartbeatTimer = $loop->addPeriodicTimer(60, function () {
             $processedRoundsCount = count($this->processedRounds);
             $this->consoleOutput("💓 WebSocket 监听器运行中... " . date('H:i:s') .
                 " | 收到消息: {$this->messageCount} | 结算数据: {$this->settlementCount} | 处理轮次: {$processedRoundsCount}");
         });
 
-        $connect = function() use ($connector, &$connect) {
+        $connect = function () use ($connector, &$connect) {
             if ($this->shouldStop) {
                 $this->logInfo("監聽器被要求停止，不再進行連線。");
+
                 return;
             }
 
@@ -99,9 +101,9 @@ class GameWebSocketService
         $loop->run();
     }
 
-     /**
-     * 連接成功回調
-     */
+    /**
+    * 連接成功回調
+    */
     private function onConnectionOpen(WebSocket $conn): void
     {
         $this->logInfo("✅ WebSocket 連線成功建立！");
@@ -121,7 +123,7 @@ class GameWebSocketService
         $conn->on('close', function ($code = null, $reason = null) {
             $this->logWarning("🔌 WebSocket 連線關閉", [
                 'code' => $code,
-                'reason' => $reason
+                'reason' => $reason,
             ]);
             // 在你的Command中，這個事件會觸發重連邏輯
         });
@@ -166,7 +168,7 @@ class GameWebSocketService
      */
     private function handleMessage(string $payload): void
     {
-        if (!str_starts_with($payload, 'NF#')) {
+        if (! str_starts_with($payload, 'NF#')) {
             return;
         }
 
@@ -177,18 +179,19 @@ class GameWebSocketService
             $outerData = json_decode($jsonData, true);
 
             // 检查外层数据结构
-            if (!isset($outerData['type']) || $outerData['type'] !== 'gameData') {
+            if (! isset($outerData['type']) || $outerData['type'] !== 'gameData') {
                 return;
             }
 
             // 解析内层的游戏数据
-            if (!isset($outerData['data'])) {
+            if (! isset($outerData['data'])) {
                 return;
             }
 
             $gameData = json_decode($outerData['data'], true);
-            if (!$gameData) {
+            if (! $gameData) {
                 $this->consoleOutput("⚠️ 无法解析游戏数据");
+
                 return;
             }
 
@@ -235,12 +238,12 @@ class GameWebSocketService
                         broadcast(new GameDataUpdated($gameData, 'bet'));
                         $this->logInfo("📡 新轮次开始数据已广播到WebSocket客户端", [
                             'rdId' => $rdId,
-                            'status' => $status
+                            'status' => $status,
                         ]);
                     } catch (\Exception $broadcastError) {
                         $this->logError("广播新轮次开始数据失败", [
                             'rdId' => $rdId,
-                            'error' => $broadcastError->getMessage()
+                            'error' => $broadcastError->getMessage(),
                         ]);
                     }
 
@@ -252,18 +255,18 @@ class GameWebSocketService
                     // 其他狀態的輪次訊息 - 也需要广播到前端
                     $this->consoleOutput("🎲 游戏轮次状态: {$status} | ID: {$rdId}");
 
-                                        // 广播其他状态的游戏数据到前端 (如倒计时、等待等状态)
+                    // 广播其他状态的游戏数据到前端 (如倒计时、等待等状态)
                     try {
                         broadcast(new GameDataUpdated($gameData, $status));
                         $this->logInfo("📡 游戏状态数据已广播到WebSocket客户端", [
                             'rdId' => $rdId,
-                            'status' => $status
+                            'status' => $status,
                         ]);
                     } catch (\Exception $broadcastError) {
                         $this->logError("广播游戏状态数据失败", [
                             'rdId' => $rdId,
                             'status' => $status,
-                            'error' => $broadcastError->getMessage()
+                            'error' => $broadcastError->getMessage(),
                         ]);
                     }
                 }
@@ -275,7 +278,7 @@ class GameWebSocketService
         } catch (\Exception $e) {
             $this->logError("❌ 處理 WebSocket 訊息時發生錯誤", [
                 'error' => $e->getMessage(),
-                'payload' => substr($payload, 0, 200) . '...' // 只记录前200字符避免日志过长
+                'payload' => substr($payload, 0, 200) . '...', // 只记录前200字符避免日志过长
             ]);
         }
     }
@@ -295,33 +298,35 @@ class GameWebSocketService
                 'tokens_count' => count($tokens),
                 'tokens' => $tokens,
                 'chain_id' => $chainId,
-                'game_data_keys' => array_keys($gameData)
+                'game_data_keys' => array_keys($gameData),
             ]);
 
             if (empty($tokens)) {
                 Log::channel('websocket')->warning('⚠️ 没有代币信息，跳过新轮次事件触发', [
                     'round_id' => $roundId,
-                    'game_data' => $gameData
+                    'game_data' => $gameData,
                 ]);
                 $this->consoleOutput("⚠️ 没有代币信息，跳过新轮次事件触发");
+
                 return;
             }
 
             // 验证代币数据格式
             foreach ($tokens as $token) {
-                if (empty($token) || !is_string($token)) {
+                if (empty($token) || ! is_string($token)) {
                     Log::channel('websocket')->error('❌ 代币数据格式无效', [
                         'round_id' => $roundId,
                         'invalid_token' => $token,
-                        'token_type' => gettype($token)
+                        'token_type' => gettype($token),
                     ]);
+
                     return;
                 }
             }
 
             Log::channel('websocket')->info('✅ 代币数据验证通过，准备触发事件', [
                 'round_id' => $roundId,
-                'valid_tokens' => $tokens
+                'valid_tokens' => $tokens,
             ]);
 
             $this->consoleOutput("🎯 触发新轮次开始事件...");
@@ -335,8 +340,8 @@ class GameWebSocketService
                 'event_data' => [
                     'roundId' => $event->roundId,
                     'symbols' => $event->symbols,
-                    'chainId' => $event->chainId
-                ]
+                    'chainId' => $event->chainId,
+                ],
             ]);
 
             event($event);
@@ -344,7 +349,7 @@ class GameWebSocketService
             Log::channel('websocket')->info('✅ NewRoundStarted 事件已触发', [
                 'round_id' => $roundId,
                 'event_dispatched' => true,
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ]);
 
             $this->consoleOutput("✅ 新轮次开始事件已触发");
@@ -354,12 +359,12 @@ class GameWebSocketService
                 'round_id' => $gameData['rdId'] ?? 'unknown',
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'game_data' => $gameData
+                'game_data' => $gameData,
             ]);
 
             $this->logError("触发新轮次开始事件异常", [
                 'error' => $e->getMessage(),
-                'rdId' => $gameData['rdId'] ?? 'unknown'
+                'rdId' => $gameData['rdId'] ?? 'unknown',
             ]);
         }
     }
@@ -375,6 +380,7 @@ class GameWebSocketService
 
             if (empty($tokens)) {
                 $this->consoleOutput("⚠️ 没有代币信息，跳过预测计算");
+
                 return;
             }
 
@@ -392,7 +398,7 @@ class GameWebSocketService
         } catch (\Exception $e) {
             $this->logError("预测分析计算异常", [
                 'error' => $e->getMessage(),
-                'rdId' => $gameData['rdId'] ?? 'unknown'
+                'rdId' => $gameData['rdId'] ?? 'unknown',
             ]);
         }
     }
@@ -405,8 +411,9 @@ class GameWebSocketService
         $roundId = $gameData['rdId'] ?? null;
         $status = $gameData['status'] ?? 'unknown';
 
-        if (!$roundId) {
+        if (! $roundId) {
             $this->logWarning('游戏数据缺少 rdId', ['gameData' => $gameData]);
+
             return;
         }
 
@@ -417,7 +424,7 @@ class GameWebSocketService
                 'status' => $status,
                 'timestamp' => now()->toISOString(),
                 'tokens' => [],
-                'token_count' => 0
+                'token_count' => 0,
             ];
 
             // 检查并处理代币数据（并非所有状态都有代币信息）
@@ -448,14 +455,14 @@ class GameWebSocketService
             $this->logInfo("✅ 當前局游戏信息已更新到緩存", [
                 'rdId' => $roundId,
                 'status' => $status,
-                'token_count' => $currentRoundData['token_count']
+                'token_count' => $currentRoundData['token_count'],
             ]);
 
         } catch (\Exception $e) {
             $this->logError("❌ 存儲當前局游戏信息到緩存時發生錯誤", [
                 'rdId' => $roundId,
                 'status' => $status,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }

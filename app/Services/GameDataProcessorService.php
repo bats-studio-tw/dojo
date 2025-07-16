@@ -5,12 +5,12 @@ namespace App\Services;
 use App\Events\GameDataUpdated;
 use App\Jobs\EloUpdateJob;
 use App\Models\GameRound;
-use App\Models\RoundResult;
 use App\Models\RoundPredict;
+use App\Models\RoundResult;
+use Exception;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
-use Exception;
 
 class GameDataProcessorService
 {
@@ -24,8 +24,9 @@ class GameDataProcessorService
         $roundId = $gameData['rdId'] ?? null;
         $status = $gameData['status'] ?? 'unknown';
 
-        if (!$roundId) {
+        if (! $roundId) {
             Log::warning('收到的結算資料缺少 rdId', ['gameData' => $gameData]);
+
             return;
         }
 
@@ -33,7 +34,7 @@ class GameDataProcessorService
         Log::channel('websocket')->info('开始处理结算数据', [
             'rdId' => $roundId,
             'status' => $status,
-            'hasTokenData' => isset($gameData['token'])
+            'hasTokenData' => isset($gameData['token']),
         ]);
 
         try {
@@ -47,7 +48,7 @@ class GameDataProcessorService
                 // 从游戏数据中提取正确的结算时间
                 $settleTimestamp = $gameData['time']['now']['settle'] ?? null;
 
-                if ($settleTimestamp && !$round->settled_at) {
+                if ($settleTimestamp && ! $round->settled_at) {
                     $settleTime = \Carbon\Carbon::createFromTimestampMs($settleTimestamp);
                     $round->update(['settled_at' => $settleTime]);
 
@@ -55,14 +56,14 @@ class GameDataProcessorService
                         'round_id' => $roundId,
                         'settle_timestamp' => $settleTimestamp,
                         'settled_at' => $settleTime->toISOString(),
-                        'source' => 'game_time_data'
+                        'source' => 'game_time_data',
                     ]);
-                } elseif (!$settleTimestamp) {
+                } elseif (! $settleTimestamp) {
                     // 如果没有时间数据，使用当前时间作为备用
                     Log::channel('websocket')->warning('游戏数据中缺少结算时间，使用当前时间', [
-                        'round_id' => $roundId
+                        'round_id' => $roundId,
                     ]);
-                    if (!$round->settled_at) {
+                    if (! $round->settled_at) {
                         $round->update(['settled_at' => now()]);
                     }
                 }
@@ -70,7 +71,7 @@ class GameDataProcessorService
                 Log::channel('websocket')->info('GameRound已创建', [
                     'round_id' => $roundId,
                     'database_id' => $round->id,
-                    'is_new' => $round->wasRecentlyCreated
+                    'is_new' => $round->wasRecentlyCreated,
                 ]);
 
                 // 如果這筆 round 已經有 results，就不要重複處理
@@ -78,8 +79,9 @@ class GameDataProcessorService
                     Log::channel('websocket')->info('結算資料已存在，跳過處理', [
                         'rdId' => $roundId,
                         'existing_results_count' => $round->roundResults()->count(),
-                        'status' => $status
+                        'status' => $status,
                     ]);
+
                     return;
                 }
 
@@ -102,7 +104,7 @@ class GameDataProcessorService
             } catch (\Exception $broadcastError) {
                 Log::channel('websocket')->error('广播结算数据失败', [
                     'rdId' => $roundId,
-                    'error' => $broadcastError->getMessage()
+                    'error' => $broadcastError->getMessage(),
                 ]);
             }
 
@@ -110,7 +112,7 @@ class GameDataProcessorService
             Log::channel('websocket')->error("❌ 處理結算資料時發生錯誤", [
                 'rdId' => $roundId,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString() // 加上詳細追蹤訊息
+                'trace' => $e->getTraceAsString(), // 加上詳細追蹤訊息
             ]);
         }
     }
@@ -123,8 +125,9 @@ class GameDataProcessorService
      */
     private function createRoundResults(GameRound $gameRound, array $gameData): void
     {
-        if (!isset($gameData['token']) || !is_array($gameData['token'])) {
+        if (! isset($gameData['token']) || ! is_array($gameData['token'])) {
             Log::warning('結算資料中缺少 token 資訊', ['rdId' => $gameData['rdId']]);
+
             return;
         }
 
@@ -134,7 +137,7 @@ class GameDataProcessorService
         Log::channel('websocket')->info('开始处理代币结果', [
             'rdId' => $gameData['rdId'],
             'tokenCount' => $tokenCount,
-            'tokens' => array_keys($gameData['token'])
+            'tokens' => array_keys($gameData['token']),
         ]);
 
         foreach ($gameData['token'] as $symbol => $details) {
@@ -142,7 +145,7 @@ class GameDataProcessorService
                 'symbol' => $symbol,
                 'details' => $details,
                 'has_s' => isset($details['s']),
-                'has_p' => isset($details['p'])
+                'has_p' => isset($details['p']),
             ]);
 
             // 確保 payload 中有 's' (rank) 和 'p' (value)
@@ -151,9 +154,9 @@ class GameDataProcessorService
                 // 因为价格为0可能是游戏的正常状态
                 $result = RoundResult::create([
                     'game_round_id' => $gameRound->id,
-                    'token_symbol'  => strtoupper($symbol),
-                    'rank'          => $details['s'],
-                    'value'         => $details['p'], // 允许为0
+                    'token_symbol' => strtoupper($symbol),
+                    'rank' => $details['s'],
+                    'value' => $details['p'], // 允许为0
                 ]);
 
                 $validResults++;
@@ -163,12 +166,12 @@ class GameDataProcessorService
                     'symbol' => $symbol,
                     'rank' => $details['s'],
                     'value' => $details['p'],
-                    'is_zero_price' => $details['p'] == 0
+                    'is_zero_price' => $details['p'] == 0,
                 ]);
             } else {
                 Log::channel('websocket')->warning('代币数据不完整', [
                     'symbol' => $symbol,
-                    'details' => $details
+                    'details' => $details,
                 ]);
             }
         }
@@ -176,7 +179,7 @@ class GameDataProcessorService
         Log::channel('websocket')->info('代币结果处理完成', [
             'rdId' => $gameData['rdId'],
             'totalTokens' => $tokenCount,
-            'validResults' => $validResults
+            'validResults' => $validResults,
         ]);
 
         // 数据完整性验证
@@ -185,12 +188,12 @@ class GameDataProcessorService
                 'rdId' => $gameData['rdId'],
                 'expected' => $tokenCount,
                 'actual' => $validResults,
-                'missing_count' => $tokenCount - $validResults
+                'missing_count' => $tokenCount - $validResults,
             ]);
         } else {
             Log::channel('websocket')->info('✅ 数据完整性验证通过', [
                 'rdId' => $gameData['rdId'],
-                'processed_tokens' => $validResults
+                'processed_tokens' => $validResults,
             ]);
         }
     }
@@ -207,16 +210,17 @@ class GameDataProcessorService
             Log::channel('websocket')->info('尝试保存预测数据', [
                 'round_id' => $roundId,
                 'game_round_id' => $gameRound->id,
-                'has_cached_prediction' => !empty($cachedPrediction),
-                'cached_prediction_type' => gettype($cachedPrediction)
+                'has_cached_prediction' => ! empty($cachedPrediction),
+                'cached_prediction_type' => gettype($cachedPrediction),
             ]);
 
-            if (!$cachedPrediction || !is_array($cachedPrediction)) {
+            if (! $cachedPrediction || ! is_array($cachedPrediction)) {
                 Log::channel('websocket')->info('无缓存预测数据需要保存', [
                     'round_id' => $roundId,
-                    'has_cached_prediction' => !empty($cachedPrediction),
-                    'cached_prediction_type' => gettype($cachedPrediction)
+                    'has_cached_prediction' => ! empty($cachedPrediction),
+                    'cached_prediction_type' => gettype($cachedPrediction),
                 ]);
+
                 return;
             }
 
@@ -225,8 +229,9 @@ class GameDataProcessorService
             if ($cachedRoundId !== $roundId) {
                 Log::channel('websocket')->warning('缓存预测数据轮次不匹配，跳过保存', [
                     'current_round' => $roundId,
-                    'cached_round' => $cachedRoundId
+                    'cached_round' => $cachedRoundId,
                 ]);
+
                 return;
             }
 
@@ -234,22 +239,23 @@ class GameDataProcessorService
             if (empty($analysisData)) {
                 Log::channel('websocket')->warning('缓存预测数据为空', [
                     'round_id' => $roundId,
-                    'cached_keys' => array_keys($cachedPrediction)
+                    'cached_keys' => array_keys($cachedPrediction),
                 ]);
+
                 return;
             }
 
             Log::channel('websocket')->info('准备保存预测数据', [
                 'round_id' => $roundId,
                 'analysis_data_count' => count($analysisData),
-                'analysis_data_keys' => !empty($analysisData) ? array_keys($analysisData[0]) : [],
-                'generated_at' => $cachedPrediction['generated_at'] ?? 'unknown'
+                'analysis_data_keys' => ! empty($analysisData) ? array_keys($analysisData[0]) : [],
+                'generated_at' => $cachedPrediction['generated_at'] ?? 'unknown',
             ]);
 
             // 删除该轮次的旧预测数据（如果存在）
             RoundPredict::where('game_round_id', $gameRound->id)->delete();
 
-                        // 批量插入新的预测数据
+            // 批量插入新的预测数据
             $predictionRecords = [];
             foreach ($analysisData as $index => $tokenData) {
                 // 使用 risk_adjusted_score 作为主要预测分数，如果不存在则回退到其他分数
@@ -267,7 +273,7 @@ class GameDataProcessorService
                         'predicted_final_value' => $tokenData['predicted_final_value'] ?? 'missing',
                         'absolute_score' => $tokenData['absolute_score'] ?? 'missing',
                         'final_prediction_score' => $predictionScore,
-                        'available_keys' => array_keys($tokenData)
+                        'available_keys' => array_keys($tokenData),
                     ]);
                 }
 
@@ -287,7 +293,7 @@ class GameDataProcessorService
                 'round_id' => $roundId,
                 'game_round_id' => $gameRound->id,
                 'predictions_count' => count($predictionRecords),
-                'predicted_at' => $cachedPrediction['generated_at']
+                'predicted_at' => $cachedPrediction['generated_at'],
             ]);
 
             // 保存成功后清除缓存（可选）
@@ -297,7 +303,7 @@ class GameDataProcessorService
             Log::channel('websocket')->error('保存预测数据到数据库失败', [
                 'round_id' => $roundId,
                 'game_round_id' => $gameRound->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -310,14 +316,15 @@ class GameDataProcessorService
         try {
             Log::channel('websocket')->info('🔄 开始直接执行 Elo 更新任务', [
                 'game_round_id' => $gameRoundId,
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ]);
 
             // 验证 game_round_id 是否有效
             if ($gameRoundId <= 0) {
                 Log::channel('websocket')->error('❌ 无效的 game_round_id', [
-                    'game_round_id' => $gameRoundId
+                    'game_round_id' => $gameRoundId,
                 ]);
+
                 return;
             }
 
@@ -326,13 +333,14 @@ class GameDataProcessorService
             if (Cache::has($cacheKey)) {
                 Log::channel('websocket')->warning('⚠️ Elo 更新任务已执行过，跳过重复执行', [
                     'game_round_id' => $gameRoundId,
-                    'cache_key' => $cacheKey
+                    'cache_key' => $cacheKey,
                 ]);
+
                 return;
             }
 
             Log::channel('websocket')->info('📋 准备直接执行 Elo 更新', [
-                'game_round_id' => $gameRoundId
+                'game_round_id' => $gameRoundId,
             ]);
 
             // 直接执行 Elo 更新逻辑
@@ -340,7 +348,7 @@ class GameDataProcessorService
 
             Log::channel('websocket')->info('✅ Elo 更新任务已完成', [
                 'game_round_id' => $gameRoundId,
-                'execution_time' => now()->toISOString()
+                'execution_time' => now()->toISOString(),
             ]);
 
             // 标记该轮次已执行 Elo 更新任务，避免重复执行
@@ -349,14 +357,14 @@ class GameDataProcessorService
             Log::channel('websocket')->info('📝 已标记 Elo 更新任务执行状态', [
                 'game_round_id' => $gameRoundId,
                 'cache_key' => $cacheKey,
-                'cache_ttl' => '30 minutes'
+                'cache_ttl' => '30 minutes',
             ]);
 
         } catch (\Exception $e) {
             Log::channel('websocket')->error('❌ 执行 Elo 更新任务失败', [
                 'game_round_id' => $gameRoundId,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
@@ -382,9 +390,10 @@ class GameDataProcessorService
                     'game_round_id' => $gameRoundId,
                     'query_conditions' => [
                         'game_round_id' => $gameRoundId,
-                        'order_by' => 'rank'
-                    ]
+                        'order_by' => 'rank',
+                    ],
                 ]);
+
                 return;
             }
 
@@ -424,7 +433,7 @@ class GameDataProcessorService
                             'loser' => $loserSymbol,
                             'k_factor' => $averageKFactor,
                             'winner_old_elo' => $winnerRating->elo,
-                            'loser_old_elo' => $loserRating->elo
+                            'loser_old_elo' => $loserRating->elo,
                         ];
 
                     } catch (\Exception $updateError) {
@@ -433,7 +442,7 @@ class GameDataProcessorService
                             'combination' => "{$errorCombinationNumber}",
                             'winner' => $winnerSymbol,
                             'loser' => $loserSymbol,
-                            'error' => $updateError->getMessage()
+                            'error' => $updateError->getMessage(),
                         ];
 
                         $errors[] = $errorInfo;
@@ -442,10 +451,10 @@ class GameDataProcessorService
                 }
             }
 
-            if (!empty($errors)) {
+            if (! empty($errors)) {
                 Log::warning('[GameDataProcessorService] 部分对战组合更新失败', [
                     'game_round_id' => $gameRoundId,
-                    'errors' => $errors
+                    'errors' => $errors,
                 ]);
             }
 
@@ -457,12 +466,12 @@ class GameDataProcessorService
                     $finalRatings[$symbol] = [
                         'rank' => $index + 1, // 使用索引+1作为显示排名
                         'elo' => round($rating->elo, 2),
-                        'games' => $rating->games
+                        'games' => $rating->games,
                     ];
                 } else {
                     Log::warning('[GameDataProcessorService] 未找到代币评分记录', [
                         'symbol' => $symbol,
-                        'index' => $index
+                        'index' => $index,
                     ]);
                 }
             }
@@ -474,7 +483,7 @@ class GameDataProcessorService
                 'game_round_id' => $gameRoundId,
                 'execution_time_ms' => $executionTime,
                 'update_count' => $updateCount,
-                'final_ratings' => $finalRatings
+                'final_ratings' => $finalRatings,
             ]);
 
         } catch (\Throwable $e) {
@@ -485,8 +494,9 @@ class GameDataProcessorService
                 'game_round_id' => $gameRoundId,
                 'execution_time_ms' => $executionTime,
                 'error_message' => $e->getMessage(),
-                'error_trace' => $e->getTraceAsString()
+                'error_trace' => $e->getTraceAsString(),
             ]);
+
             throw $e;
         }
     }

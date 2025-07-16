@@ -893,7 +893,7 @@ export const useAutoBettingConfig = () => {
   });
 
   // 防抖器
-  let saveConfigTimeout: number | null = null;
+  let saveConfigTimeout: NodeJS.Timeout | null = null;
 
   // 从云端加载配置
   const loadConfigFromCloud = async (uid: string): Promise<boolean> => {

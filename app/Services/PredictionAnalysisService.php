@@ -3,9 +3,7 @@
 namespace App\Services;
 
 use App\Models\GameRound;
-use App\Models\RoundResult;
 use App\Models\RoundPredict;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 class PredictionAnalysisService
@@ -26,7 +24,7 @@ class PredictionAnalysisService
             if ($rounds->isEmpty()) {
                 return [
                     'total_rounds' => 0,
-                    'message' => '暂无可分析的预测数据'
+                    'message' => '暂无可分析的预测数据',
                 ];
             }
 
@@ -51,7 +49,7 @@ class PredictionAnalysisService
                 // 累计代币统计
                 foreach ($roundStats['token_stats'] as $tokenStat) {
                     $symbol = $tokenStat['symbol'];
-                    if (!isset($tokenAccuracy[$symbol])) {
+                    if (! isset($tokenAccuracy[$symbol])) {
                         $tokenAccuracy[$symbol] = [
                             'symbol' => $symbol,
                             'total_predictions' => 0,
@@ -94,13 +92,14 @@ class PredictionAnalysisService
                 'overall_stats' => $overallStats,
                 'token_accuracy' => array_values($tokenAccuracy),
                 'recent_rounds' => array_slice(array_reverse($roundAccuracy), 0, 10), // 最近10轮
-                'analysis_time' => now()->toISOString()
+                'analysis_time' => now()->toISOString(),
             ];
 
         } catch (\Exception $e) {
             Log::error('分析预测准确度失败', ['error' => $e->getMessage()]);
+
             return [
-                'error' => '分析失败：' . $e->getMessage()
+                'error' => '分析失败：' . $e->getMessage(),
             ];
         }
     }
@@ -117,7 +116,7 @@ class PredictionAnalysisService
             return [
                 'round_id' => $round->round_id,
                 'total_predictions' => 0,
-                'message' => '该轮次缺少预测或结果数据'
+                'message' => '该轮次缺少预测或结果数据',
             ];
         }
 
@@ -133,7 +132,7 @@ class PredictionAnalysisService
             $symbol = $prediction->token_symbol;
             $actualResult = $resultMap->get($symbol);
 
-            if (!$actualResult) {
+            if (! $actualResult) {
                 continue; // 跳过没有实际结果的预测
             }
 
@@ -207,16 +206,17 @@ class PredictionAnalysisService
             return [
                 'token_symbol' => $tokenSymbol,
                 'total_predictions' => count($history),
-                'history' => $history
+                'history' => $history,
             ];
 
         } catch (\Exception $e) {
             Log::error('获取代币预测历史失败', [
                 'token_symbol' => $tokenSymbol,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return [
-                'error' => '获取预测历史失败：' . $e->getMessage()
+                'error' => '获取预测历史失败：' . $e->getMessage(),
             ];
         }
     }
@@ -237,8 +237,8 @@ class PredictionAnalysisService
             $tokenStats = $recentAnalysis['token_accuracy'];
 
             // 获取最佳和最差预测代币
-            $bestToken = !empty($tokenStats) ? $tokenStats[0] : null;
-            $worstToken = !empty($tokenStats) ? end($tokenStats) : null;
+            $bestToken = ! empty($tokenStats) ? $tokenStats[0] : null;
+            $worstToken = ! empty($tokenStats) ? end($tokenStats) : null;
 
             return [
                 'prediction_performance' => [
@@ -250,21 +250,22 @@ class PredictionAnalysisService
                 'best_predicted_token' => $bestToken ? [
                     'symbol' => $bestToken['symbol'],
                     'accuracy' => $bestToken['exact_match_rate'] . '%',
-                    'total_predictions' => $bestToken['total_predictions']
+                    'total_predictions' => $bestToken['total_predictions'],
                 ] : null,
                 'worst_predicted_token' => $worstToken ? [
                     'symbol' => $worstToken['symbol'],
                     'accuracy' => $worstToken['exact_match_rate'] . '%',
-                    'total_predictions' => $worstToken['total_predictions']
+                    'total_predictions' => $worstToken['total_predictions'],
                 ] : null,
                 'recent_performance' => array_slice($recentAnalysis['recent_rounds'], 0, 5),
-                'generated_at' => now()->toISOString()
+                'generated_at' => now()->toISOString(),
             ];
 
         } catch (\Exception $e) {
             Log::error('获取预测性能摘要失败', ['error' => $e->getMessage()]);
+
             return [
-                'error' => '获取性能摘要失败：' . $e->getMessage()
+                'error' => '获取性能摘要失败：' . $e->getMessage(),
             ];
         }
     }

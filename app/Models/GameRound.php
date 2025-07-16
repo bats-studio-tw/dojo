@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
 
 class GameRound extends Model
 {
@@ -76,7 +76,7 @@ class GameRound extends Model
      */
     public function isSettled(): bool
     {
-        return !is_null($this->settled_at);
+        return ! is_null($this->settled_at);
     }
 
     /**

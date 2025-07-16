@@ -2,20 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Inertia\Inertia;
-use Inertia\Response;
+use App\Models\AutoBettingConfig;
+use App\Models\AutoBettingRecord;
 use App\Services\GameDataProcessorService;
 use App\Services\GamePredictionService;
-use App\Models\AutoBettingRecord;
-use App\Models\AutoBettingConfig;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class AutoBettingController extends Controller
 {
@@ -45,14 +43,14 @@ class AutoBettingController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'uid' => 'required|string'
+                'uid' => 'required|string',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'UID不能为空',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -64,13 +62,13 @@ class AutoBettingController extends Controller
                 'success' => true,
                 'data' => [
                     'user_stats' => $userStats,
-                    'today_stats' => $todayStats
-                ]
+                    'today_stats' => $todayStats,
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => '获取统计信息失败: ' . $e->getMessage()
+                'message' => '获取统计信息失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -83,10 +81,10 @@ class AutoBettingController extends Controller
         try {
             $uid = $request->input('uid');
 
-            if (!$uid) {
+            if (! $uid) {
                 return response()->json([
                     'success' => false,
-                    'message' => '需要用户UID'
+                    'message' => '需要用户UID',
                 ], 422);
             }
 
@@ -99,7 +97,7 @@ class AutoBettingController extends Controller
                 'total_profit_loss' => 0,
                 'today_profit_loss' => 0,
                 'consecutive_losses' => 0,
-                'last_error' => null
+                'last_error' => null,
             ]);
 
             // 从数据库获取实际的统计数据
@@ -114,7 +112,7 @@ class AutoBettingController extends Controller
                 'database_successful_bets' => $userStats['successful_bets'],
                 'database_total_profit_loss' => $userStats['total_profit_loss'],
                 'today_profit_loss' => $todayStats['today_profit_loss'],
-                'records_count_from_db' => AutoBettingRecord::where('uid', $uid)->count()
+                'records_count_from_db' => AutoBettingRecord::where('uid', $uid)->count(),
             ]);
 
             // 强制使用数据库的真实数据
@@ -128,19 +126,19 @@ class AutoBettingController extends Controller
                 'debug' => [
                     'uid' => $uid,
                     'database_stats' => $userStats,
-                    'today_stats' => $todayStats
-                ]
+                    'today_stats' => $todayStats,
+                ],
             ]);
         } catch (\Exception $e) {
             \Log::error('获取自动下注状态失败', [
                 'uid' => $uid ?? 'unknown',
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => '获取状态失败: ' . $e->getMessage()
+                'message' => '获取状态失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -153,14 +151,14 @@ class AutoBettingController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'action' => 'required|in:start,stop',
-                'uid' => 'required|string'
+                'uid' => 'required|string',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => '参数验证失败',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -177,7 +175,7 @@ class AutoBettingController extends Controller
                     'database_total_bets' => $userStats['total_bets'],
                     'database_successful_bets' => $userStats['successful_bets'],
                     'database_total_profit_loss' => $userStats['total_profit_loss'],
-                    'today_profit_loss' => $todayStats['today_profit_loss']
+                    'today_profit_loss' => $todayStats['today_profit_loss'],
                 ]);
 
                 Cache::put("auto_betting_status_{$uid}", [
@@ -189,7 +187,7 @@ class AutoBettingController extends Controller
                     'today_profit_loss' => $todayStats['today_profit_loss'],
                     'consecutive_losses' => 0,
                     'last_error' => null,
-                    'started_at' => now()->toISOString()
+                    'started_at' => now()->toISOString(),
                 ], now()->addDays(1));
 
                 $message = '自动下注已启动';
@@ -200,7 +198,7 @@ class AutoBettingController extends Controller
                 $status['stopped_at'] = now()->toISOString();
 
                 // 确保停止时也有最新的统计数据
-                if (!isset($status['total_bets'])) {
+                if (! isset($status['total_bets'])) {
                     $userStats = AutoBettingRecord::getUserStats($uid);
                     $todayStats = AutoBettingRecord::getTodayStats($uid);
                     $status['total_bets'] = $userStats['total_bets'];
@@ -215,19 +213,19 @@ class AutoBettingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => $message
+                'message' => $message,
             ]);
         } catch (\Exception $e) {
             \Log::error('切换自动下注状态失败', [
                 'uid' => $uid ?? 'unknown',
                 'action' => $action ?? 'unknown',
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => '操作失败: ' . $e->getMessage()
+                'message' => '操作失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -245,9 +243,11 @@ class AutoBettingController extends Controller
             // 这里应该根据你的业务逻辑来获取当前轮次ID
             // 可能从GameRound模型、缓存或其他数据源获取
             $latestRound = \App\Models\GameRound::latest()->first();
+
             return $latestRound ? $latestRound->round_id : null;
         } catch (\Exception $e) {
             Log::error('获取当前轮次ID失败', ['error' => $e->getMessage()]);
+
             return null;
         }
     }
@@ -260,14 +260,14 @@ class AutoBettingController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'uid' => 'required|string',
-                'config' => 'required|array'
+                'config' => 'required|array',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => '参数验证失败',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -277,16 +277,16 @@ class AutoBettingController extends Controller
             if (empty($config['jwt_token'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => '缺少JWT Token'
+                    'message' => '缺少JWT Token',
                 ], 422);
             }
 
             // 检查当前状态
             $status = Cache::get("auto_betting_status_{$uid}");
-            if (!$status || !$status['is_running']) {
+            if (! $status || ! $status['is_running']) {
                 return response()->json([
                     'success' => false,
-                    'message' => '自动下注系统未运行'
+                    'message' => '自动下注系统未运行',
                 ], 422);
             }
 
@@ -295,7 +295,7 @@ class AutoBettingController extends Controller
             if (empty($currentAnalysis)) {
                 return response()->json([
                     'success' => false,
-                    'message' => '当前无可用分析数据'
+                    'message' => '当前无可用分析数据',
                 ], 422);
             }
 
@@ -304,10 +304,10 @@ class AutoBettingController extends Controller
 
             // 获取当前轮次ID
             $currentRoundId = $this->getCurrentRoundId();
-            if (!$currentRoundId) {
+            if (! $currentRoundId) {
                 return response()->json([
                     'success' => false,
-                    'message' => '无法获取当前轮次ID'
+                    'message' => '无法获取当前轮次ID',
                 ], 422);
             }
 
@@ -319,18 +319,19 @@ class AutoBettingController extends Controller
                     'current_analysis' => $currentAnalysis,
                     'round_id' => $currentRoundId,
                     'jwt_token' => $config['jwt_token'],
-                    'uid' => $uid
-                ]
+                    'uid' => $uid,
+                ],
             ]);
 
         } catch (\Exception $e) {
             Log::error('自动下注执行失败', [
                 'error' => $e->getMessage(),
-                'uid' => $uid ?? 'unknown'
+                'uid' => $uid ?? 'unknown',
             ]);
+
             return response()->json([
                 'success' => false,
-                'message' => '自动下注执行失败: ' . $e->getMessage()
+                'message' => '自动下注执行失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -349,14 +350,14 @@ class AutoBettingController extends Controller
                 'bet_id' => 'required|string',
                 'success' => 'required|boolean',
                 'prediction_data' => 'nullable|array',
-                'result_data' => 'nullable|array'
+                'result_data' => 'nullable|array',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => '参数验证失败',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -372,7 +373,7 @@ class AutoBettingController extends Controller
                 'success' => $request->success,
                 'prediction_data' => $request->prediction_data,
                 'result_data' => $request->result_data,
-                'status' => $request->success ? 'success' : 'failed'
+                'status' => $request->success ? 'success' : 'failed',
             ]);
 
             // 每次记录下注结果后都更新缓存中的统计（无论成功失败）
@@ -395,7 +396,7 @@ class AutoBettingController extends Controller
                 'success' => $request->success,
                 'updated_total_bets' => $status['total_bets'],
                 'database_total_bets' => $userStats['total_bets'],
-                'database_record_count' => AutoBettingRecord::where('uid', $uid)->count()
+                'database_record_count' => AutoBettingRecord::where('uid', $uid)->count(),
             ]);
 
             Cache::put("auto_betting_status_{$uid}", $status, now()->addDays(1));
@@ -407,20 +408,20 @@ class AutoBettingController extends Controller
                 'updated_stats' => [
                     'total_bets' => $status['total_bets'],
                     'total_profit_loss' => $status['total_profit_loss'],
-                    'today_profit_loss' => $status['today_profit_loss']
-                ]
+                    'today_profit_loss' => $status['today_profit_loss'],
+                ],
             ]);
 
         } catch (\Exception $e) {
             \Log::error('记录下注结果失败', [
                 'uid' => $uid ?? 'unknown',
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => '记录下注结果失败: ' . $e->getMessage()
+                'message' => '记录下注结果失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -433,14 +434,14 @@ class AutoBettingController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'uid' => 'required|string',
-                'round_id' => 'required|string'
+                'round_id' => 'required|string',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => '参数验证失败',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -473,16 +474,16 @@ class AutoBettingController extends Controller
                             'bet_amount' => $record->bet_amount,
                             'success' => $record->success,
                             'status' => $record->status,
-                            'created_at' => $record->created_at->toISOString()
+                            'created_at' => $record->created_at->toISOString(),
                         ];
-                    })
-                ]
+                    }),
+                ],
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => '检查轮次下注状态失败: ' . $e->getMessage()
+                'message' => '检查轮次下注状态失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -494,14 +495,14 @@ class AutoBettingController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'uid' => 'required|string'
+                'uid' => 'required|string',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'UID参数是必需的',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -531,13 +532,13 @@ class AutoBettingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $response_data
+                'data' => $response_data,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => '获取配置失败: ' . $e->getMessage()
+                'message' => '获取配置失败: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -559,7 +560,7 @@ class AutoBettingController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => '参数验证失败',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -572,7 +573,7 @@ class AutoBettingController extends Controller
 
             // 加密JWT Token
             $encrypted_jwt = '';
-            if (!empty($jwtToken)) {
+            if (! empty($jwtToken)) {
                 $encrypted_jwt = Crypt::encryptString($jwtToken);
             }
 
@@ -588,13 +589,13 @@ class AutoBettingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => '配置已成功保存'
+                'message' => '配置已成功保存',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => '保存配置失败: ' . $e->getMessage()
+                'message' => '保存配置失败: ' . $e->getMessage(),
             ], 500);
         }
     }

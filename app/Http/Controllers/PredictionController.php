@@ -803,7 +803,7 @@ class PredictionController extends Controller
             // 格式化数据
             $formattedData = $latestHybridPredictions->map(function ($prediction) {
                 return [
-                    'symbol' => $prediction->token,
+                    'symbol' => $prediction->token_symbol,
                     'predicted_rank' => $prediction->predicted_rank,
                     'mom_score' => $prediction->mom_score,
                     'elo_prob' => $prediction->elo_prob,
@@ -925,7 +925,7 @@ class PredictionController extends Controller
                     'round_id' => $roundId,
                     'predictions' => $predictions->map(function ($prediction) {
                         return [
-                            'symbol' => $prediction->token,
+                            'symbol' => $prediction->token_symbol,
                             'predicted_rank' => $prediction->predicted_rank,
                             'mom_score' => $prediction->mom_score,
                             'elo_prob' => $prediction->elo_prob,

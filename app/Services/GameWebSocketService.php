@@ -20,6 +20,19 @@ class GameWebSocketService
     private int $settlementCount = 0;
     private array $processedRounds = []; // 记录已处理的轮次ID
 
+    // 🔧 新增：连接健康检查相关属性
+    private ?int $lastMessageTime = null;
+    private ?int $lastHeartbeatTime = null;
+    private bool $isConnected = false;
+    private int $reconnectAttempts = 0;
+    private int $maxReconnectAttempts = 3; // 减少重连次数，适配Daemon环境
+    private int $reconnectDelay = 5; // 初始重连延迟（秒）
+    private int $maxReconnectDelay = 60; // 减少最大重连延迟
+    private $connection = null;
+    private $healthCheckTimer = null;
+    private $heartbeatTimer = null;
+    private bool $isDaemonMode = true; // 标记为Daemon模式
+
     public function __construct(
         private GameDataProcessorService $dataProcessor,
         private GamePredictionService $predictionService
@@ -53,44 +66,54 @@ class GameWebSocketService
         $loop = Loop::get();
         $connector = new Connector($loop);
 
-        // 添加心跳定时器，每60秒显示一次状态
-        $heartbeatTimer = $loop->addPeriodicTimer(60, function () {
-            $processedRoundsCount = count($this->processedRounds);
-            $this->consoleOutput("💓 WebSocket 监听器运行中... " . date('H:i:s') .
-                " | 收到消息: {$this->messageCount} | 结算数据: {$this->settlementCount} | 处理轮次: {$processedRoundsCount}");
+        // 🔧 新增：健康检查定时器，每30秒检查一次连接状态
+        $this->healthCheckTimer = $loop->addPeriodicTimer(30, function () {
+            $this->performHealthCheck();
+        });
+
+        // 🔧 新增：心跳定时器，每60秒显示一次状态
+        $this->heartbeatTimer = $loop->addPeriodicTimer(60, function () {
+            $this->performHeartbeat();
         });
 
         $connect = function () use ($connector, &$connect) {
             if ($this->shouldStop) {
                 $this->logInfo("監聽器被要求停止，不再進行連線。");
-
                 return;
             }
 
-            $this->consoleOutput("🔄 正在连接到游戏服务器...");
+            $this->consoleOutput("🔄 正在连接到游戏服务器... (尝试 #" . ($this->reconnectAttempts + 1) . ")");
 
             $connector($this->websocketUrl)
-                ->then(function ($conn) {
+                ->then(function ($conn) use (&$connect) {
+                    $this->connection = $conn;
+                    $this->isConnected = true;
+                    $this->reconnectAttempts = 0; // 重置重连计数器
+                    $this->lastMessageTime = time();
+                    $this->lastHeartbeatTime = time();
+
                     $this->logInfo("✅ WebSocket 連線成功建立！");
 
                     $conn->on('message', function (MessageInterface $msg) {
+                        $this->lastMessageTime = time(); // 更新最后消息时间
                         $this->handleMessage($msg->getPayload());
                     });
 
                     $conn->on('close', function ($code = null, $reason = null) use (&$connect) {
-                        $this->logWarning("🔌 WebSocket 連線關閉", ['code' => $code, 'reason' => $reason]);
-                        // 連線關閉後，等待5秒再重連
-                        $this->logInfo("🔄 5秒後嘗試重連...");
-                        Loop::addTimer(5, $connect);
+                        $this->handleConnectionClose($code, $reason, $connect);
                     });
 
-                    $conn->send('RG#' . bin2hex(random_bytes(16)));
-                    $this->logInfo("已發送初始訊息。");
+                    $conn->on('error', function (\Exception $e) use ($conn) {
+                        $this->logError("❌ WebSocket 連接錯誤", ['error' => $e->getMessage()]);
+                        $this->isConnected = false;
+                        $conn->close(); // 觸發 close 事件來處理重連
+                    });
+
+                    // 发送初始注册消息
+                    $this->sendInitialMessage($conn);
 
                 }, function (\Exception $e) use (&$connect) {
-                    $this->logError("❌ WebSocket 連線失敗", ['error' => $e->getMessage()]);
-                    $this->logInfo("🔄 5秒後嘗試重連...");
-                    Loop::addTimer(5, $connect);
+                    $this->handleConnectionError($e, $connect);
                 });
         };
 
@@ -99,6 +122,180 @@ class GameWebSocketService
 
         // 啟動事件循環
         $loop->run();
+    }
+
+    /**
+     * 🔧 新增：处理连接关闭
+     */
+    private function handleConnectionClose($code, $reason, $connect): void
+    {
+        $this->isConnected = false;
+        $this->connection = null;
+
+        $this->logWarning("🔌 WebSocket 連線關閉", [
+            'code' => $code,
+            'reason' => $reason,
+            'reconnect_attempts' => $this->reconnectAttempts,
+            'is_daemon_mode' => $this->isDaemonMode
+        ]);
+
+        if ($this->shouldStop) {
+            $this->logInfo("監聽器被要求停止，不再重連。");
+            return;
+        }
+
+        // 在Daemon模式下，如果重连次数达到上限，主动退出让Daemon重启
+        if ($this->isDaemonMode && $this->reconnectAttempts >= $this->maxReconnectAttempts) {
+            $this->logError("🔄 Daemon模式：重连次数已达上限({$this->maxReconnectAttempts})，主动退出让Daemon重启", [
+                'reconnect_attempts' => $this->reconnectAttempts,
+                'max_attempts' => $this->maxReconnectAttempts,
+                'exit_code' => 1
+            ]);
+
+            // 清理资源
+            $this->cleanup();
+
+            // 主动退出进程，让Daemon重启
+            exit(1);
+        }
+
+        // 计算重连延迟（指数退避）
+        $delay = min($this->reconnectDelay * pow(2, $this->reconnectAttempts), $this->maxReconnectDelay);
+
+        $this->logInfo("🔄 {$delay}秒後嘗試重連... (尝试 #" . ($this->reconnectAttempts + 1) . ")");
+        Loop::addTimer($delay, $connect);
+    }
+
+    /**
+     * 🔧 新增：处理连接错误
+     */
+    private function handleConnectionError(\Exception $e, $connect): void
+    {
+        $this->isConnected = false;
+        $this->connection = null;
+
+        $this->logError("❌ WebSocket 連線失敗", [
+            'error' => $e->getMessage(),
+            'reconnect_attempts' => $this->reconnectAttempts,
+            'is_daemon_mode' => $this->isDaemonMode
+        ]);
+
+        if ($this->shouldStop) {
+            $this->logInfo("監聽器被要求停止，不再重連。");
+            return;
+        }
+
+        $this->reconnectAttempts++;
+
+        // 在Daemon模式下，如果重连次数达到上限，主动退出让Daemon重启
+        if ($this->isDaemonMode && $this->reconnectAttempts >= $this->maxReconnectAttempts) {
+            $this->logError("🔄 Daemon模式：重连次数已达上限({$this->maxReconnectAttempts})，主动退出让Daemon重启", [
+                'reconnect_attempts' => $this->reconnectAttempts,
+                'max_attempts' => $this->maxReconnectAttempts,
+                'exit_code' => 1
+            ]);
+
+            // 清理资源
+            $this->cleanup();
+
+            // 主动退出进程，让Daemon重启
+            exit(1);
+        }
+
+        // 如果重连次数过多，增加延迟
+        if ($this->reconnectAttempts > $this->maxReconnectAttempts) {
+            $this->logWarning("⚠️ 重连次数过多，使用最大延迟", [
+                'attempts' => $this->reconnectAttempts,
+                'max_attempts' => $this->maxReconnectAttempts
+            ]);
+        }
+
+        // 计算重连延迟（指数退避）
+        $delay = min($this->reconnectDelay * pow(2, $this->reconnectAttempts), $this->maxReconnectDelay);
+
+        $this->logInfo("🔄 {$delay}秒後嘗試重連... (尝试 #" . ($this->reconnectAttempts + 1) . ")");
+        Loop::addTimer($delay, $connect);
+    }
+
+    /**
+     * 🔧 新增：执行健康检查
+     */
+    private function performHealthCheck(): void
+    {
+        $currentTime = time();
+
+        // 检查是否长时间没有收到消息（超过2分钟）
+        if ($this->lastMessageTime && ($currentTime - $this->lastMessageTime) > 120) {
+            $this->logWarning("⚠️ 连接可能已断开 - 超过2分钟未收到消息", [
+                'last_message_time' => date('Y-m-d H:i:s', $this->lastMessageTime),
+                'time_since_last_message' => $currentTime - $this->lastMessageTime . '秒',
+                'is_daemon_mode' => $this->isDaemonMode
+            ]);
+
+            // 在Daemon模式下，如果长时间无消息，主动退出让Daemon重启
+            if ($this->isDaemonMode) {
+                $this->logError("🔄 Daemon模式：长时间无消息，主动退出让Daemon重启", [
+                    'time_since_last_message' => $currentTime - $this->lastMessageTime . '秒',
+                    'exit_code' => 2
+                ]);
+
+                // 清理资源
+                $this->cleanup();
+
+                // 主动退出进程，让Daemon重启
+                exit(2);
+            }
+
+            // 如果连接对象存在但长时间无消息，主动关闭重连
+            if ($this->connection && $this->isConnected) {
+                $this->logInfo("🔄 主动关闭连接以触发重连...");
+                $this->connection->close();
+            }
+        }
+
+        // 检查连接状态
+        if (!$this->isConnected && !$this->shouldStop) {
+            $this->logWarning("⚠️ 连接状态异常 - 标记为未连接但未停止监听", [
+                'is_connected' => $this->isConnected,
+                'should_stop' => $this->shouldStop,
+                'reconnect_attempts' => $this->reconnectAttempts,
+                'is_daemon_mode' => $this->isDaemonMode
+            ]);
+        }
+    }
+
+    /**
+     * 🔧 新增：执行心跳检查
+     */
+    private function performHeartbeat(): void
+    {
+        $currentTime = time();
+        $processedRoundsCount = count($this->processedRounds);
+
+        // 计算时间差
+        $timeSinceLastMessage = $this->lastMessageTime ? ($currentTime - $this->lastMessageTime) : 'N/A';
+        $timeSinceLastHeartbeat = $this->lastHeartbeatTime ? ($currentTime - $this->lastHeartbeatTime) : 'N/A';
+
+        $statusMessage = "💓 WebSocket 监听器运行中... " . date('H:i:s') .
+            " | 连接状态: " . ($this->isConnected ? '✅ 已连接' : '❌ 未连接') .
+            " | 收到消息: {$this->messageCount}" .
+            " | 结算数据: {$this->settlementCount}" .
+            " | 处理轮次: {$processedRoundsCount}" .
+            " | 最后消息: " . ($timeSinceLastMessage === 'N/A' ? 'N/A' : $timeSinceLastMessage . '秒前') .
+            " | 重连次数: {$this->reconnectAttempts}";
+
+        $this->consoleOutput($statusMessage);
+        $this->lastHeartbeatTime = $currentTime;
+
+        // 记录到日志
+        $this->logInfo("心跳检查", [
+            'is_connected' => $this->isConnected,
+            'message_count' => $this->messageCount,
+            'settlement_count' => $this->settlementCount,
+            'processed_rounds' => $processedRoundsCount,
+            'time_since_last_message' => $timeSinceLastMessage,
+            'reconnect_attempts' => $this->reconnectAttempts
+        ]);
     }
 
     /**
@@ -153,11 +350,39 @@ class GameWebSocketService
     }
 
     /**
+     * 🔧 新增：清理资源
+     */
+    private function cleanup(): void
+    {
+        $this->shouldStop = true;
+        $this->isConnected = false;
+
+        // 清理定时器
+        if ($this->healthCheckTimer) {
+            Loop::cancelTimer($this->healthCheckTimer);
+            $this->healthCheckTimer = null;
+        }
+        if ($this->heartbeatTimer) {
+            Loop::cancelTimer($this->heartbeatTimer);
+            $this->heartbeatTimer = null;
+        }
+
+        // 关闭连接
+        if ($this->connection) {
+            $this->connection->close();
+            $this->connection = null;
+        }
+
+        $this->logInfo("🧹 资源清理完成");
+    }
+
+    /**
      * 停止監聽 (由 Command 呼叫)
      */
     public function stopListening(): void
     {
-        $this->shouldStop = true;
+        $this->cleanup();
+
         // 如果事件循環正在運行，停止它
         Loop::stop();
         $this->logInfo("🛑 已請求停止 WebSocket 監聽器。");

@@ -15,7 +15,7 @@ class ListenGameWebSocket extends Command
      *
      * @var string
      */
-    protected $signature = 'game:listen-websocket {--monitor-queues : 监控队列状态} {--check-jobs : 检查队列中的任务}';
+    protected $signature = 'game:listen-websocket {--monitor-queues : 监控队列状态} {--check-jobs : 检查队列中的任务} {--monitor-connection : 监控WebSocket连接状态}';
 
     /**
      * The console command description.
@@ -43,6 +43,10 @@ class ListenGameWebSocket extends Command
 
         if ($this->option('check-jobs')) {
             return $this->checkJobs();
+        }
+
+        if ($this->option('monitor-connection')) {
+            return $this->monitorConnection();
         }
 
         $this->info('🚀 开始监听游戏 WebSocket...');
@@ -180,5 +184,34 @@ class ListenGameWebSocket extends Command
         }
 
         return 0;
+    }
+
+    /**
+     * 🔧 新增：监控WebSocket连接状态
+     */
+    private function monitorConnection(): int
+    {
+        $this->info('🔍 WebSocket连接状态监控');
+        $this->info('按 Ctrl+C 停止监控');
+
+        $this->setupSignalHandlers();
+
+        // 设置控制台输出回调
+        $this->webSocketService->setConsoleOutput(function ($message, $level = 'info') {
+            match($level) {
+                'error' => $this->error($message),
+                'warn' => $this->warn($message),
+                default => $this->info($message)
+            };
+        });
+
+        try {
+            // 启动WebSocket服务
+            $this->webSocketService->startListening();
+            return Command::SUCCESS;
+        } catch (\Exception $e) {
+            $this->error("❌ 连接监控发生错误: " . $e->getMessage());
+            return Command::FAILURE;
+        }
     }
 }

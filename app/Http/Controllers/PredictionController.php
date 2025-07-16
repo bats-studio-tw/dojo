@@ -847,57 +847,10 @@ class PredictionController extends Controller
     public function getCurrentAnalysis(): JsonResponse
     {
         try {
-                        // 优先从缓存获取预测数据
+            // 优先从缓存获取预测数据，直接原样返回
             $cachedPrediction = Cache::get('game:current_prediction');
-
-            // 添加调试日志
-            Log::info('API getCurrentAnalysis 缓存检查', [
-                'has_cached_prediction' => !empty($cachedPrediction),
-                'cached_prediction_type' => gettype($cachedPrediction),
-                'cached_keys' => $cachedPrediction ? array_keys($cachedPrediction) : [],
-                'has_analysis_data' => $cachedPrediction && isset($cachedPrediction['analysis_data']),
-                'analysis_data_count' => $cachedPrediction && isset($cachedPrediction['analysis_data']) ? count($cachedPrediction['analysis_data']) : 0,
-            ]);
-
-            if ($cachedPrediction && is_array($cachedPrediction) && !empty($cachedPrediction['analysis_data'])) {
-                // 使用缓存数据
-                $analysisData = $cachedPrediction['analysis_data'];
-
-                // 格式化数据以匹配前端期望的格式
-                $formattedData = [];
-                foreach ($analysisData as $tokenData) {
-                    $formattedData[] = [
-                        'symbol' => $tokenData['symbol'] ?? '',
-                        'predicted_rank' => $tokenData['predicted_rank'] ?? 999,
-                        'prediction_score' => $tokenData['predicted_final_value'] ?? $tokenData['absolute_score'] ?? 0,
-                        'elo_score' => $tokenData['absolute_score'] ?? 0,
-                        'momentum_score' => $tokenData['market_momentum_score'] ?? 0,
-                        'volume_score' => $tokenData['final_prediction_score'] ?? 0,
-                        'norm_elo' => $tokenData['absolute_score'] ?? 0,
-                        'norm_momentum' => $tokenData['market_momentum_score'] ?? 0,
-                        'norm_volume' => $tokenData['final_prediction_score'] ?? 0,
-                        'strategy_tag' => 'current_analysis',
-                        'created_at' => $cachedPrediction['generated_at'] ?? now()->toISOString(),
-                    ];
-                }
-
-                // 按预测分数排序
-                usort($formattedData, function ($a, $b) {
-                    return $b['prediction_score'] <=> $a['prediction_score'];
-                });
-
-                return response()->json([
-                    'success' => true,
-                    'data' => $formattedData,
-                    'meta' => [
-                        'round_id' => $cachedPrediction['round_id'] ?? 'unknown',
-                        'status' => 'current',
-                        'total_predictions' => count($formattedData),
-                        'updated_at' => $cachedPrediction['generated_at'] ?? now()->toISOString(),
-                    ],
-                    'message' => '当前分析数据获取成功（来自缓存）',
-                    'code' => 200,
-                ]);
+            if ($cachedPrediction && is_array($cachedPrediction)) {
+                return response()->json($cachedPrediction);
             }
 
             // 如果缓存中没有数据，尝试从数据库获取

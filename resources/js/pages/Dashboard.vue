@@ -380,22 +380,7 @@
 
   // ==================== API调用函数 ====================
 
-  const fetchInitialPredictionData = async () => {
-    // 在页面初始化时获取预测数据，避免等待WebSocket
-    console.log('🔮 获取初始预测数据...');
-    try {
-      const response = await api.get('/v2/predictions/current-analysis');
-      if (response.data.success) {
-        currentAnalysis.value = response.data.data || [];
-        analysisMeta.value = response.data.meta || null;
-        console.log(`✅ 成功获取初始预测数据: ${currentAnalysis.value.length} 个Token`);
-      } else {
-        console.warn('⚠️ 获取初始预测数据失败:', response.data.message);
-      }
-    } catch (error) {
-      console.error('❌ 获取初始预测数据失败:', error);
-    }
-  };
+  // 删除fetchInitialPredictionData，页面只用store
 
   const fetchHistoryData = async () => {
     historyLoading.value = true;
@@ -435,8 +420,8 @@
   // ==================== 刷新函数 ====================
 
   const refreshAnalysis = () => {
-    // 手动刷新预测分析数据
-    fetchInitialPredictionData();
+    // 只调用store方法
+    gamePredictionStore.fetchCurrentAnalysis();
   };
 
   const refreshHistoryData = () => fetchHistoryData();
@@ -832,21 +817,11 @@
 
   // ==================== 页面初始化 ====================
 
+  // 页面初始化时只调用store
   onMounted(() => {
-    console.log('📊 Dashboard页面初始化，加载历史数据...');
-
-    // 获取初始预测数据（优先执行，避免等待WebSocket）
-    fetchInitialPredictionData();
-
-    // 获取历史数据
+    gamePredictionStore.fetchCurrentAnalysis();
     fetchHistoryData();
     fetchPredictionHistoryData();
-
-    // 设置定时刷新（历史数据更新频率较低）
-    setInterval(() => {
-      fetchHistoryData();
-      fetchPredictionHistoryData();
-    }, 30000); // 30秒刷新一次
   });
 </script>
 

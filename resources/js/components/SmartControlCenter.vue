@@ -1270,7 +1270,6 @@
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
   import { optimizedDefaultConfig } from '@/composables/useAutoBettingConfig';
   import { usePredictionDisplay } from '@/composables/usePredictionDisplay';
-  import api from '@/utils/api';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
 
   // Props
@@ -1481,15 +1480,17 @@
       return;
     }
 
+    // 🔧 关键修复：如果store正在初始化，等待完成而不是重复请求
+    if (predictionStore.initializationPromise) {
+      console.log('⏳ SmartControlCenter: Store正在初始化，等待完成...');
+      await predictionStore.initializationPromise;
+      return;
+    }
+
+    // 🔧 关键修复：使用store的方法而不是直接调用API
     try {
-      const response = await api.get('/v2/predictions/current-analysis');
-      if (response.data.success) {
-        console.log(`✅ SmartControlCenter: 成功获取初始预测数据: ${response.data.data?.length || 0} 个Token`);
-        // 通知父组件更新数据，这里我们通过emit通知父组件刷新
-        emit('refreshAnalysis');
-      } else {
-        console.warn('⚠️ SmartControlCenter: 获取初始预测数据失败:', response.data.message);
-      }
+      await predictionStore.fetchCurrentAnalysis();
+      console.log(`✅ SmartControlCenter: 通过store成功获取初始预测数据`);
     } catch (error) {
       console.error('❌ SmartControlCenter: 获取初始预测数据失败:', error);
     }
@@ -1519,8 +1520,7 @@
     // 🔧 优化：检查store的初始化状态
     const predictionStore = useGamePredictionStore();
 
-    // 检查是否有预测数据，如果没有则主动获取
-    // 但增加延迟检查，避免与父组件的 fetchInitialData 冲突
+    // 🔧 关键修复：增加更长的延迟，确保父组件的数据获取完成
     setTimeout(() => {
       // 如果store已初始化，直接检查数据
       if (predictionStore.isInitialized) {
@@ -1533,6 +1533,8 @@
       } else {
         // 如果store未初始化，等待初始化完成后再检查
         console.log('⏳ SmartControlCenter: Store未初始化，等待初始化完成...');
+        let waitCount = 0;
+        const maxWaitCount = 50; // 最大等待5秒 (50 * 100ms)
         const checkData = () => {
           if (predictionStore.isInitialized) {
             if (!props.currentAnalysis || props.currentAnalysis.length === 0) {
@@ -1542,13 +1544,18 @@
               console.log(`✅ SmartControlCenter: Store初始化完成且有数据: ${props.currentAnalysis.length} 个Token`);
             }
           } else {
-            // 继续等待
-            setTimeout(checkData, 50);
+            // 继续等待，但增加最大等待时间限制
+            waitCount++;
+            if (waitCount < maxWaitCount) {
+              setTimeout(checkData, 100);
+            } else {
+              console.warn('⚠️ SmartControlCenter: 等待store初始化超时，跳过数据获取');
+            }
           }
         };
         checkData();
       }
-    }, 100); // 延迟100ms，让父组件的数据获取完成
+    }, 500); // 🔧 关键修复：延迟500ms，确保父组件的数据获取完成
   });
 
   // 🔧 优化：监听预测数据变化，当数据清空时主动重新获取

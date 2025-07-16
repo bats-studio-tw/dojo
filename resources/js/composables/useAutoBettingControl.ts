@@ -397,7 +397,8 @@ export const useAutoBettingControl = () => {
     }
 
     await loadStatus();
-    await fetchAnalysisData();
+    // 🔧 关键修复：移除重复的数据获取，让父组件统一管理
+    // await fetchAnalysisData();
   };
 
   // 检查并恢复认证状态
@@ -443,7 +444,8 @@ export const useAutoBettingControl = () => {
         }
 
         await loadStatus();
-        await fetchAnalysisData();
+        // 🔧 关键修复：移除重复的数据获取，让父组件统一管理
+        // await fetchAnalysisData();
         return true;
       } catch (error) {
         console.error('恢复验证状态失败:', error);

@@ -40,14 +40,10 @@
 
         <!-- 核心评分 -->
         <div class="mb-3 text-center">
-          <div class="text-xs text-gray-400">预测排名</div>
-          <div class="text-lg font-bold" :class="getScoreTextClass(index)">#{{ token.predicted_rank }}</div>
-          <div v-if="token.prediction_score > 0" class="text-xs text-gray-400">
-            分数 {{ (token.prediction_score || 0).toFixed(1) }}
+          <div class="text-lg font-bold" :class="getScoreTextClass(index)">
+            {{ (token.prediction_score || 0).toFixed(1) }}
           </div>
-          <div v-if="token.rank_confidence > 0" class="text-xs text-gray-400">
-            置信度 {{ (token.rank_confidence || 0).toFixed(0) }}%
-          </div>
+          <div class="text-xs text-gray-400">置信度 {{ (token.rank_confidence || 0).toFixed(0) }}%</div>
         </div>
 
         <!-- 详细数据参数 -->

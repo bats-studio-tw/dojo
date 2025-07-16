@@ -220,8 +220,10 @@ export const gameApi = {
   },
 
   // 获取动能预测历史数据
-  getMomentumPredictionHistory: () => {
-    return api.get('/v2/predictions/momentum-history');
+  getMomentumPredictionHistory: (params?: { limit?: number; offset?: number }) => {
+    return api.get('/v2/predictions/momentum-history', {
+      params
+    });
   },
 
   // 获取下注ID

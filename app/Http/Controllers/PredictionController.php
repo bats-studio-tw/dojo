@@ -1057,7 +1057,7 @@ class PredictionController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'limit' => 'nullable|integer|min:1|max:100',
+                'limit' => 'nullable|integer|min:1|max:500',
                 'offset' => 'nullable|integer|min:0',
             ]);
 

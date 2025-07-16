@@ -307,7 +307,7 @@
                   "
                   :momentum-loading="momentumHistoryLoading"
                   :momentum-recent-rounds-count="momentumRecentRoundsCount"
-                  :momentum-max-rounds="momentumPredictionHistory.length || 0"
+                  :momentum-max-rounds="Math.max(500, momentumPredictionHistory.length || 0)"
                   @refresh-prediction-history="refreshPredictionHistory"
                   @refresh-momentum-history="refreshMomentumHistory"
                   @update:recent-rounds-count="updateRecentRoundsCount"
@@ -883,9 +883,11 @@
   const refreshMomentumHistory = async () => {
     momentumHistoryLoading.value = true;
     try {
-      const response = await gameApi.getMomentumPredictionHistory();
+      // 🔧 修复：增加limit参数，获取更多历史数据
+      const response = await gameApi.getMomentumPredictionHistory({ limit: 500 });
       if (response.data.success) {
         momentumPredictionHistory.value = response.data.data || [];
+        console.log(`📊 获取到 ${momentumPredictionHistory.value.length} 局动能预测历史数据`);
       } else {
         window.$message?.error(response.data.message || '获取动能预测历史数据失败');
       }

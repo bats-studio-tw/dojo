@@ -344,13 +344,14 @@
   import { handleError, createConfirmDialog, handleAsyncOperation } from '@/utils/errorHandler';
   import { autoBettingApi, gameApi } from '@/utils/api';
   import { canBet } from '@/utils/statusUtils';
+  import { websocketManager } from '@/utils/websocketManager';
 
   // 初始化composables和stores
   const configComposable = useAutoBettingConfig();
   const controlComposable = useAutoBettingControl();
   const predictionStore = useGamePredictionStore();
 
-  // 从store中获取响应式数据 (统一数据管理，类似Dashboard)
+  // 从store中获取响应式数据
   const {
     predictionHistory,
     currentAnalysis,
@@ -358,13 +359,15 @@
     currentRoundId,
     currentGameStatus,
     currentGameTokensWithRanks,
-    websocketStatus,
-    isConnected,
     analysisLoading,
     hybridPredictions,
     hybridAnalysisMeta,
     hybridAnalysisLoading
   } = storeToRefs(predictionStore);
+
+  // 使用新的WebSocket管理器
+  const websocketStatus = websocketManager.websocketStatus;
+  const isConnected = websocketManager.isConnected;
 
   // 从store中获取方法
   const { fetchHybridAnalysis } = predictionStore;
@@ -431,8 +434,10 @@
     console.log('✅ Token验证和配置同步完成');
   };
 
-  // 从store中获取WebSocket重连方法
-  const { reconnectWebSocket } = predictionStore;
+  // 使用新的WebSocket管理器重连方法
+  const reconnectWebSocket = () => {
+    websocketManager.manualReconnect();
+  };
 
   // 标签页状态
   const activeTab = ref('control');
@@ -1183,6 +1188,10 @@
     // 获取 Hybrid-Edge 動能預測數據
     await fetchHybridPredictions();
 
+    // 🔧 初始化WebSocket管理器
+    console.log('🔌 初始化WebSocket管理器...');
+    websocketManager.initialize();
+
     console.log('🤖 自动下注页面已加载，包含初始数据获取和WebSocket实时数据模式');
   });
 
@@ -1195,6 +1204,9 @@
     isMonitoringRounds.value = false;
     debugInfo.lastBetResults = [];
     processedRounds.value.clear();
+
+    // 🔧 清理WebSocket管理器资源
+    websocketManager.cleanup();
 
     console.log('🧹 自动下注页面已卸载，已清理所有监听器');
   });

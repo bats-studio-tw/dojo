@@ -43,6 +43,8 @@ Route::get('/ab-testing-dashboard', function () {
     return Inertia::render('ABTestingDashboard');
 })->name('ab-testing-dashboard');
 
+
+
 // 已移除的旧路由 - 重定向到新页面
 Route::prefix('game')->name('game.')->group(function () {
     Route::get('/current-analysis', function () {

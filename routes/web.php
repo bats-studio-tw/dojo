@@ -23,7 +23,7 @@ use Inertia\Inertia;
 */
 
 Route::get('/', function () {
-    return Inertia::render('Dashboard');
+    return Inertia::render('AutoBetting');
 })->name('dashboard');
 
 // 预测系统页面路由 - 移除auth中间件，使用dojo JWT认证

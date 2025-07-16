@@ -331,31 +331,31 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         const mappedData = rawData.map((item: any) => ({
           symbol: item.symbol,
           name: item.symbol, // 使用symbol作为name
-          change_5m: null,
-          change_1h: null,
-          change_4h: null,
-          change_24h: null,
-          volume_24h: '0',
-          market_cap: null,
-          logo: null,
-          prediction_score: item.prediction_score || 0,
-          win_rate: 0, // 默认值
-          top3_rate: 0, // 默认值
-          avg_rank: 3, // 默认值
-          total_games: 0, // 默认值
-          wins: 0, // 默认值
-          top3: 0, // 默认值
+          change_5m: item.change_5m,
+          change_1h: item.change_1h,
+          change_4h: item.change_4h,
+          change_24h: item.change_24h,
+          volume_24h: '0', // API中没有这个字段，保持默认值
+          market_cap: null, // API中没有这个字段，保持默认值
+          logo: null, // API中没有这个字段，保持默认值
+          prediction_score: item.predicted_final_value || item.h2h_score || 0,
+          win_rate: item.win_rate || 0,
+          top3_rate: item.top3_rate || 0,
+          avg_rank: item.avg_rank || 3,
+          total_games: item.total_games || 0,
+          wins: item.wins || 0,
+          top3: item.top3 || 0,
           predicted_rank: item.predicted_rank || 999,
           // 映射可选字段
-          absolute_score: item.elo_score || 0,
-          relative_score: item.h2h_score || 0,
+          absolute_score: item.absolute_score || 0,
+          relative_score: item.relative_score || 0,
           h2h_score: item.h2h_score || 0,
           risk_adjusted_score: item.risk_adjusted_score || 0,
-          rank_confidence: item.confidence || 0,
-          final_prediction_score: item.volume_score || 0,
-          market_momentum_score: item.momentum_score || 0,
+          rank_confidence: item.rank_confidence || 0,
+          final_prediction_score: item.predicted_final_value || 0,
+          market_momentum_score: item.market_momentum_score || 0,
           value_stddev: item.value_stddev || 0,
-          recent_avg_value: item.recent_avg_value || 0,
+          recent_avg_value: item.avg_value || 0,
           avg_value: item.avg_value || 0
         }));
 

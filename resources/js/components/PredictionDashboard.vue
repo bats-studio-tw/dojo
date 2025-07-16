@@ -122,6 +122,7 @@
   import PredictionScoreChart from './PredictionScoreChart.vue';
   import BacktestResultDisplay from './BacktestResultDisplay.vue';
   import { usePredictionStore } from '@/stores/prediction';
+  import { websocketManager } from '@/utils/websocketManager';
 
   // 使用store
   const store = usePredictionStore();
@@ -197,26 +198,7 @@
     try {
       // @ts-ignore
       if (window.Echo) {
-        console.log('🔌 初始化 WebSocket 连接...');
-
-        // 监听连接状态变化
-        // @ts-ignore
-        window.Echo.connector.pusher.connection.bind('connected', () => {
-          console.log('✅ WebSocket 连接成功');
-          store.setConnectionStatus(true);
-        });
-
-        // @ts-ignore
-        window.Echo.connector.pusher.connection.bind('disconnected', () => {
-          console.log('❌ WebSocket 连接断开');
-          store.setConnectionStatus(false);
-        });
-
-        // @ts-ignore
-        window.Echo.connector.pusher.connection.bind('error', (error: any) => {
-          console.error('❌ WebSocket 连接错误:', error);
-          store.setConnectionStatus(false);
-        });
+        console.log('🔌 设置 WebSocket 频道监听...');
 
         // 监听预测数据更新频道
         // @ts-ignore
@@ -267,9 +249,8 @@
             console.error('❌ predictions 频道错误:', error);
           });
 
-        // 设置初始连接状态
-        // @ts-ignore
-        store.setConnectionStatus(window.Echo.connector.pusher.connection.state === 'connected');
+        // 使用全局WebSocket管理器的状态
+        store.setConnectionStatus(websocketManager.checkIfConnected());
       } else {
         console.warn('⚠️ WebSocket 客户端未初始化');
       }
@@ -280,12 +261,8 @@
 
   const reconnectWebSocket = () => {
     try {
-      // @ts-ignore
-      if (window.Echo) {
-        // @ts-ignore
-        window.Echo.connector.pusher.connection.connect();
-        message.info('正在重新连接...');
-      }
+      websocketManager.manualReconnect();
+      message.info('正在重新连接...');
     } catch (error: any) {
       console.error('重连失败:', error);
       message.error('重连失败');
@@ -341,7 +318,7 @@
     // 获取可用策略列表
     await store.fetchStrategies();
 
-    // 初始化 WebSocket
+    // 设置 WebSocket 频道监听
     initializeWebSocket();
   });
 

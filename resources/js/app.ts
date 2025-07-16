@@ -19,6 +19,9 @@ import zhCN from './locales/zh-CN.json';
 // Import store for initialization
 import { useGamePredictionStore } from '@/stores/gamePrediction';
 
+// Import WebSocket manager
+import { websocketManager } from '@/utils/websocketManager';
+
 /* 套用naiveui樣式 */
 const meta = document.createElement('meta');
 meta.name = 'naive-ui-style';
@@ -57,12 +60,20 @@ createInertiaApp({
     // 延迟初始化，确保应用完全启动
     setTimeout(async () => {
       try {
-        console.log('🚀 应用启动完成，初始化游戏数据store...');
+        console.log('🚀 应用启动完成，开始初始化服务...');
+
+        // 初始化WebSocket状态监控器
+        console.log('🔌 初始化WebSocket状态监控器...');
+        websocketManager.initialize();
+
+        // 初始化游戏数据store
+        console.log('📊 初始化游戏数据store...');
         const gamePredictionStore = useGamePredictionStore();
         await gamePredictionStore.initialize();
-        console.log('✅ 游戏数据store初始化完成');
+
+        console.log('✅ 所有服务初始化完成');
       } catch (error) {
-        console.error('❌ 游戏数据store初始化失败:', error);
+        console.error('❌ 服务初始化失败:', error);
       }
     }, 2000);
   },

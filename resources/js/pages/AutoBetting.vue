@@ -1188,10 +1188,6 @@
     // 获取 Hybrid-Edge 動能預測數據
     await fetchHybridPredictions();
 
-    // 🔧 初始化WebSocket管理器
-    console.log('🔌 初始化WebSocket管理器...');
-    websocketManager.initialize();
-
     console.log('🤖 自动下注页面已加载，包含初始数据获取和WebSocket实时数据模式');
   });
 
@@ -1204,9 +1200,6 @@
     isMonitoringRounds.value = false;
     debugInfo.lastBetResults = [];
     processedRounds.value.clear();
-
-    // 🔧 清理WebSocket管理器资源
-    websocketManager.cleanup();
 
     console.log('🧹 自动下注页面已卸载，已清理所有监听器');
   });

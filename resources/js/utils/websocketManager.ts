@@ -37,11 +37,8 @@ export class WebSocketManager {
    */
   public initialize(): void {
     if (this.isInitialized) {
-      console.log('⚠️ WebSocket管理器已经初始化，跳过重复初始化');
       return;
     }
-
-    console.log('🔄 初始化WebSocket管理器...');
 
     if (!window.Echo) {
       console.error('❌ Echo WebSocket未初始化');
@@ -52,7 +49,6 @@ export class WebSocketManager {
     this.setupStatusMonitoring();
     this.setupChannels();
     this.isInitialized = true;
-    console.log('✅ WebSocket管理器初始化完成');
   }
 
   /**
@@ -63,17 +59,14 @@ export class WebSocketManager {
 
     // 监听连接状态变化
     window.Echo.connector.pusher.connection.bind('connected', () => {
-      console.log('✅ WebSocket连接成功');
       this.updateStatus('connected', '已连接');
     });
 
     window.Echo.connector.pusher.connection.bind('disconnected', () => {
-      console.log('❌ WebSocket连接断开');
       this.updateStatus('disconnected', '连接已断开');
     });
 
     window.Echo.connector.pusher.connection.bind('connecting', () => {
-      console.log('🔄 WebSocket正在连接...');
       this.updateStatus('connecting', '正在连接...');
     });
 
@@ -99,21 +92,15 @@ export class WebSocketManager {
 
     // 游戏数据更新频道
     this.gameUpdatesChannel = window.Echo.channel('game-updates');
-    this.gameUpdatesChannel
-      .subscribed(() => console.log('✅ 成功订阅 game-updates 频道'))
-      .error((error: any) => console.error('❌ game-updates 频道错误:', error));
+    this.gameUpdatesChannel.error((error: any) => console.error('❌ game-updates 频道错误:', error));
 
     // 预测数据更新频道
     this.predictionsChannel = window.Echo.channel('predictions');
-    this.predictionsChannel
-      .subscribed(() => console.log('✅ 成功订阅 predictions 频道'))
-      .error((error: any) => console.error('❌ predictions 频道错误:', error));
+    this.predictionsChannel.error((error: any) => console.error('❌ predictions 频道错误:', error));
 
     // Hybrid预测数据更新频道
     this.hybridPredictionsChannel = window.Echo.channel('hybrid-predictions');
-    this.hybridPredictionsChannel
-      .subscribed(() => console.log('✅ 成功订阅 hybrid-predictions 频道'))
-      .error((error: any) => console.error('❌ hybrid-predictions 频道错误:', error));
+    this.hybridPredictionsChannel.error((error: any) => console.error('❌ hybrid-predictions 频道错误:', error));
   }
 
   /**
@@ -124,7 +111,6 @@ export class WebSocketManager {
 
     if (this.gameUpdatesChannel) {
       this.gameUpdatesChannel.listen('.game.data.updated', (event: any) => {
-        console.log('🎮 收到游戏数据更新:', event);
         callback(event);
       });
     }
@@ -138,7 +124,6 @@ export class WebSocketManager {
 
     if (this.predictionsChannel) {
       this.predictionsChannel.listen('.prediction.updated', (event: any) => {
-        console.log('🔮 收到预测数据更新:', event);
         callback(event);
       });
     }
@@ -152,7 +137,6 @@ export class WebSocketManager {
 
     if (this.hybridPredictionsChannel) {
       this.hybridPredictionsChannel.listen('.hybrid.prediction.updated', (event: any) => {
-        console.log('⚡ 收到Hybrid预测数据更新:', event);
         callback(event);
       });
     }
@@ -194,8 +178,6 @@ export class WebSocketManager {
    * 手动重连
    */
   public manualReconnect(): void {
-    console.log('🔄 手动重连WebSocket...');
-
     if (!window.Echo) {
       console.error('❌ Echo未初始化，无法重连');
       return;
@@ -204,7 +186,6 @@ export class WebSocketManager {
     try {
       this.updateStatus('connecting', '正在手动重连...');
       window.Echo.connector.pusher.connection.connect();
-      console.log('✅ 重连请求已发送');
     } catch (error) {
       console.error('❌ 重连失败:', error);
       this.updateStatus('error', '重连失败');

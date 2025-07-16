@@ -60,18 +60,12 @@ createInertiaApp({
     // 延迟初始化，确保应用完全启动
     setTimeout(async () => {
       try {
-        console.log('🚀 应用启动完成，开始初始化服务...');
-
         // 初始化WebSocket状态监控器
-        console.log('🔌 初始化WebSocket状态监控器...');
         websocketManager.initialize();
 
         // 初始化游戏数据store
-        console.log('📊 初始化游戏数据store...');
         const gamePredictionStore = useGamePredictionStore();
         await gamePredictionStore.initialize();
-
-        console.log('✅ 所有服务初始化完成');
       } catch (error) {
         console.error('❌ 服务初始化失败:', error);
       }

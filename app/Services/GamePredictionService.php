@@ -252,7 +252,10 @@ class GamePredictionService
                 ];
             }
 
-            \App\Models\PredictionResult::insert($predictionRecords);
+            // 使用 create 方法而不是 insert，确保触发 Eloquent 的 casts 转换
+            foreach ($predictionRecords as $record) {
+                \App\Models\PredictionResult::create($record);
+            }
 
             Log::info('✅ 预测数据已保存到 PredictionResult 表', [
                 'round_id' => $roundId,

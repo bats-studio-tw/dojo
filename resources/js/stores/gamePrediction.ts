@@ -439,6 +439,129 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     hybridAnalysisError.value = null;
   };
 
+  // ==================== 实时数据更新方法 ====================
+
+  /**
+   * 更新游戏数据
+   */
+  const updateGameData = (gameData: GameData) => {
+    latestGameData.value = gameData;
+
+    // 同时更新分析元数据
+    if (gameData.rdId) {
+      const { status, ...restGameData } = gameData;
+      analysisMeta.value = {
+        round_id: gameData.rdId,
+        status: status || 'unknown',
+        updated_at: new Date().toISOString(),
+        ...restGameData
+      };
+    }
+
+    console.log('🎮 游戏数据已更新:', gameData.status, gameData.rdId);
+  };
+
+  /**
+   * 更新预测数据
+   */
+  const updatePredictionData = (predictionData: any) => {
+    if (!currentAnalysis.value) {
+      currentAnalysis.value = [];
+    }
+
+    // 查找并更新现有预测，或添加新预测
+    const existingIndex = currentAnalysis.value.findIndex(
+      (item: TokenAnalysis) => item.symbol === predictionData.token
+    );
+
+    if (existingIndex >= 0) {
+      // 更新现有预测
+      currentAnalysis.value[existingIndex] = {
+        ...currentAnalysis.value[existingIndex],
+        predicted_rank: predictionData.predict_rank,
+        prediction_score: predictionData.predict_score,
+        rank_confidence: predictionData.confidence || 0,
+        // 使用可选字段，如果存在的话
+        ...(predictionData.elo_score && { absolute_score: predictionData.elo_score }),
+        ...(predictionData.momentum_score && { market_momentum_score: predictionData.momentum_score }),
+        ...(predictionData.volume_score && { final_prediction_score: predictionData.volume_score })
+      };
+    } else {
+      // 添加新预测
+      currentAnalysis.value.push({
+        symbol: predictionData.token,
+        name: predictionData.token,
+        predicted_rank: predictionData.predict_rank,
+        prediction_score: predictionData.predict_score,
+        rank_confidence: predictionData.confidence || 0,
+        win_rate: 0,
+        top3_rate: 0,
+        avg_rank: 3,
+        total_games: 0,
+        wins: 0,
+        top3: 0,
+        change_5m: null,
+        change_1h: null,
+        change_4h: null,
+        change_24h: null,
+        volume_24h: '0',
+        market_cap: null,
+        logo: null,
+        // 使用可选字段，如果存在的话
+        ...(predictionData.elo_score && { absolute_score: predictionData.elo_score }),
+        ...(predictionData.momentum_score && { market_momentum_score: predictionData.momentum_score }),
+        ...(predictionData.volume_score && { final_prediction_score: predictionData.volume_score })
+      });
+    }
+
+    console.log('🔮 预测数据已更新:', predictionData.token, predictionData.predict_rank);
+  };
+
+  /**
+   * 更新Hybrid预测数据
+   */
+  const updateHybridPredictions = (data: any[], meta?: any) => {
+    if (!Array.isArray(data)) {
+      console.warn('⚠️ Hybrid预测数据格式错误，期望数组');
+      return;
+    }
+
+    // 数据验证和去重
+    const validatedPredictions = data.filter((prediction: any) => {
+      return (
+        prediction &&
+        typeof prediction === 'object' &&
+        prediction.symbol &&
+        typeof prediction.symbol === 'string' &&
+        typeof prediction.predicted_rank === 'number' &&
+        prediction.predicted_rank > 0
+      );
+    });
+
+    // 基于symbol去重，保留排名最高的记录
+    const uniquePredictions = new Map<string, HybridPrediction>();
+    validatedPredictions.forEach((prediction: HybridPrediction) => {
+      const symbol = prediction.symbol.toUpperCase();
+      if (!uniquePredictions.has(symbol) || prediction.predicted_rank < uniquePredictions.get(symbol)!.predicted_rank) {
+        uniquePredictions.set(symbol, prediction);
+      }
+    });
+
+    const finalPredictions = Array.from(uniquePredictions.values());
+
+    if (finalPredictions.length > 0) {
+      hybridPredictions.value = finalPredictions;
+      hybridAnalysisMeta.value = {
+        round_id: meta?.round_id || currentRoundId.value || '',
+        status: meta?.status || 'unknown',
+        updated_at: new Date().toISOString(),
+        ...meta
+      };
+
+      console.log('⚡ Hybrid预测数据已更新:', finalPredictions.length, '个Token');
+    }
+  };
+
   // ==================== 初始化 ====================
   const initialize = async () => {
     console.log('🏗️ 初始化游戏预测数据store...');
@@ -499,6 +622,11 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
     fetchHybridAnalysis,
     fetchInitialData,
     refreshAllPredictionData,
-    clearErrors
+    clearErrors,
+
+    // ==================== 实时数据更新方法导出 ====================
+    updateGameData,
+    updatePredictionData,
+    updateHybridPredictions
   };
 });

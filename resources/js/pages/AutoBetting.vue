@@ -921,8 +921,14 @@
       // 更新游戏状态和轮次信息
       if (event.data) {
         const gameData = event.data;
-        // 这里可以根据需要更新store中的游戏状态
-        console.log('🎮 游戏状态更新:', gameData.status, gameData.rdId);
+
+        // 使用store的更新方法
+        predictionStore.updateGameData(gameData);
+
+        // 如果游戏状态变为bet，触发策略验证
+        if (gameData.status === 'bet') {
+          validateCurrentStrategy();
+        }
       }
     });
 
@@ -932,8 +938,13 @@
 
       // 更新预测数据
       if (event.prediction) {
-        // 这里可以根据需要更新store中的预测数据
-        console.log('🔮 预测数据更新:', event.prediction.token, event.prediction.predict_rank);
+        const predictionData = event.prediction;
+
+        // 使用store的更新方法
+        predictionStore.updatePredictionData(predictionData);
+
+        // 触发策略验证
+        validateCurrentStrategy();
       }
     });
 
@@ -942,9 +953,12 @@
       console.log('⚡ AutoBetting: 收到Hybrid预测数据更新:', event);
 
       // 更新Hybrid预测数据
-      if (event.data) {
-        // 这里可以根据需要更新store中的Hybrid预测数据
-        console.log('⚡ Hybrid预测数据更新:', event.data.length, '个Token');
+      if (event.data && Array.isArray(event.data)) {
+        // 使用store的更新方法
+        predictionStore.updateHybridPredictions(event.data, event.meta);
+
+        // 触发策略验证
+        validateCurrentStrategy();
       }
     });
 

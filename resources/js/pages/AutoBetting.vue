@@ -461,6 +461,10 @@
 
   // 🔧 修复：处理SmartControlCenter的config更新
   const handleConfigUpdate = (newConfig: AutoBettingConfig) => {
+    console.log(
+      '🔄 [AutoBetting] handleConfigUpdate called with:',
+      JSON.stringify(newConfig.dynamic_conditions, null, 2)
+    );
     // 更新本地config
     Object.assign(config, newConfig);
 

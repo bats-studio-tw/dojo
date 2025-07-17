@@ -826,7 +826,9 @@
       await fetchHybridPredictions();
 
       // 刷新后重新验证策略
-      validateCurrentStrategy();
+      if (!isExecuting.value) {
+        validateCurrentStrategy();
+      }
     } catch (error) {
       console.error('❌ 刷新预测数据失败:', error);
       window.$message?.error('刷新预测数据失败');
@@ -869,10 +871,11 @@
         // 使用store的更新方法
         predictionStore.updateGameData(gameData);
 
-        // 如果游戏状态变为bet，触发策略验证
-        if (gameData.status === 'bet') {
-          validateCurrentStrategy();
-        }
+        // 🔧 移除：不再在这里触发策略验证，避免重复触发
+        // 策略验证现在由响应式监听器统一处理
+        // if (gameData.status === 'bet') {
+        //   validateCurrentStrategy();
+        // }
       }
     });
 
@@ -920,8 +923,8 @@
         currentAnalysis.value = mappedData;
         analysisMeta.value = event.meta || null;
 
-        // 触发策略验证
-        validateCurrentStrategy();
+        // 🔧 移除：不再在这里触发策略验证，避免重复触发
+        // validateCurrentStrategy();
       } else if (event.prediction) {
         // 兼容旧的单个预测数据格式
         const predictionData = event.prediction;
@@ -929,8 +932,8 @@
         // 使用store的更新方法
         predictionStore.updatePredictionData(predictionData);
 
-        // 触发策略验证
-        validateCurrentStrategy();
+        // 🔧 移除：不再在这里触发策略验证，避免重复触发
+        // validateCurrentStrategy();
       }
     });
 
@@ -943,8 +946,8 @@
         // 使用store的更新方法
         predictionStore.updateHybridPredictions(event.data, event.meta);
 
-        // 触发策略验证
-        validateCurrentStrategy();
+        // 🔧 移除：不再在这里触发策略验证，避免重复触发
+        // validateCurrentStrategy();
       }
     });
   };
@@ -953,6 +956,10 @@
 
   // 记录已处理的轮次，避免重复下注
   const processedRounds = ref<Set<string>>(new Set());
+
+  // 🔧 新增：防抖机制，避免短时间内重复执行
+  const isExecuting = ref(false);
+  const executionTimeout = ref<NodeJS.Timeout | null>(null);
 
   // 检查所有自动下注条件
   const checkAutoBettingConditions = (): { canProceed: boolean; reason?: string } => {
@@ -990,12 +997,21 @@
     const timestamp = new Date().toLocaleTimeString();
     const roundId = currentRoundId.value!;
 
-    // 检查是否已处理此轮次
-    if (processedRounds.value.has(roundId)) {
-      console.log(`🚫 [${timestamp}] 轮次 ${roundId} 已处理过，跳过`);
+    // 🔧 防抖检查：如果正在执行，则跳过
+    if (isExecuting.value) {
+      console.log(`🚫 [${timestamp}] 自动下注逻辑正在执行中，跳过重复调用`);
       return;
     }
 
+    // 🔧 增强：检查是否已处理此轮次（本地缓存）
+    if (processedRounds.value.has(roundId)) {
+      console.log(`🚫 [${timestamp}] 轮次 ${roundId} 已在本地缓存中，跳过`);
+      return;
+    }
+
+    // 🔧 新增：立即标记为已处理，防止并发执行
+    processedRounds.value.add(roundId);
+    isExecuting.value = true;
     console.log(`🎯 [${timestamp}] 开始自动下注逻辑 - 轮次: ${roundId}`);
 
     try {
@@ -1003,11 +1019,15 @@
       const roundBetCheck = await autoBettingApi.checkRoundBet(currentUID.value, roundId);
       if (roundBetCheck.data.success && roundBetCheck.data.data.has_bet) {
         console.log(`🚫 [${timestamp}] 轮次 ${roundId} 已在API中记录下注，跳过`);
-        processedRounds.value.add(roundId);
+        isExecuting.value = false;
         return;
       }
     } catch (error) {
       console.warn(`⚠️ [${timestamp}] 检查轮次下注记录失败:`, error);
+      // 🔧 新增：如果API检查失败，从本地缓存中移除，允许重试
+      processedRounds.value.delete(roundId);
+      isExecuting.value = false;
+      return;
     }
 
     // 🔧 修复：在执行策略验证前检查数据可用性
@@ -1024,14 +1044,14 @@
     if (!strategyValidation.value?.matches.length) {
       console.log(`❌ [${timestamp}] 无符合条件的下注目标`);
       console.log(`📊 [${timestamp}] 策略验证结果:`, strategyValidation.value);
-      processedRounds.value.add(roundId);
+      isExecuting.value = false;
       return;
     }
 
     if (!strategyValidation.value?.balance_sufficient) {
       console.warn(`💰 [${timestamp}] 余额不足，跳过此轮下注`);
       window.$message?.warning('余额不足，跳过此轮自动下注');
-      processedRounds.value.add(roundId);
+      isExecuting.value = false;
       return;
     }
 
@@ -1081,12 +1101,10 @@
       }
     }
 
-    // 标记此轮次已处理
-    processedRounds.value.add(roundId);
-
     // 更新状态和验证
     await loadStatus();
-    validateCurrentStrategy();
+    // 🔧 修复：避免在函数结束时重复验证策略，因为此时isExecuting还是true
+    // validateCurrentStrategy();
 
     // 显示结果
     if (successCount > 0) {
@@ -1102,6 +1120,9 @@
       const sortedRounds = Array.from(processedRounds.value).sort();
       processedRounds.value = new Set(sortedRounds.slice(-20));
     }
+
+    // 🔧 新增：重置执行状态
+    isExecuting.value = false;
   };
 
   // ==================== 监听器设置 ====================
@@ -1111,7 +1132,10 @@
     config,
     () => {
       configComposable.autoSaveConfig(currentUID.value);
-      validateCurrentStrategy();
+      // 🔧 修复：避免在自动下注执行期间重复验证策略
+      if (!isExecuting.value) {
+        validateCurrentStrategy();
+      }
     },
     { deep: true, flush: 'post' }
   );
@@ -1119,7 +1143,10 @@
   const analysisWatcher = watch(
     currentAnalysis,
     () => {
-      validateCurrentStrategy();
+      // 🔧 修复：避免在自动下注执行期间重复验证策略
+      if (!isExecuting.value) {
+        validateCurrentStrategy();
+      }
     },
     { deep: true }
   );
@@ -1135,7 +1162,10 @@
       () => config.jwt_token,
       currentUID
     ],
-    async ([isRunning, gameStatus, roundId, analysis, hybridData, jwtToken, uid], [prevIsRunning]) => {
+    async (
+      [isRunning, gameStatus, roundId, analysis, hybridData, jwtToken, uid],
+      [prevIsRunning, prevGameStatus, prevRoundId]
+    ) => {
       // 🔧 当自动下注开启/关闭时的状态提示
       if (isRunning !== prevIsRunning) {
         if (isRunning) {
@@ -1148,6 +1178,10 @@
         }
       }
 
+      // 🔧 新增：检查轮次变化，只有在新轮次开始时才执行下注
+      const isNewRound = roundId && roundId !== prevRoundId;
+      const isGameStatusChanged = gameStatus !== prevGameStatus;
+
       // 检查基础条件
       const conditions = checkAutoBettingConditions();
       if (!conditions.canProceed) {
@@ -1159,11 +1193,29 @@
       }
 
       // 🎯 关键触发条件：游戏状态为bet且有轮次数据
-      // 🔧 修复：放宽数据要求，只要有轮次ID和JWT Token就可以尝试执行
+      // 🔧 修复：只有在新轮次开始或游戏状态变为bet时才执行下注
       if (gameStatus === 'bet' && roundId && isRunning && jwtToken && uid) {
-        console.log(`🚀 触发自动下注检查 - 轮次: ${roundId}, 状态: ${gameStatus}`);
-        console.log(`📊 当前数据状态: analysis=${analysis?.length || 0}, hybrid=${hybridData?.length || 0}`);
-        await executeAutoBettingLogic();
+        // 🔧 新增：更严格的触发条件检查
+        const shouldExecute = isNewRound || (isGameStatusChanged && gameStatus === 'bet');
+
+        if (shouldExecute) {
+          console.log(`🚀 触发自动下注检查 - 轮次: ${roundId}, 状态: ${gameStatus}`);
+          console.log(`📊 当前数据状态: analysis=${analysis?.length || 0}, hybrid=${hybridData?.length || 0}`);
+          console.log(`🔄 触发原因: ${isNewRound ? '新轮次' : '游戏状态变化'}`);
+
+          // 🔧 新增：防抖机制，避免短时间内重复执行
+          if (executionTimeout.value) {
+            clearTimeout(executionTimeout.value);
+          }
+
+          executionTimeout.value = setTimeout(async () => {
+            await executeAutoBettingLogic();
+            executionTimeout.value = null;
+          }, 100); // 100ms防抖延迟
+        } else {
+          // 🔧 新增：调试日志，说明为什么跳过
+          console.log(`⏭️ 跳过自动下注检查 - 轮次: ${roundId}, 原因: 非新轮次且游戏状态未变化`);
+        }
       }
     },
     {
@@ -1237,6 +1289,13 @@
     isMonitoringRounds.value = false;
     debugInfo.lastBetResults = [];
     processedRounds.value.clear();
+
+    // 🔧 新增：清理防抖定时器
+    if (executionTimeout.value) {
+      clearTimeout(executionTimeout.value);
+      executionTimeout.value = null;
+    }
+    isExecuting.value = false;
   });
 </script>
 

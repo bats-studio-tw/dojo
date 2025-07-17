@@ -167,8 +167,14 @@
               </div>
               <!-- 🆕 复合型策略：显示两种排名 -->
               <div v-if="hasActiveDynamicConditions()" class="mt-2 flex items-center justify-between text-xs">
-                <span class="text-blue-300">AI: #{{ token.predicted_rank || 'N/A' }}</span>
-                <span class="text-green-300">动能: #{{ token.momentum_rank || 'N/A' }}</span>
+                <span class="text-blue-300">AI: #{{ token.predicted_rank || '-' }}</span>
+                <span class="text-green-300">
+                  动能:
+                  <template v-if="token.momentum_rank !== undefined && token.momentum_rank !== null">
+                    #{{ token.momentum_rank }}
+                  </template>
+                  <template v-else>-</template>
+                </span>
               </div>
             </div>
 
@@ -561,12 +567,12 @@
       const h2hData = props.currentAnalysis || [];
       const momentumData = props.hybridPredictions || [];
 
-      // 合并数据，确保每个Token都有两种预测的排名信息
+      // 合并数据，确保每个Token都有两种预测的排名信息，symbol忽略大小写
       const combinedData = h2hData.map((h2hToken: any) => {
-        const momentumToken = momentumData.find((m: any) => m.symbol === h2hToken.symbol);
+        const momentumToken = momentumData.find((m: any) => m.symbol?.toUpperCase() === h2hToken.symbol?.toUpperCase());
         return {
           ...h2hToken,
-          momentum_rank: momentumToken?.predicted_rank || 999
+          momentum_rank: momentumToken?.predicted_rank ?? null
         };
       });
 

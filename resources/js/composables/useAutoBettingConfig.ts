@@ -868,19 +868,52 @@ export const useAutoBettingConfig = () => {
 
   // 保存配置到云端
   const saveConfigToCloud = async (uid: string): Promise<boolean> => {
-    if (!uid) return false;
+    if (!uid) {
+      console.error('❌ saveConfigToCloud: UID为空');
+      return false;
+    }
+
+    console.log('☁️ [saveConfigToCloud] 开始保存到云端...', {
+      uid,
+      configSize: JSON.stringify(config).length,
+      hasJWT: !!config.jwt_token
+    });
 
     try {
       const response = await autoBettingApi.saveConfig(uid, config);
+      console.log('📡 API响应:', response.data);
+
       if (response.data.success) {
         configSyncStatus.value = { type: 'success', message: '配置已保存到云端' };
+        console.log('✅ 云端保存成功');
         return true;
       } else {
-        configSyncStatus.value = { type: 'error', message: '保存云端配置失败' };
+        configSyncStatus.value = { type: 'error', message: `保存云端配置失败: ${response.data.message}` };
+        console.error('❌ 云端保存失败:', response.data.message);
         return false;
       }
     } catch (error) {
-      console.error('保存云端配置失败:', error);
+      console.error('💥 云端保存异常:', error);
+
+      // 详细的错误信息
+      if (error instanceof Error) {
+        console.error('错误详情:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+      }
+
+      // 检查是否是网络错误
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        console.error('HTTP错误详情:', {
+          status: axiosError.response?.status,
+          statusText: axiosError.response?.statusText,
+          data: axiosError.response?.data
+        });
+      }
+
       configSyncStatus.value = { type: 'error', message: '网络错误，无法保存到云端' };
       return false;
     }
@@ -926,24 +959,122 @@ export const useAutoBettingConfig = () => {
     }, 1000);
   };
 
+  // 验证配置数据完整性
+  const validateConfig = (): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+
+    console.log('🔍 [validateConfig] 开始验证配置...');
+
+    // 检查必要字段
+    if (typeof config.bet_amount !== 'number' || config.bet_amount < 200 || config.bet_amount > 2000) {
+      errors.push('下注金额必须在200-2000之间');
+    }
+
+    if (
+      typeof config.confidence_threshold !== 'number' ||
+      config.confidence_threshold < 0 ||
+      config.confidence_threshold > 100
+    ) {
+      errors.push('置信度阈值必须在0-100之间');
+    }
+
+    if (typeof config.score_gap_threshold !== 'number' || config.score_gap_threshold < 0) {
+      errors.push('分数差距阈值必须大于等于0');
+    }
+
+    if (typeof config.min_sample_count !== 'number' || config.min_sample_count < 1) {
+      errors.push('最小样本数必须大于等于1');
+    }
+
+    // 检查动态条件
+    if (config.dynamic_conditions && Array.isArray(config.dynamic_conditions)) {
+      config.dynamic_conditions.forEach((condition, index) => {
+        if (!condition.id || !condition.type || !condition.operator || typeof condition.value !== 'number') {
+          errors.push(`动态条件${index + 1}格式不正确`);
+        }
+      });
+    }
+
+    // 检查数组字段
+    if (!Array.isArray(config.rank_betting_enabled_ranks)) {
+      errors.push('排名下注启用排名必须是数组');
+    }
+
+    const isValid = errors.length === 0;
+
+    console.log('🔍 配置验证结果:', {
+      isValid,
+      errorCount: errors.length,
+      errors
+    });
+
+    return { isValid, errors };
+  };
+
   // 手动保存配置
   const manualSaveConfig = async (uid?: string) => {
+    console.log('💾 [useAutoBettingConfig] 开始手动保存配置...', {
+      hasUID: !!uid,
+      uid,
+      configSize: JSON.stringify(config).length,
+      configKeys: Object.keys(config)
+    });
+
     configSaving.value = true;
 
     try {
-      saveConfigToLocalStorage();
+      // 0. 验证配置数据
+      console.log('🔍 步骤0: 验证配置数据...');
+      const validation = validateConfig();
+      if (!validation.isValid) {
+        console.error('❌ 配置验证失败:', validation.errors);
+        window.$message?.error(`配置验证失败: ${validation.errors.join(', ')}`);
+        return;
+      }
+      console.log('✅ 配置验证通过');
 
+      // 1. 保存到本地存储
+      console.log('💾 步骤1: 保存到localStorage...');
+      saveConfigToLocalStorage();
+      console.log('✅ localStorage保存完成');
+
+      // 2. 如果有UID，保存到云端
       if (uid) {
-        await saveConfigToCloud(uid);
-        window.$message?.success('配置已保存到云端');
+        console.log('☁️ 步骤2: 保存到云端...', { uid });
+
+        // 检查JWT Token
+        if (!config.jwt_token) {
+          console.warn('⚠️ JWT Token为空，云端保存可能失败');
+        }
+
+        const result = await saveConfigToCloud(uid);
+        if (result) {
+          console.log('✅ 云端保存成功');
+          window.$message?.success('配置已保存到云端');
+        } else {
+          console.error('❌ 云端保存失败');
+          window.$message?.error('云端保存失败，但本地保存成功');
+        }
       } else {
+        console.log('📱 无UID，仅保存到本地');
         window.$message?.success('配置已保存到本地');
       }
     } catch (err) {
-      console.error('保存配置失败:', err);
-      window.$message?.error('保存配置失败');
+      console.error('💥 保存配置时发生错误:', err);
+
+      // 详细的错误信息
+      if (err instanceof Error) {
+        console.error('错误详情:', {
+          message: err.message,
+          stack: err.stack,
+          name: err.name
+        });
+      }
+
+      window.$message?.error(`保存配置失败: ${err instanceof Error ? err.message : '未知错误'}`);
     } finally {
       configSaving.value = false;
+      console.log('🏁 保存流程结束');
     }
   };
 
@@ -1034,6 +1165,7 @@ export const useAutoBettingConfig = () => {
     getRankBettingAmount,
     getTotalRankBettingAmount,
     initializeConfig,
+    validateConfig,
 
     // 🔄 重置方法
     resetToDefaultConfig,

@@ -60,13 +60,48 @@
       </div>
 
       <!-- 保存按钮 -->
-      <div class="text-center">
+      <div class="text-center space-y-2">
         <n-button @click="saveConfig" :disabled="isRunning" :loading="configSaving" type="primary">
           <template #icon>
             <span>💾</span>
           </template>
           {{ hasUID ? '保存到云端' : '本地保存' }}
         </n-button>
+
+        <!-- 配置状态显示 -->
+        <div class="text-xs text-gray-400 space-y-1">
+          <div class="flex items-center justify-center gap-2">
+            <span>状态:</span>
+            <span v-if="configSaving" class="text-yellow-400">保存中...</span>
+            <span v-else class="text-green-400">就绪</span>
+          </div>
+          <div class="flex items-center justify-center gap-2">
+            <span>存储:</span>
+            <span v-if="hasUID" class="text-blue-400">云端同步</span>
+            <span v-else class="text-orange-400">仅本地</span>
+          </div>
+        </div>
+
+        <!-- 调试按钮 -->
+        <div v-if="import.meta.env.DEV" class="mt-2">
+          <n-button @click="debugSaveConfig" :disabled="isRunning" type="tertiary" size="small">
+            <template #icon>
+              <span>🔧</span>
+            </template>
+            调试保存
+          </n-button>
+        </div>
+
+        <!-- 保存问题帮助 -->
+        <div class="mt-4 border border-gray-600/30 rounded-lg bg-gray-500/10 p-3">
+          <div class="mb-2 text-xs text-gray-300 font-medium">💡 保存问题排查:</div>
+          <div class="text-xs text-gray-400 space-y-1">
+            <div>• 确保已完成JWT Token验证</div>
+            <div>• 检查网络连接是否正常</div>
+            <div>• 查看浏览器控制台错误信息</div>
+            <div>• 尝试刷新页面后重新保存</div>
+          </div>
+        </div>
       </div>
     </div>
   </NCard>
@@ -286,5 +321,56 @@
   // 保存配置
   const saveConfig = () => {
     emit('save-config');
+  };
+
+  // 调试保存配置
+  const debugSaveConfig = () => {
+    console.log('🔧 [StrategyConfigPanel] 开始调试保存配置...');
+
+    // 检查配置数据
+    console.log('📋 当前配置数据:', {
+      hasUID: props.hasUID,
+      configSaving: props.configSaving,
+      isRunning: props.isRunning,
+      configKeys: Object.keys(props.config),
+      dynamicConditions: props.config.dynamic_conditions,
+      configSize: JSON.stringify(props.config).length
+    });
+
+    // 检查localStorage
+    try {
+      const savedConfig = localStorage.getItem('autoBettingConfig');
+      console.log('💾 localStorage状态:', {
+        hasSavedConfig: !!savedConfig,
+        savedConfigSize: savedConfig?.length || 0
+      });
+    } catch (error) {
+      console.error('❌ localStorage检查失败:', error);
+    }
+
+    // 检查网络连接
+    if (navigator.onLine) {
+      console.log('🌐 网络连接: 在线');
+    } else {
+      console.log('🌐 网络连接: 离线');
+    }
+
+    // 触发保存并监听结果
+    emit('save-config');
+
+    // 3秒后检查保存结果
+    setTimeout(() => {
+      console.log('⏰ 3秒后检查保存结果...');
+      try {
+        const savedConfig = localStorage.getItem('autoBettingConfig');
+        console.log('💾 保存后localStorage状态:', {
+          hasSavedConfig: !!savedConfig,
+          savedConfigSize: savedConfig?.length || 0,
+          configSaving: props.configSaving
+        });
+      } catch (error) {
+        console.error('❌ 保存后检查失败:', error);
+      }
+    }, 3000);
   };
 </script>

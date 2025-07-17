@@ -57,7 +57,7 @@ export const conditionTypes = {
     description: 'Head-to-Head对战分数，反映该Token与其他Token直接竞争时的胜率'
   },
   score: {
-    label: '智能对战综合分数',
+    label: '综合分数',
     unit: '',
     min: 0,
     max: 100,

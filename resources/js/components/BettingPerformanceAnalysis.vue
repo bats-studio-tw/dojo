@@ -235,7 +235,10 @@
       title: '下注金额',
       key: 'bet_amount',
       width: 100,
-      render: (row: any) => (row.bet_amount ? `$${row.bet_amount.toFixed(2)}` : '-')
+      render: (row: any) => {
+        const amount = parseFloat(row.bet_amount);
+        return !isNaN(amount) ? `$${amount.toFixed(2)}` : '-';
+      }
     },
     {
       title: '预测排名',

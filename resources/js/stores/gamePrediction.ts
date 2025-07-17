@@ -466,7 +466,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
 
     try {
       console.log('🔄 获取预测历史数据...');
-      const response = await api.get('/v2/predictions/history');
+      const response = await api.get('/v2/predictions/history', { params: { limit: 300 } });
       if (response.data.success) {
         // 更新store中的预测历史数据
         predictionHistory.value = response.data.data || [];

@@ -884,7 +884,7 @@
     momentumHistoryLoading.value = true;
     try {
       // 🔧 修复：增加limit参数，获取更多历史数据
-      const response = await gameApi.getMomentumPredictionHistory({ limit: 500 });
+      const response = await gameApi.getMomentumPredictionHistory({ limit: 300 });
       if (response.data.success) {
         momentumPredictionHistory.value = response.data.data || [];
         console.log(`📊 获取到 ${momentumPredictionHistory.value.length} 局动能预测历史数据`);

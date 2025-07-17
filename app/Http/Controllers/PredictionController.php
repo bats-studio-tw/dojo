@@ -314,7 +314,7 @@ class PredictionController extends Controller
             }
 
             $validated = $validator->validated();
-            $limit = $validated['limit'] ?? 100;
+            $limit = $validated['limit'] ?? 300;
             $offset = $validated['offset'] ?? 0;
 
             // 先查最新 N 局的 game_round_id
@@ -1087,7 +1087,7 @@ class PredictionController extends Controller
             }
 
             $validated = $validator->validated();
-            $limit = $validated['limit'] ?? 50;
+            $limit = $validated['limit'] ?? 300;
             $offset = $validated['offset'] ?? 0;
 
             // 先查最新 N 局的 game_round_id

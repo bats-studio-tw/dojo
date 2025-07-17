@@ -6,6 +6,45 @@
     <WalletSetup :visible="!isTokenValidated" @validated="handleTokenValidated" />
 
     <div v-if="isTokenValidated" class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br">
+      <!-- 🔧 调试面板 -->
+      <div v-if="import.meta.env.DEV" class="mb-4 border border-red-500/4 bg-red-900">
+        <h3 class="mb-2 text-red-400 font-bold">🔧 调试面板 (开发模式)</h3>
+        <div class="grid grid-cols-2 text-sm md:grid-cols-4">
+          <div>
+            <div class="text-red-300">WebSocket状态:</div>
+            <div class="text-red-200">{{ websocketStatus.status }} - {{ websocketStatus.message }}</div>
+          </div>
+          <div>
+            <div class="text-red-300">自动下注状态:</div>
+            <div class="text-red-200">{{ autoBettingStatus.is_running ? '运行中' : '已停止' }}</div>
+          </div>
+          <div>
+            <div class="text-red-300">当前游戏状态:</div>
+            <div class="text-red-200">{{ currentGameStatus || '未知' }}</div>
+          </div>
+          <div>
+            <div class="text-red-300">当前轮次ID:</div>
+            <div class="text-red-200">{{ currentRoundId || '无' }}</div>
+          </div>
+          <div>
+            <div class="text-red-300">分析数据:</div>
+            <div class="text-red-200">{{ currentAnalysis?.length || 0 }} 个</div>
+          </div>
+          <div>
+            <div class="text-red-300">动能预测:</div>
+            <div class="text-red-200">{{ hybridPredictions?.length || 0 }} 个</div>
+          </div>
+          <div>
+            <div class="text-red-300">JWT Token:</div>
+            <div class="text-red-200">{{ config.jwt_token ? '已设置' : '未设置' }}</div>
+          </div>
+          <div>
+            <div class="text-red-300">用户ID:</div>
+            <div class="text-red-200">{{ currentUID || '未认证' }}</div>
+          </div>
+        </div>
+      </div>
+
       <!-- 顶部状态栏 -->
       <div class="status-bar">
         <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6">
@@ -658,10 +697,13 @@
     let predictions: any[] = [];
     if (config.strategy_type === 'momentum') {
       predictions = hybridPredictions.value || [];
+      console.log(`📊 动能策略：使用 ${predictions.length} 个动能预测数据`);
     } else if (config.strategy_type === 'hybrid_rank') {
       // 🆕 复合型策略：需要同时有AI预测和动能预测数据
       const h2hData = currentAnalysis.value || [];
       const momentumData = hybridPredictions.value || [];
+
+      console.log(`📊 复合型策略：AI预测数据 ${h2hData.length} 个，动能预测数据 ${momentumData.length} 个`);
 
       // 合并数据，确保每个Token都有两种预测的排名信息
       predictions = h2hData.map((h2hToken: any) => {
@@ -673,9 +715,11 @@
       });
     } else {
       predictions = currentAnalysis.value || [];
+      console.log(`📊 H2H策略：使用 ${predictions.length} 个分析数据`);
     }
 
     if (!predictions || predictions.length === 0) {
+      console.log(`⚠️ 策略验证：无可用预测数据 (策略类型: ${config.strategy_type})`);
       strategyValidation.value = null;
       return;
     }
@@ -696,6 +740,8 @@
         });
       }
     });
+
+    console.log(`📊 策略验证：从 ${predictions.length} 个预测中找到 ${allMatches.length} 个符合条件的Token`);
 
     // 🔧 根据策略类型筛选最终的下注目标
     let finalMatches: any[] = [];
@@ -742,6 +788,10 @@
       required_balance: totalMatchedValue,
       actual_balance: actualBalance
     };
+
+    console.log(
+      `📊 策略验证完成：${finalMatches.length} 个目标，需要余额 $${totalMatchedValue.toFixed(2)}，实际余额 $${actualBalance.toFixed(2)}`
+    );
   };
 
   // ==================== 用户操作函数 ====================
@@ -919,6 +969,8 @@
 
     // 监听预测数据更新
     websocketManager.listenToPredictions((event: any) => {
+      console.log('📡 收到预测数据更新:', event);
+
       // 更新预测数据 - 根据后端广播的数据结构
       if (event.data && Array.isArray(event.data)) {
         // 这是完整的分析数据数组
@@ -942,6 +994,8 @@
 
     // 监听Hybrid预测数据更新
     websocketManager.listenToHybridPredictions((event: any) => {
+      console.log('📡 收到Hybrid预测数据更新:', event);
+
       // 更新Hybrid预测数据
       if (event.data && Array.isArray(event.data)) {
         // 使用store的更新方法
@@ -972,10 +1026,19 @@
       return { canProceed: false, reason: '缺少JWT Token' };
     }
 
-    // 🆕 根据策略类型检查数据源
+    if (!currentRoundId.value) {
+      return { canProceed: false, reason: '无当前轮次ID' };
+    }
+
+    if (!currentUID.value) {
+      return { canProceed: false, reason: '用户未认证' };
+    }
+
+    // 🔧 修复：放宽数据检查条件，允许在数据不足时继续执行，在executeAutoBettingLogic中处理
+    // 🆕 根据策略类型检查数据源 - 但不作为阻止条件
     if (config.strategy_type === 'momentum') {
       if (!hybridPredictions.value || hybridPredictions.value.length === 0) {
-        return { canProceed: false, reason: '无动能预测数据' };
+        console.log('⚠️ 动能策略：无动能预测数据，将在执行时处理');
       }
     } else if (config.strategy_type === 'hybrid_rank') {
       if (
@@ -984,20 +1047,12 @@
         !hybridPredictions.value ||
         hybridPredictions.value.length === 0
       ) {
-        return { canProceed: false, reason: '复合型策略需要AI预测和动能预测数据' };
+        console.log('⚠️ 复合型策略：缺少AI预测或动能预测数据，将在执行时处理');
       }
     } else {
       if (!currentAnalysis.value || currentAnalysis.value.length === 0) {
-        return { canProceed: false, reason: '无分析数据' };
+        console.log('⚠️ H2：无分析数据，将在执行时处理');
       }
-    }
-
-    if (!currentRoundId.value) {
-      return { canProceed: false, reason: '无当前轮次ID' };
-    }
-
-    if (!currentUID.value) {
-      return { canProceed: false, reason: '用户未认证' };
     }
 
     return { canProceed: true };
@@ -1028,11 +1083,20 @@
       console.warn(`⚠️ [${timestamp}] 检查轮次下注记录失败:`, error);
     }
 
+    // 🔧 修复：在执行策略验证前检查数据可用性
+    const hasAnalysisData = currentAnalysis.value && currentAnalysis.value.length > 0;
+    const hasHybridData = hybridPredictions.value && hybridPredictions.value.length > 0;
+
+    console.log(
+      `📊 [${timestamp}] 数据状态检查: analysis=${hasAnalysisData ? currentAnalysis.value.length : 0}, hybrid=${hasHybridData ? hybridPredictions.value.length : 0}`
+    );
+
     // 验证策略条件
     validateCurrentStrategy();
 
     if (!strategyValidation.value?.matches.length) {
       console.log(`❌ [${timestamp}] 无符合条件的下注目标 (策略: ${config.strategy})`);
+      console.log(`📊 [${timestamp}] 策略验证结果:`, strategyValidation.value);
       processedRounds.value.add(roundId);
       return;
     }
@@ -1154,7 +1218,7 @@
       () => config.jwt_token,
       currentUID
     ],
-    async ([isRunning, gameStatus, roundId, analysis, jwtToken, uid], [prevIsRunning]) => {
+    async ([isRunning, gameStatus, roundId, analysis, hybridData, jwtToken, uid], [prevIsRunning]) => {
       // 🔧 当自动下注开启/关闭时的状态提示
       if (isRunning !== prevIsRunning) {
         if (isRunning) {
@@ -1171,15 +1235,17 @@
       const conditions = checkAutoBettingConditions();
       if (!conditions.canProceed) {
         // 只有在游戏状态从非bet变为bet时才打印日志，避免过多输出
-        if (gameStatus === 'bet' && roundId && (analysis || hybridPredictions.value) && isRunning) {
+        if (gameStatus === 'bet' && roundId && isRunning) {
           console.log(`⏸️ 自动下注条件不满足: ${conditions.reason}`);
         }
         return;
       }
 
       // 🎯 关键触发条件：游戏状态为bet且有轮次数据
-      if (gameStatus === 'bet' && roundId && (analysis || hybridPredictions.value) && isRunning && jwtToken && uid) {
+      // 🔧 修复：放宽数据要求，只要有轮次ID和JWT Token就可以尝试执行
+      if (gameStatus === 'bet' && roundId && isRunning && jwtToken && uid) {
         console.log(`🚀 触发自动下注检查 - 轮次: ${roundId}, 状态: ${gameStatus}`);
+        console.log(`📊 当前数据状态: analysis=${analysis?.length || 0}, hybrid=${hybridData?.length || 0}`);
         await executeAutoBettingLogic();
       }
     },
@@ -1219,6 +1285,15 @@
       isMonitoringRounds.value = true;
     }
 
+    // 🔧 确保WebSocket管理器已初始化
+    console.log('🔌 检查WebSocket管理器状态...');
+    if (!websocketManager.isInitialized) {
+      console.log('🔌 初始化WebSocket管理器...');
+      websocketManager.initialize();
+    } else {
+      console.log('🔌 WebSocket管理器已初始化');
+    }
+
     // 🔧 优化：使用store的方法获取初始数据，并添加调试日志
     console.log('📡 AutoBetting: 开始获取初始数据...');
     await predictionStore.fetchInitialData();
@@ -1228,9 +1303,12 @@
     await refreshMomentumHistory();
 
     // 设置WebSocket频道监听
+    console.log('🔌 设置WebSocket频道监听...');
     setupWebSocketListeners();
 
     console.log('🎉 AutoBetting: 页面初始化完成');
+    console.log('📊 当前WebSocket状态:', websocketStatus.value);
+    console.log('📊 当前自动下注状态:', autoBettingStatus.value);
   });
 
   // 组件卸载时清理资源

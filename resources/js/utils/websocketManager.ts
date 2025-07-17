@@ -8,7 +8,7 @@ export interface WebSocketStatus {
 }
 
 export class WebSocketManager {
-  private isInitialized = false;
+  public isInitialized = false;
   private statusCheckInterval: ReturnType<typeof setInterval> | null = null;
 
   // 状态管理

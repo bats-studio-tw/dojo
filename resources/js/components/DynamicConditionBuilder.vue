@@ -171,27 +171,21 @@
   const updateConditionType = (id: string, newType: string) => {
     const condition = props.modelValue.find((c) => c.id === id);
     if (condition) {
-      const typeConfig = getConditionTypeOptions().find((opt: any) => opt.value === newType);
-      if (typeConfig) {
-        // 根据条件类型设置合适的操作符和默认值
-        let operator = condition.operator;
-        let value = condition.value;
+      // 根据条件类型设置合适的操作符和默认值
+      let operator = condition.operator;
+      let value = condition.value;
 
-        if (['avg_rank', 'stability', 'h2h_rank', 'momentum_rank'].includes(newType)) {
-          operator = 'lte'; // 排名和波动性使用小于等于
-        } else {
-          operator = 'gte'; // 其他条件使用大于等于
-        }
-
-        // 设置默认值
-        const typeConfigData = getConditionTypeOptions().find((opt: any) => opt.value === newType);
-        if (typeConfigData) {
-          const placeholderValue = getPlaceholder(newType);
-          value = parseFloat(placeholderValue) || 0;
-        }
-
-        updateCondition(id, { type: newType, operator, value });
+      if (['avg_rank', 'stability', 'h2h_rank', 'momentum_rank'].includes(newType)) {
+        operator = 'lte'; // 排名和波动性使用小于等于
+      } else {
+        operator = 'gte'; // 其他条件使用大于等于
       }
+
+      // 设置默认值
+      const placeholderValue = getPlaceholder(newType);
+      value = parseFloat(placeholderValue) || 0;
+
+      updateCondition(id, { type: newType, operator, value });
     }
   };
 

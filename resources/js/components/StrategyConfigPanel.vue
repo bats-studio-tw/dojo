@@ -43,12 +43,13 @@
               之间。金额越高收益越大，但风险也相应增加。建议根据个人资金情况合理设置。
             </NTooltip>
             <n-input-number
-              v-model:value="config.bet_amount"
+              v-model:value="localConfig.bet_amount"
               :min="200"
               :max="2000"
               :step="50"
               :disabled="isRunning"
               size="small"
+              @update:value="updateConfig"
             />
           </div>
         </div>
@@ -56,7 +57,11 @@
 
       <!-- 动态条件构建器 -->
       <div class="border-t border-gray-600 pt-4">
-        <DynamicConditionBuilder v-model="config.dynamic_conditions" :disabled="isRunning" />
+        <DynamicConditionBuilder
+          v-model="localConfig.dynamic_conditions"
+          :disabled="isRunning"
+          @update:model-value="updateConfig"
+        />
       </div>
 
       <!-- 保存按钮 -->
@@ -99,9 +104,18 @@
             <div>• hasUID: {{ hasUID }}</div>
             <div>• configSaving: {{ configSaving }}</div>
             <div>• isRunning: {{ isRunning }}</div>
-            <div>• JWT Token: {{ config.jwt_token ? '已设置' : '未设置' }}</div>
-            <div>• 动态条件数量: {{ config.dynamic_conditions?.length || 0 }}</div>
-            <div>• 配置大小: {{ JSON.stringify(config).length }} 字符</div>
+            <div>• JWT Token: {{ localConfig.jwt_token ? '已设置' : '未设置' }}</div>
+            <div>• 动态条件数量: {{ localConfig.dynamic_conditions?.length || 0 }}</div>
+            <div>• 配置大小: {{ JSON.stringify(localConfig).length }} 字符</div>
+            <div>• 当前策略类型: {{ selectedStrategyKey }}</div>
+            <div>• 计算策略类型: {{ computedStrategyType }}</div>
+            <div>• 正在应用预设: {{ isApplyingPreset }}</div>
+            <div v-if="localConfig.dynamic_conditions?.length > 0" class="mt-2">
+              <div class="text-blue-300 font-medium">动态条件详情:</div>
+              <div v-for="(condition, index) in localConfig.dynamic_conditions" :key="condition.id" class="ml-2">
+                <div>条件 {{ index + 1 }}: {{ condition.type }} {{ condition.operator }} {{ condition.value }}</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -142,6 +156,27 @@
     'save-config': [];
   }>();
 
+  // 🔧 修复：创建本地config副本，避免直接修改props
+  const localConfig = ref<AutoBettingConfig>(JSON.parse(JSON.stringify(props.config)));
+
+  // 🔧 修复：监听props.config变化，同步到本地副本
+  watch(
+    () => props.config,
+    (newConfig) => {
+      localConfig.value = JSON.parse(JSON.stringify(newConfig));
+    },
+    { deep: true }
+  );
+
+  // 🔧 修复：更新配置并触发emit
+  const updateConfig = () => {
+    console.log(
+      '🔄 [StrategyConfigPanel] updateConfig called with:',
+      JSON.stringify(localConfig.value.dynamic_conditions, null, 2)
+    );
+    emit('update:config', JSON.parse(JSON.stringify(localConfig.value)));
+  };
+
   // 策略选项
   const strategyOptions = [
     {
@@ -169,8 +204,8 @@
 
   // 被重命名的计算属性，用于"推断"当前配置属于哪种模式
   const computedStrategyType = computed(() => {
-    if (props.config.dynamic_conditions && props.config.dynamic_conditions.length > 0) {
-      const conditions = props.config.dynamic_conditions;
+    if (localConfig.value.dynamic_conditions && localConfig.value.dynamic_conditions.length > 0) {
+      const conditions = localConfig.value.dynamic_conditions;
 
       // 实战模式的判断逻辑 (简化，不需要每次都精确匹配value)
       const hasRealisticConditions =
@@ -220,13 +255,11 @@
 
   // 应用实战模式配置
   const applyRealisticStrategy = () => {
-    const newConfig = { ...props.config };
-
     // 实战模式的基础配置
-    newConfig.bet_amount = 200;
+    localConfig.value.bet_amount = 200;
 
     // 设置实战模式的动态条件：基础且宽松的条件，确保有足够的下注机会
-    newConfig.dynamic_conditions = [
+    localConfig.value.dynamic_conditions = [
       {
         id: `condition_${Date.now()}_confidence`,
         type: 'confidence',
@@ -257,18 +290,16 @@
       }
     ];
 
-    emit('update:config', newConfig);
+    updateConfig();
   };
 
   // 应用智能排名配置
   const applySmartRankingStrategy = () => {
-    const newConfig = { ...props.config };
-
     // 智能排名配置 - 使用排名策略
-    newConfig.bet_amount = 200;
+    localConfig.value.bet_amount = 200;
 
     // 设置动态条件：AI预测排名 <= 3
-    newConfig.dynamic_conditions = [
+    localConfig.value.dynamic_conditions = [
       {
         id: `condition_${Date.now()}_ranking`,
         type: 'h2h_rank',
@@ -278,7 +309,7 @@
       }
     ];
 
-    emit('update:config', newConfig);
+    updateConfig();
   };
 
   // [修改] 调整 selectStrategy 逻辑，使用标志位
@@ -328,9 +359,9 @@
       hasUID: props.hasUID,
       configSaving: props.configSaving,
       isRunning: props.isRunning,
-      configKeys: Object.keys(props.config),
-      dynamicConditions: props.config.dynamic_conditions,
-      configSize: JSON.stringify(props.config).length
+      configKeys: Object.keys(localConfig.value),
+      dynamicConditions: localConfig.value.dynamic_conditions,
+      configSize: JSON.stringify(localConfig.value).length
     });
 
     // 检查localStorage

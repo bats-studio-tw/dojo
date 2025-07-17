@@ -7,7 +7,7 @@
 
     <div v-if="isTokenValidated" class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br">
       <!-- 🔧 调试面板 -->
-      <div v-if="import.meta.env.DEV" class="mb-4 border border-red-500/4 bg-red-900">
+      <div v-if="isDevMode" class="mb-4 border border-red-500/4 bg-red-900">
         <h3 class="mb-2 text-red-400 font-bold">🔧 调试面板 (开发模式)</h3>
         <div class="grid grid-cols-2 text-sm md:grid-cols-4">
           <div>
@@ -480,6 +480,9 @@
 
   // 标签页状态
   const activeTab = ref('control');
+
+  // 🔧 开发模式检测
+  const isDevMode = computed(() => import.meta.env.DEV);
 
   // 预测统计相关
   const recentRoundsCount = ref(50);

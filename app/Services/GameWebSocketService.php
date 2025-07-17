@@ -8,6 +8,7 @@ use App\Events\NewRoundStarted;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Ratchet\Client\Connector;
+use Ratchet\Client\WebSocket;
 use Ratchet\RFC6455\Messaging\MessageInterface;
 use React\EventLoop\Loop;
 

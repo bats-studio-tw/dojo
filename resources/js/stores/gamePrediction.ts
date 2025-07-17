@@ -392,8 +392,8 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
           market_cap: null, // API中没有这个字段，保持默认值
           logo: null, // API中没有这个字段，保持默认值
           prediction_score: item.predicted_final_value || item.h2h_score || 0,
-          win_rate: item.win_rate || 0,
-          top3_rate: item.top3_rate || 0,
+          win_rate: item.win_rate || 0, // 🔧 修复：保持百分比格式
+          top3_rate: item.top3_rate || 0, // 🔧 修复：保持百分比格式
           avg_rank: item.avg_rank || 3,
           total_games: item.total_games || 0,
           wins: item.wins || 0,

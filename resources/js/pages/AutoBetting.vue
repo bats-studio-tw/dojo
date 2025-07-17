@@ -583,7 +583,8 @@
       confidence: rawPrediction.rank_confidence || rawPrediction.confidence || 0,
       score: rawPrediction.predicted_final_value || rawPrediction.score || 0,
       sample_count: rawPrediction.total_games || rawPrediction.sample_count || 0,
-      win_rate: (rawPrediction.win_rate || 0) / 100,
+      win_rate: rawPrediction.win_rate || 0, // 🔧 修复：保持百分比格式，不除以100
+      top3_rate: rawPrediction.top3_rate || 0, // 🔧 修复：保持百分比格式
       symbol: rawPrediction.symbol,
       predicted_rank: rawPrediction.predicted_rank,
       // 🆕 复合型策略需要的数据
@@ -666,8 +667,21 @@
     let result = true;
     let logic = 'and'; // 默认使用and逻辑
 
+    console.log(`🔍 [条件评估] 开始评估Token ${prediction.symbol}:`, {
+      predicted_rank: prediction.predicted_rank,
+      win_rate: prediction.win_rate,
+      top3_rate: prediction.top3_rate
+    });
+
     for (const condition of config.dynamic_conditions) {
       const conditionResult = evaluateCondition(prediction, condition);
+
+      console.log(`🔍 [条件评估] ${condition.type} ${condition.operator} ${condition.value}:`, {
+        actualValue: getConditionValue(prediction, condition.type),
+        conditionResult: conditionResult,
+        logic: logic,
+        currentResult: result
+      });
 
       if (logic === 'and') {
         result = result && conditionResult;
@@ -678,7 +692,22 @@
       logic = condition.logic || 'and';
     }
 
+    console.log(`🔍 [条件评估] Token ${prediction.symbol} 最终结果:`, result);
     return result;
+  };
+
+  // 🔧 新增：获取条件值的辅助函数
+  const getConditionValue = (prediction: any, type: string): number => {
+    switch (type) {
+      case 'h2h_rank':
+        return prediction.predicted_rank || 999;
+      case 'win_rate':
+        return prediction.win_rate || 0;
+      case 'top3_rate':
+        return prediction.top3_rate || 0;
+      default:
+        return 0;
+    }
   };
 
   // 计算下注金额
@@ -711,6 +740,21 @@
     predictions.forEach((rawPrediction: any) => {
       const prediction = mapPredictionData(rawPrediction);
       const isMatch = evaluatePredictionMatch(prediction);
+
+      // 🔧 调试：输出条件评估详情
+      console.log(`🔍 [策略验证] Token ${prediction.symbol} 条件评估:`, {
+        symbol: prediction.symbol,
+        predicted_rank: prediction.predicted_rank,
+        win_rate: prediction.win_rate,
+        top3_rate: prediction.top3_rate,
+        isMatch: isMatch,
+        conditions: config.dynamic_conditions?.map((c) => ({
+          type: c.type,
+          operator: c.operator,
+          value: c.value,
+          logic: c.logic
+        }))
+      });
 
       if (isMatch) {
         const betAmount = calculateBetAmount(prediction);
@@ -850,8 +894,8 @@
           market_cap: null, // API中没有这个字段，保持默认值
           logo: null, // API中没有这个字段，保持默认值
           prediction_score: item.predicted_final_value || item.h2h_score || 0,
-          win_rate: item.win_rate || 0,
-          top3_rate: item.top3_rate || 0,
+          win_rate: item.win_rate || 0, // 🔧 修复：保持百分比格式
+          top3_rate: item.top3_rate || 0, // 🔧 修复：保持百分比格式
           avg_rank: item.avg_rank || 3,
           total_games: item.total_games || 0,
           wins: item.wins || 0,

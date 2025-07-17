@@ -474,7 +474,8 @@
       confidence: rawPrediction.rank_confidence || rawPrediction.confidence || 0,
       score: rawPrediction.predicted_final_value || rawPrediction.score || 0,
       sample_count: rawPrediction.total_games || rawPrediction.sample_count || 0,
-      win_rate: (rawPrediction.win_rate || 0) / 100,
+      win_rate: rawPrediction.win_rate || 0, // 🔧 修复：保持百分比格式，不除以100
+      top3_rate: rawPrediction.top3_rate || 0, // 🔧 修复：保持百分比格式
       symbol: rawPrediction.symbol,
       predicted_rank: rawPrediction.predicted_rank,
       // 🆕 复合型策略需要的数据
@@ -508,7 +509,7 @@
   };
 
   const getTokenHistoricalAccuracy = (token: any): number => {
-    return (token.win_rate || 0) / 100;
+    return (token.win_rate || 0) / 100; // 🔧 注意：这里需要除以100因为显示时需要转换为小数
   };
 
   const isTokenMatching = (token: any): boolean => {

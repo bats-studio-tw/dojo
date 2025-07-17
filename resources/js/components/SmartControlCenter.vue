@@ -29,7 +29,6 @@
     <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="🤖 自动下注状态" size="large">
       <template #header-extra>
         <div class="flex items-center space-x-3">
-          <n-button @click="setVeryLowThresholds" type="warning" size="small">🚨 紧急降低门槛</n-button>
           <n-button
             v-if="strategyValidation?.matches.length"
             :loading="executeLoading"
@@ -378,7 +377,6 @@
     analysisLoading: boolean;
 
     strategyName: string;
-    confidenceThreshold: number;
     config: AutoBettingConfig;
     configSaving: boolean;
     configSyncStatus: { type: 'success' | 'error' | 'info'; message: string } | null;
@@ -440,99 +438,114 @@
 
   const { getPredictionIcon } = usePredictionDisplay();
 
-  // 🔍 检查是否有激活的高级过滤器
-  const hasActiveAdvancedFilters = (): boolean => {
-    return (
-      localConfig.value.enable_win_rate_filter ||
-      localConfig.value.enable_top3_rate_filter ||
-      localConfig.value.enable_avg_rank_filter ||
-      localConfig.value.enable_stability_filter ||
-      localConfig.value.enable_absolute_score_filter ||
-      localConfig.value.enable_relative_score_filter ||
-      localConfig.value.enable_h2h_score_filter ||
-      localConfig.value.enable_change_5m_filter ||
-      localConfig.value.enable_change_1h_filter ||
-      localConfig.value.enable_change_4h_filter ||
-      localConfig.value.enable_change_24h_filter
-    );
+  // 🔍 检查是否有激活的动态条件
+  const hasActiveDynamicConditions = (): boolean => {
+    return localConfig.value.dynamic_conditions && localConfig.value.dynamic_conditions.length > 0;
   };
 
-  // 🔍 各个过滤器的检查函数
-  const checkWinRateFilter = (token: any): boolean => {
-    return (
-      !localConfig.value.enable_win_rate_filter || (token.win_rate || 0) >= localConfig.value.min_win_rate_threshold
-    );
+  // 🔍 使用动态条件评估Token
+  const evaluateTokenWithDynamicConditions = (token: any): boolean => {
+    if (!localConfig.value.dynamic_conditions || localConfig.value.dynamic_conditions.length === 0) {
+      return true; // 没有条件时默认通过
+    }
+
+    // 使用动态条件评估
+    let result = true;
+    let logic = 'and';
+
+    for (const condition of localConfig.value.dynamic_conditions) {
+      const conditionResult = evaluateCondition(token, condition);
+
+      if (logic === 'and') {
+        result = result && conditionResult;
+      } else {
+        result = result || conditionResult;
+      }
+
+      logic = condition.logic || 'and';
+    }
+
+    return result;
   };
 
-  const checkTop3RateFilter = (token: any): boolean => {
-    return (
-      !localConfig.value.enable_top3_rate_filter || (token.top3_rate || 0) >= localConfig.value.min_top3_rate_threshold
-    );
-  };
+  // 评估单个条件
+  const evaluateCondition = (token: any, condition: any): boolean => {
+    const { type, operator, value } = condition;
 
-  const checkAvgRankFilter = (token: any): boolean => {
-    return (
-      !localConfig.value.enable_avg_rank_filter || (token.avg_rank || 3) <= localConfig.value.max_avg_rank_threshold
-    );
-  };
+    let actualValue: number;
 
-  const checkStabilityFilter = (token: any): boolean => {
-    return (
-      !localConfig.value.enable_stability_filter ||
-      (token.value_stddev || 0) <= localConfig.value.max_stability_threshold
-    );
-  };
+    switch (type) {
+      case 'confidence':
+        actualValue = token.confidence || 0;
+        break;
+      case 'score_gap':
+        actualValue = token.score || 0;
+        break;
+      case 'sample_count':
+        actualValue = token.sample_count || 0;
+        break;
+      case 'historical_accuracy':
+        actualValue = (token.historical_accuracy || 0) * 100;
+        break;
+      case 'h2h_rank':
+        actualValue = token.predicted_rank || 999;
+        break;
+      case 'momentum_rank':
+        actualValue = token.momentum_rank || 999;
+        break;
+      case 'win_rate':
+        actualValue = (token.win_rate || 0) * 100;
+        break;
+      case 'top3_rate':
+        actualValue = (token.top3_rate || 0) * 100;
+        break;
+      case 'avg_rank':
+        actualValue = token.avg_rank || 3;
+        break;
+      case 'stability':
+        actualValue = token.value_stddev || 0;
+        break;
+      case 'absolute_score':
+        actualValue = token.absolute_score || 0;
+        break;
+      case 'relative_score':
+        actualValue = token.relative_score || 0;
+        break;
+      case 'h2h_score':
+        actualValue = token.h2h_score || 0;
+        break;
+      case 'change_5m':
+        actualValue = token.change_5m || 0;
+        break;
+      case 'change_1h':
+        actualValue = token.change_1h || 0;
+        break;
+      case 'change_4h':
+        actualValue = token.change_4h || 0;
+        break;
+      case 'change_24h':
+        actualValue = token.change_24h || 0;
+        break;
+      default:
+        return true;
+    }
 
-  const checkAbsoluteScoreFilter = (token: any): boolean => {
-    return (
-      !localConfig.value.enable_absolute_score_filter ||
-      (token.absolute_score || 0) >= localConfig.value.min_absolute_score_threshold
-    );
-  };
-
-  const checkRelativeScoreFilter = (token: any): boolean => {
-    return (
-      !localConfig.value.enable_relative_score_filter ||
-      (token.relative_score || 0) >= localConfig.value.min_relative_score_threshold
-    );
-  };
-
-  const checkH2HScoreFilter = (token: any): boolean => {
-    return (
-      !localConfig.value.enable_h2h_score_filter || (token.h2h_score || 0) >= localConfig.value.min_h2h_score_threshold
-    );
-  };
-
-  const checkChange5mFilter = (token: any): boolean => {
-    if (!localConfig.value.enable_change_5m_filter) return true;
-    const change5m = token.change_5m || 0;
-    return (
-      change5m >= localConfig.value.min_change_5m_threshold && change5m <= localConfig.value.max_change_5m_threshold
-    );
-  };
-
-  const checkChange1hFilter = (token: any): boolean => {
-    if (!localConfig.value.enable_change_1h_filter) return true;
-    const change1h = token.change_1h || 0;
-    return (
-      change1h >= localConfig.value.min_change_1h_threshold && change1h <= localConfig.value.max_change_1h_threshold
-    );
-  };
-
-  const checkChange4hFilter = (token: any): boolean => {
-    if (!localConfig.value.enable_change_4h_filter) return true;
-    const change4h = token.change_4h || 0;
-    return (
-      change4h >= localConfig.value.min_change_4h_threshold && change4h <= localConfig.value.max_change_4h_threshold
-    );
-  };
-
-  const checkChange24hFilter = (token: any): boolean => {
-    if (!localConfig.value.enable_change_24h_filter) return true;
-    const change24h = token.change_24h || 0;
-    return (
-      change24h >= localConfig.value.min_change_24h_threshold && change24h <= localConfig.value.max_change_24h_threshold
-    );
+    switch (operator) {
+      case 'gte':
+        return actualValue >= value;
+      case 'lte':
+        return actualValue <= value;
+      case 'gt':
+        return actualValue > value;
+      case 'lt':
+        return actualValue < value;
+      case 'eq':
+        return actualValue === value;
+      case 'ne':
+        return actualValue !== value;
+      default:
+        return true;
+    }
   };
 
   // ==================== 计算属性 ====================
@@ -677,148 +690,15 @@
     };
   };
 
-  // 🆕 H2H策略评估逻辑
-  const evaluateH2HPrediction = (prediction: any): boolean => {
-    // 对于排名下注策略，首先检查排名是否在选中范围内
-    if (localConfig.value.strategy === 'rank_betting') {
-      if (!localConfig.value.rank_betting_enabled_ranks.includes(prediction.predicted_rank)) {
-        return false;
-      }
-      // 即使是排名下注，也可以应用额外的过滤条件进行精细筛选
-    } else {
-      // 非排名下注策略的基础条件检查
-      if (prediction.confidence < localConfig.value.confidence_threshold) return false;
-      if (prediction.score < localConfig.value.score_gap_threshold) return false;
-      if (prediction.sample_count < localConfig.value.min_sample_count) return false;
-      if (prediction.historical_accuracy * 100 < localConfig.value.historical_accuracy_threshold) return false;
-    }
-
-    // 🔧 历史表现过滤器 - 修复数据单位统一问题
-    // 胜率过滤器：如果胜率 < 门槛，则排除（保留胜率 >= 门槛的Token）
-    if (
-      localConfig.value.enable_win_rate_filter &&
-      (prediction.win_rate || 0) < localConfig.value.min_win_rate_threshold
-    )
-      return false;
-    // 保本率过滤器：如果保本率 < 门槛，则排除（保留保本率 >= 门槛的Token）
-    if (
-      localConfig.value.enable_top3_rate_filter &&
-      (prediction.top3_rate || 0) < localConfig.value.min_top3_rate_threshold
-    )
-      return false;
-    // 平均排名过滤器：如果平均排名 > 门槛，则排除（保留平均排名 <= 门槛的Token，排名越小越好）
-    if (
-      localConfig.value.enable_avg_rank_filter &&
-      (prediction.avg_rank || 3) > localConfig.value.max_avg_rank_threshold
-    )
-      return false;
-    // 稳定性过滤器：如果波动性 > 门槛，则排除（保留波动性 <= 门槛的Token，波动越小越稳定）
-    if (
-      localConfig.value.enable_stability_filter &&
-      (prediction.value_stddev || 0) > localConfig.value.max_stability_threshold
-    )
-      return false;
-
-    // 🔧 评分过滤器 - 修复数据单位统一问题
-    // 绝对分数过滤器：如果绝对分数 < 门槛，则排除（保留绝对分数 >= 门槛的Token）
-    if (
-      localConfig.value.enable_absolute_score_filter &&
-      (prediction.absolute_score || 0) < localConfig.value.min_absolute_score_threshold
-    )
-      return false;
-    // 相对分数过滤器：如果相对分数 < 门槛，则排除（保留相对分数 >= 门槛的Token）
-    if (
-      localConfig.value.enable_relative_score_filter &&
-      (prediction.relative_score || 0) < localConfig.value.min_relative_score_threshold
-    )
-      return false;
-    // H2H分数过滤器：如果H2H分数 < 门槛，则排除（保留H2H分数 >= 门槛的Token）
-    if (
-      localConfig.value.enable_h2h_score_filter &&
-      (prediction.h2h_score || 0) < localConfig.value.min_h2h_score_threshold
-    )
-      return false;
-
-    // 🔧 市场动态过滤器 - 范围检查逻辑正确
-    if (localConfig.value.enable_change_5m_filter) {
-      const change5m = prediction.change_5m || 0;
-      if (change5m < localConfig.value.min_change_5m_threshold || change5m > localConfig.value.max_change_5m_threshold)
-        return false;
-    }
-    if (localConfig.value.enable_change_1h_filter) {
-      const change1h = prediction.change_1h || 0;
-      if (change1h < localConfig.value.min_change_1h_threshold || change1h > localConfig.value.max_change_1h_threshold)
-        return false;
-    }
-    if (localConfig.value.enable_change_4h_filter) {
-      const change4h = prediction.change_4h || 0;
-      if (change4h < localConfig.value.min_change_4h_threshold || change4h > localConfig.value.max_change_4h_threshold)
-        return false;
-    }
-    if (localConfig.value.enable_change_24h_filter) {
-      const change24h = prediction.change_24h || 0;
-      if (
-        change24h < localConfig.value.min_change_24h_threshold ||
-        change24h > localConfig.value.max_change_24h_threshold
-      )
-        return false;
-    }
-
-    return true;
-  };
-
-  // 🆕 动能策略评估逻辑
-  const evaluateMomentumPrediction = (prediction: any): boolean => {
-    // 动能策略使用不同的数据字段和评估标准
-    const momentumScore = prediction.momentum_score || 0;
-    const eloWinRate = prediction.elo_win_rate || 0;
-    const confidence = prediction.confidence || 0;
-
-    // 检查动能策略的三个核心条件
-    if (momentumScore < localConfig.value.min_momentum_score) return false;
-    if (eloWinRate < localConfig.value.min_elo_win_rate) return false;
-    if (confidence < localConfig.value.min_confidence) return false;
-
-    return true;
-  };
-
-  // 🆕 复合型策略评估逻辑
-  const evaluateHybridRankPrediction = (prediction: any): boolean => {
-    // 获取AI预测排名和动能预测排名
-    const h2hRank = prediction.predicted_rank || 999;
-    const momentumRank = prediction.momentum_rank || 999;
-
-    // 检查AI预测排名是否在选中范围内
-    const h2hRankMatch = localConfig.value.h2h_rank_enabled_ranks.includes(h2hRank);
-
-    // 检查动能预测排名是否在选中范围内
-    const momentumRankMatch = localConfig.value.momentum_rank_enabled_ranks.includes(momentumRank);
-
-    // 根据逻辑条件判断
-    if (localConfig.value.hybrid_rank_logic === 'and') {
-      // "且"逻辑：必须同时满足两个条件
-      return h2hRankMatch && momentumRankMatch;
-    } else {
-      // "或"逻辑：满足任一条件即可
-      return h2hRankMatch || momentumRankMatch;
-    }
-  };
-
-  // 🔧 评估预测是否符合策略条件 - 支持多策略类型
+  // 🔧 评估预测是否符合策略条件 - 使用动态条件
   const evaluatePredictionMatch = (prediction: any): boolean => {
-    // 🆕 优先使用动态条件构建器
+    // 使用动态条件评估
     if ((localConfig.value.dynamic_conditions || []).length > 0) {
       return evaluateDynamicConditions(prediction, localConfig.value.dynamic_conditions || []);
     }
 
-    // 🆕 如果没有动态条件，则使用原来的策略类型评估逻辑
-    if (localConfig.value.strategy_type === 'momentum') {
-      return evaluateMomentumPrediction(prediction);
-    } else if (localConfig.value.strategy_type === 'hybrid_rank') {
-      return evaluateHybridRankPrediction(prediction);
-    } else {
-      return evaluateH2HPrediction(prediction);
-    }
+    // 如果没有动态条件，默认通过
+    return true;
   };
 
   // 调试工具函数
@@ -851,41 +731,6 @@
   const getMetricClass = (value: number, threshold: number, operation: 'gte' | 'lte'): string => {
     const isPass = operation === 'gte' ? value >= threshold : value <= threshold;
     return isPass ? 'text-green-400 font-bold' : 'text-red-400 font-bold';
-  };
-
-  // 紧急降低所有门槛
-  const setVeryLowThresholds = () => {
-    window.$dialog?.warning({
-      title: '🚨 紧急降低门槛',
-      content: '这将把所有过滤条件设置为极低的门槛，可能会增加风险。确定要继续吗？',
-      positiveText: '确认降低',
-      negativeText: '取消',
-      onPositiveClick: () => {
-        // 基础门槛大幅降低
-        localConfig.value.confidence_threshold = 10; // 从70%降到10%
-        localConfig.value.score_gap_threshold = 1; // 极低分数要求
-        localConfig.value.min_sample_count = 1; // 最少样本数
-        localConfig.value.historical_accuracy_threshold = 1; // 极低胜率 1%
-
-        // 关闭所有高级过滤器
-        localConfig.value.enable_win_rate_filter = false;
-        localConfig.value.enable_top3_rate_filter = false;
-        localConfig.value.enable_avg_rank_filter = false;
-        localConfig.value.enable_stability_filter = false;
-        localConfig.value.enable_absolute_score_filter = false;
-        localConfig.value.enable_relative_score_filter = false;
-        localConfig.value.enable_h2h_score_filter = false;
-        localConfig.value.enable_change_5m_filter = false;
-        localConfig.value.enable_change_1h_filter = false;
-        localConfig.value.enable_change_4h_filter = false;
-        localConfig.value.enable_change_24h_filter = false;
-
-        // 同步回父组件
-        emit('updateConfig', localConfig.value);
-
-        window.$message?.success('🚨 已将所有门槛设置为极低水平，请检查匹配结果');
-      }
-    });
   };
 
   // 格式化价格变化显示

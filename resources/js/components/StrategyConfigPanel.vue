@@ -223,12 +223,7 @@
     const newConfig = { ...props.config };
 
     // 实战模式的基础配置
-    newConfig.strategy_type = 'h2h_breakeven';
-    newConfig.confidence_threshold = 85;
-    newConfig.score_gap_threshold = 67;
-    newConfig.min_sample_count = 12;
-    newConfig.historical_accuracy_threshold = 25;
-    newConfig.strategy = 'single_bet';
+    newConfig.bet_amount = 200;
 
     // 设置实战模式的动态条件：基础且宽松的条件，确保有足够的下注机会
     newConfig.dynamic_conditions = [
@@ -262,19 +257,6 @@
       }
     ];
 
-    // 关闭所有高级过滤器，使用基础条件
-    newConfig.enable_win_rate_filter = false;
-    newConfig.enable_top3_rate_filter = false;
-    newConfig.enable_avg_rank_filter = false;
-    newConfig.enable_stability_filter = false;
-    newConfig.enable_absolute_score_filter = false;
-    newConfig.enable_relative_score_filter = false;
-    newConfig.enable_h2h_score_filter = false;
-    newConfig.enable_change_5m_filter = false;
-    newConfig.enable_change_1h_filter = false;
-    newConfig.enable_change_4h_filter = false;
-    newConfig.enable_change_24h_filter = false;
-
     emit('update:config', newConfig);
   };
 
@@ -283,9 +265,7 @@
     const newConfig = { ...props.config };
 
     // 智能排名配置 - 使用排名策略
-    newConfig.strategy_type = 'h2h_breakeven';
-    newConfig.strategy = 'rank_betting';
-    newConfig.rank_betting_enabled_ranks = [1, 2, 3];
+    newConfig.bet_amount = 200;
 
     // 设置动态条件：AI预测排名 <= 3
     newConfig.dynamic_conditions = [

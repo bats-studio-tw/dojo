@@ -168,7 +168,6 @@
                   :analysis-loading="analysisLoading"
                   :diagnostics-loading="diagnosticsLoading"
                   :strategy-name="currentStrategyName"
-                  :confidence-threshold="config.confidence_threshold"
                   :config="config"
                   :config-saving="configSaving"
                   :config-sync-status="configSyncStatus"
@@ -547,17 +546,27 @@
 
   // 当前策略名称计算属性
   const currentStrategyName = computed(() => {
-    // 根据策略类型返回对应的名称
-    switch (config.strategy_type) {
-      case 'h2h_breakeven':
-        return 'H2H保本策略';
-      case 'momentum':
-        return '动能策略';
-      case 'hybrid_rank':
-        return '复合型策略';
-      default:
-        return '自定义策略';
+    // 根据动态条件判断策略类型
+    if (config.dynamic_conditions && config.dynamic_conditions.length > 0) {
+      const conditions = config.dynamic_conditions;
+
+      // 检查是否为智能排名策略
+      if (conditions.length === 1 && conditions[0].type === 'h2h_rank') {
+        return '智能排名策略';
+      }
+
+      // 检查是否为实战模式
+      if (
+        conditions.length === 4 &&
+        conditions.every((c) => ['confidence', 'score_gap', 'sample_count', 'historical_accuracy'].includes(c.type))
+      ) {
+        return '实战模式策略';
+      }
+
+      return '自定义策略';
     }
+
+    return '默认策略';
   });
 
   // ==================== 核心逻辑函数 ====================
@@ -577,113 +586,110 @@
     };
   };
 
-  // 🔧 评估预测是否符合策略条件 - 支持多策略类型
-  // 📊 数据单位统一 (2025-01-06): 所有百分比配置项已统一为0-100格式
+  // 评估单个条件
+  const evaluateCondition = (prediction: any, condition: any): boolean => {
+    const { type, operator, value } = condition;
 
-  // 🆕 H2H策略评估逻辑
-  const evaluateH2HPrediction = (prediction: any): boolean => {
-    // 对于排名下注策略，首先检查排名是否在选中范围内
-    if (config.strategy === 'rank_betting') {
-      if (!config.rank_betting_enabled_ranks.includes(prediction.predicted_rank)) {
-        return false;
-      }
-      // 即使是排名下注，也可以应用额外的过滤条件进行精细筛选
-    } else {
-      // 非排名下注策略的基础条件检查
-      if (prediction.confidence < config.confidence_threshold) return false;
-      if (prediction.score < config.score_gap_threshold) return false;
-      if (prediction.sample_count < config.min_sample_count) return false;
-      if (prediction.historical_accuracy * 100 < config.historical_accuracy_threshold) return false;
+    let actualValue: number;
+
+    switch (type) {
+      case 'confidence':
+        actualValue = prediction.confidence || 0;
+        break;
+      case 'score_gap':
+        actualValue = prediction.score || 0;
+        break;
+      case 'sample_count':
+        actualValue = prediction.sample_count || 0;
+        break;
+      case 'historical_accuracy':
+        actualValue = (prediction.historical_accuracy || 0) * 100; // 转换为百分比
+        break;
+      case 'h2h_rank':
+        actualValue = prediction.predicted_rank || 999;
+        break;
+      case 'momentum_rank':
+        actualValue = prediction.momentum_rank || 999;
+        break;
+      case 'win_rate':
+        actualValue = (prediction.win_rate || 0) * 100; // 转换为百分比
+        break;
+      case 'top3_rate':
+        actualValue = (prediction.top3_rate || 0) * 100; // 转换为百分比
+        break;
+      case 'avg_rank':
+        actualValue = prediction.avg_rank || 3;
+        break;
+      case 'stability':
+        actualValue = prediction.value_stddev || 0;
+        break;
+      case 'absolute_score':
+        actualValue = prediction.absolute_score || 0;
+        break;
+      case 'relative_score':
+        actualValue = prediction.relative_score || 0;
+        break;
+      case 'h2h_score':
+        actualValue = prediction.h2h_score || 0;
+        break;
+      case 'change_5m':
+        actualValue = prediction.change_5m || 0;
+        break;
+      case 'change_1h':
+        actualValue = prediction.change_1h || 0;
+        break;
+      case 'change_4h':
+        actualValue = prediction.change_4h || 0;
+        break;
+      case 'change_24h':
+        actualValue = prediction.change_24h || 0;
+        break;
+      default:
+        return true; // 未知类型默认通过
     }
 
-    // 🔧 历史表现过滤器 - 逻辑验证：保留满足条件的Token
-    // 胜率过滤器：如果胜率 < 门槛，则排除（保留胜率 >= 门槛的Token）
-    if (config.enable_win_rate_filter && (prediction.win_rate || 0) < config.min_win_rate_threshold) return false;
-    // 保本率过滤器：如果保本率 < 门槛，则排除（保留保本率 >= 门槛的Token）
-    if (config.enable_top3_rate_filter && (prediction.top3_rate || 0) < config.min_top3_rate_threshold) return false;
-    // 平均排名过滤器：如果平均排名 > 门槛，则排除（保留平均排名 <= 门槛的Token，排名越小越好）
-    if (config.enable_avg_rank_filter && (prediction.avg_rank || 3) > config.max_avg_rank_threshold) return false;
-    // 稳定性过滤器：如果波动性 > 门槛，则排除（保留波动性 <= 门槛的Token，波动越小越稳定）
-    if (config.enable_stability_filter && (prediction.value_stddev || 0) > config.max_stability_threshold) return false;
-
-    // 🔧 评分过滤器 - 逻辑验证：保留满足条件的Token
-    // 绝对分数过滤器：如果绝对分数 < 门槛，则排除（保留绝对分数 >= 门槛的Token）
-    if (config.enable_absolute_score_filter && (prediction.absolute_score || 0) < config.min_absolute_score_threshold)
-      return false;
-    // 相对分数过滤器：如果相对分数 < 门槛，则排除（保留相对分数 >= 门槛的Token）
-    if (config.enable_relative_score_filter && (prediction.relative_score || 0) < config.min_relative_score_threshold)
-      return false;
-    // H2H分数过滤器：如果H2H分数 < 门槛，则排除（保留H2H分数 >= 门槛的Token）
-    if (config.enable_h2h_score_filter && (prediction.h2h_score || 0) < config.min_h2h_score_threshold) return false;
-
-    // 🔧 市场动态过滤器 - 范围检查逻辑正确
-    if (config.enable_change_5m_filter) {
-      const change5m = prediction.change_5m || 0;
-      if (change5m < config.min_change_5m_threshold || change5m > config.max_change_5m_threshold) return false;
-    }
-    if (config.enable_change_1h_filter) {
-      const change1h = prediction.change_1h || 0;
-      if (change1h < config.min_change_1h_threshold || change1h > config.max_change_1h_threshold) return false;
-    }
-    if (config.enable_change_4h_filter) {
-      const change4h = prediction.change_4h || 0;
-      if (change4h < config.min_change_4h_threshold || change4h > config.max_change_4h_threshold) return false;
-    }
-    if (config.enable_change_24h_filter) {
-      const change24h = prediction.change_24h || 0;
-      if (change24h < config.min_change_24h_threshold || change24h > config.max_change_24h_threshold) return false;
-    }
-
-    return true;
-  };
-
-  // 🆕 动能策略评估逻辑
-  const evaluateMomentumPrediction = (prediction: any): boolean => {
-    // 动能策略使用不同的数据字段和评估标准
-    const momentumScore = prediction.momentum_score || 0;
-    const eloWinRate = prediction.elo_win_rate || 0;
-    const confidence = prediction.confidence || 0;
-
-    // 检查动能策略的三个核心条件
-    if (momentumScore < config.min_momentum_score) return false;
-    if (eloWinRate < config.min_elo_win_rate) return false;
-    if (confidence < config.min_confidence) return false;
-
-    return true;
-  };
-
-  // 🆕 复合型策略评估逻辑
-  const evaluateHybridRankPrediction = (prediction: any): boolean => {
-    // 获取AI预测排名和动能预测排名
-    const h2hRank = prediction.predicted_rank || 999;
-    const momentumRank = prediction.momentum_rank || 999;
-
-    // 检查AI预测排名是否在选中范围内
-    const h2hRankMatch = config.h2h_rank_enabled_ranks.includes(h2hRank);
-
-    // 检查动能预测排名是否在选中范围内
-    const momentumRankMatch = config.momentum_rank_enabled_ranks.includes(momentumRank);
-
-    // 根据逻辑条件判断
-    if (config.hybrid_rank_logic === 'and') {
-      // "且"逻辑：必须同时满足两个条件
-      return h2hRankMatch && momentumRankMatch;
-    } else {
-      // "或"逻辑：满足任一条件即可
-      return h2hRankMatch || momentumRankMatch;
+    switch (operator) {
+      case 'gte':
+        return actualValue >= value;
+      case 'lte':
+        return actualValue <= value;
+      case 'gt':
+        return actualValue > value;
+      case 'lt':
+        return actualValue < value;
+      case 'eq':
+        return actualValue === value;
+      case 'ne':
+        return actualValue !== value;
+      default:
+        return true; // 未知操作符默认通过
     }
   };
 
-  // 🔧 评估预测是否符合策略条件 - 支持多策略类型
+  // 🔧 评估预测是否符合策略条件 - 使用动态条件
   const evaluatePredictionMatch = (prediction: any): boolean => {
-    // 🆕 根据策略类型选择不同的评估逻辑
-    if (config.strategy_type === 'momentum') {
-      return evaluateMomentumPrediction(prediction);
-    } else if (config.strategy_type === 'hybrid_rank') {
-      return evaluateHybridRankPrediction(prediction);
-    } else {
-      return evaluateH2HPrediction(prediction);
+    // 如果没有动态条件，默认通过
+    if (!config.dynamic_conditions || config.dynamic_conditions.length === 0) {
+      return true;
     }
+
+    // 使用动态条件评估
+    let result = true;
+    let logic = 'and'; // 默认使用and逻辑
+
+    for (const condition of config.dynamic_conditions) {
+      const conditionResult = evaluateCondition(prediction, condition);
+
+      if (logic === 'and') {
+        result = result && conditionResult;
+      } else {
+        result = result || conditionResult;
+      }
+
+      logic = condition.logic || 'and';
+    }
+
+    return result;
   };
 
   // 计算下注金额
@@ -700,41 +706,19 @@
     debugInfo.strategyValidationCount++;
     debugInfo.lastValidationTime = new Date().toLocaleTimeString();
 
-    // 🆕 根据策略类型选择数据源
-    let predictions: any[] = [];
-    if (config.strategy_type === 'momentum') {
-      predictions = hybridPredictions.value || [];
-      console.log(`📊 动能策略：使用 ${predictions.length} 个动能预测数据`);
-    } else if (config.strategy_type === 'hybrid_rank') {
-      // 🆕 复合型策略：需要同时有AI预测和动能预测数据
-      const h2hData = currentAnalysis.value || [];
-      const momentumData = hybridPredictions.value || [];
-
-      console.log(`📊 复合型策略：AI预测数据 ${h2hData.length} 个，动能预测数据 ${momentumData.length} 个`);
-
-      // 合并数据，确保每个Token都有两种预测的排名信息
-      predictions = h2hData.map((h2hToken: any) => {
-        const momentumToken = momentumData.find((m: any) => m.symbol === h2hToken.symbol);
-        return {
-          ...h2hToken,
-          momentum_rank: momentumToken?.predicted_rank || 999
-        };
-      });
-    } else {
-      predictions = currentAnalysis.value || [];
-      console.log(`📊 H2H策略：使用 ${predictions.length} 个分析数据`);
-    }
+    // 使用当前分析数据
+    const predictions = currentAnalysis.value || [];
+    console.log(`📊 策略验证：使用 ${predictions.length} 个分析数据`);
 
     if (!predictions || predictions.length === 0) {
-      console.log(`⚠️ 策略验证：无可用预测数据 (策略类型: ${config.strategy_type})`);
+      console.log(`⚠️ 策略验证：无可用预测数据`);
       strategyValidation.value = null;
       return;
     }
 
     const allMatches: any[] = [];
-    let totalMatchedValue = 0;
 
-    // 首先找出所有符合条件的预测
+    // 找出所有符合条件的预测
     predictions.forEach((rawPrediction: any) => {
       const prediction = mapPredictionData(rawPrediction);
       const isMatch = evaluatePredictionMatch(prediction);
@@ -750,40 +734,12 @@
 
     console.log(`📊 策略验证：从 ${predictions.length} 个预测中找到 ${allMatches.length} 个符合条件的Token`);
 
-    // 🔧 根据策略类型筛选最终的下注目标
-    let finalMatches: any[] = [];
-
-    if (config.strategy === 'single_bet') {
-      // 🎯 单项下注：只选择一个最优的Token（通常是置信度最高或排名最高的）
-      if (allMatches.length > 0) {
-        // 按置信度排序，选择最优的一个
-        const sortedByConfidence = [...allMatches].sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-        finalMatches = [sortedByConfidence[0]];
-        console.log(
-          `🎯 单项策略：从 ${allMatches.length} 个符合条件的Token中选择最优: ${finalMatches[0].symbol} (置信度: ${finalMatches[0].confidence})`
-        );
-      } else {
-        // 🚫 单项策略：没有符合条件的Token，不执行下注
-        console.log(`🚫 单项策略：没有符合条件的Token，跳过下注`);
-        finalMatches = [];
-      }
-    } else if (config.strategy === 'rank_betting') {
-      // 🏆 排名下注：按预测排名过滤并排序
-      const enabledRanks = config.rank_betting_enabled_ranks || [1, 2, 3];
-      finalMatches = allMatches
-        .filter((match) => enabledRanks.includes(match.predicted_rank))
-        .sort((a, b) => (a.predicted_rank || 999) - (b.predicted_rank || 999));
-      console.log(
-        `🏆 排名策略：从 ${allMatches.length} 个符合条件的Token中选择排名 ${enabledRanks.join(',')} 的 ${finalMatches.length} 个Token`
-      );
-    } else {
-      // 🚀 多项下注、对冲下注等：使用所有符合条件的Token
-      finalMatches = allMatches;
-      console.log(`🚀 ${config.strategy}策略：选择所有 ${finalMatches.length} 个符合条件的Token`);
-    }
+    // 使用所有符合条件的Token
+    const finalMatches = allMatches;
+    console.log(`🚀 动态条件策略：选择所有 ${finalMatches.length} 个符合条件的Token`);
 
     // 计算总下注金额
-    totalMatchedValue = finalMatches.reduce((sum, match) => sum + match.bet_amount, 0);
+    const totalMatchedValue = finalMatches.reduce((sum, match) => sum + match.bet_amount, 0);
 
     const actualBalance = userInfo.value?.ojoValue || 0;
     const balanceInsufficient = totalMatchedValue > actualBalance;
@@ -1075,24 +1031,9 @@
     }
 
     // 🔧 修复：放宽数据检查条件，允许在数据不足时继续执行，在executeAutoBettingLogic中处理
-    // 🆕 根据策略类型检查数据源 - 但不作为阻止条件
-    if (config.strategy_type === 'momentum') {
-      if (!hybridPredictions.value || hybridPredictions.value.length === 0) {
-        console.log('⚠️ 动能策略：无动能预测数据，将在执行时处理');
-      }
-    } else if (config.strategy_type === 'hybrid_rank') {
-      if (
-        !currentAnalysis.value ||
-        currentAnalysis.value.length === 0 ||
-        !hybridPredictions.value ||
-        hybridPredictions.value.length === 0
-      ) {
-        console.log('⚠️ 复合型策略：缺少AI预测或动能预测数据，将在执行时处理');
-      }
-    } else {
-      if (!currentAnalysis.value || currentAnalysis.value.length === 0) {
-        console.log('⚠️ H2：无分析数据，将在执行时处理');
-      }
+    // 检查数据源 - 但不作为阻止条件
+    if (!currentAnalysis.value || currentAnalysis.value.length === 0) {
+      console.log('⚠️ 无分析数据，将在执行时处理');
     }
 
     return { canProceed: true };
@@ -1135,7 +1076,7 @@
     validateCurrentStrategy();
 
     if (!strategyValidation.value?.matches.length) {
-      console.log(`❌ [${timestamp}] 无符合条件的下注目标 (策略: ${config.strategy})`);
+      console.log(`❌ [${timestamp}] 无符合条件的下注目标`);
       console.log(`📊 [${timestamp}] 策略验证结果:`, strategyValidation.value);
       processedRounds.value.add(roundId);
       return;

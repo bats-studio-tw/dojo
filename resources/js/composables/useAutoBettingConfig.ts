@@ -1,109 +1,10 @@
 import { ref, reactive } from 'vue';
 import { autoBettingApi } from '@/utils/api';
 
-/**
- * 🔧 数据单位统一说明 (2025-01-06)
- *
- * 为提高代码可读性和一致性，所有百分比相关的配置项已统一为0-100数值：
- * - historical_accuracy_threshold: 0-1 → 0-100 (如 0.12 → 12)
- * - kelly_fraction: 0-1 → 0-100 (如 0.25 → 25)
- * - min_win_rate_threshold: 0-1 → 0-100 (如 0.58 → 58)
- * - min_top3_rate_threshold: 0-1 → 0-100 (如 0.7 → 70)
- * - max_volatility_threshold: 0-1 → 0-100 (如 0.8 → 80)
- *
- * 在实际计算中使用时，需要除以100转换为小数进行数学运算。
- *
- * 🚫 市场动态过滤器修正 (2025-01-06)
- *
- * 修正了策略模板中不合理的市场动态过滤器参数：
- * - 5分钟涨跌幅：合理范围 -3% 到 +5%（之前错误设置100%）
- * - 1小时涨跌幅：合理范围 -8% 到 +15%（之前错误设置100%）
- * - 24小时涨跌幅：合理范围 -30% 到 +50%（之前错误要求最少涨100%）
- *
- * 加密货币市场虽然波动大，但100%的日涨幅要求完全不现实。
- */
-
 export interface AutoBettingConfig {
+  uid?: string;
   jwt_token: string;
   bet_amount: number;
-  daily_stop_loss_percentage: number;
-  confidence_threshold: number;
-  score_gap_threshold: number;
-  min_total_games: number;
-  strategy: 'single_bet' | 'multi_bet' | 'hedge_bet' | 'rank_betting';
-  historical_accuracy_threshold: number;
-  min_sample_count: number;
-  max_bet_percentage: number;
-  enable_trend_analysis: boolean;
-  enable_volume_filter: boolean;
-  stop_loss_consecutive: number;
-  enable_kelly_criterion: boolean;
-  kelly_fraction: number;
-  enable_martingale: boolean;
-  martingale_multiplier: number;
-  max_martingale_steps: number;
-  enable_time_filter: boolean;
-  allowed_hours_start: number;
-  allowed_hours_end: number;
-  enable_volatility_filter: boolean;
-  max_volatility_threshold: number;
-  min_liquidity_threshold: number;
-  is_active: boolean;
-  rank_betting_enabled_ranks: number[];
-  rank_betting_amount_per_rank: number;
-  rank_betting_different_amounts: boolean;
-  rank_betting_rank1_amount: number;
-  rank_betting_rank2_amount: number;
-  rank_betting_rank3_amount: number;
-  rank_betting_max_ranks: number;
-
-  // 🆕 新增历史表现过滤器
-  enable_win_rate_filter: boolean;
-  min_win_rate_threshold: number;
-  enable_top3_rate_filter: boolean;
-  min_top3_rate_threshold: number;
-  enable_avg_rank_filter: boolean;
-  max_avg_rank_threshold: number;
-  enable_stability_filter: boolean;
-  max_stability_threshold: number;
-
-  // 🆕 新增评分过滤器
-  enable_absolute_score_filter: boolean;
-  min_absolute_score_threshold: number;
-  enable_relative_score_filter: boolean;
-  min_relative_score_threshold: number;
-  enable_h2h_score_filter: boolean;
-  min_h2h_score_threshold: number;
-
-  // 🆕 新增市场动态过滤器
-  enable_change_5m_filter: boolean;
-  min_change_5m_threshold: number;
-  max_change_5m_threshold: number;
-  enable_change_1h_filter: boolean;
-  min_change_1h_threshold: number;
-  max_change_1h_threshold: number;
-  enable_change_4h_filter: boolean;
-  min_change_4h_threshold: number;
-  max_change_4h_threshold: number;
-  enable_change_24h_filter: boolean;
-  min_change_24h_threshold: number;
-  max_change_24h_threshold: number;
-
-  // 🆕 新增策略类型选择
-  strategy_type: 'h2h_breakeven' | 'momentum' | 'hybrid_rank';
-
-  // 🆕 新增动能策略专用参数
-  min_momentum_score: number;
-  min_elo_win_rate: number;
-  min_confidence: number;
-
-  // 🆕 新增复合型策略专用参数
-  enable_hybrid_rank_filter: boolean;
-  h2h_rank_enabled_ranks: number[];
-  momentum_rank_enabled_ranks: number[];
-  hybrid_rank_logic: 'and' | 'or'; // 'and': 两个排名都必须满足, 'or': 任一排名满足即可
-
-  // 🆕 新增动态条件构建器支持
   dynamic_conditions: Array<{
     id: string;
     type: string;
@@ -111,728 +12,28 @@ export interface AutoBettingConfig {
     value: number;
     logic: 'and' | 'or';
   }>;
+  is_active: boolean;
 }
 
 /**
- * 优化后的默认配置 - 基于实际市场数据
- * 🔧 所有百分比相关配置项统一使用0-100数值
+ * 简化后的默认配置 - 只保留必要字段
  */
-export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token'> = {
-  // 🎯 基础交易参数 - 基于实际数据优化
+export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token' | 'uid'> = {
   bet_amount: 200,
-  daily_stop_loss_percentage: 15,
-  confidence_threshold: 80, // 降低至80%，适应NEAR 82%的情况
-  score_gap_threshold: 60, // 降低至60，更宽松的分数要求
-  min_total_games: 1, // 降低至1，适应样本不足现实
-  historical_accuracy_threshold: 10, // 10%，更宽松的胜率要求 (统一为0-100)
-  min_sample_count: 1, // 降低至1，适应样本不足现实
-  max_bet_percentage: 15,
-  strategy: 'single_bet' as const,
-
-  // 🆕 新增策略类型选择 - 默认为H2H保本预测
-  strategy_type: 'h2h_breakeven' as const,
-
-  // 🆕 新增动能策略专用参数 - 默认值
-  min_momentum_score: 1.5,
-  min_elo_win_rate: 0.55,
-  min_confidence: 0.65,
-
-  // 🆕 新增复合型策略专用参数 - 默认值
-  enable_hybrid_rank_filter: false,
-  h2h_rank_enabled_ranks: [1, 2, 3],
-  momentum_rank_enabled_ranks: [1, 2, 3],
-  hybrid_rank_logic: 'and' as const, // 默认要求两个排名都满足
-
-  // 🔧 高级功能设置
-  enable_trend_analysis: false, // 默认关闭，避免过度过滤
-  enable_volume_filter: false, // 默认关闭，交易量数据不稳定
-  stop_loss_consecutive: 5, // 适中的止损容忍度
-  enable_kelly_criterion: false,
-  kelly_fraction: 25, // 25% (统一为0-100)
-  enable_martingale: false,
-  martingale_multiplier: 2.0,
-  max_martingale_steps: 3,
-  enable_time_filter: false,
-  allowed_hours_start: 9,
-  allowed_hours_end: 21,
-  enable_volatility_filter: false,
-  max_volatility_threshold: 80, // 80% (统一为0-100)
-  min_liquidity_threshold: 1000000,
-  is_active: false,
-
-  // 🎯 排名下注设置
-  rank_betting_enabled_ranks: [1, 2, 3],
-  rank_betting_amount_per_rank: 200,
-  rank_betting_different_amounts: false,
-  rank_betting_rank1_amount: 200,
-  rank_betting_rank2_amount: 200,
-  rank_betting_rank3_amount: 200,
-  rank_betting_max_ranks: 5,
-
-  // 📊 历史表现过滤器 - 基于实际数据优化
-  enable_win_rate_filter: false, // 默认关闭，胜率数据经常不足
-  min_win_rate_threshold: 12, // 12%，适应实际数据 (统一为0-100)
-  enable_top3_rate_filter: false, // 🔧 修复：默认关闭，避免过度过滤
-  min_top3_rate_threshold: 58, // 58%，参考ETH 58.8% (统一为0-100)
-  enable_avg_rank_filter: false, // 默认关闭
-  max_avg_rank_threshold: 4.0,
-  enable_stability_filter: false, // 默认关闭
-  max_stability_threshold: 2.5,
-
-  // 🎯 评分过滤器 - 基于实际分数范围
-  enable_absolute_score_filter: false, // 🔧 修复：默认关闭，避免过度过滤
-  min_absolute_score_threshold: 58.0, // 58，参考NXPC 59.2级别
-  enable_relative_score_filter: false, // 默认关闭
-  min_relative_score_threshold: 52.0, // 52，参考NXPC 53.2级别
-  enable_h2h_score_filter: false, // 默认关闭
-  min_h2h_score_threshold: 52.0,
-
-  // 📈 市场动态过滤器 - 基于实际波动范围（合理的默认值）
-  enable_change_5m_filter: false, // 默认关闭，数据经常缺失
-  min_change_5m_threshold: -2.0, // 5分钟跌幅容忍度
-  max_change_5m_threshold: 3.0, // 5分钟涨幅预期
-  enable_change_1h_filter: false, // 默认关闭，变化范围很大
-  min_change_1h_threshold: -5.0, // 1小时跌幅容忍度
-  max_change_1h_threshold: 8.0, // 1小时涨幅预期
-  enable_change_4h_filter: false, // 默认关闭
-  min_change_4h_threshold: -12.0, // 4小时跌幅容忍度
-  max_change_4h_threshold: 15.0, // 4小时涨幅预期
-  enable_change_24h_filter: false, // 默认关闭，变化范围很大
-  min_change_24h_threshold: -20.0, // 24小时跌幅容忍度
-  max_change_24h_threshold: 25.0, // 24小时涨幅预期（合理范围）
-
-  // 🆕 新增动态条件构建器支持 - 默认为空数组
-  dynamic_conditions: []
-};
-
-/**
- * ⭐ 2025-07-01 版：基於 6/26–7/01 回測結果重塑的五大策略模板
- * baseline = 61.1 %（actual_rank ≤ 3）
- * — realistic：寬鬆入門；— rock：穩健守成；
- * — sniper：極致精挑；— momentum_rider：追短線動能；
- * — all_rounder：鎖定 ≈66 % 命中率的量質折衷。
- *
- * 🚫 已弃用：智能策略选择功能已被移除，此对象仅作为配置参考保留
- */
-export const strategyTemplates = {
-  /** 🎯 實戰模式 (Market Reality) — 基線 61 % */
-  realistic: {
-    name: '🎯 實戰模式 (Market Reality)',
-    description: '新手模板：條件最寬，確保每日都有機會可下。',
-    // ---- 核心下注 ----
-    strategy: 'single_bet' as const,
-    bet_amount: 200,
-    daily_stop_loss_percentage: 12,
-    max_bet_percentage: 10,
-    // ---- AI 門檻 ----
-    confidence_threshold: 85,
-    score_gap_threshold: 67,
-    min_total_games: 1,
-    historical_accuracy_threshold: 25, // 10% (统一为0-100)
-    min_sample_count: 12,
-    // ---- 風控 ----
-    stop_loss_consecutive: 6,
-    // ---- 遺漏參數設為默認值 ----
-    enable_trend_analysis: false,
-    enable_volume_filter: false,
-    enable_kelly_criterion: false,
-    kelly_fraction: 25, // 25% (统一为0-100)
-    enable_martingale: false,
-    martingale_multiplier: 2.0,
-    max_martingale_steps: 3,
-    enable_time_filter: false,
-    allowed_hours_start: 9,
-    allowed_hours_end: 21,
-    enable_volatility_filter: false,
-    max_volatility_threshold: 80, // 80% (统一为0-100)
-    min_liquidity_threshold: 1000000,
-    is_active: false,
-    rank_betting_enabled_ranks: [1, 2, 3],
-    rank_betting_amount_per_rank: 200,
-    rank_betting_different_amounts: false,
-    rank_betting_rank1_amount: 200,
-    rank_betting_rank2_amount: 200,
-    rank_betting_rank3_amount: 200,
-    rank_betting_max_ranks: 5,
-    // 歷史表現過濾器
-    enable_win_rate_filter: false,
-    min_win_rate_threshold: 0,
-    enable_top3_rate_filter: false,
-    min_top3_rate_threshold: 0,
-    enable_avg_rank_filter: false,
-    max_avg_rank_threshold: 0,
-    enable_stability_filter: false,
-    max_stability_threshold: 0,
-    // 評分過濾器
-    enable_absolute_score_filter: false,
-    min_absolute_score_threshold: 0,
-    enable_relative_score_filter: false,
-    min_relative_score_threshold: 0,
-    enable_h2h_score_filter: false,
-    min_h2h_score_threshold: 0,
-    // 市場動態過濾器
-    enable_change_5m_filter: false,
-    min_change_5m_threshold: 0,
-    max_change_5m_threshold: 0,
-    enable_change_1h_filter: false,
-    min_change_1h_threshold: 0,
-    max_change_1h_threshold: 0,
-    enable_change_4h_filter: false,
-    min_change_4h_threshold: 0,
-    max_change_4h_threshold: 0,
-    enable_change_24h_filter: false,
-    min_change_24h_threshold: 0,
-    max_change_24h_threshold: 0,
-    strategy_type: 'h2h_breakeven' as const,
-    min_momentum_score: 1.5,
-    min_elo_win_rate: 0.55,
-    min_confidence: 0.65,
-    // 🆕 新增复合型策略参数
-    enable_hybrid_rank_filter: false,
-    h2h_rank_enabled_ranks: [1, 2, 3],
-    momentum_rank_enabled_ranks: [1, 2, 3],
-    hybrid_rank_logic: 'and' as const
-  },
-
-  /** 🗿 磐石型 (The Rock) — 回測 63.2 % */
-  rock: {
-    name: '🗿 磐石型 (The Rock)',
-    description: '保守穩健：樣本大、波動小，追求穩定累積。',
-    strategy: 'single_bet' as const,
-    bet_amount: 300,
-    daily_stop_loss_percentage: 8,
-    max_bet_percentage: 8,
-    confidence_threshold: 90,
-    score_gap_threshold: 75,
-    min_total_games: 30,
-    historical_accuracy_threshold: 50, // 50% (统一为0-100)
-    min_sample_count: 10,
-    // 歷史表現
-    enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 70, // 70% (统一为0-100)
-    enable_avg_rank_filter: true,
-    max_avg_rank_threshold: 2.5,
-    // 波動
-    enable_stability_filter: true,
-    max_stability_threshold: 0.9, // 0.9 (标准差小数格式)
-    // 僅保留 24 h 正動能
-    enable_change_24h_filter: true,
-    min_change_24h_threshold: 0,
-    max_change_24h_threshold: 20,
-    // 風控
-    stop_loss_consecutive: 5,
-    // ---- 遺漏參數設為默認值 ----
-    enable_trend_analysis: false,
-    enable_volume_filter: false,
-    enable_kelly_criterion: false,
-    kelly_fraction: 25, // 25% (统一为0-100)
-    enable_martingale: false,
-    martingale_multiplier: 2.0,
-    max_martingale_steps: 3,
-    enable_time_filter: false,
-    allowed_hours_start: 9,
-    allowed_hours_end: 21,
-    enable_volatility_filter: false,
-    max_volatility_threshold: 80, // 80% (统一为0-100)
-    min_liquidity_threshold: 1000000,
-    is_active: false,
-    rank_betting_enabled_ranks: [1, 2, 3],
-    rank_betting_amount_per_rank: 300,
-    rank_betting_different_amounts: false,
-    rank_betting_rank1_amount: 300,
-    rank_betting_rank2_amount: 300,
-    rank_betting_rank3_amount: 300,
-    rank_betting_max_ranks: 5,
-    // 其他歷史表現過濾器
-    enable_win_rate_filter: false,
-    min_win_rate_threshold: 0,
-    // 評分過濾器
-    enable_absolute_score_filter: false,
-    min_absolute_score_threshold: 0,
-    enable_relative_score_filter: false,
-    min_relative_score_threshold: 0,
-    enable_h2h_score_filter: false,
-    min_h2h_score_threshold: 0,
-    // 其他市場動態過濾器
-    enable_change_5m_filter: false,
-    min_change_5m_threshold: 0,
-    max_change_5m_threshold: 0,
-    enable_change_1h_filter: false,
-    min_change_1h_threshold: 0,
-    max_change_1h_threshold: 0,
-    enable_change_4h_filter: false,
-    min_change_4h_threshold: 0,
-    max_change_4h_threshold: 0,
-    // 🆕 新增策略类型和动能参数
-    strategy_type: 'h2h_breakeven' as const,
-    min_momentum_score: 1.5,
-    min_elo_win_rate: 0.55,
-    min_confidence: 0.65
-  },
-
-  /** 🎯 狙擊手型 (Elite Sniper 75) — 回測 75 %+ */
-  sniper: {
-    name: '🎯 狙擊手型 (Elite Sniper 75)',
-    description: '極限精挑：日機會 ≲15 檔，但命中率 ≥75 %。',
-    strategy: 'single_bet' as const,
-    bet_amount: 200,
-    daily_stop_loss_percentage: 10,
-    max_bet_percentage: 5,
-    // AI 分數
-    confidence_threshold: 97,
-    score_gap_threshold: 15,
-    min_total_games: 20,
-    historical_accuracy_threshold: 65, // 65% (统一为0-100)
-    min_sample_count: 5,
-    // 分數雙閥
-    enable_absolute_score_filter: true,
-    min_absolute_score_threshold: 97,
-    // 波動 & 動能 - 🔧 修正为合理的市场波动范围
-    enable_stability_filter: true,
-    max_stability_threshold: 0.03, // 0.03 (标准差小数格式)
-    enable_change_24h_filter: true,
-    min_change_24h_threshold: 2.0, // 24小时最少涨2%（保持精准要求）
-    max_change_24h_threshold: 30.0, // 24小时最多涨30%（合理范围，不是100%）
-    // 風控
-    enable_kelly_criterion: true,
-    kelly_fraction: 50, // 50% (统一为0-100)
-    stop_loss_consecutive: 4,
-    // ---- 遺漏參數設為默認值 ----
-    enable_trend_analysis: false,
-    enable_volume_filter: false,
-    enable_martingale: false,
-    martingale_multiplier: 2.0,
-    max_martingale_steps: 3,
-    enable_time_filter: false,
-    allowed_hours_start: 9,
-    allowed_hours_end: 21,
-    enable_volatility_filter: false,
-    max_volatility_threshold: 80, // 80% (统一为0-100)
-    min_liquidity_threshold: 1000000,
-    is_active: false,
-    rank_betting_enabled_ranks: [1, 2, 3],
-    rank_betting_amount_per_rank: 200,
-    rank_betting_different_amounts: false,
-    rank_betting_rank1_amount: 200,
-    rank_betting_rank2_amount: 200,
-    rank_betting_rank3_amount: 200,
-    rank_betting_max_ranks: 5,
-    // 其他歷史表現過濾器
-    enable_win_rate_filter: false,
-    min_win_rate_threshold: 0,
-    enable_top3_rate_filter: false,
-    min_top3_rate_threshold: 0,
-    enable_avg_rank_filter: false,
-    max_avg_rank_threshold: 0,
-    // 其他評分過濾器
-    enable_relative_score_filter: false,
-    min_relative_score_threshold: 0,
-    enable_h2h_score_filter: false,
-    min_h2h_score_threshold: 0,
-    // 其他市場動態過濾器
-    enable_change_5m_filter: false,
-    min_change_5m_threshold: 0,
-    max_change_5m_threshold: 0,
-    enable_change_1h_filter: false,
-    min_change_1h_threshold: 0,
-    max_change_1h_threshold: 0,
-    enable_change_4h_filter: false,
-    min_change_4h_threshold: 0,
-    max_change_4h_threshold: 0,
-    // 🆕 新增策略类型和动能参数
-    strategy_type: 'h2h_breakeven' as const,
-    min_momentum_score: 1.5,
-    min_elo_win_rate: 0.55,
-    min_confidence: 0.65
-  },
-
-  /** 🏇 動量騎士型 (Momentum Rider) — 回測 61.9 % */
-  momentum_rider: {
-    name: '🏇 動量騎士型 (Momentum Rider)',
-    description: '積極多倉：追 5 m / 1 h / 24 h 正動能，配簡易馬丁格爾。',
-    strategy: 'multi_bet' as const,
-    bet_amount: 250,
-    daily_stop_loss_percentage: 15,
-    max_bet_percentage: 30,
-    confidence_threshold: 85,
-    score_gap_threshold: 20,
-    min_total_games: 5,
-    historical_accuracy_threshold: 30, // 30% (统一为0-100)
-    min_sample_count: 3,
-    // 動能濾器 - 🔧 修正为合理的市场波动范围
-    enable_change_5m_filter: true,
-    min_change_5m_threshold: 0.5, // 5分钟最少涨0.5%
-    max_change_5m_threshold: 5.0, // 5分钟最多涨5%（合理范围）
-    enable_change_1h_filter: true,
-    min_change_1h_threshold: 2.0, // 1小时最少涨2%
-    max_change_1h_threshold: 15.0, // 1小时最多涨15%（合理范围）
-    enable_change_24h_filter: true,
-    min_change_24h_threshold: 5.0, // 24小时最少涨5%
-    max_change_24h_threshold: 50.0, // 24小时最多涨50%（合理范围）
-    // 波動
-    enable_stability_filter: true,
-    max_stability_threshold: 1.2, // 1.2 (标准差小数格式)
-    // 馬丁格爾
-    enable_martingale: true,
-    martingale_multiplier: 2.0,
-    max_martingale_steps: 2,
-    stop_loss_consecutive: 8,
-    // ---- 遺漏參數設為默認值 ----
-    enable_trend_analysis: false,
-    enable_volume_filter: false,
-    enable_kelly_criterion: false,
-    kelly_fraction: 25, // 25% (统一为0-100)
-    enable_time_filter: false,
-    allowed_hours_start: 9,
-    allowed_hours_end: 21,
-    enable_volatility_filter: false,
-    max_volatility_threshold: 80, // 80% (统一为0-100)
-    min_liquidity_threshold: 1000000,
-    is_active: false,
-    rank_betting_enabled_ranks: [1, 2, 3],
-    rank_betting_amount_per_rank: 250,
-    rank_betting_different_amounts: false,
-    rank_betting_rank1_amount: 250,
-    rank_betting_rank2_amount: 250,
-    rank_betting_rank3_amount: 250,
-    rank_betting_max_ranks: 5,
-    // 歷史表現過濾器
-    enable_win_rate_filter: false,
-    min_win_rate_threshold: 0,
-    enable_top3_rate_filter: false,
-    min_top3_rate_threshold: 0,
-    enable_avg_rank_filter: false,
-    max_avg_rank_threshold: 0,
-    // 評分過濾器
-    enable_absolute_score_filter: false,
-    min_absolute_score_threshold: 0,
-    enable_relative_score_filter: false,
-    min_relative_score_threshold: 0,
-    enable_h2h_score_filter: false,
-    min_h2h_score_threshold: 0,
-    // 其他市場動態過濾器
-    enable_change_4h_filter: false,
-    min_change_4h_threshold: 0,
-    max_change_4h_threshold: 0,
-    // 🆕 新增策略类型和动能参数
-    strategy_type: 'h2h_breakeven' as const,
-    min_momentum_score: 1.5,
-    min_elo_win_rate: 0.55,
-    min_confidence: 0.65,
-    // 🆕 新增复合型策略参数
-    enable_hybrid_rank_filter: false,
-    h2h_rank_enabled_ranks: [1, 2, 3],
-    momentum_rank_enabled_ranks: [1, 2, 3],
-    hybrid_rank_logic: 'and' as const
-  },
-
-  /** ⚖️ 全能平衡型 (Precision 66) — 回測 66.2 % */
-  all_rounder: {
-    name: '⚖️ 全能平衡型 (Precision 66)',
-    description: '量質折衷：每日 ≈80 機會，命中率約 66 %。',
-    strategy: 'multi_bet' as const,
-    bet_amount: 220,
-    daily_stop_loss_percentage: 12,
-    max_bet_percentage: 18,
-    confidence_threshold: 88,
-    score_gap_threshold: 50,
-    min_total_games: 10,
-    historical_accuracy_threshold: 60, // 60% (统一为0-100)
-    min_sample_count: 5,
-    // 歷史表現
-    enable_top3_rate_filter: true,
-    min_top3_rate_threshold: 60, // 60% (统一为0-100)
-    // 波動
-    enable_stability_filter: true,
-    max_stability_threshold: 0.14, // 0.14 (标准差小数格式)
-    // 動能 - 🔧 修正为合理的市场波动范围
-    enable_change_1h_filter: true,
-    min_change_1h_threshold: 1.0, // 1小时最少涨1%
-    max_change_1h_threshold: 12.0, // 1小时最多涨12%（合理范围）
-    enable_change_24h_filter: true,
-    min_change_24h_threshold: 3.0, // 24小时最少涨3%（修正：原来是100%！）
-    max_change_24h_threshold: 40.0, // 24小时最多涨40%（合理范围）
-    // 風控
-    enable_kelly_criterion: true,
-    kelly_fraction: 60, // 60% (统一为0-100)
-    stop_loss_consecutive: 6,
-    // ---- 遺漏參數設為默認值 ----
-    enable_trend_analysis: false,
-    enable_volume_filter: false,
-    enable_martingale: false,
-    martingale_multiplier: 2.0,
-    max_martingale_steps: 3,
-    enable_time_filter: false,
-    allowed_hours_start: 9,
-    allowed_hours_end: 21,
-    enable_volatility_filter: false,
-    max_volatility_threshold: 80, // 80% (统一为0-100)
-    min_liquidity_threshold: 1000000,
-    is_active: false,
-    rank_betting_enabled_ranks: [1, 2, 3],
-    rank_betting_amount_per_rank: 220,
-    rank_betting_different_amounts: false,
-    rank_betting_rank1_amount: 220,
-    rank_betting_rank2_amount: 220,
-    rank_betting_rank3_amount: 220,
-    rank_betting_max_ranks: 5,
-    // 其他歷史表現過濾器
-    enable_win_rate_filter: false,
-    min_win_rate_threshold: 0,
-    enable_avg_rank_filter: false,
-    max_avg_rank_threshold: 0,
-    // 評分過濾器
-    enable_absolute_score_filter: false,
-    min_absolute_score_threshold: 0,
-    enable_relative_score_filter: false,
-    min_relative_score_threshold: 0,
-    enable_h2h_score_filter: false,
-    min_h2h_score_threshold: 0,
-    // 其他市場動態過濾器
-    enable_change_5m_filter: false,
-    min_change_5m_threshold: 0,
-    max_change_5m_threshold: 0,
-    enable_change_4h_filter: false,
-    min_change_4h_threshold: 0,
-    max_change_4h_threshold: 0,
-    // 🆕 新增策略类型和动能参数
-    strategy_type: 'h2h_breakeven' as const,
-    min_momentum_score: 1.5,
-    min_elo_win_rate: 0.55,
-    min_confidence: 0.65,
-    // 🆕 新增复合型策略参数
-    enable_hybrid_rank_filter: false,
-    h2h_rank_enabled_ranks: [1, 2, 3],
-    momentum_rank_enabled_ranks: [1, 2, 3],
-    hybrid_rank_logic: 'and' as const
-  },
-
-  // 🎯 智能排名策略 - 保持宽松设置
-  rank_betting_smart: {
-    name: '🎯 智能排名策略',
-    description: '基于排名下注，参数要求最宽松。选择TOP1、TOP2等排名进行下注。',
-    confidence_threshold: 0, // 排名下注不使用置信度
-    score_gap_threshold: 0, // 排名下注不使用分数差距
-    min_total_games: 1, // 最低要求
-    historical_accuracy_threshold: 0, // 排名下注不使用胜率 (统一为0-100)
-    min_sample_count: 1, // 最低要求
-    max_bet_percentage: 25, // 适中的风险比例
-    strategy: 'rank_betting' as const, // **核心：排名下注策略**
-    bet_amount: 200,
-    daily_stop_loss_percentage: 15,
-    enable_trend_analysis: false,
-    enable_volume_filter: false,
-    stop_loss_consecutive: 8, // 允许较多连续失败
-    enable_kelly_criterion: false,
-    kelly_fraction: 25, // 25% (统一为0-100)
-    enable_martingale: false,
-    martingale_multiplier: 2.0,
-    max_martingale_steps: 3,
-    enable_time_filter: false,
-    allowed_hours_start: 9,
-    allowed_hours_end: 21,
-    enable_volatility_filter: false,
-    max_volatility_threshold: 80, // 80% (统一为0-100)
-    min_liquidity_threshold: 1000000,
-    is_active: false,
-    rank_betting_enabled_ranks: [1, 2, 3],
-    rank_betting_amount_per_rank: 200,
-    rank_betting_different_amounts: false,
-    rank_betting_rank1_amount: 200,
-    rank_betting_rank2_amount: 200,
-    rank_betting_rank3_amount: 200,
-    rank_betting_max_ranks: 5,
-    // 🎯 智能排名策略：关闭所有过滤器
-    enable_win_rate_filter: false,
-    min_win_rate_threshold: 0,
-    enable_top3_rate_filter: false,
-    min_top3_rate_threshold: 0,
-    enable_avg_rank_filter: false,
-    max_avg_rank_threshold: 0,
-    enable_stability_filter: false,
-    max_stability_threshold: 0,
-    enable_absolute_score_filter: false,
-    min_absolute_score_threshold: 0,
-    enable_relative_score_filter: false,
-    min_relative_score_threshold: 0,
-    enable_h2h_score_filter: false,
-    min_h2h_score_threshold: 0,
-    enable_change_5m_filter: false,
-    min_change_5m_threshold: 0,
-    max_change_5m_threshold: 0,
-    enable_change_1h_filter: false,
-    min_change_1h_threshold: 0,
-    max_change_1h_threshold: 0,
-    enable_change_4h_filter: false,
-    min_change_4h_threshold: 0,
-    max_change_4h_threshold: 0,
-    enable_change_24h_filter: false,
-    min_change_24h_threshold: 0,
-    max_change_24h_threshold: 0,
-    // 🆕 新增策略类型和动能参数
-    strategy_type: 'h2h_breakeven' as const,
-    min_momentum_score: 1.5,
-    min_elo_win_rate: 0.55,
-    min_confidence: 0.65,
-    // 🆕 新增复合型策略参数
-    enable_hybrid_rank_filter: false,
-    h2h_rank_enabled_ranks: [1, 2, 3],
-    momentum_rank_enabled_ranks: [1, 2, 3],
-    hybrid_rank_logic: 'and' as const
-  },
-
-  // 🆕 动能狙击手模板
-  momentum_sniper: {
-    name: '⚡ 动能狙击手 (Momentum Sniper)',
-    description: '基于Hybrid-Edge动能预测的精准狙击策略，结合价格动能和Elo评分。',
-    strategy: 'single_bet' as const,
-    bet_amount: 200,
-    daily_stop_loss_percentage: 12,
-    max_bet_percentage: 10,
-    // 🆕 动能策略专用参数
-    strategy_type: 'momentum' as const,
-    min_momentum_score: 1.5,
-    min_elo_win_rate: 0.55,
-    min_confidence: 0.65,
-    // H2H策略参数（动能策略不使用）
-    confidence_threshold: 0,
-    score_gap_threshold: 0,
-    min_total_games: 1,
-    historical_accuracy_threshold: 0,
-    min_sample_count: 1,
-    // 风控
-    stop_loss_consecutive: 6,
-    // 关闭所有H2H相关过滤器
-    enable_trend_analysis: false,
-    enable_volume_filter: false,
-    enable_kelly_criterion: false,
-    kelly_fraction: 25,
-    enable_martingale: false,
-    martingale_multiplier: 2.0,
-    max_martingale_steps: 3,
-    enable_time_filter: false,
-    allowed_hours_start: 9,
-    allowed_hours_end: 21,
-    enable_volatility_filter: false,
-    max_volatility_threshold: 80,
-    min_liquidity_threshold: 1000000,
-    is_active: false,
-    rank_betting_enabled_ranks: [1, 2, 3],
-    rank_betting_amount_per_rank: 200,
-    rank_betting_different_amounts: false,
-    rank_betting_rank1_amount: 200,
-    rank_betting_rank2_amount: 200,
-    rank_betting_rank3_amount: 200,
-    rank_betting_max_ranks: 5,
-    // 关闭所有H2H过滤器
-    enable_win_rate_filter: false,
-    min_win_rate_threshold: 0,
-    enable_top3_rate_filter: false,
-    min_top3_rate_threshold: 0,
-    enable_avg_rank_filter: false,
-    max_avg_rank_threshold: 0,
-    enable_stability_filter: false,
-    max_stability_threshold: 0,
-    enable_absolute_score_filter: false,
-    min_absolute_score_threshold: 0,
-    enable_relative_score_filter: false,
-    min_relative_score_threshold: 0,
-    enable_h2h_score_filter: false,
-    min_h2h_score_threshold: 0,
-    enable_change_5m_filter: false,
-    min_change_5m_threshold: 0,
-    max_change_5m_threshold: 0,
-    enable_change_1h_filter: false,
-    min_change_1h_threshold: 0,
-    max_change_1h_threshold: 0,
-    enable_change_4h_filter: false,
-    min_change_4h_threshold: 0,
-    max_change_4h_threshold: 0,
-    enable_change_24h_filter: false,
-    min_change_24h_threshold: 0,
-    max_change_24h_threshold: 0
-  },
-
-  // 🆕 复合型策略模板
-  hybrid_rank_conservative: {
-    name: '🎯 复合型保守策略',
-    description: 'AI预测TOP1-2 且 动能预测TOP1-2，双重确认提高命中率。',
-    strategy: 'single_bet' as const,
-    bet_amount: 200,
-    daily_stop_loss_percentage: 10,
-    max_bet_percentage: 8,
-    // 🆕 复合型策略专用参数
-    strategy_type: 'hybrid_rank' as const,
-    enable_hybrid_rank_filter: true,
-    h2h_rank_enabled_ranks: [1, 2],
-    momentum_rank_enabled_ranks: [1, 2],
-    hybrid_rank_logic: 'and' as const,
-    // H2H策略参数（复合型策略不使用）
-    confidence_threshold: 0,
-    score_gap_threshold: 0,
-    min_total_games: 1,
-    historical_accuracy_threshold: 0,
-    min_sample_count: 1,
-    // 动能策略参数（复合型策略不使用）
-    min_momentum_score: 0,
-    min_elo_win_rate: 0,
-    min_confidence: 0,
-    // 风控
-    stop_loss_consecutive: 5,
-    // 关闭所有过滤器
-    enable_trend_analysis: false,
-    enable_volume_filter: false,
-    enable_kelly_criterion: false,
-    kelly_fraction: 25,
-    enable_martingale: false,
-    martingale_multiplier: 2.0,
-    max_martingale_steps: 3,
-    enable_time_filter: false,
-    allowed_hours_start: 9,
-    allowed_hours_end: 21,
-    enable_volatility_filter: false,
-    max_volatility_threshold: 80,
-    min_liquidity_threshold: 1000000,
-    is_active: false,
-    rank_betting_enabled_ranks: [1, 2, 3],
-    rank_betting_amount_per_rank: 200,
-    rank_betting_different_amounts: false,
-    rank_betting_rank1_amount: 200,
-    rank_betting_rank2_amount: 200,
-    rank_betting_rank3_amount: 200,
-    rank_betting_max_ranks: 5,
-    // 关闭所有过滤器
-    enable_win_rate_filter: false,
-    min_win_rate_threshold: 0,
-    enable_top3_rate_filter: false,
-    min_top3_rate_threshold: 0,
-    enable_avg_rank_filter: false,
-    max_avg_rank_threshold: 0,
-    enable_stability_filter: false,
-    max_stability_threshold: 0,
-    enable_absolute_score_filter: false,
-    min_absolute_score_threshold: 0,
-    enable_relative_score_filter: false,
-    min_relative_score_threshold: 0,
-    enable_h2h_score_filter: false,
-    min_h2h_score_threshold: 0,
-    enable_change_5m_filter: false,
-    min_change_5m_threshold: 0,
-    max_change_5m_threshold: 0,
-    enable_change_1h_filter: false,
-    min_change_1h_threshold: 0,
-    max_change_1h_threshold: 0,
-    enable_change_4h_filter: false,
-    min_change_4h_threshold: 0,
-    max_change_4h_threshold: 0,
-    enable_change_24h_filter: false,
-    min_change_24h_threshold: 0,
-    max_change_24h_threshold: 0
-  }
+  dynamic_conditions: [
+    {
+      id: `condition_${Date.now()}_ranking`,
+      type: 'h2h_rank',
+      operator: 'lte',
+      value: 3,
+      logic: 'and'
+    }
+  ],
+  is_active: false
 };
 
 export const useAutoBettingConfig = () => {
-  // 配置状态 - 使用优化后的默认配置
+  // 配置状态 - 使用简化后的默认配置
   const config = reactive<AutoBettingConfig>({
     jwt_token: '',
     ...optimizedDefaultConfig
@@ -852,7 +53,14 @@ export const useAutoBettingConfig = () => {
     try {
       const response = await autoBettingApi.getConfig(uid);
       if (response.data.success) {
-        Object.assign(config, response.data.data);
+        // 只保留必要的字段
+        const cloudConfig = response.data.data;
+        config.jwt_token = cloudConfig.jwt_token || '';
+        config.bet_amount = cloudConfig.bet_amount || 200;
+        config.dynamic_conditions = cloudConfig.dynamic_conditions || optimizedDefaultConfig.dynamic_conditions;
+        config.is_active = cloudConfig.is_active || false;
+        config.uid = uid;
+
         configSyncStatus.value = { type: 'success', message: '已从云端加载配置' };
         return true;
       } else {
@@ -868,85 +76,75 @@ export const useAutoBettingConfig = () => {
 
   // 保存配置到云端
   const saveConfigToCloud = async (uid: string): Promise<boolean> => {
-    if (!uid) {
-      console.error('❌ saveConfigToCloud: UID为空');
-      return false;
-    }
-
-    console.log('☁️ [saveConfigToCloud] 开始保存到云端...', {
-      uid,
-      configSize: JSON.stringify(config).length,
-      hasJWT: !!config.jwt_token
-    });
+    if (!uid) return false;
 
     try {
-      const response = await autoBettingApi.saveConfig(uid, config);
-      console.log('📡 API响应:', response.data);
+      configSaving.value = true;
+
+      // 只发送必要的字段
+      const configData = {
+        uid,
+        jwt_token: config.jwt_token,
+        bet_amount: config.bet_amount,
+        dynamic_conditions: config.dynamic_conditions,
+        is_active: config.is_active
+      };
+
+      const response = await autoBettingApi.saveConfig(uid, configData);
 
       if (response.data.success) {
-        configSyncStatus.value = { type: 'success', message: '配置已保存到云端' };
-        console.log('✅ 云端保存成功');
+        configSyncStatus.value = { type: 'success', message: '配置已成功保存到云端' };
         return true;
       } else {
-        configSyncStatus.value = { type: 'error', message: `保存云端配置失败: ${response.data.message}` };
-        console.error('❌ 云端保存失败:', response.data.message);
+        configSyncStatus.value = { type: 'error', message: '保存云端配置失败' };
         return false;
       }
     } catch (error) {
-      console.error('💥 云端保存异常:', error);
-
-      // 详细的错误信息
-      if (error instanceof Error) {
-        console.error('错误详情:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        });
-      }
-
-      // 检查是否是网络错误
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as any;
-        console.error('HTTP错误详情:', {
-          status: axiosError.response?.status,
-          statusText: axiosError.response?.statusText,
-          data: axiosError.response?.data
-        });
-      }
-
+      console.error('保存云端配置失败:', error);
       configSyncStatus.value = { type: 'error', message: '网络错误，无法保存到云端' };
       return false;
+    } finally {
+      configSaving.value = false;
     }
   };
 
-  // 从localStorage加载配置
+  // 从本地存储加载配置
   const loadConfigFromLocalStorage = () => {
-    const savedConfig = localStorage.getItem('autoBettingConfig');
-    if (savedConfig) {
-      try {
-        const parsed = JSON.parse(savedConfig);
-        Object.assign(config, { ...parsed });
-        configSyncStatus.value = { type: 'info', message: '已从本地存储加载配置' };
-      } catch (error) {
-        console.error('加载本地配置失败:', error);
-        configSyncStatus.value = { type: 'error', message: '本地配置损坏，已重置为默认配置' };
+    try {
+      const savedConfig = localStorage.getItem('autoBettingConfig');
+      if (savedConfig) {
+        const parsedConfig = JSON.parse(savedConfig);
+        // 只保留必要的字段
+        config.jwt_token = parsedConfig.jwt_token || '';
+        config.bet_amount = parsedConfig.bet_amount || 200;
+        config.dynamic_conditions = parsedConfig.dynamic_conditions || optimizedDefaultConfig.dynamic_conditions;
+        config.is_active = parsedConfig.is_active || false;
+        config.uid = parsedConfig.uid || '';
       }
+    } catch (error) {
+      console.error('加载本地配置失败:', error);
     }
   };
 
-  // 保存配置到localStorage
+  // 保存配置到本地存储
   const saveConfigToLocalStorage = () => {
     try {
-      localStorage.setItem('autoBettingConfig', JSON.stringify(config));
-      configSyncStatus.value = { type: 'success', message: '配置已保存到本地存储' };
+      // 只保存必要的字段
+      const configToSave = {
+        jwt_token: config.jwt_token,
+        bet_amount: config.bet_amount,
+        dynamic_conditions: config.dynamic_conditions,
+        is_active: config.is_active,
+        uid: config.uid
+      };
+      localStorage.setItem('autoBettingConfig', JSON.stringify(configToSave));
     } catch (error) {
       console.error('保存本地配置失败:', error);
-      configSyncStatus.value = { type: 'error', message: '保存本地配置失败' };
     }
   };
 
-  // 自动保存配置（带防抖）
-  const autoSaveConfig = async (uid?: string) => {
+  // 自动保存配置（防抖）
+  const autoSaveConfig = (uid?: string) => {
     if (saveConfigTimeout) {
       clearTimeout(saveConfigTimeout);
     }
@@ -957,6 +155,15 @@ export const useAutoBettingConfig = () => {
         await saveConfigToCloud(uid);
       }
     }, 1000);
+  };
+
+  // 手动保存配置
+  const manualSaveConfig = async (uid?: string) => {
+    saveConfigToLocalStorage();
+    if (uid) {
+      return await saveConfigToCloud(uid);
+    }
+    return true;
   };
 
   // 验证配置数据完整性
@@ -970,22 +177,6 @@ export const useAutoBettingConfig = () => {
       errors.push('下注金额必须在200-2000之间');
     }
 
-    if (
-      typeof config.confidence_threshold !== 'number' ||
-      config.confidence_threshold < 0 ||
-      config.confidence_threshold > 100
-    ) {
-      errors.push('置信度阈值必须在0-100之间');
-    }
-
-    if (typeof config.score_gap_threshold !== 'number' || config.score_gap_threshold < 0) {
-      errors.push('分数差距阈值必须大于等于0');
-    }
-
-    if (typeof config.min_sample_count !== 'number' || config.min_sample_count < 1) {
-      errors.push('最小样本数必须大于等于1');
-    }
-
     // 检查动态条件
     if (config.dynamic_conditions && Array.isArray(config.dynamic_conditions)) {
       config.dynamic_conditions.forEach((condition, index) => {
@@ -993,11 +184,6 @@ export const useAutoBettingConfig = () => {
           errors.push(`动态条件${index + 1}格式不正确`);
         }
       });
-    }
-
-    // 检查数组字段
-    if (!Array.isArray(config.rank_betting_enabled_ranks)) {
-      errors.push('排名下注启用排名必须是数组');
     }
 
     const isValid = errors.length === 0;
@@ -1011,132 +197,24 @@ export const useAutoBettingConfig = () => {
     return { isValid, errors };
   };
 
-  // 手动保存配置
-  const manualSaveConfig = async (uid?: string) => {
-    console.log('💾 [useAutoBettingConfig] 开始手动保存配置...', {
-      hasUID: !!uid,
-      uid,
-      configSize: JSON.stringify(config).length,
-      configKeys: Object.keys(config)
-    });
-
-    configSaving.value = true;
-
-    try {
-      // 0. 验证配置数据
-      console.log('🔍 步骤0: 验证配置数据...');
-      const validation = validateConfig();
-      if (!validation.isValid) {
-        console.error('❌ 配置验证失败:', validation.errors);
-        window.$message?.error(`配置验证失败: ${validation.errors.join(', ')}`);
-        return;
-      }
-      console.log('✅ 配置验证通过');
-
-      // 1. 保存到本地存储
-      console.log('💾 步骤1: 保存到localStorage...');
-      saveConfigToLocalStorage();
-      console.log('✅ localStorage保存完成');
-
-      // 2. 如果有UID，保存到云端
-      if (uid) {
-        console.log('☁️ 步骤2: 保存到云端...', { uid });
-
-        // 检查JWT Token
-        if (!config.jwt_token) {
-          console.warn('⚠️ JWT Token为空，云端保存可能失败');
-        }
-
-        const result = await saveConfigToCloud(uid);
-        if (result) {
-          console.log('✅ 云端保存成功');
-          window.$message?.success('配置已保存到云端');
-        } else {
-          console.error('❌ 云端保存失败');
-          window.$message?.error('云端保存失败，但本地保存成功');
-        }
-      } else {
-        console.log('📱 无UID，仅保存到本地');
-        window.$message?.success('配置已保存到本地');
-      }
-    } catch (err) {
-      console.error('💥 保存配置时发生错误:', err);
-
-      // 详细的错误信息
-      if (err instanceof Error) {
-        console.error('错误详情:', {
-          message: err.message,
-          stack: err.stack,
-          name: err.name
-        });
-      }
-
-      window.$message?.error(`保存配置失败: ${err instanceof Error ? err.message : '未知错误'}`);
-    } finally {
-      configSaving.value = false;
-      console.log('🏁 保存流程结束');
-    }
-  };
-
-  // 🔄 重置到优化后的默认配置
+  // 重置为默认配置
   const resetToDefaultConfig = () => {
     Object.assign(config, {
-      jwt_token: config.jwt_token, // 保留JWT令牌
+      jwt_token: config.jwt_token, // 保留JWT token
+      uid: config.uid, // 保留UID
       ...optimizedDefaultConfig
     });
-
-    window.$message?.success('✨ 已重置为优化后的默认配置，基于实际市场数据优化');
+    saveConfigToLocalStorage();
   };
 
-  // 🔄 完全重置（包括JWT令牌）
+  // 重置所有配置
   const resetAllConfig = () => {
     Object.assign(config, {
       jwt_token: '',
+      uid: '',
       ...optimizedDefaultConfig
     });
-
-    // 清除本地存储
-    localStorage.removeItem('autoBettingConfig');
-
-    window.$message?.warning('🗑️ 已完全重置所有配置，包括JWT令牌和本地存储');
-  };
-
-  // 指定排名下注相关方法
-  const toggleRankBetting = (rank: number, checked: boolean) => {
-    if (checked) {
-      if (!config.rank_betting_enabled_ranks.includes(rank)) {
-        config.rank_betting_enabled_ranks.push(rank);
-        config.rank_betting_enabled_ranks.sort((a, b) => a - b);
-      }
-    } else {
-      const index = config.rank_betting_enabled_ranks.indexOf(rank);
-      if (index > -1) {
-        config.rank_betting_enabled_ranks.splice(index, 1);
-      }
-    }
-  };
-
-  const getRankBettingAmount = (rank: number): number => {
-    if (!config.rank_betting_different_amounts) {
-      return config.rank_betting_amount_per_rank || 200;
-    }
-
-    switch (rank) {
-      case 1:
-        return config.rank_betting_rank1_amount || 200;
-      case 2:
-        return config.rank_betting_rank2_amount || 200;
-      case 3:
-        return config.rank_betting_rank3_amount || 200;
-      default:
-        return config.rank_betting_amount_per_rank || 200;
-    }
-  };
-
-  const getTotalRankBettingAmount = (): number => {
-    return config.rank_betting_enabled_ranks.reduce((total, rank) => {
-      return total + getRankBettingAmount(rank);
-    }, 0);
+    saveConfigToLocalStorage();
   };
 
   // 初始化配置
@@ -1161,9 +239,6 @@ export const useAutoBettingConfig = () => {
     saveConfigToLocalStorage,
     autoSaveConfig,
     manualSaveConfig,
-    toggleRankBetting,
-    getRankBettingAmount,
-    getTotalRankBettingAmount,
     initializeConfig,
     validateConfig,
 

@@ -170,12 +170,8 @@
                   :strategy-name="currentStrategyName"
                   :confidence-threshold="config.confidence_threshold"
                   :config="config"
-                  :selected-template="selectedTemplate"
-                  :custom-strategy-mode="customStrategyMode"
                   :config-saving="configSaving"
                   :config-sync-status="configSyncStatus"
-                  :strategy-templates="strategyTemplates"
-                  :strategy-templates-with-custom="getStrategyTemplatesWithCustom()"
                   :strategy-validation="strategyValidation"
                   :is-running="autoBettingStatus.is_running"
                   :has-u-i-d="!!currentUID"
@@ -187,9 +183,6 @@
                   @stop-auto-betting="stopAutoBetting"
                   @execute-manual-betting="executeManualBetting"
                   @clear-bet-results="clearBetResults"
-                  @apply-strategy-template="applyStrategyTemplate"
-                  @switch-to-custom-mode="switchToCustomMode"
-                  @reset-to-template-mode="resetToTemplateMode"
                   @execute-strategy-betting="executeStrategyBetting"
                   @manual-save-config="manualSaveConfig"
                   @run-api-diagnostics="runApiDiagnostics"
@@ -371,7 +364,7 @@
   import HistoryAnalysisTab from '@/components/HistoryAnalysisTab.vue';
 
   // 导入composables和stores
-  import { useAutoBettingConfig, strategyTemplates } from '@/composables/useAutoBettingConfig';
+  import { useAutoBettingConfig } from '@/composables/useAutoBettingConfig';
   import { useAutoBettingControl } from '@/composables/useAutoBettingControl';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import { usePredictionStats } from '@/composables/usePredictionStats';
@@ -414,20 +407,7 @@
   // const { reconnectWebSocket } = predictionStore; // 已在下面定义
 
   // 从composables中解构状态和方法
-  const {
-    config,
-    selectedTemplate,
-    customStrategyMode,
-    configSaving,
-    configSyncStatus,
-    getStrategyTemplatesWithCustom,
-    detectCurrentStrategy,
-    applyStrategyTemplate,
-    switchToCustomMode,
-    resetToTemplateMode,
-    manualSaveConfig,
-    initializeConfig
-  } = configComposable;
+  const { config, configSaving, configSyncStatus, manualSaveConfig, initializeConfig } = configComposable;
 
   const {
     isTokenValidated,
@@ -546,13 +526,17 @@
 
   // 当前策略名称计算属性
   const currentStrategyName = computed(() => {
-    if (customStrategyMode.value) {
-      return '自定义策略';
+    // 根据策略类型返回对应的名称
+    switch (config.strategy_type) {
+      case 'h2h_breakeven':
+        return 'H2H保本策略';
+      case 'momentum':
+        return '动能策略';
+      case 'hybrid_rank':
+        return '复合型策略';
+      default:
+        return '自定义策略';
     }
-    if (selectedTemplate.value && strategyTemplates[selectedTemplate.value as keyof typeof strategyTemplates]) {
-      return strategyTemplates[selectedTemplate.value as keyof typeof strategyTemplates].name;
-    }
-    return '未选择策略';
   });
 
   // ==================== 核心逻辑函数 ====================
@@ -1220,16 +1204,6 @@
     () => {
       configComposable.autoSaveConfig(currentUID.value);
       validateCurrentStrategy();
-
-      const detectedStrategy = detectCurrentStrategy();
-      if (selectedTemplate.value !== detectedStrategy) {
-        selectedTemplate.value = detectedStrategy;
-        if (detectedStrategy === 'custom') {
-          customStrategyMode.value = true;
-        } else {
-          customStrategyMode.value = false;
-        }
-      }
     },
     { deep: true, flush: 'post' }
   );

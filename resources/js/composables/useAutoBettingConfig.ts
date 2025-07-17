@@ -211,6 +211,8 @@ export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token'> = {
  * — realistic：寬鬆入門；— rock：穩健守成；
  * — sniper：極致精挑；— momentum_rider：追短線動能；
  * — all_rounder：鎖定 ≈66 % 命中率的量質折衷。
+ *
+ * 🚫 已弃用：智能策略选择功能已被移除，此对象仅作为配置参考保留
  */
 export const strategyTemplates = {
   /** 🎯 實戰模式 (Market Reality) — 基線 61 % */
@@ -836,73 +838,9 @@ export const useAutoBettingConfig = () => {
     ...optimizedDefaultConfig
   });
 
-  // 策略模式状态
-  const selectedTemplate = ref<string>('');
-  const customStrategyMode = ref(false);
+  // 配置状态
   const configSaving = ref(false);
   const configSyncStatus = ref<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
-
-  // 计算属性：添加自定义策略到模板列表（动态更新）
-  const getStrategyTemplatesWithCustom = () => ({
-    ...strategyTemplates,
-    custom: {
-      name: '🎨 自定义策略',
-      description: '完全自定义的策略配置，可手动调整所有参数',
-      // 基础参数
-      confidence_threshold: config.confidence_threshold,
-      score_gap_threshold: config.score_gap_threshold,
-      min_total_games: config.min_total_games,
-      historical_accuracy_threshold: config.historical_accuracy_threshold,
-      min_sample_count: config.min_sample_count,
-      max_bet_percentage: config.max_bet_percentage,
-      strategy: config.strategy,
-      enable_trend_analysis: config.enable_trend_analysis,
-      enable_volume_filter: config.enable_volume_filter,
-      stop_loss_consecutive: config.stop_loss_consecutive,
-
-      // 🔧 新增：历史表现过滤器参数
-      enable_win_rate_filter: config.enable_win_rate_filter,
-      min_win_rate_threshold: config.min_win_rate_threshold,
-      enable_top3_rate_filter: config.enable_top3_rate_filter,
-      min_top3_rate_threshold: config.min_top3_rate_threshold,
-      enable_avg_rank_filter: config.enable_avg_rank_filter,
-      max_avg_rank_threshold: config.max_avg_rank_threshold,
-      enable_stability_filter: config.enable_stability_filter,
-      max_stability_threshold: config.max_stability_threshold,
-
-      // 🔧 新增：评分过滤器参数
-      enable_absolute_score_filter: config.enable_absolute_score_filter,
-      min_absolute_score_threshold: config.min_absolute_score_threshold,
-      enable_relative_score_filter: config.enable_relative_score_filter,
-      min_relative_score_threshold: config.min_relative_score_threshold,
-      enable_h2h_score_filter: config.enable_h2h_score_filter,
-      min_h2h_score_threshold: config.min_h2h_score_threshold,
-
-      // 🔧 新增：市场动态过滤器参数
-      enable_change_5m_filter: config.enable_change_5m_filter,
-      min_change_5m_threshold: config.min_change_5m_threshold,
-      max_change_5m_threshold: config.max_change_5m_threshold,
-      enable_change_1h_filter: config.enable_change_1h_filter,
-      min_change_1h_threshold: config.min_change_1h_threshold,
-      max_change_1h_threshold: config.max_change_1h_threshold,
-      enable_change_4h_filter: config.enable_change_4h_filter,
-      min_change_4h_threshold: config.min_change_4h_threshold,
-      max_change_4h_threshold: config.max_change_4h_threshold,
-      enable_change_24h_filter: config.enable_change_24h_filter,
-      min_change_24h_threshold: config.min_change_24h_threshold,
-      max_change_24h_threshold: config.max_change_24h_threshold,
-      // 🆕 新增策略类型和动能参数
-      strategy_type: config.strategy_type,
-      min_momentum_score: config.min_momentum_score,
-      min_elo_win_rate: config.min_elo_win_rate,
-      min_confidence: config.min_confidence,
-      // 🆕 新增复合型策略参数
-      enable_hybrid_rank_filter: config.enable_hybrid_rank_filter,
-      h2h_rank_enabled_ranks: config.h2h_rank_enabled_ranks,
-      momentum_rank_enabled_ranks: config.momentum_rank_enabled_ranks,
-      hybrid_rank_logic: config.hybrid_rank_logic
-    }
-  });
 
   // 防抖器
   let saveConfigTimeout: NodeJS.Timeout | null = null;
@@ -1009,157 +947,6 @@ export const useAutoBettingConfig = () => {
     }
   };
 
-  // 检测当前配置是否匹配某个预设策略
-  const detectCurrentStrategy = (): string => {
-    for (const [key, template] of Object.entries(strategyTemplates)) {
-      const matches =
-        // 基础参数匹配
-        config.confidence_threshold === template.confidence_threshold &&
-        config.score_gap_threshold === template.score_gap_threshold &&
-        config.min_total_games === template.min_total_games &&
-        config.historical_accuracy_threshold === template.historical_accuracy_threshold &&
-        config.min_sample_count === template.min_sample_count &&
-        config.max_bet_percentage === template.max_bet_percentage &&
-        config.strategy === template.strategy &&
-        config.enable_trend_analysis === template.enable_trend_analysis &&
-        config.enable_volume_filter === template.enable_volume_filter &&
-        config.stop_loss_consecutive === template.stop_loss_consecutive &&
-        // 🔧 新增：历史表现过滤器参数匹配
-        config.enable_win_rate_filter === template.enable_win_rate_filter &&
-        config.min_win_rate_threshold === template.min_win_rate_threshold &&
-        config.enable_top3_rate_filter === template.enable_top3_rate_filter &&
-        config.min_top3_rate_threshold === template.min_top3_rate_threshold &&
-        config.enable_avg_rank_filter === template.enable_avg_rank_filter &&
-        config.max_avg_rank_threshold === template.max_avg_rank_threshold &&
-        config.enable_stability_filter === template.enable_stability_filter &&
-        config.max_stability_threshold === template.max_stability_threshold &&
-        // 🔧 新增：评分过滤器参数匹配
-        config.enable_absolute_score_filter === template.enable_absolute_score_filter &&
-        config.min_absolute_score_threshold === template.min_absolute_score_threshold &&
-        config.enable_relative_score_filter === template.enable_relative_score_filter &&
-        config.min_relative_score_threshold === template.min_relative_score_threshold &&
-        config.enable_h2h_score_filter === template.enable_h2h_score_filter &&
-        config.min_h2h_score_threshold === template.min_h2h_score_threshold &&
-        // 🔧 新增：市场动态过滤器参数匹配
-        config.enable_change_5m_filter === template.enable_change_5m_filter &&
-        config.min_change_5m_threshold === template.min_change_5m_threshold &&
-        config.max_change_5m_threshold === template.max_change_5m_threshold &&
-        config.enable_change_1h_filter === template.enable_change_1h_filter &&
-        config.min_change_1h_threshold === template.min_change_1h_threshold &&
-        config.max_change_1h_threshold === template.max_change_1h_threshold &&
-        config.enable_change_4h_filter === template.enable_change_4h_filter &&
-        config.min_change_4h_threshold === template.min_change_4h_threshold &&
-        config.max_change_4h_threshold === template.max_change_4h_threshold &&
-        config.enable_change_24h_filter === template.enable_change_24h_filter &&
-        config.min_change_24h_threshold === template.min_change_24h_threshold &&
-        config.max_change_24h_threshold === template.max_change_24h_threshold &&
-        // 🆕 新增：策略类型和动能参数匹配
-        config.strategy_type === (template.strategy_type || 'h2h_breakeven') &&
-        config.min_momentum_score === (template.min_momentum_score || 1.5) &&
-        config.min_elo_win_rate === (template.min_elo_win_rate || 0.55) &&
-        config.min_confidence === (template.min_confidence || 0.65);
-
-      if (matches) {
-        return key;
-      }
-    }
-    return 'custom';
-  };
-
-  // 应用策略模板
-  const applyStrategyTemplate = (templateKey: string) => {
-    if (templateKey === 'custom') {
-      selectedTemplate.value = 'custom';
-      customStrategyMode.value = true;
-      window.$message?.info('已选择自定义策略，可手动调整所有参数');
-      return;
-    }
-
-    const template = strategyTemplates[templateKey as keyof typeof strategyTemplates];
-    if (!template) return;
-
-    // 🔧 修复：同步所有策略模板参数，包括新增的过滤器参数
-    Object.assign(config, {
-      // 基础参数
-      confidence_threshold: template.confidence_threshold,
-      score_gap_threshold: template.score_gap_threshold,
-      min_total_games: template.min_total_games,
-      historical_accuracy_threshold: template.historical_accuracy_threshold,
-      min_sample_count: template.min_sample_count,
-      max_bet_percentage: template.max_bet_percentage,
-      strategy: template.strategy,
-      enable_trend_analysis: template.enable_trend_analysis,
-      enable_volume_filter: template.enable_volume_filter,
-      stop_loss_consecutive: template.stop_loss_consecutive,
-
-      // 🆕 历史表现过滤器参数
-      enable_win_rate_filter: template.enable_win_rate_filter,
-      min_win_rate_threshold: template.min_win_rate_threshold,
-      enable_top3_rate_filter: template.enable_top3_rate_filter,
-      min_top3_rate_threshold: template.min_top3_rate_threshold,
-      enable_avg_rank_filter: template.enable_avg_rank_filter,
-      max_avg_rank_threshold: template.max_avg_rank_threshold,
-      enable_stability_filter: template.enable_stability_filter,
-      max_stability_threshold: template.max_stability_threshold,
-
-      // 🆕 评分过滤器参数
-      enable_absolute_score_filter: template.enable_absolute_score_filter,
-      min_absolute_score_threshold: template.min_absolute_score_threshold,
-      enable_relative_score_filter: template.enable_relative_score_filter,
-      min_relative_score_threshold: template.min_relative_score_threshold,
-      enable_h2h_score_filter: template.enable_h2h_score_filter,
-      min_h2h_score_threshold: template.min_h2h_score_threshold,
-
-      // 🆕 市场动态过滤器参数
-      enable_change_5m_filter: template.enable_change_5m_filter,
-      min_change_5m_threshold: template.min_change_5m_threshold,
-      max_change_5m_threshold: template.max_change_5m_threshold,
-      enable_change_1h_filter: template.enable_change_1h_filter,
-      min_change_1h_threshold: template.min_change_1h_threshold,
-      max_change_1h_threshold: template.max_change_1h_threshold,
-      enable_change_4h_filter: template.enable_change_4h_filter,
-      min_change_4h_threshold: template.min_change_4h_threshold,
-      max_change_4h_threshold: template.max_change_4h_threshold,
-      enable_change_24h_filter: template.enable_change_24h_filter,
-      min_change_24h_threshold: template.min_change_24h_threshold,
-      max_change_24h_threshold: template.max_change_24h_threshold,
-
-      // 🆕 新增策略类型和动能参数
-      strategy_type: template.strategy_type || 'h2h_breakeven',
-      min_momentum_score: template.min_momentum_score || 1.5,
-      min_elo_win_rate: template.min_elo_win_rate || 0.55,
-      min_confidence: template.min_confidence || 0.65
-    });
-
-    selectedTemplate.value = templateKey;
-    customStrategyMode.value = false;
-    window.$message?.success(`已应用${template.name}，所有参数已同步到配置中`);
-  };
-
-  // 🎨 切换到自定义策略模式（自动重置为优化默认配置）
-  const switchToCustomMode = () => {
-    // 先应用优化后的默认配置
-    Object.assign(config, {
-      jwt_token: config.jwt_token, // 保留JWT令牌
-      ...optimizedDefaultConfig
-    });
-
-    // 切换到自定义模式
-    customStrategyMode.value = true;
-    selectedTemplate.value = '';
-
-    window.$message?.success('🎨 已进入自定义策略模式，配置已重置为优化后的默认值，您可以自由调整所有参数');
-    console.log('🎨 自定义模式已激活，配置已重置为:', optimizedDefaultConfig);
-  };
-
-  // 🎨 切换到自定义策略模式（保持当前配置）
-  const switchToCustomModeKeepConfig = () => {
-    customStrategyMode.value = true;
-    selectedTemplate.value = '';
-
-    window.$message?.info('🎨 已进入自定义策略模式，保持当前配置不变');
-  };
-
   // 🔄 重置到优化后的默认配置
   const resetToDefaultConfig = () => {
     Object.assign(config, {
@@ -1167,19 +954,8 @@ export const useAutoBettingConfig = () => {
       ...optimizedDefaultConfig
     });
 
-    // 重置状态
-    customStrategyMode.value = false;
-    selectedTemplate.value = '';
-
     window.$message?.success('✨ 已重置为优化后的默认配置，基于实际市场数据优化');
     console.log('🔄 配置已重置为优化后的默认值:', optimizedDefaultConfig);
-  };
-
-  // 🔄 重置为模板模式（保持当前配置不变）
-  const resetToTemplateMode = () => {
-    customStrategyMode.value = false;
-    selectedTemplate.value = '';
-    window.$message?.info('📋 已返回模板模式，请选择一个预设策略模板');
   };
 
   // 🔄 完全重置（包括JWT令牌）
@@ -1189,27 +965,11 @@ export const useAutoBettingConfig = () => {
       ...optimizedDefaultConfig
     });
 
-    // 重置状态
-    customStrategyMode.value = false;
-    selectedTemplate.value = '';
-
     // 清除本地存储
     localStorage.removeItem('autoBettingConfig');
 
     window.$message?.warning('🗑️ 已完全重置所有配置，包括JWT令牌和本地存储');
     console.log('🔄 所有配置已完全重置');
-  };
-
-  // 🔄 重置为保守模式（快速应用磐石型策略）
-  const resetToConservativeMode = () => {
-    applyStrategyTemplate('rock');
-    window.$message?.success('🗿 已快速重置为保守模式（磐石型策略）');
-  };
-
-  // 🔄 重置为积极模式（快速应用动量骑士型策略）
-  const resetToAggressiveMode = () => {
-    applyStrategyTemplate('momentum_rider');
-    window.$message?.success('🏇 已快速重置为积极模式（动量骑士型策略）');
   };
 
   // 指定排名下注相关方法
@@ -1261,12 +1021,8 @@ export const useAutoBettingConfig = () => {
   return {
     // 状态
     config,
-    selectedTemplate,
-    customStrategyMode,
     configSaving,
     configSyncStatus,
-    strategyTemplates,
-    getStrategyTemplatesWithCustom,
     optimizedDefaultConfig,
 
     // 方法
@@ -1276,10 +1032,6 @@ export const useAutoBettingConfig = () => {
     saveConfigToLocalStorage,
     autoSaveConfig,
     manualSaveConfig,
-    applyStrategyTemplate,
-    switchToCustomMode,
-    resetToTemplateMode,
-    detectCurrentStrategy,
     toggleRankBetting,
     getRankBettingAmount,
     getTotalRankBettingAmount,
@@ -1287,11 +1039,6 @@ export const useAutoBettingConfig = () => {
 
     // 🔄 重置方法
     resetToDefaultConfig,
-    resetAllConfig,
-    resetToConservativeMode,
-    resetToAggressiveMode,
-
-    // 🎨 自定义模式方法
-    switchToCustomModeKeepConfig
+    resetAllConfig
   };
 };

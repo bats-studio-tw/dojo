@@ -955,7 +955,6 @@ export const useAutoBettingConfig = () => {
     });
 
     window.$message?.success('✨ 已重置为优化后的默认配置，基于实际市场数据优化');
-    console.log('🔄 配置已重置为优化后的默认值:', optimizedDefaultConfig);
   };
 
   // 🔄 完全重置（包括JWT令牌）
@@ -969,7 +968,6 @@ export const useAutoBettingConfig = () => {
     localStorage.removeItem('autoBettingConfig');
 
     window.$message?.warning('🗑️ 已完全重置所有配置，包括JWT令牌和本地存储');
-    console.log('🔄 所有配置已完全重置');
   };
 
   // 指定排名下注相关方法

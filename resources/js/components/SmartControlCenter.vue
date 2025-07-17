@@ -343,17 +343,18 @@
 
     <!-- 🎛️ 智能控制中心：策略配置区域 -->
     <StrategyConfigPanel
-      v-model:config="props.config"
+      :config="localConfig"
       :is-running="isRunning"
       :config-saving="configSaving"
       :has-u-i-d="hasUID"
+      @update:config="onUpdateConfig"
       @save-config="manualSaveConfig"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-  import { onMounted, watch, computed, onUnmounted } from 'vue';
+  import { onMounted, watch, computed, onUnmounted, ref } from 'vue';
   import { NEmpty } from 'naive-ui';
   import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
   import MomentumPredictionDisplay from '@/components/MomentumPredictionDisplay.vue';
@@ -404,7 +405,27 @@
     executeStrategyBetting: [];
     manualSaveConfig: [];
     refreshAnalysis: [];
+    updateConfig: [config: AutoBettingConfig];
   }>();
+
+  // 🔧 修复：创建本地config副本，避免直接v-model到props
+  const localConfig = ref<AutoBettingConfig>(JSON.parse(JSON.stringify(props.config)));
+
+  // 🔧 修复：监听props.config变化，同步到本地副本
+  watch(
+    () => props.config,
+    (newConfig) => {
+      localConfig.value = JSON.parse(JSON.stringify(newConfig));
+    },
+    { deep: true }
+  );
+
+  // 🔧 修复：处理本地config更新
+  const onUpdateConfig = (config: AutoBettingConfig) => {
+    localConfig.value = JSON.parse(JSON.stringify(config));
+    // 同步回父组件
+    emit('updateConfig', config);
+  };
 
   // ==================== 动态条件构建器 ====================
   import { useConditionBuilder } from '@/composables/useConditionBuilder';

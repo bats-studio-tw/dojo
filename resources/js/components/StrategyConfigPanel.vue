@@ -253,10 +253,13 @@
   // [修改] 调整 selectStrategy 逻辑，使用标志位
   const selectStrategy = (strategyKey: string) => {
     // 如果点击的是当前已选中的，则不执行任何操作
-    if (selectedStrategyKey.value === strategyKey) return;
+    if (selectedStrategyKey.value === strategyKey) {
+      return;
+    }
 
     // 1. 设置标志位为 true，表示开始应用预设
     isApplyingPreset.value = true;
+
     // 2. 更新我们的"意图"状态
     selectedStrategyKey.value = strategyKey;
 

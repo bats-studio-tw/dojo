@@ -187,6 +187,7 @@
                   @manual-save-config="manualSaveConfig"
                   @run-api-diagnostics="runApiDiagnostics"
                   @refresh-analysis="refreshAnalysis"
+                  @update-config="handleConfigUpdate"
                 />
               </div>
             </NTabPane>
@@ -365,6 +366,7 @@
 
   // 导入composables和stores
   import { useAutoBettingConfig } from '@/composables/useAutoBettingConfig';
+  import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
   import { useAutoBettingControl } from '@/composables/useAutoBettingControl';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import { usePredictionStats } from '@/composables/usePredictionStats';
@@ -455,6 +457,15 @@
   // 使用新的WebSocket管理器重连方法
   const reconnectWebSocket = () => {
     websocketManager.manualReconnect();
+  };
+
+  // 🔧 修复：处理SmartControlCenter的config更新
+  const handleConfigUpdate = (newConfig: AutoBettingConfig) => {
+    // 更新本地config
+    Object.assign(config, newConfig);
+
+    // 触发自动保存
+    configComposable.autoSaveConfig(currentUID.value);
   };
 
   // 标签页状态

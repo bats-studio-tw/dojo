@@ -452,6 +452,12 @@
     // 然后调用原始的验证回调
     await controlComposable.onTokenValidated(data);
 
+    // 🔧 关键修复：Token验证成功后，重新加载该用户的配置
+    if (data.uid) {
+      console.log('🔄 Token验证成功，重新加载用户配置...');
+      await configComposable.loadConfigFromCloud(data.uid);
+    }
+
     console.log('✅ Token验证和配置同步完成');
   };
 
@@ -1238,8 +1244,8 @@
     // 恢复认证状态
     await restoreAuthState();
 
-    // 初始化配置
-    await initializeConfig();
+    // 初始化配置 - 传递当前UID
+    await initializeConfig(currentUID.value);
 
     // 从localStorage恢复JWT Token到配置中
     const savedTokenData = localStorage.getItem('tokenSetupData');

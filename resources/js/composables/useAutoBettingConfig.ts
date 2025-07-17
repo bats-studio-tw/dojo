@@ -57,11 +57,27 @@ export const useAutoBettingConfig = () => {
       if (response.data.success) {
         // 只保留必要的字段
         const cloudConfig = response.data.data;
-        config.jwt_token = cloudConfig.jwt_token || '';
-        config.bet_amount = cloudConfig.bet_amount || 200;
-        config.dynamic_conditions = cloudConfig.dynamic_conditions || optimizedDefaultConfig.dynamic_conditions;
-        config.is_active = cloudConfig.is_active || false;
+
+        // 🔧 修复：确保正确加载云端数据，避免被默认值覆盖
+        if (cloudConfig.jwt_token !== undefined) {
+          config.jwt_token = cloudConfig.jwt_token;
+        }
+        if (cloudConfig.bet_amount !== undefined) {
+          config.bet_amount = cloudConfig.bet_amount;
+        }
+        if (cloudConfig.dynamic_conditions !== undefined) {
+          config.dynamic_conditions = cloudConfig.dynamic_conditions;
+        }
+        if (cloudConfig.is_active !== undefined) {
+          config.is_active = cloudConfig.is_active;
+        }
         config.uid = uid;
+
+        console.log('✅ [loadConfigFromCloud] 成功加载云端配置:', {
+          bet_amount: config.bet_amount,
+          dynamic_conditions: config.dynamic_conditions,
+          is_active: config.is_active
+        });
 
         configSyncStatus.value = { type: 'success', message: '已从云端加载配置' };
         return true;
@@ -94,12 +110,21 @@ export const useAutoBettingConfig = () => {
         is_active: config.is_active
       };
 
+      console.log('💾 [saveConfigToCloud] 准备保存配置到云端:', {
+        uid,
+        bet_amount: configData.bet_amount,
+        dynamic_conditions: configData.dynamic_conditions,
+        is_active: configData.is_active
+      });
+
       const response = await autoBettingApi.saveConfig(uid, configData);
 
       if (response.data.success) {
+        console.log('✅ [saveConfigToCloud] 配置已成功保存到云端');
         configSyncStatus.value = { type: 'success', message: '配置已成功保存到云端' };
         return true;
       } else {
+        console.error('❌ [saveConfigToCloud] 保存云端配置失败:', response.data);
         configSyncStatus.value = { type: 'error', message: '保存云端配置失败' };
         return false;
       }
@@ -184,8 +209,14 @@ export const useAutoBettingConfig = () => {
 
   // 初始化配置
   const initializeConfig = async (uid?: string) => {
+    console.log('🚀 [initializeConfig] 开始初始化配置, uid:', uid);
+
     if (uid) {
+      console.log('📡 [initializeConfig] 有UID，开始从云端加载配置...');
       await loadConfigFromCloud(uid);
+    } else {
+      console.log('⚠️ [initializeConfig] 无UID，使用默认配置');
+      // 如果没有UID，保持默认配置不变
     }
   };
 

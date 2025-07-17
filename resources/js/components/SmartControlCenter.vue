@@ -901,7 +901,10 @@
   const stopAutoBetting = () => emit('stopAutoBetting');
   const executeManualBetting = () => emit('executeManualBetting');
   const executeStrategyBetting = () => emit('executeStrategyBetting');
-  const manualSaveConfig = () => emit('manualSaveConfig');
+  const manualSaveConfig = () => {
+    console.log('💾 [SmartControlCenter] 触发手动保存配置事件');
+    emit('manualSaveConfig');
+  };
 
   // [新增] 创建计算属性来动态选择数据源
   const displayAnalysisData = computed(() => {

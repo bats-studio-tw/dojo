@@ -92,6 +92,19 @@
           </n-button>
         </div>
 
+        <!-- 调试信息显示 -->
+        <div v-if="import.meta.env.DEV" class="mt-4 border border-blue-500/30 rounded-lg bg-blue-500/10 p-3">
+          <div class="mb-2 text-xs text-blue-300 font-medium">🔧 调试信息:</div>
+          <div class="text-xs text-blue-400 space-y-1">
+            <div>• hasUID: {{ hasUID }}</div>
+            <div>• configSaving: {{ configSaving }}</div>
+            <div>• isRunning: {{ isRunning }}</div>
+            <div>• JWT Token: {{ config.jwt_token ? '已设置' : '未设置' }}</div>
+            <div>• 动态条件数量: {{ config.dynamic_conditions?.length || 0 }}</div>
+            <div>• 配置大小: {{ JSON.stringify(config).length }} 字符</div>
+          </div>
+        </div>
+
         <!-- 保存问题帮助 -->
         <div class="mt-4 border border-gray-600/30 rounded-lg bg-gray-500/10 p-3">
           <div class="mb-2 text-xs text-gray-300 font-medium">💡 保存问题排查:</div>

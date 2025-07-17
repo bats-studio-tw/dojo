@@ -184,7 +184,7 @@
                   @execute-manual-betting="executeManualBetting"
                   @clear-bet-results="clearBetResults"
                   @execute-strategy-betting="executeStrategyBetting"
-                  @manual-save-config="manualSaveConfig"
+                  @manual-save-config="handleManualSaveConfig"
                   @run-api-diagnostics="runApiDiagnostics"
                   @refresh-analysis="refreshAnalysis"
                   @update-config="handleConfigUpdate"
@@ -470,6 +470,12 @@
 
     // 触发自动保存
     configComposable.autoSaveConfig(currentUID.value);
+  };
+
+  // 🔧 修复：处理手动保存配置
+  const handleManualSaveConfig = () => {
+    console.log('💾 [AutoBetting] 处理手动保存配置请求...', { uid: currentUID.value });
+    manualSaveConfig(currentUID.value);
   };
 
   // 标签页状态

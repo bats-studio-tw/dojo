@@ -26,14 +26,7 @@ Route::get('/', function () {
     return Inertia::render('AutoBetting');
 })->name('dashboard');
 
-// 预测系统页面路由 - 移除auth中间件，使用dojo JWT认证
-Route::get('/prediction', function () {
-    return Inertia::render('Prediction');
-})->name('prediction');
-
-Route::get('/auto-betting', function () {
-    return Inertia::render('AutoBetting');
-})->name('auto-betting');
+// 预测系统页面路由 - 已移除，功能整合到主Dashboard
 
 Route::get('/backtest-dashboard', function () {
     return Inertia::render('BacktestDashboard');
@@ -45,18 +38,4 @@ Route::get('/ab-testing-dashboard', function () {
 
 
 
-// 已移除的旧路由 - 重定向到新页面
-Route::prefix('game')->name('game.')->group(function () {
-    Route::get('/current-analysis', function () {
-        return redirect()->route('prediction');
-    })->name('current-analysis');
-
-    Route::get('/prediction-history', function () {
-        return redirect()->route('prediction');
-    })->name('prediction-history');
-
-    Route::get('/hybrid-analysis', function () {
-        return redirect()->route('prediction');
-    })->name('hybrid-analysis');
-});
 

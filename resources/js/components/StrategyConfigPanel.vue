@@ -59,85 +59,6 @@
         <DynamicConditionBuilder v-model="config.dynamic_conditions" :disabled="isRunning" />
       </div>
 
-      <!-- 下注策略选择 -->
-      <div class="border-t border-gray-600 pt-4">
-        <div class="grid grid-cols-1 gap-4">
-          <div class="space-y-2">
-            <NTooltip trigger="hover" placement="top">
-              <template #trigger>
-                <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
-                  <span>下注策略</span>
-                  <span class="text-blue-400">ℹ️</span>
-                </label>
-              </template>
-              <div class="space-y-1">
-                <div>
-                  <strong>单项:</strong>
-                  只下注最优的一个 Token
-                </div>
-                <div>
-                  <strong>多项:</strong>
-                  下注所有符合条件的 Token
-                </div>
-                <div>
-                  <strong>对冲:</strong>
-                  同时下注多个以分散风险
-                </div>
-                <div>
-                  <strong>排名:</strong>
-                  固定下注指定排名的 Token
-                </div>
-              </div>
-            </NTooltip>
-            <n-select
-              v-model:value="config.strategy"
-              :options="[
-                { label: '单项', value: 'single_bet' },
-                { label: '多项', value: 'multi_bet' },
-                { label: '对冲', value: 'hedge_bet' },
-                { label: '排名', value: 'rank_betting' }
-              ]"
-              :disabled="isRunning"
-              size="small"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- 指定排名下注配置 -->
-      <div v-if="config.strategy === 'rank_betting'" class="border-t border-gray-600 pt-4">
-        <NTooltip trigger="hover" placement="top">
-          <template #trigger>
-            <label class="mb-2 block inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
-              <span>选择排名</span>
-              <span class="text-blue-400">ℹ️</span>
-            </label>
-          </template>
-          <div class="space-y-1">
-            <div><strong>排名策略说明：</strong></div>
-            <div>• 自动下注 AI 预测排名为指定位置的 Token</div>
-            <div>• 忽略置信度、分数等其他条件，只看排名</div>
-            <div>• TOP1-3 通常有奖励，风险相对较低</div>
-            <div>• 可以选择多个排名进行组合下注</div>
-          </div>
-        </NTooltip>
-        <div class="grid grid-cols-5 gap-2">
-          <div
-            v-for="rank in [1, 2, 3, 4, 5]"
-            :key="rank"
-            class="cursor-pointer border-2 rounded p-2 text-center text-xs transition-all duration-200"
-            :class="
-              config.rank_betting_enabled_ranks.includes(rank)
-                ? 'border-blue-400 bg-blue-500/20 text-blue-400'
-                : 'border-gray-500/30 bg-gray-500/10 text-gray-400 hover:border-gray-400/60'
-            "
-            @click="toggleRankBetting(rank, !config.rank_betting_enabled_ranks.includes(rank))"
-          >
-            <div class="font-bold">TOP{{ rank }}</div>
-          </div>
-        </div>
-      </div>
-
       <!-- 保存按钮 -->
       <div class="text-center">
         <n-button @click="saveConfig" :disabled="isRunning" :loading="configSaving" type="primary">
@@ -153,7 +74,7 @@
 
 <script setup lang="ts">
   import { computed } from 'vue';
-  import { NTag, NInputNumber, NTooltip, NSelect } from 'naive-ui';
+  import { NTag, NInputNumber, NTooltip } from 'naive-ui';
   import DynamicConditionBuilder from '@/components/DynamicConditionBuilder.vue';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
 
@@ -220,10 +141,39 @@
     newConfig.historical_accuracy_threshold = 25;
     newConfig.strategy = 'single_bet';
 
-    // 清空动态条件，使用传统配置
-    newConfig.dynamic_conditions = [];
+    // 设置实战模式的动态条件：基础且宽松的条件，确保有足够的下注机会
+    newConfig.dynamic_conditions = [
+      {
+        id: `condition_${Date.now()}_confidence`,
+        type: 'confidence',
+        operator: 'gte',
+        value: 70,
+        logic: 'and'
+      },
+      {
+        id: `condition_${Date.now()}_score_gap`,
+        type: 'score_gap',
+        operator: 'gte',
+        value: 50,
+        logic: 'and'
+      },
+      {
+        id: `condition_${Date.now()}_sample_count`,
+        type: 'sample_count',
+        operator: 'gte',
+        value: 8,
+        logic: 'and'
+      },
+      {
+        id: `condition_${Date.now()}_historical_accuracy`,
+        type: 'historical_accuracy',
+        operator: 'gte',
+        value: 20,
+        logic: 'and'
+      }
+    ];
 
-    // 关闭所有高级过滤器
+    // 关闭所有高级过滤器，使用基础条件
     newConfig.enable_win_rate_filter = false;
     newConfig.enable_top3_rate_filter = false;
     newConfig.enable_avg_rank_filter = false;
@@ -243,7 +193,7 @@
   const applySmartRankingStrategy = () => {
     const newConfig = { ...props.config };
 
-    // 智能排名配置
+    // 智能排名配置 - 使用排名策略
     newConfig.strategy_type = 'h2h_breakeven';
     newConfig.strategy = 'rank_betting';
     newConfig.rank_betting_enabled_ranks = [1, 2, 3];
@@ -277,25 +227,6 @@
         // 切换到自定义模式，不清空现有配置
         break;
     }
-  };
-
-  // 排名下注相关方法
-  const toggleRankBetting = (rank: number, checked: boolean) => {
-    const newConfig = { ...props.config };
-
-    if (checked) {
-      if (!newConfig.rank_betting_enabled_ranks.includes(rank)) {
-        newConfig.rank_betting_enabled_ranks.push(rank);
-        newConfig.rank_betting_enabled_ranks.sort((a: number, b: number) => a - b);
-      }
-    } else {
-      const index = newConfig.rank_betting_enabled_ranks.indexOf(rank);
-      if (index > -1) {
-        newConfig.rank_betting_enabled_ranks.splice(index, 1);
-      }
-    }
-
-    emit('update:config', newConfig);
   };
 
   // 保存配置

@@ -45,7 +45,7 @@
                   { label: 'OR', value: 'or' }
                 ]"
                 size="tiny"
-                class="w-16"
+                class="w-20"
                 @update:value="updateConditionLogic(condition.id, $event)"
               />
             </div>

@@ -39,13 +39,14 @@
             <!-- 逻辑连接符（除第一个条件外） -->
             <div v-if="index > 0" class="flex items-center space-x-2">
               <n-select
-                v-model:value="condition.logic"
+                :value="condition.logic"
                 :options="[
                   { label: 'AND', value: 'and' },
                   { label: 'OR', value: 'or' }
                 ]"
                 size="tiny"
                 class="w-16"
+                @update:value="updateConditionLogic(condition.id, $event)"
               />
             </div>
           </div>
@@ -60,30 +61,32 @@
         <div class="grid grid-cols-3 gap-2">
           <!-- 条件类型选择 -->
           <n-select
-            v-model:value="condition.type"
+            :value="condition.type"
             :options="getConditionTypeOptions()"
             placeholder="选择条件"
             size="small"
-            @update:value="onConditionTypeChange(condition)"
+            @update:value="updateConditionType(condition.id, $event)"
           />
 
           <!-- 操作符选择 -->
           <n-select
-            v-model:value="condition.operator"
+            :value="condition.operator"
             :options="getOperatorOptions(condition.type)"
             placeholder="操作符"
             size="small"
+            @update:value="updateConditionOperator(condition.id, $event)"
           />
 
           <!-- 数值输入 -->
           <n-input-number
-            v-model:value="condition.value"
+            :value="condition.value"
             :min="getMinValue(condition.type)"
             :max="getMaxValue(condition.type)"
             :step="getStepValue(condition.type)"
             :precision="getPrecision(condition.type)"
             :placeholder="getPlaceholder(condition.type)"
             size="small"
+            @update:value="updateConditionValue(condition.id, $event)"
           />
         </div>
 
@@ -150,9 +153,64 @@
     getPrecision,
     getPlaceholder,
     getConditionDescription,
-    getConditionPreview,
-    onConditionTypeChange
+    getConditionPreview
   } = useConditionBuilder();
+
+  // 🔧 修复：更新条件并触发emit
+  const updateCondition = (id: string, updates: Partial<Props['modelValue'][0]>) => {
+    const newConditions = props.modelValue.map((condition) => {
+      if (condition.id === id) {
+        return { ...condition, ...updates };
+      }
+      return condition;
+    });
+    emit('update:modelValue', newConditions);
+  };
+
+  // 更新条件类型
+  const updateConditionType = (id: string, newType: string) => {
+    const condition = props.modelValue.find((c) => c.id === id);
+    if (condition) {
+      const typeConfig = getConditionTypeOptions().find((opt: any) => opt.value === newType);
+      if (typeConfig) {
+        // 根据条件类型设置合适的操作符和默认值
+        let operator = condition.operator;
+        let value = condition.value;
+
+        if (['avg_rank', 'stability', 'h2h_rank', 'momentum_rank'].includes(newType)) {
+          operator = 'lte'; // 排名和波动性使用小于等于
+        } else {
+          operator = 'gte'; // 其他条件使用大于等于
+        }
+
+        // 设置默认值
+        const typeConfigData = getConditionTypeOptions().find((opt: any) => opt.value === newType);
+        if (typeConfigData) {
+          const placeholderValue = getPlaceholder(newType);
+          value = parseFloat(placeholderValue) || 0;
+        }
+
+        updateCondition(id, { type: newType, operator, value });
+      }
+    }
+  };
+
+  // 更新条件操作符
+  const updateConditionOperator = (id: string, newOperator: string) => {
+    updateCondition(id, { operator: newOperator });
+  };
+
+  // 更新条件值
+  const updateConditionValue = (id: string, newValue: number | null) => {
+    if (newValue !== null) {
+      updateCondition(id, { value: newValue });
+    }
+  };
+
+  // 更新条件逻辑
+  const updateConditionLogic = (id: string, newLogic: 'and' | 'or') => {
+    updateCondition(id, { logic: newLogic });
+  };
 
   // 添加条件
   const addCondition = () => {

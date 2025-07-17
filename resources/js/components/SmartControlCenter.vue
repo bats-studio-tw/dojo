@@ -13,7 +13,7 @@
         @refresh-analysis="refreshAnalysis"
       />
 
-      <!-- ⚡ AI动能预测排名面板 -->
+      <!-- ⚡ 动能预测排名面板 -->
       <MomentumPredictionDisplay
         :hybrid-predictions="hybridPredictions || []"
         :analysis-meta="hybridAnalysisMeta"

@@ -102,6 +102,15 @@ export interface AutoBettingConfig {
   h2h_rank_enabled_ranks: number[];
   momentum_rank_enabled_ranks: number[];
   hybrid_rank_logic: 'and' | 'or'; // 'and': 两个排名都必须满足, 'or': 任一排名满足即可
+
+  // 🆕 新增动态条件构建器支持
+  dynamic_conditions: Array<{
+    id: string;
+    type: string;
+    operator: string;
+    value: number;
+    logic: 'and' | 'or';
+  }>;
 }
 
 /**
@@ -190,7 +199,10 @@ export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token'> = {
   max_change_4h_threshold: 15.0, // 4小时涨幅预期
   enable_change_24h_filter: false, // 默认关闭，变化范围很大
   min_change_24h_threshold: -20.0, // 24小时跌幅容忍度
-  max_change_24h_threshold: 25.0 // 24小时涨幅预期（合理范围）
+  max_change_24h_threshold: 25.0, // 24小时涨幅预期（合理范围）
+
+  // 🆕 新增动态条件构建器支持 - 默认为空数组
+  dynamic_conditions: []
 };
 
 /**

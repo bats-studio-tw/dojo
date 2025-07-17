@@ -14,16 +14,6 @@
               @update:value="onFilterTypeChange"
             />
           </div>
-          <div v-if="filterType === 'days'" class="flex items-center space-x-2">
-            <label class="text-sm text-gray-300">分析周期:</label>
-            <n-select
-              v-model:value="selectedDays"
-              :options="dayOptions"
-              size="small"
-              class="w-32"
-              @update:value="refreshOnFilterChange"
-            />
-          </div>
           <div v-if="filterType === 'rounds'" class="flex items-center space-x-2">
             <label class="text-sm text-gray-300">最新局数:</label>
             <n-input-number
@@ -38,6 +28,16 @@
               @keyup.enter="refreshOnFilterChange"
             />
             <span class="text-xs text-gray-500">1-10000局</span>
+          </div>
+          <div v-if="filterType === 'days'" class="flex items-center space-x-2">
+            <label class="text-sm text-gray-300">分析周期:</label>
+            <n-select
+              v-model:value="selectedDays"
+              :options="dayOptions"
+              size="small"
+              class="w-32"
+              @update:value="refreshOnFilterChange"
+            />
           </div>
           <n-button @click="refreshAnalysis" :loading="loading" type="primary" size="small">
             <template #icon>
@@ -177,7 +177,7 @@
   // 响应式数据
   const loading = ref(false);
   const bettingRecords = ref<any[]>([]);
-  const filterType = ref<'days' | 'rounds'>('days'); // 筛选方式：按天数或按局数
+  const filterType = ref<'days' | 'rounds'>('rounds'); // 筛选方式：按天数或按局数，默认按局数
   const selectedDays = ref(-1); // 默认显示全部历史，与自动下注状态保持一致
   const selectedRounds = ref(100); // 默认显示最新100局
   const recordFilter = ref('all');
@@ -186,8 +186,8 @@
 
   // 筛选方式选项
   const filterTypeOptions = [
-    { label: '按时间', value: 'days' },
-    { label: '按局数', value: 'rounds' }
+    { label: '按局数', value: 'rounds' },
+    { label: '按时间', value: 'days' }
   ];
 
   // 天数选项 - 确保所有值都符合后端验证要求（-1或大于0的天数）

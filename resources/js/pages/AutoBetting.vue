@@ -57,7 +57,6 @@
                 </div>
                 <div>
                   <h1 class="gradient-text text-xl font-bold sm:text-2xl">自动下注控制中心</h1>
-                  <p class="text-sm text-gray-400">基于AI预测的智能下注系统</p>
                 </div>
               </div>
 

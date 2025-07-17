@@ -175,8 +175,8 @@
       let operator = condition.operator;
       let value = condition.value;
 
-      if (['avg_rank', 'stability', 'h2h_rank', 'momentum_rank'].includes(newType)) {
-        operator = 'lte'; // 排名和波动性使用小于等于
+      if (['avg_rank', 'h2h_rank', 'momentum_rank'].includes(newType)) {
+        operator = 'lte'; // 排名使用小于等于
       } else {
         operator = 'gte'; // 其他条件使用大于等于
       }

@@ -137,7 +137,7 @@
 
   const props = withDefaults(defineProps<Props>(), {
     analysisLoading: false,
-    title: '🔮 AI预测排名'
+    title: '🎯 智能对战预测'
   });
 
   // Emits

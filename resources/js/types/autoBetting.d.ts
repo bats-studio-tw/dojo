@@ -12,7 +12,7 @@ export interface StrategyMatch {
   confidence: number;
   score: number;
   bet_amount: number;
-  historical_accuracy: number;
+  win_rate: number;
   sample_count: number;
 }
 

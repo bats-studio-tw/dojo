@@ -222,7 +222,7 @@
       name: '智能排名',
       icon: '🧠',
       tag: '智能',
-      description: '基于AI预测排名的智能下注策略'
+      description: '基于智能对战预测的智能下注策略'
     },
     {
       key: 'custom',
@@ -241,7 +241,7 @@
       // 实战模式的判断逻辑 (简化，不需要每次都精确匹配value)
       const hasRealisticConditions =
         conditions.length === 4 &&
-        conditions.every((c) => ['confidence', 'score_gap', 'sample_count', 'historical_accuracy'].includes(c.type));
+        conditions.every((c) => ['confidence', 'score', 'sample_count', 'win_rate'].includes(c.type));
 
       if (hasRealisticConditions) {
         return 'realistic';
@@ -300,7 +300,7 @@
       },
       {
         id: generateId(),
-        type: 'score_gap',
+        type: 'score',
         operator: 'gte',
         value: 50,
         logic: 'and'
@@ -314,7 +314,7 @@
       },
       {
         id: generateId(),
-        type: 'historical_accuracy',
+        type: 'win_rate',
         operator: 'gte',
         value: 20,
         logic: 'and'
@@ -329,7 +329,7 @@
     // 智能排名配置 - 使用排名策略
     localConfig.value.bet_amount = 200;
 
-    // 设置动态条件：AI预测排名 <= 3
+    // 设置动态条件：智能对战预测排名 <= 3
     localConfig.value.dynamic_conditions = [
       {
         id: generateId(),
@@ -424,7 +424,7 @@
       symbol: 'SUI',
       // AI预测数据 (来自currentAnalysis)
       rank_confidence: 86.3,
-      predicted_rank: 1, // AI预测排名
+      predicted_rank: 1, // 智能对战预测排名
       predicted_final_value: 76.5,
       total_games: 12,
       win_rate: 18.8, // 胜率已经是百分比格式
@@ -457,14 +457,9 @@
           case 'momentum_rank':
             tokenValue = testToken.momentum_rank || testToken.predicted_rank || 999;
             break;
-          case 'score_gap':
-            tokenValue = testToken.predicted_final_value || 0;
-            break;
+
           case 'sample_count':
             tokenValue = testToken.total_games || 0;
-            break;
-          case 'historical_accuracy':
-            tokenValue = testToken.win_rate || 0;
             break;
           case 'win_rate':
             tokenValue = testToken.win_rate || 0;

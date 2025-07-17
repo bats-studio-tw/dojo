@@ -563,7 +563,7 @@
       // 检查是否为实战模式
       if (
         conditions.length === 4 &&
-        conditions.every((c) => ['confidence', 'score_gap', 'sample_count', 'historical_accuracy'].includes(c.type))
+        conditions.every((c) => ['confidence', 'score', 'sample_count', 'win_rate'].includes(c.type))
       ) {
         return '实战模式策略';
       }
@@ -583,7 +583,7 @@
       confidence: rawPrediction.rank_confidence || rawPrediction.confidence || 0,
       score: rawPrediction.predicted_final_value || rawPrediction.score || 0,
       sample_count: rawPrediction.total_games || rawPrediction.sample_count || 0,
-      historical_accuracy: (rawPrediction.win_rate || 0) / 100,
+              win_rate: (rawPrediction.win_rate || 0) / 100,
       symbol: rawPrediction.symbol,
       predicted_rank: rawPrediction.predicted_rank,
       // 🆕 复合型策略需要的数据
@@ -601,14 +601,14 @@
       case 'confidence':
         actualValue = prediction.confidence || 0;
         break;
-      case 'score_gap':
+      case 'score':
         actualValue = prediction.score || 0;
         break;
       case 'sample_count':
         actualValue = prediction.sample_count || 0;
         break;
-      case 'historical_accuracy':
-        actualValue = prediction.historical_accuracy || 0; // historical_accuracy已经是百分比格式
+      case 'win_rate':
+        actualValue = prediction.win_rate || 0; // win_rate已经是百分比格式
         break;
       case 'h2h_rank':
         actualValue = prediction.predicted_rank || 999;
@@ -625,9 +625,7 @@
       case 'avg_rank':
         actualValue = prediction.avg_rank || 3;
         break;
-      case 'stability':
-        actualValue = prediction.value_stddev || 0;
-        break;
+
       case 'absolute_score':
         actualValue = prediction.absolute_score || 0;
         break;

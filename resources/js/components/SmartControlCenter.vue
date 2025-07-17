@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <!-- 🎯 统一预测展示区域 -->
     <div class="space-y-6">
-      <!-- 🔮 AI预测排名面板 -->
+      <!-- 🎯 智能对战预测面板 -->
       <AIPredictionRanking
         :current-analysis="currentAnalysis"
         :analysis-meta="analysisMeta"
@@ -474,7 +474,7 @@
       confidence: rawPrediction.rank_confidence || rawPrediction.confidence || 0,
       score: rawPrediction.predicted_final_value || rawPrediction.score || 0,
       sample_count: rawPrediction.total_games || rawPrediction.sample_count || 0,
-      historical_accuracy: (rawPrediction.win_rate || 0) / 100,
+      win_rate: (rawPrediction.win_rate || 0) / 100,
       symbol: rawPrediction.symbol,
       predicted_rank: rawPrediction.predicted_rank,
       // 🆕 复合型策略需要的数据

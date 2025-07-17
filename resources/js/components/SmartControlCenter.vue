@@ -203,7 +203,7 @@
                 <span class="text-blue-400">{{ getTokenConfidence(token).toFixed(1) }}%</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-gray-400">分数:</span>
+                <span class="text-gray-400">綜合分数:</span>
                 <span class="text-blue-400">
                   {{ getTokenScore(token).toFixed(1) }}
                 </span>

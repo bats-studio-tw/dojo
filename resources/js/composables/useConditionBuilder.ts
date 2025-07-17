@@ -109,14 +109,14 @@ export const conditionTypes = {
     description: '预测所需的最少历史数据量，样本数越多预测结果越可靠'
   },
   win_rate: {
-    label: '第一名率',
+    label: '勝率',
     unit: '%',
     min: 0,
     max: 100,
     step: 1,
     precision: 1,
     placeholder: '65',
-    description: '该Token在历史预测中的成功率，数值越高表示过往表现越好'
+    description: '该Token在历史预测中的第一名率，数值越高表示过往表现越好'
   },
 
   top3_rate: {
@@ -255,7 +255,7 @@ export const useConditionBuilder = () => {
       } else {
         // 遇到 OR，结束当前组并开始新组
         if (currentGroup.length > 0) {
-          const groupText = currentGroup.map(c => getConditionPreview(c)).join(' AND ');
+          const groupText = currentGroup.map((c) => getConditionPreview(c)).join(' AND ');
           groups.push(currentGroup.length > 1 ? `(${groupText})` : groupText);
         }
         currentGroup = [condition];
@@ -264,7 +264,7 @@ export const useConditionBuilder = () => {
 
     // 处理最后一个组
     if (currentGroup.length > 0) {
-      const groupText = currentGroup.map(c => getConditionPreview(c)).join(' AND ');
+      const groupText = currentGroup.map((c) => getConditionPreview(c)).join(' AND ');
       groups.push(currentGroup.length > 1 ? `(${groupText})` : groupText);
     }
 
@@ -347,7 +347,7 @@ export const useConditionBuilder = () => {
     // AND 的优先级高于 OR，所以先处理 AND 连接的条件组
     const stack: boolean[] = [];
     let currentGroup: boolean[] = [];
-    let currentLogic: 'and' | 'or' | null = null;
+    const currentLogic: 'and' | 'or' | null = null;
 
     // 处理第一个条件
     currentGroup.push(evaluateSingleCondition(token, conditions[0]));
@@ -364,7 +364,7 @@ export const useConditionBuilder = () => {
         // 如果遇到 OR，先处理当前 AND 组，然后开始新的组
         if (currentGroup.length > 0) {
           // 计算当前 AND 组的结果（所有条件都为真）
-          const andResult = currentGroup.every(result => result);
+          const andResult = currentGroup.every((result) => result);
           stack.push(andResult);
           currentGroup = [];
         }
@@ -375,12 +375,12 @@ export const useConditionBuilder = () => {
 
     // 处理最后一个组
     if (currentGroup.length > 0) {
-      const andResult = currentGroup.every(result => result);
+      const andResult = currentGroup.every((result) => result);
       stack.push(andResult);
     }
 
     // 最后，所有组之间用 OR 连接
-    return stack.some(result => result);
+    return stack.some((result) => result);
   };
 
   return {

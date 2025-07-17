@@ -10,7 +10,7 @@
             :key="strategy.key"
             class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-4 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
             :class="{
-              'border-blue-400 bg-blue-500/20': selectedStrategy === strategy.key
+              'border-blue-400 bg-blue-500/20': selectedStrategyKey === strategy.key
             }"
             @click="selectStrategy(strategy.key)"
           >
@@ -19,7 +19,7 @@
                 <span>{{ strategy.icon }}</span>
                 <span>{{ strategy.name }}</span>
               </span>
-              <n-tag :type="selectedStrategy === strategy.key ? 'primary' : 'default'" size="small">
+              <n-tag :type="selectedStrategyKey === strategy.key ? 'primary' : 'default'" size="small">
                 {{ strategy.tag }}
               </n-tag>
             </div>
@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue';
+  import { computed, ref, watch } from 'vue';
   import { NTag, NInputNumber, NTooltip } from 'naive-ui';
   import DynamicConditionBuilder from '@/components/DynamicConditionBuilder.vue';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
@@ -119,29 +119,22 @@
     }
   ];
 
-  // 当前选中的策略
-  const selectedStrategy = computed(() => {
-    // 根据配置判断当前策略
+  // 被重命名的计算属性，用于"推断"当前配置属于哪种模式
+  const computedStrategyType = computed(() => {
     if (props.config.dynamic_conditions && props.config.dynamic_conditions.length > 0) {
-      // 检查是否是实战模式的特定配置
       const conditions = props.config.dynamic_conditions;
+
+      // 实战模式的判断逻辑 (简化，不需要每次都精确匹配value)
       const hasRealisticConditions =
         conditions.length === 4 &&
-        conditions.some((c) => c.type === 'confidence' && c.value === 70) &&
-        conditions.some((c) => c.type === 'score_gap' && c.value === 50) &&
-        conditions.some((c) => c.type === 'sample_count' && c.value === 8) &&
-        conditions.some((c) => c.type === 'historical_accuracy' && c.value === 20);
+        conditions.every((c) => ['confidence', 'score_gap', 'sample_count', 'historical_accuracy'].includes(c.type));
 
       if (hasRealisticConditions) {
         return 'realistic';
       }
 
-      // 检查是否是智能排名模式的特定配置
-      const hasSmartRankingConditions =
-        conditions.length === 1 &&
-        conditions[0].type === 'h2h_rank' &&
-        conditions[0].operator === 'lte' &&
-        conditions[0].value === 3;
+      // 智能排名模式的判断逻辑 (简化)
+      const hasSmartRankingConditions = conditions.length === 1 && conditions[0].type === 'h2h_rank';
 
       if (hasSmartRankingConditions) {
         return 'smart_ranking';
@@ -149,8 +142,20 @@
 
       return 'custom';
     }
-    // 这里可以根据其他配置判断是实战模式还是智能排名
+
     return 'realistic';
+  });
+
+  // 使用 ref 作为用户选择的"唯一真实来源"
+  const selectedStrategyKey = ref(computedStrategyType.value);
+
+  // 监听配置变化，如果变化导致模式变为自定义，则自动更新我们的 ref
+  watch(computedStrategyType, (newType) => {
+    // 只有当计算出的类型和用户当前选择不一致时才更新
+    // 主要是为了处理"变成custom"的场景
+    if (selectedStrategyKey.value !== newType) {
+      selectedStrategyKey.value = newType;
+    }
   });
 
   // 应用实战模式配置
@@ -236,19 +241,21 @@
     emit('update:config', newConfig);
   };
 
-  // 选择策略
+  // 选择策略 (核心修改)
   const selectStrategy = (strategyKey: string) => {
+    // 1. 直接更新我们的"意图"状态
+    selectedStrategyKey.value = strategyKey;
+
+    // 2. 根据意图应用配置
     switch (strategyKey) {
       case 'realistic':
-        // 应用实战模式配置
         applyRealisticStrategy();
         break;
       case 'smart_ranking':
-        // 应用智能排名配置
         applySmartRankingStrategy();
         break;
       case 'custom':
-        // 切换到自定义模式，不清空现有配置
+        // 切换到自定义模式，不清空现有配置，什么都不用做
         break;
     }
   };

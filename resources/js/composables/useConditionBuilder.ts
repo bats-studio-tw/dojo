@@ -5,181 +5,6 @@
 
 // 条件类型配置
 export const conditionTypes = {
-  // H2H策略条件
-  confidence: {
-    label: '置信度',
-    unit: '%',
-    min: 0,
-    max: 100,
-    step: 1,
-    precision: 0,
-    placeholder: '85',
-    description: 'AI预测结果的可信程度，数值越高表示算法对预测结果越有把握'
-  },
-  score: {
-    label: '分数',
-    unit: '',
-    min: 0,
-    max: 100,
-    step: 1,
-    precision: 1,
-    placeholder: '60',
-    description: '预测分数的最低要求，分数越高表示该Token在预测中表现越突出'
-  },
-
-  sample_count: {
-    label: '最少样本数',
-    unit: '',
-    min: 1,
-    max: 200,
-    step: 1,
-    precision: 0,
-    placeholder: '10',
-    description: '预测所需的最少历史数据量，样本数越多预测结果越可靠'
-  },
-  win_rate: {
-    label: '胜率',
-    unit: '%',
-    min: 0,
-    max: 100,
-    step: 1,
-    precision: 1,
-    placeholder: '65',
-    description: '该Token在历史预测中的成功率，数值越高表示过往表现越好'
-  },
-  top3_rate: {
-    label: '保本率',
-    unit: '%',
-    min: 0,
-    max: 100,
-    step: 1,
-    precision: 1,
-    placeholder: '50',
-    description: 'Token排名进入前三的比例，通常前三有奖励可以保本或盈利'
-  },
-  avg_rank: {
-    label: '平均排名',
-    unit: '',
-    min: 1,
-    max: 5,
-    step: 0.01,
-    precision: 2,
-    placeholder: '3.0',
-    description: 'Token在历史预测中的平均排名，数值越小表示平均表现越好'
-  },
-
-  absolute_score: {
-    label: '绝对分数',
-    unit: '',
-    min: 0,
-    max: 1,
-    step: 0.01,
-    precision: 2,
-    placeholder: '0.7',
-    description: 'AI算法给出的绝对评分，反映Token的综合表现潜力'
-  },
-  relative_score: {
-    label: '相对分数',
-    unit: '',
-    min: 0,
-    max: 1,
-    step: 0.01,
-    precision: 2,
-    placeholder: '0.5',
-    description: '该Token相对于其他Token的评分优势'
-  },
-  h2h_score: {
-    label: 'H2H分数',
-    unit: '',
-    min: 0,
-    max: 1,
-    step: 0.01,
-    precision: 2,
-    placeholder: '0.7',
-    description: 'Head-to-Head对战分数，反映该Token与其他Token直接竞争时的胜率'
-  },
-  change_5m: {
-    label: '5分钟涨跌',
-    unit: '%',
-    min: -10,
-    max: 10,
-    step: 0.01,
-    precision: 2,
-    placeholder: '2.0',
-    description: 'Token在过去5分钟的价格变动百分比'
-  },
-  change_1h: {
-    label: '1小时涨跌',
-    unit: '%',
-    min: -20,
-    max: 20,
-    step: 0.01,
-    precision: 2,
-    placeholder: '5.0',
-    description: 'Token在过去1小时的价格变动百分比'
-  },
-  change_4h: {
-    label: '4小时涨跌',
-    unit: '%',
-    min: -30,
-    max: 30,
-    step: 0.01,
-    precision: 2,
-    placeholder: '10.0',
-    description: 'Token在过去4小时的价格变动百分比'
-  },
-  change_24h: {
-    label: '24小时涨跌',
-    unit: '%',
-    min: -50,
-    max: 50,
-    step: 0.01,
-    precision: 2,
-    placeholder: '20.0',
-    description: 'Token在过去24小时的价格变动百分比'
-  },
-  // 动能策略条件
-  momentum_score: {
-    label: '动能分数',
-    unit: '',
-    min: -5,
-    max: 5,
-    step: 0.1,
-    precision: 1,
-    placeholder: '1.5',
-    description: '基于价格动能的综合评分，数值越高表示上涨动能越强'
-  },
-  elo_win_rate: {
-    label: 'Elo胜率',
-    unit: '',
-    min: 0,
-    max: 1,
-    step: 0.01,
-    precision: 2,
-    placeholder: '0.55',
-    description: '基于Elo评分系统的胜率预测，数值越高表示获胜概率越大'
-  },
-  momentum_confidence: {
-    label: '动能置信度',
-    unit: '',
-    min: 0,
-    max: 1,
-    step: 0.01,
-    precision: 2,
-    placeholder: '0.65',
-    description: '动能预测模型对结果的置信程度，数值越高表示预测越可靠'
-  },
-  h2h_confidence: {
-    label: '智能对战置信度',
-    unit: '',
-    min: 0,
-    max: 1,
-    step: 0.01,
-    precision: 2,
-    placeholder: '0.75',
-    description: '智能对战预测模型对结果的置信程度，数值越高表示预测越可靠'
-  },
-  // 排名条件
   h2h_rank: {
     label: '智能对战排名',
     unit: '',
@@ -199,6 +24,130 @@ export const conditionTypes = {
     precision: 0,
     placeholder: '1',
     description: '动能预测的Token排名，数值越小表示排名越靠前（1=第一名）'
+  },
+  absolute_score: {
+    label: '绝对分数',
+    unit: '',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    precision: 2,
+    placeholder: '0.7',
+    description: '智能对战算法给出的绝对评分，反映Token的综合表现潜力'
+  },
+  relative_score: {
+    label: '相对分数',
+    unit: '',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    precision: 2,
+    placeholder: '0.5',
+    description: '该Token相对于其他Token的评分优势'
+  },
+
+  h2h_score: {
+    label: 'H2H分数',
+    unit: '',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    precision: 2,
+    placeholder: '0.7',
+    description: 'Head-to-Head对战分数，反映该Token与其他Token直接竞争时的胜率'
+  },
+  score: {
+    label: '智能对战综合分数',
+    unit: '',
+    min: 0,
+    max: 100,
+    step: 1,
+    precision: 1,
+    placeholder: '60',
+    description: '智能对战预测分数的最低要求，分数越高表示该Token在预测中表现越突出'
+  },
+  momentum_score: {
+    label: '动能分数',
+    unit: '',
+    min: -5,
+    max: 5,
+    step: 0.1,
+    precision: 1,
+    placeholder: '1.5',
+    description: '基于价格动能的综合评分，数值越高表示上涨动能越强'
+  },
+  // H2H策略条件
+  confidence: {
+    label: '智能对战置信度',
+    unit: '%',
+    min: 0,
+    max: 100,
+    step: 1,
+    precision: 0,
+    placeholder: '85',
+    description: '智能对战预测结果的可信程度，数值越高表示算法对预测结果越有把握'
+  },
+  momentum_confidence: {
+    label: '动能置信度',
+    unit: '',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    precision: 2,
+    placeholder: '0.65',
+    description: '动能预测模型对结果的置信程度，数值越高表示预测越可靠'
+  },
+
+  sample_count: {
+    label: '最少样本数',
+    unit: '',
+    min: 1,
+    max: 200,
+    step: 1,
+    precision: 0,
+    placeholder: '10',
+    description: '预测所需的最少历史数据量，样本数越多预测结果越可靠'
+  },
+  win_rate: {
+    label: '第一名率',
+    unit: '%',
+    min: 0,
+    max: 100,
+    step: 1,
+    precision: 1,
+    placeholder: '65',
+    description: '该Token在历史预测中的成功率，数值越高表示过往表现越好'
+  },
+
+  top3_rate: {
+    label: '保本率',
+    unit: '%',
+    min: 0,
+    max: 100,
+    step: 1,
+    precision: 1,
+    placeholder: '50',
+    description: 'Token排名进入前三的比例，通常前三有奖励可以保本或盈利'
+  },
+  elo_win_rate: {
+    label: 'Elo胜率',
+    unit: '',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    precision: 2,
+    placeholder: '0.55',
+    description: '基于Elo评分系统的胜率预测，数值越高表示获胜概率越大'
+  },
+  avg_rank: {
+    label: '平均排名',
+    unit: '',
+    min: 1,
+    max: 5,
+    step: 0.01,
+    precision: 2,
+    placeholder: '3.0',
+    description: 'Token在历史预测中的平均排名，数值越小表示平均表现越好'
   }
 };
 
@@ -312,22 +261,14 @@ export const useConditionBuilder = () => {
         return token.relative_score || 0;
       case 'h2h_score':
         return token.h2h_score || 0;
-      case 'change_5m':
-        return (token.change_5m || 0) * 100; // 转换为百分比
-      case 'change_1h':
-        return (token.change_1h || 0) * 100; // 转换为百分比
-      case 'change_4h':
-        return (token.change_4h || 0) * 100; // 转换为百分比
-      case 'change_24h':
-        return (token.change_24h || 0) * 100; // 转换为百分比
+
       case 'momentum_score':
         return token.momentum_score || token.mom_score || 0;
       case 'elo_win_rate':
         return token.elo_win_rate || token.elo_prob || 0;
       case 'momentum_confidence':
         return token.confidence || 0;
-      case 'h2h_confidence':
-        return token.rank_confidence || token.confidence || 0;
+
       case 'h2h_rank':
         // 🔧 修复：智能对战预测排名字段映射
         // 从currentAnalysis数据中获取predicted_rank

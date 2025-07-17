@@ -583,7 +583,7 @@
       confidence: rawPrediction.rank_confidence || rawPrediction.confidence || 0,
       score: rawPrediction.predicted_final_value || rawPrediction.score || 0,
       sample_count: rawPrediction.total_games || rawPrediction.sample_count || 0,
-              win_rate: (rawPrediction.win_rate || 0) / 100,
+      win_rate: (rawPrediction.win_rate || 0) / 100,
       symbol: rawPrediction.symbol,
       predicted_rank: rawPrediction.predicted_rank,
       // 🆕 复合型策略需要的数据
@@ -616,9 +616,6 @@
       case 'momentum_rank':
         actualValue = prediction.momentum_rank || 999;
         break;
-      case 'win_rate':
-        actualValue = prediction.win_rate || 0; // win_rate已经是百分比格式
-        break;
       case 'top3_rate':
         actualValue = prediction.top3_rate || 0; // top3_rate已经是百分比格式
         break;
@@ -635,18 +632,7 @@
       case 'h2h_score':
         actualValue = prediction.h2h_score || 0;
         break;
-      case 'change_5m':
-        actualValue = prediction.change_5m || 0;
-        break;
-      case 'change_1h':
-        actualValue = prediction.change_1h || 0;
-        break;
-      case 'change_4h':
-        actualValue = prediction.change_4h || 0;
-        break;
-      case 'change_24h':
-        actualValue = prediction.change_24h || 0;
-        break;
+
       default:
         return true; // 未知类型默认通过
     }

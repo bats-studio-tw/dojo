@@ -301,6 +301,7 @@ class PredictionController extends Controller
                 'start_date' => 'nullable|date',
                 'end_date' => 'nullable|date|after:start_date',
                 'limit' => 'nullable|integer|min:1|max:1000',
+                'offset' => 'nullable|integer|min:0',
             ]);
 
             if ($validator->fails()) {
@@ -313,30 +314,38 @@ class PredictionController extends Controller
             }
 
             $validated = $validator->validated();
+            $limit = $validated['limit'] ?? 100;
+            $offset = $validated['offset'] ?? 0;
 
-            $query = PredictionResult::query()
+            // 先查最新 N 局的 game_round_id
+            $roundQuery = \App\Models\GameRound::query()
+                ->whereHas('roundPredicts');
+            if (!empty($validated['start_date'])) {
+                $roundQuery->where('created_at', '>=', $validated['start_date']);
+            }
+            if (!empty($validated['end_date'])) {
+                $roundQuery->where('created_at', '<=', $validated['end_date']);
+            }
+            $roundIds = $roundQuery
+                ->orderBy('created_at', 'desc')
+                ->offset($offset)
+                ->limit($limit)
+                ->pluck('id');
+
+            // 查这些局的预测
+            $query = \App\Models\RoundPredict::query()
                 ->with(['gameRound.roundResults'])
-                ->orderBy('created_at', 'desc');
+                ->whereIn('game_round_id', $roundIds);
 
             // 应用筛选条件
-            if (! empty($validated['strategy_tag'])) {
+            if (!empty($validated['strategy_tag'])) {
                 $query->where('strategy_tag', $validated['strategy_tag']);
             }
 
-            if (! empty($validated['start_date'])) {
-                $query->where('created_at', '>=', $validated['start_date']);
-            }
-
-            if (! empty($validated['end_date'])) {
-                $query->where('created_at', '<=', $validated['end_date']);
-            }
-
-            $limit = $validated['limit'] ?? 100;
-            $results = $query->limit($limit)->get();
+            $results = $query->get();
 
             // 按轮次分组数据
             $groupedByRound = $results->groupBy('game_round_id');
-
             $formattedRounds = [];
             foreach ($groupedByRound as $roundId => $predictions) {
                 $gameRound = $predictions->first()->gameRound;
@@ -344,10 +353,10 @@ class PredictionController extends Controller
                 // 格式化预测数据
                 $formattedPredictions = $predictions->map(function ($prediction) {
                     return [
-                        'symbol' => $prediction->token,
-                        'predicted_rank' => $prediction->predict_rank,
-                        'prediction_score' => $prediction->predict_score,
-                        'predicted_at' => $prediction->created_at->toISOString(),
+                        'symbol' => $prediction->token_symbol,
+                        'predicted_rank' => $prediction->predicted_rank,
+                        'prediction_score' => $prediction->prediction_score,
+                        'predicted_at' => $prediction->predicted_at?->toISOString(),
                     ];
                 })->toArray();
 
@@ -379,6 +388,11 @@ class PredictionController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $formattedRounds,
+                'meta' => [
+                    'total_rounds' => count($formattedRounds),
+                    'limit' => $limit,
+                    'offset' => $offset,
+                ],
                 'message' => '历史数据获取成功',
                 'code' => 200,
             ]);
@@ -1059,6 +1073,8 @@ class PredictionController extends Controller
             $validator = Validator::make($request->all(), [
                 'limit' => 'nullable|integer|min:1|max:500',
                 'offset' => 'nullable|integer|min:0',
+                'start_date' => 'nullable|date',
+                'end_date' => 'nullable|date|after:start_date',
             ]);
 
             if ($validator->fails()) {
@@ -1074,11 +1090,24 @@ class PredictionController extends Controller
             $limit = $validated['limit'] ?? 50;
             $offset = $validated['offset'] ?? 0;
 
-            // 获取动量预测历史
-            $history = \App\Models\HybridRoundPredict::with(['gameRound.roundResults'])
+            // 先查最新 N 局的 game_round_id
+            $roundQuery = \App\Models\GameRound::query()
+                ->whereHas('hybridRoundPredicts');
+            if (!empty($validated['start_date'])) {
+                $roundQuery->where('created_at', '>=', $validated['start_date']);
+            }
+            if (!empty($validated['end_date'])) {
+                $roundQuery->where('created_at', '<=', $validated['end_date']);
+            }
+            $roundIds = $roundQuery
                 ->orderBy('created_at', 'desc')
                 ->offset($offset)
                 ->limit($limit)
+                ->pluck('id');
+
+            // 查这些局的预测
+            $history = \App\Models\HybridRoundPredict::with(['gameRound.roundResults'])
+                ->whereIn('game_round_id', $roundIds)
                 ->get()
                 ->groupBy('game_round_id');
 

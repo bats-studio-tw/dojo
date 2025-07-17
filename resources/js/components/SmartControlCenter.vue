@@ -166,10 +166,7 @@
                 </span>
               </div>
               <!-- 🆕 复合型策略：显示两种排名 -->
-              <div
-                v-if="localConfig.strategy_type === 'hybrid_rank'"
-                class="mt-2 flex items-center justify-between text-xs"
-              >
+              <div v-if="hasActiveDynamicConditions()" class="mt-2 flex items-center justify-between text-xs">
                 <span class="text-blue-300">AI: #{{ token.predicted_rank || 'N/A' }}</span>
                 <span class="text-green-300">动能: #{{ token.momentum_rank || 'N/A' }}</span>
               </div>
@@ -179,108 +176,23 @@
             <div class="text-xs space-y-2">
               <div class="flex justify-between">
                 <span class="text-gray-400">置信度:</span>
-                <span :class="getMetricClass(getTokenConfidence(token), confidenceThreshold, 'gte')">
-                  {{ getTokenConfidence(token).toFixed(1) }}%
-                </span>
+                <span class="text-blue-400">{{ getTokenConfidence(token).toFixed(1) }}%</span>
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-400">分数:</span>
-                <span :class="getMetricClass(getTokenScore(token), config.score_gap_threshold, 'gte')">
+                <span class="text-blue-400">
                   {{ getTokenScore(token).toFixed(1) }}
                 </span>
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-400">样本数:</span>
-                <span :class="getMetricClass(getTokenSampleCount(token), config.min_sample_count, 'gte')">
+                <span class="text-blue-400">
                   {{ getTokenSampleCount(token) }}
                 </span>
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-400">胜率:</span>
-                <span
-                  :class="
-                    getMetricClass(getTokenHistoricalAccuracy(token) * 100, config.historical_accuracy_threshold, 'gte')
-                  "
-                >
-                  {{ (getTokenHistoricalAccuracy(token) * 100).toFixed(1) }}%
-                </span>
-              </div>
-            </div>
-
-            <!-- 🆕 高级过滤器数值显示 -->
-            <div v-if="hasActiveAdvancedFilters()" class="mt-3 border-t border-gray-600 pt-2">
-              <div class="text-xs space-y-2">
-                <!-- 历史表现过滤器 -->
-                <div v-if="config.enable_win_rate_filter" class="flex justify-between">
-                  <span class="text-gray-400">胜率:</span>
-                  <span :class="checkWinRateFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ (token.win_rate || 0).toFixed(1) }}%
-                  </span>
-                </div>
-                <div v-if="config.enable_top3_rate_filter" class="flex justify-between">
-                  <span class="text-gray-400">保本率:</span>
-                  <span :class="checkTop3RateFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ (token.top3_rate || 0).toFixed(1) }}%
-                  </span>
-                </div>
-                <div v-if="config.enable_avg_rank_filter" class="flex justify-between">
-                  <span class="text-gray-400">平均排名:</span>
-                  <span :class="checkAvgRankFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ (token.avg_rank || 3).toFixed(1) }}
-                  </span>
-                </div>
-                <div v-if="config.enable_stability_filter" class="flex justify-between">
-                  <span class="text-gray-400">稳定性:</span>
-                  <span :class="checkStabilityFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ (token.value_stddev || 0).toFixed(2) }}
-                  </span>
-                </div>
-
-                <!-- 评分过滤器 -->
-                <div v-if="config.enable_absolute_score_filter" class="flex justify-between">
-                  <span class="text-gray-400">绝对分数:</span>
-                  <span :class="checkAbsoluteScoreFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ (token.absolute_score || 0).toFixed(1) }}
-                  </span>
-                </div>
-                <div v-if="config.enable_relative_score_filter" class="flex justify-between">
-                  <span class="text-gray-400">相对分数:</span>
-                  <span :class="checkRelativeScoreFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ (token.relative_score || 0).toFixed(1) }}
-                  </span>
-                </div>
-                <div v-if="config.enable_h2h_score_filter" class="flex justify-between">
-                  <span class="text-gray-400">H2H分数:</span>
-                  <span :class="checkH2HScoreFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ (token.h2h_score || 0).toFixed(1) }}
-                  </span>
-                </div>
-
-                <!-- 市场动态过滤器 -->
-                <div v-if="config.enable_change_5m_filter" class="flex justify-between">
-                  <span class="text-gray-400">5分钟涨跌:</span>
-                  <span :class="checkChange5mFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ formatPriceChange(token.change_5m) }}
-                  </span>
-                </div>
-                <div v-if="config.enable_change_1h_filter" class="flex justify-between">
-                  <span class="text-gray-400">1小时涨跌:</span>
-                  <span :class="checkChange1hFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ formatPriceChange(token.change_1h) }}
-                  </span>
-                </div>
-                <div v-if="config.enable_change_4h_filter" class="flex justify-between">
-                  <span class="text-gray-400">4小时涨跌:</span>
-                  <span :class="checkChange4hFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ formatPriceChange(token.change_4h) }}
-                  </span>
-                </div>
-                <div v-if="config.enable_change_24h_filter" class="flex justify-between">
-                  <span class="text-gray-400">24小时涨跌:</span>
-                  <span :class="checkChange24hFilter(token) ? 'text-green-400' : 'text-red-400'">
-                    {{ formatPriceChange(token.change_24h) }}
-                  </span>
-                </div>
+                <span class="text-blue-400">{{ (getTokenHistoricalAccuracy(token) * 100).toFixed(1) }}%</span>
               </div>
             </div>
           </div>
@@ -441,111 +353,6 @@
   // 🔍 检查是否有激活的动态条件
   const hasActiveDynamicConditions = (): boolean => {
     return localConfig.value.dynamic_conditions && localConfig.value.dynamic_conditions.length > 0;
-  };
-
-  // 🔍 使用动态条件评估Token
-  const evaluateTokenWithDynamicConditions = (token: any): boolean => {
-    if (!localConfig.value.dynamic_conditions || localConfig.value.dynamic_conditions.length === 0) {
-      return true; // 没有条件时默认通过
-    }
-
-    // 使用动态条件评估
-    let result = true;
-    let logic = 'and';
-
-    for (const condition of localConfig.value.dynamic_conditions) {
-      const conditionResult = evaluateCondition(token, condition);
-
-      if (logic === 'and') {
-        result = result && conditionResult;
-      } else {
-        result = result || conditionResult;
-      }
-
-      logic = condition.logic || 'and';
-    }
-
-    return result;
-  };
-
-  // 评估单个条件
-  const evaluateCondition = (token: any, condition: any): boolean => {
-    const { type, operator, value } = condition;
-
-    let actualValue: number;
-
-    switch (type) {
-      case 'confidence':
-        actualValue = token.confidence || 0;
-        break;
-      case 'score_gap':
-        actualValue = token.score || 0;
-        break;
-      case 'sample_count':
-        actualValue = token.sample_count || 0;
-        break;
-      case 'historical_accuracy':
-        actualValue = (token.historical_accuracy || 0) * 100;
-        break;
-      case 'h2h_rank':
-        actualValue = token.predicted_rank || 999;
-        break;
-      case 'momentum_rank':
-        actualValue = token.momentum_rank || 999;
-        break;
-      case 'win_rate':
-        actualValue = (token.win_rate || 0) * 100;
-        break;
-      case 'top3_rate':
-        actualValue = (token.top3_rate || 0) * 100;
-        break;
-      case 'avg_rank':
-        actualValue = token.avg_rank || 3;
-        break;
-      case 'stability':
-        actualValue = token.value_stddev || 0;
-        break;
-      case 'absolute_score':
-        actualValue = token.absolute_score || 0;
-        break;
-      case 'relative_score':
-        actualValue = token.relative_score || 0;
-        break;
-      case 'h2h_score':
-        actualValue = token.h2h_score || 0;
-        break;
-      case 'change_5m':
-        actualValue = token.change_5m || 0;
-        break;
-      case 'change_1h':
-        actualValue = token.change_1h || 0;
-        break;
-      case 'change_4h':
-        actualValue = token.change_4h || 0;
-        break;
-      case 'change_24h':
-        actualValue = token.change_24h || 0;
-        break;
-      default:
-        return true;
-    }
-
-    switch (operator) {
-      case 'gte':
-        return actualValue >= value;
-      case 'lte':
-        return actualValue <= value;
-      case 'gt':
-        return actualValue > value;
-      case 'lt':
-        return actualValue < value;
-      case 'eq':
-        return actualValue === value;
-      case 'ne':
-        return actualValue !== value;
-      default:
-        return true;
-    }
   };
 
   // ==================== 计算属性 ====================
@@ -728,19 +535,6 @@
     return isMatching ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5';
   };
 
-  const getMetricClass = (value: number, threshold: number, operation: 'gte' | 'lte'): string => {
-    const isPass = operation === 'gte' ? value >= threshold : value <= threshold;
-    return isPass ? 'text-green-400 font-bold' : 'text-red-400 font-bold';
-  };
-
-  // 格式化价格变化显示
-  const formatPriceChange = (change: number | null | undefined): string => {
-    if (change === null || change === undefined) return '-';
-
-    const prefix = change > 0 ? '+' : '';
-    return `${prefix}${change.toFixed(2)}%`;
-  };
-
   // Methods
   const startAutoBetting = () => emit('startAutoBetting');
   const stopAutoBetting = () => emit('stopAutoBetting');
@@ -753,10 +547,15 @@
 
   // [新增] 创建计算属性来动态选择数据源
   const displayAnalysisData = computed(() => {
-    if (localConfig.value.strategy_type === 'momentum') {
+    // 简化策略：如果有动能预测数据且动态条件包含动能相关条件，使用动能数据
+    const hasMomentumConditions = localConfig.value.dynamic_conditions?.some(
+      (condition: any) => condition.type === 'momentum_rank'
+    );
+
+    if (hasMomentumConditions && props.hybridPredictions && props.hybridPredictions.length > 0) {
       return props.hybridPredictions || [];
-    } else if (localConfig.value.strategy_type === 'hybrid_rank') {
-      // 🆕 复合型策略：需要同时有AI预测和动能预测数据
+    } else if (hasMomentumConditions && props.currentAnalysis && props.hybridPredictions) {
+      // 复合型策略：需要同时有AI预测和动能预测数据
       const h2hData = props.currentAnalysis || [];
       const momentumData = props.hybridPredictions || [];
 

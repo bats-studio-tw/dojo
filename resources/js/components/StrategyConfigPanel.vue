@@ -419,17 +419,23 @@
   const testConditionMatching = () => {
     console.log('🧪 [StrategyConfigPanel] 开始条件匹配测试...');
 
-    // 模拟测试Token数据
-    const testToken = {
+    // 模拟测试Token数据 - 包含AI预测和动能预测数据
+    const testToken: any = {
       symbol: 'SUI',
+      // AI预测数据 (来自currentAnalysis)
       rank_confidence: 86.3,
-      predicted_rank: 1,
+      predicted_rank: 1, // AI预测排名
       predicted_final_value: 76.5,
       total_games: 12,
       win_rate: 0.167, // 16.7%
       top3_rate: 0.833, // 83.3%
       absolute_score: 84.5,
-      relative_score: 66.7
+      relative_score: 66.7,
+      // 动能预测数据 (来自hybridPredictions，合并后)
+      momentum_rank: 2, // 动能预测排名
+      mom_score: 0.75,
+      final_score: 0.82,
+      elo_prob: 0.65
     };
 
     console.log('📊 测试Token数据:', testToken);
@@ -448,6 +454,9 @@
           case 'h2h_rank':
             tokenValue = testToken.predicted_rank || 999;
             break;
+          case 'momentum_rank':
+            tokenValue = testToken.momentum_rank || testToken.predicted_rank || 999;
+            break;
           case 'score_gap':
             tokenValue = testToken.predicted_final_value || 0;
             break;
@@ -456,6 +465,12 @@
             break;
           case 'historical_accuracy':
             tokenValue = (testToken.win_rate || 0) * 100;
+            break;
+          case 'momentum_score':
+            tokenValue = testToken.momentum_score || testToken.mom_score || 0;
+            break;
+          case 'elo_win_rate':
+            tokenValue = testToken.elo_win_rate || testToken.elo_prob || 0;
             break;
           default:
             tokenValue = 0;

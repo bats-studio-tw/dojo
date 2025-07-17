@@ -343,14 +343,18 @@ export const useConditionBuilder = () => {
       case 'change_24h':
         return (token.change_24h || 0) * 100; // 转换为百分比
       case 'momentum_score':
-        return token.momentum_score || 0;
+        return token.momentum_score || token.mom_score || 0;
       case 'elo_win_rate':
-        return token.elo_win_rate || 0;
+        return token.elo_win_rate || token.elo_prob || 0;
       case 'momentum_confidence':
         return token.confidence || 0;
       case 'h2h_rank':
+        // 🔧 修复：AI预测排名字段映射
+        // 从currentAnalysis数据中获取predicted_rank
         return token.predicted_rank || 999;
       case 'momentum_rank':
+        // 🔧 修复：动能预测排名字段映射
+        // 从合并后的数据中获取momentum_rank，如果没有则使用predicted_rank
         return token.momentum_rank || token.predicted_rank || 999;
       default:
         return 0;

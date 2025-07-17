@@ -181,9 +181,7 @@
                   :refresh-hybrid-analysis="fetchHybridAnalysis"
                   @start-auto-betting="startAutoBetting"
                   @stop-auto-betting="stopAutoBetting"
-                  @execute-manual-betting="executeManualBetting"
                   @clear-bet-results="clearBetResults"
-                  @execute-strategy-betting="executeStrategyBetting"
                   @manual-save-config="handleManualSaveConfig"
                   @run-api-diagnostics="runApiDiagnostics"
                   @refresh-analysis="refreshAnalysis"
@@ -374,7 +372,7 @@
   import type { StrategyValidation } from '@/types/autoBetting';
   import type { UserInfo } from '@/types';
   import type { MomentumPredictionHistoryRound } from '@/composables/useMomentumPredictionStats';
-  import { handleError, createConfirmDialog, handleAsyncOperation } from '@/utils/errorHandler';
+
   import { autoBettingApi, gameApi } from '@/utils/api';
   import { canBet } from '@/utils/statusUtils';
   import { websocketManager } from '@/utils/websocketManager';
@@ -424,7 +422,6 @@
     diagnosticsLoading,
     startAutoBetting,
     stopAutoBetting,
-    executeAutoBetting,
     runApiDiagnostics,
     reconnectToken,
     restoreAuthState,
@@ -766,93 +763,6 @@
   };
 
   // ==================== 用户操作函数 ====================
-
-  // 执行策略下注
-  const executeStrategyBetting = async () => {
-    if (!strategyValidation.value?.matches.length) {
-      window.$message?.warning('没有符合条件的游戏可以下注');
-      return;
-    }
-
-    if (!strategyValidation.value?.balance_sufficient) {
-      window.$message?.error('余额不足，无法执行下注');
-      return;
-    }
-
-    // 🔧 新增：检查游戏状态是否允许下注
-    if (!canBet(currentGameStatus.value || '')) {
-      window.$message?.error(`当前游戏状态不允许下注 (状态: ${currentGameStatus.value})`);
-      return;
-    }
-
-    createConfirmDialog(
-      '确认执行策略下注',
-      `将下注 ${strategyValidation.value.matches.length} 个游戏，总金额 $${strategyValidation.value.required_balance.toFixed(2)}。是否继续？`,
-      async () => {
-        const result = await handleAsyncOperation(
-          async () => {
-            let successCount = 0;
-            let failCount = 0;
-            const roundId = currentRoundId.value;
-
-            if (!roundId) {
-              throw new Error('无法获取当前轮次ID');
-            }
-
-            for (const match of strategyValidation.value!.matches) {
-              try {
-                const betSuccess = await executeSingleBet(roundId, match.symbol, match.bet_amount, config.jwt_token);
-                if (betSuccess) {
-                  successCount++;
-                } else {
-                  failCount++;
-                }
-              } catch (error) {
-                handleError(error, {
-                  showToast: false,
-                  fallbackMessage: `下注失败：${match.symbol}`
-                });
-                failCount++;
-              }
-            }
-
-            await loadStatus();
-            validateCurrentStrategy();
-
-            return { successCount, failCount };
-          },
-          {
-            loadingMessage: '正在执行策略下注...',
-            successMessage: `策略下注完成`
-          }
-        );
-
-        if (result) {
-          if (result.successCount > 0) {
-            window.$message?.success(`策略下注完成：成功 ${result.successCount} 个，失败 ${result.failCount} 个`);
-          } else {
-            window.$message?.error('策略下注全部失败');
-          }
-        }
-      },
-      {
-        confirmText: '确认下注',
-        cancelText: '取消',
-        type: 'warning'
-      }
-    );
-  };
-
-  // 手动执行一次下注
-  const executeManualBetting = async () => {
-    // 🔧 新增：检查游戏状态是否允许下注
-    if (!canBet(currentGameStatus.value || '')) {
-      window.$message?.error(`当前游戏状态不允许下注 (状态: ${currentGameStatus.value})`);
-      return;
-    }
-
-    await executeAutoBetting(config);
-  };
 
   // 清空下注结果
   const clearBetResults = () => {

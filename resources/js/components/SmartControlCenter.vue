@@ -30,13 +30,31 @@
       <template #header-extra>
         <div class="flex items-center space-x-3">
           <n-button
-            v-if="strategyValidation?.matches.length"
-            :loading="executeLoading"
-            @click="executeStrategyBetting"
-            type="primary"
+            v-if="!autoBettingStatus.is_running"
+            @click="startAutoBetting"
+            :loading="toggleLoading"
+            type="success"
             size="small"
+            class="shadow-green-500/25 shadow-lg hover:shadow-green-500/40"
           >
-            ⚡ 执行策略下注
+            <template #icon>
+              <span>▶️</span>
+            </template>
+            启动自动下注
+          </n-button>
+
+          <n-button
+            v-else
+            @click="stopAutoBetting"
+            :loading="toggleLoading"
+            type="error"
+            size="small"
+            class="shadow-lg shadow-red-500/25 hover:shadow-red-500/40"
+          >
+            <template #icon>
+              <span>⏹️</span>
+            </template>
+            停止自动下注
           </n-button>
         </div>
       </template>
@@ -220,46 +238,7 @@
 
       <!-- 核心控制按钮 -->
       <div class="mt-6 flex justify-center space-x-4">
-        <n-button
-          v-if="!autoBettingStatus.is_running"
-          @click="startAutoBetting"
-          :loading="toggleLoading"
-          type="success"
-          size="large"
-          class="shadow-green-500/25 shadow-lg hover:shadow-green-500/40"
-        >
-          <template #icon>
-            <span>▶️</span>
-          </template>
-          启动自动下注
-        </n-button>
-
-        <n-button
-          v-else
-          @click="stopAutoBetting"
-          :loading="toggleLoading"
-          type="error"
-          size="large"
-          class="shadow-lg shadow-red-500/25 hover:shadow-red-500/40"
-        >
-          <template #icon>
-            <span>⏹️</span>
-          </template>
-          停止自动下注
-        </n-button>
-
-        <n-button
-          @click="executeManualBetting"
-          :loading="executeLoading"
-          type="warning"
-          size="large"
-          class="shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40"
-        >
-          <template #icon>
-            <span>🎯</span>
-          </template>
-          手动执行一次
-        </n-button>
+        <!-- 按钮已移动到header-extra区域 -->
       </div>
     </NCard>
 
@@ -323,9 +302,7 @@
   const emit = defineEmits<{
     startAutoBetting: [];
     stopAutoBetting: [];
-    executeManualBetting: [];
     applyStrategyTemplate: [key: string];
-    executeStrategyBetting: [];
     manualSaveConfig: [];
     refreshAnalysis: [];
     updateConfig: [config: AutoBettingConfig];
@@ -547,8 +524,6 @@
   // Methods
   const startAutoBetting = () => emit('startAutoBetting');
   const stopAutoBetting = () => emit('stopAutoBetting');
-  const executeManualBetting = () => emit('executeManualBetting');
-  const executeStrategyBetting = () => emit('executeStrategyBetting');
   const manualSaveConfig = () => {
     console.log('💾 [SmartControlCenter] 触发手动保存配置事件');
     emit('manualSaveConfig');

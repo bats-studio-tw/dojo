@@ -608,7 +608,7 @@
         actualValue = prediction.sample_count || 0;
         break;
       case 'historical_accuracy':
-        actualValue = (prediction.historical_accuracy || 0) * 100; // 转换为百分比
+        actualValue = prediction.historical_accuracy || 0; // historical_accuracy已经是百分比格式
         break;
       case 'h2h_rank':
         actualValue = prediction.predicted_rank || 999;
@@ -617,10 +617,10 @@
         actualValue = prediction.momentum_rank || 999;
         break;
       case 'win_rate':
-        actualValue = (prediction.win_rate || 0) * 100; // 转换为百分比
+        actualValue = prediction.win_rate || 0; // win_rate已经是百分比格式
         break;
       case 'top3_rate':
-        actualValue = (prediction.top3_rate || 0) * 100; // 转换为百分比
+        actualValue = prediction.top3_rate || 0; // top3_rate已经是百分比格式
         break;
       case 'avg_rank':
         actualValue = prediction.avg_rank || 3;

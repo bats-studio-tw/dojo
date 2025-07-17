@@ -427,8 +427,8 @@
       predicted_rank: 1, // AI预测排名
       predicted_final_value: 76.5,
       total_games: 12,
-      win_rate: 0.167, // 16.7%
-      top3_rate: 0.833, // 83.3%
+      win_rate: 18.8, // 胜率已经是百分比格式
+      top3_rate: 83.3, // 保本率已经是百分比格式
       absolute_score: 84.5,
       relative_score: 66.7,
       // 动能预测数据 (来自hybridPredictions，合并后)
@@ -464,7 +464,13 @@
             tokenValue = testToken.total_games || 0;
             break;
           case 'historical_accuracy':
-            tokenValue = (testToken.win_rate || 0) * 100;
+            tokenValue = testToken.win_rate || 0;
+            break;
+          case 'win_rate':
+            tokenValue = testToken.win_rate || 0;
+            break;
+          case 'top3_rate':
+            tokenValue = testToken.top3_rate || 0;
             break;
           case 'momentum_score':
             tokenValue = testToken.momentum_score || testToken.mom_score || 0;

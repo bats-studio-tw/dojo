@@ -319,11 +319,11 @@ export const useConditionBuilder = () => {
       case 'sample_count':
         return token.total_games || token.sample_count || 0;
       case 'historical_accuracy':
-        return (token.win_rate || 0) * 100; // 转换为百分比，使用胜率作为历史准确率
+        return token.win_rate || 0; // win_rate已经是百分比格式
       case 'win_rate':
-        return (token.win_rate || 0) * 100; // 转换为百分比
+        return token.win_rate || 0; // win_rate已经是百分比格式
       case 'top3_rate':
-        return (token.top3_rate || 0) * 100; // 转换为百分比
+        return token.top3_rate || 0; // top3_rate已经是百分比格式
       case 'avg_rank':
         return token.avg_rank || 3;
       case 'stability':

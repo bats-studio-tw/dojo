@@ -83,7 +83,7 @@
         </div>
 
         <!-- 调试按钮 -->
-        <div v-if="import.meta.env.DEV" class="mt-2">
+        <div v-if="isDev" class="mt-2">
           <n-button @click="debugSaveConfig" :disabled="isRunning" type="tertiary" size="small">
             <template #icon>
               <span>🔧</span>
@@ -93,7 +93,7 @@
         </div>
 
         <!-- 调试信息显示 -->
-        <div v-if="import.meta.env.DEV" class="mt-4 border border-blue-500/30 rounded-lg bg-blue-500/10 p-3">
+        <div v-if="isDev" class="mt-4 border border-blue-500/30 rounded-lg bg-blue-500/10 p-3">
           <div class="mb-2 text-xs text-blue-300 font-medium">🔧 调试信息:</div>
           <div class="text-xs text-blue-400 space-y-1">
             <div>• hasUID: {{ hasUID }}</div>
@@ -199,6 +199,9 @@
 
   // 使用 ref 作为用户选择的"唯一真实来源"
   const selectedStrategyKey = ref(computedStrategyType.value);
+
+  // 开发环境检测
+  const isDev = computed(() => import.meta.env.DEV);
 
   // [修改] 调整 watch 逻辑，增加对标志位的判断
   watch(computedStrategyType, (newType) => {

@@ -257,6 +257,7 @@
       :config="localConfig"
       :is-running="isRunning"
       :config-saving="configSaving"
+      :config-loading="configLoading"
       :has-u-i-d="hasUID"
       @update:config="onUpdateConfig"
       @save-config="manualSaveConfig"
@@ -291,6 +292,7 @@
     strategyName: string;
     config: AutoBettingConfig;
     configSaving: boolean;
+    configLoading: boolean; // 新增：配置加载状态
     configSyncStatus: { type: 'success' | 'error' | 'info'; message: string } | null;
     strategyValidation: any;
 

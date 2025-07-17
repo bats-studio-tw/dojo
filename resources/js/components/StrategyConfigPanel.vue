@@ -123,6 +123,30 @@
   const selectedStrategy = computed(() => {
     // 根据配置判断当前策略
     if (props.config.dynamic_conditions && props.config.dynamic_conditions.length > 0) {
+      // 检查是否是实战模式的特定配置
+      const conditions = props.config.dynamic_conditions;
+      const hasRealisticConditions =
+        conditions.length === 4 &&
+        conditions.some((c) => c.type === 'confidence' && c.value === 70) &&
+        conditions.some((c) => c.type === 'score_gap' && c.value === 50) &&
+        conditions.some((c) => c.type === 'sample_count' && c.value === 8) &&
+        conditions.some((c) => c.type === 'historical_accuracy' && c.value === 20);
+
+      if (hasRealisticConditions) {
+        return 'realistic';
+      }
+
+      // 检查是否是智能排名模式的特定配置
+      const hasSmartRankingConditions =
+        conditions.length === 1 &&
+        conditions[0].type === 'h2h_rank' &&
+        conditions[0].operator === 'lte' &&
+        conditions[0].value === 3;
+
+      if (hasSmartRankingConditions) {
+        return 'smart_ranking';
+      }
+
       return 'custom';
     }
     // 这里可以根据其他配置判断是实战模式还是智能排名

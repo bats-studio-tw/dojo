@@ -20,15 +20,7 @@ export interface AutoBettingConfig {
  */
 export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token' | 'uid'> = {
   bet_amount: 200,
-  dynamic_conditions: [
-    {
-      id: `condition_${Date.now()}_ranking`,
-      type: 'h2h_rank',
-      operator: 'lte',
-      value: 3,
-      logic: 'and'
-    }
-  ],
+  dynamic_conditions: [], // 🔧 修复：改为空数组，避免预设条件
   is_active: false
 };
 
@@ -52,7 +44,6 @@ export const useAutoBettingConfig = () => {
     if (!uid) return false;
 
     try {
-      configLoading.value = true; // 开始加载
       const response = await autoBettingApi.getConfig(uid);
       if (response.data.success) {
         // 只保留必要的字段
@@ -89,8 +80,6 @@ export const useAutoBettingConfig = () => {
       console.error('加载云端配置失败:', error);
       configSyncStatus.value = { type: 'error', message: '网络错误，无法加载云端配置' };
       return false;
-    } finally {
-      configLoading.value = false; // 结束加载
     }
   };
 
@@ -211,12 +200,22 @@ export const useAutoBettingConfig = () => {
   const initializeConfig = async (uid?: string) => {
     console.log('🚀 [initializeConfig] 开始初始化配置, uid:', uid);
 
-    if (uid) {
-      console.log('📡 [initializeConfig] 有UID，开始从云端加载配置...');
-      await loadConfigFromCloud(uid);
-    } else {
-      console.log('⚠️ [initializeConfig] 无UID，使用默认配置');
-      // 如果没有UID，保持默认配置不变
+    // 🔧 修复：在初始化开始时设置loading状态
+    configLoading.value = true;
+
+    try {
+      if (uid) {
+        console.log('📡 [initializeConfig] 有UID，开始从云端加载配置...');
+        await loadConfigFromCloud(uid);
+      } else {
+        console.log('⚠️ [initializeConfig] 无UID，使用默认配置');
+        // 如果没有UID，保持默认配置不变
+        // 延迟一下让用户看到loading状态
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    } finally {
+      // 🔧 修复：确保loading状态被正确结束
+      configLoading.value = false;
     }
   };
 

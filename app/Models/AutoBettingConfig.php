@@ -25,15 +25,7 @@ class AutoBettingConfig extends Model
     {
         return [
             'bet_amount' => 200,
-            'dynamic_conditions' => [
-                [
-                    'id' => 'condition_' . time() . '_ranking',
-                    'type' => 'h2h_rank',
-                    'operator' => 'lte',
-                    'value' => 3,
-                    'logic' => 'and'
-                ]
-            ],
+            'dynamic_conditions' => [], // 🔧 修复：改为空数组，避免预设条件
             'is_active' => false,
         ];
     }

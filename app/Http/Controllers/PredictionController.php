@@ -1423,19 +1423,22 @@ class PredictionController extends Controller
             $totalBets = $records->count();
             $settledBets = $records->where('success', true)->count();
 
-            // 获取实际排名数据（从result_data中提取）
+            // 获取实际排名和预测排名（通过模型方法获取）
             $recordsWithRank = $records->map(function ($record) {
-                $actualRank = null;
-                if ($record->result_data && isset($record->result_data['rank'])) {
-                    $actualRank = $record->result_data['rank'];
-                }
+                // 获取预测排名
+                $prediction = $record->getPrediction();
+                $predictedRank = $prediction ? $prediction->predicted_rank : null;
+
+                // 获取实际排名
+                $actualResult = $record->getActualResult();
+                $actualRank = $actualResult ? $actualResult->rank : null;
 
                 return [
                     'id' => $record->id,
                     'created_at' => $record->created_at->toISOString(),
                     'round_id' => $record->round_id,
                     'token_symbol' => $record->token_symbol,
-                    'predicted_rank' => $record->prediction_data['predicted_rank'] ?? null,
+                    'predicted_rank' => $predictedRank,
                     'actual_rank' => $actualRank,
                     'success' => $record->success,
                     'bet_amount' => $record->bet_amount,

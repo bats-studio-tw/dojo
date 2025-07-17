@@ -166,7 +166,7 @@
                 </span>
               </div>
               <!-- 🆕 复合型策略：显示两种排名 -->
-              <div v-if="hasActiveDynamicConditions()" class="mt-2 flex items-center justify-between text-xs">
+              <div class="mt-2 flex items-center justify-between text-xs">
                 <span class="text-blue-300">AI: #{{ token.predicted_rank || '-' }}</span>
                 <span class="text-green-300">
                   动能:
@@ -189,6 +189,11 @@
                 <span class="text-blue-400">
                   {{ getTokenScore(token).toFixed(1) }}
                 </span>
+              </div>
+              <!-- 🔧 新增：显示动能分数 -->
+              <div v-if="token.mom_score !== null && token.mom_score !== undefined" class="flex justify-between">
+                <span class="text-gray-400">动能分数:</span>
+                <span class="text-green-400">{{ token.mom_score.toFixed(1) }}</span>
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-400">样本数:</span>
@@ -358,11 +363,6 @@
 
   const { getPredictionIcon } = usePredictionDisplay();
 
-  // 🔍 检查是否有激活的动态条件
-  const hasActiveDynamicConditions = (): boolean => {
-    return localConfig.value.dynamic_conditions && localConfig.value.dynamic_conditions.length > 0;
-  };
-
   // ==================== 计算属性 ====================
 
   // ==================== 本地状态管理 ====================
@@ -522,7 +522,8 @@
   };
 
   const getTokenScore = (token: any): number => {
-    return token.predicted_final_value || token.score || 0;
+    // 🔧 修复：优先使用动能分数，如果没有则使用其他分数
+    return token.mom_score || token.final_score || token.predicted_final_value || token.score || 0;
   };
 
   const getTokenSampleCount = (token: any): number => {
@@ -555,30 +556,51 @@
 
   // [新增] 创建计算属性来动态选择数据源
   const displayAnalysisData = computed(() => {
-    // 简化策略：如果有动能预测数据且动态条件包含动能相关条件，使用动能数据
-    const hasMomentumConditions = localConfig.value.dynamic_conditions?.some(
-      (condition: any) => condition.type === 'momentum_rank'
-    );
+    // 🔧 修复：始终尝试合并动能预测数据，不管是否有动能条件
+    const h2hData = props.currentAnalysis || [];
+    const momentumData = props.hybridPredictions || [];
 
-    if (hasMomentumConditions && props.hybridPredictions && props.hybridPredictions.length > 0) {
-      return props.hybridPredictions || [];
-    } else if (hasMomentumConditions && props.currentAnalysis && props.hybridPredictions) {
-      // 复合型策略：需要同时有AI预测和动能预测数据
-      const h2hData = props.currentAnalysis || [];
-      const momentumData = props.hybridPredictions || [];
+    // 🔧 调试：输出数据状态
+    console.log('🔍 [SmartControlCenter] 数据状态:', {
+      h2hDataLength: h2hData.length,
+      momentumDataLength: momentumData.length,
+      momentumDataSample: momentumData.slice(0, 2)
+    });
 
-      // 合并数据，确保每个Token都有两种预测的排名信息，symbol忽略大小写
+    // 如果有动能预测数据，合并到AI预测数据中
+    if (momentumData.length > 0 && h2hData.length > 0) {
       const combinedData = h2hData.map((h2hToken: any) => {
         const momentumToken = momentumData.find((m: any) => m.symbol?.toUpperCase() === h2hToken.symbol?.toUpperCase());
-        return {
+        const combinedToken = {
           ...h2hToken,
-          momentum_rank: momentumToken?.predicted_rank ?? null
+          // 🔧 修复：添加动能相关字段
+          momentum_rank: momentumToken?.predicted_rank ?? null,
+          mom_score: momentumToken?.mom_score ?? null,
+          final_score: momentumToken?.final_score ?? null,
+          elo_prob: momentumToken?.elo_prob ?? null
         };
-      });
 
+        // 🔧 调试：输出合并结果
+        if (momentumToken) {
+          console.log(`🔗 [SmartControlCenter] 合并Token ${h2hToken.symbol}:`, {
+            original: h2hToken,
+            momentum: momentumToken,
+            combined: combinedToken
+          });
+        }
+
+        return combinedToken;
+      });
       return combinedData;
     }
-    return props.currentAnalysis || [];
+
+    // 如果只有动能预测数据，使用动能数据
+    if (momentumData.length > 0 && h2hData.length === 0) {
+      return momentumData;
+    }
+
+    // 默认使用AI预测数据
+    return h2hData;
   });
 </script>
 

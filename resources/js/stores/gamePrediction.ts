@@ -543,6 +543,18 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
           hybridPredictions.value = finalPredictions;
           hybridAnalysisMeta.value = response.data.meta || null;
 
+          // 🔧 调试：输出动能预测数据
+          console.log('⚡ [Store] 获取到动能预测数据:', {
+            count: finalPredictions.length,
+            sample: finalPredictions.slice(0, 3).map((p) => ({
+              symbol: p.symbol,
+              predicted_rank: p.predicted_rank,
+              mom_score: p.mom_score,
+              final_score: p.final_score,
+              confidence: p.confidence
+            }))
+          });
+
           // 设置缓存
           setCache(
             'hybridAnalysis',
@@ -555,6 +567,7 @@ export const useGamePredictionStore = defineStore('gamePrediction', () => {
         } else {
           hybridPredictions.value = [];
           hybridAnalysisMeta.value = null;
+          console.log('⚠️ [Store] 动能预测数据为空');
         }
       } else {
         hybridPredictions.value = [];

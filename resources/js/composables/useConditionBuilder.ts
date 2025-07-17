@@ -238,6 +238,39 @@ export const useConditionBuilder = () => {
     return `${typeConfig.label} ${operatorText} ${condition.value}${typeConfig.unit}`;
   };
 
+  // 获取逻辑分组预览
+  const getLogicGroupPreview = (conditions: DynamicCondition[]) => {
+    if (conditions.length === 0) return '';
+    if (conditions.length === 1) return getConditionPreview(conditions[0]);
+
+    const groups: string[] = [];
+    let currentGroup: DynamicCondition[] = [conditions[0]];
+
+    for (let i = 1; i < conditions.length; i++) {
+      const condition = conditions[i];
+
+      if (condition.logic === 'and') {
+        // 继续当前 AND 组
+        currentGroup.push(condition);
+      } else {
+        // 遇到 OR，结束当前组并开始新组
+        if (currentGroup.length > 0) {
+          const groupText = currentGroup.map(c => getConditionPreview(c)).join(' AND ');
+          groups.push(currentGroup.length > 1 ? `(${groupText})` : groupText);
+        }
+        currentGroup = [condition];
+      }
+    }
+
+    // 处理最后一个组
+    if (currentGroup.length > 0) {
+      const groupText = currentGroup.map(c => getConditionPreview(c)).join(' AND ');
+      groups.push(currentGroup.length > 1 ? `(${groupText})` : groupText);
+    }
+
+    return groups.join(' OR ');
+  };
+
   // 根据条件类型获取Token值
   const getTokenValueByType = (token: any, type: string): number => {
     switch (type) {
@@ -300,29 +333,54 @@ export const useConditionBuilder = () => {
     }
   };
 
-  // 动态条件评估函数
+  // 动态条件评估函数 - 支持逻辑优先级
   const evaluateDynamicConditions = (token: any, conditions: DynamicCondition[]): boolean => {
     // 如果没有条件，默认所有 Token 都通过
     if (conditions.length === 0) return true;
 
-    // 1. 先计算第一个条件的结果作为初始值
-    let result = evaluateSingleCondition(token, conditions[0]);
+    // 如果只有一个条件，直接返回结果
+    if (conditions.length === 1) {
+      return evaluateSingleCondition(token, conditions[0]);
+    }
 
-    // 2. 从第二个条件开始遍历
+    // 使用栈来处理逻辑优先级
+    // AND 的优先级高于 OR，所以先处理 AND 连接的条件组
+    const stack: boolean[] = [];
+    let currentGroup: boolean[] = [];
+    let currentLogic: 'and' | 'or' | null = null;
+
+    // 处理第一个条件
+    currentGroup.push(evaluateSingleCondition(token, conditions[0]));
+
+    // 从第二个条件开始处理
     for (let i = 1; i < conditions.length; i++) {
       const condition = conditions[i];
       const currentResult = evaluateSingleCondition(token, condition);
 
-      // 3. 使用当前条件自身的 logic (and/or) 来与之前的结果进行组合
+      // 如果当前逻辑是 AND，继续累积到当前组
       if (condition.logic === 'and') {
-        result = result && currentResult;
+        currentGroup.push(currentResult);
       } else {
-        // or
-        result = result || currentResult;
+        // 如果遇到 OR，先处理当前 AND 组，然后开始新的组
+        if (currentGroup.length > 0) {
+          // 计算当前 AND 组的结果（所有条件都为真）
+          const andResult = currentGroup.every(result => result);
+          stack.push(andResult);
+          currentGroup = [];
+        }
+        // 开始新的组
+        currentGroup.push(currentResult);
       }
     }
 
-    return result;
+    // 处理最后一个组
+    if (currentGroup.length > 0) {
+      const andResult = currentGroup.every(result => result);
+      stack.push(andResult);
+    }
+
+    // 最后，所有组之间用 OR 连接
+    return stack.some(result => result);
   };
 
   return {
@@ -338,6 +396,7 @@ export const useConditionBuilder = () => {
     getPlaceholder,
     getConditionDescription,
     getConditionPreview,
+    getLogicGroupPreview,
     getTokenValueByType,
     evaluateSingleCondition,
     evaluateDynamicConditions

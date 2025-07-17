@@ -112,11 +112,28 @@
     <div v-if="modelValue.length > 0" class="border-t border-gray-600 pt-4">
       <div class="mb-2 text-sm text-gray-300 font-medium">条件预览：</div>
       <div class="rounded-lg bg-gray-800/50 p-3 text-xs text-gray-300">
-        <div v-for="(condition, index) in modelValue" :key="condition.id">
-          <span v-if="index > 0" class="mx-2 text-blue-400 font-bold">
-            {{ condition.logic === 'and' ? 'AND' : 'OR' }}
-          </span>
-          <span>{{ getConditionPreview(condition) }}</span>
+        <div class="space-y-1">
+          <div v-for="(condition, index) in modelValue" :key="condition.id" class="flex items-center">
+            <span v-if="index > 0" class="mx-2 text-blue-400 font-bold">
+              {{ condition.logic === 'and' ? 'AND' : 'OR' }}
+            </span>
+            <span>{{ getConditionPreview(condition) }}</span>
+          </div>
+        </div>
+        <!-- 逻辑分组预览 -->
+        <div class="mt-3 border-t border-gray-600 pt-2">
+          <div class="mb-2 text-xs text-gray-400">逻辑分组预览：</div>
+          <div class="rounded bg-gray-900/50 p-2 text-xs text-blue-300 font-mono">
+            {{ getLogicGroupPreview(modelValue) }}
+          </div>
+        </div>
+        <!-- 逻辑优先级说明 -->
+        <div class="mt-2 text-xs text-gray-400">
+          <div class="flex items-center space-x-1">
+            <span class="text-yellow-400">⚠️</span>
+            <span>逻辑优先级：AND 优先于 OR</span>
+          </div>
+          <div class="mt-1 text-gray-500">例如：A OR B AND C = A OR (B AND C)</div>
         </div>
       </div>
     </div>
@@ -159,7 +176,8 @@
     getPrecision,
     getPlaceholder,
     getConditionDescription,
-    getConditionPreview
+    getConditionPreview,
+    getLogicGroupPreview
   } = useConditionBuilder();
 
   // 🔧 修复：更新条件并触发emit

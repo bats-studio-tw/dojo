@@ -154,17 +154,6 @@
               </div>
             </div>
           </div>
-
-          <!-- 保存问题帮助 -->
-          <div class="mt-4 border border-gray-600/30 rounded-lg bg-gray-500/10 p-3">
-            <div class="mb-2 text-xs text-gray-300 font-medium">💡 保存问题排查:</div>
-            <div class="text-xs text-gray-400 space-y-1">
-              <div>• 确保已完成JWT Token验证</div>
-              <div>• 检查网络连接是否正常</div>
-              <div>• 查看浏览器控制台错误信息</div>
-              <div>• 尝试刷新页面后重新保存</div>
-            </div>
-          </div>
         </div>
       </div>
     </NSpin>

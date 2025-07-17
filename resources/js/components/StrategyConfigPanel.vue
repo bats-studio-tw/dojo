@@ -1,142 +1,146 @@
 <template>
   <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="⚙️ 策略参数配置">
-    <div class="space-y-6">
-      <!-- 策略选择按钮 -->
-      <div class="space-y-4">
-        <div class="text-sm text-gray-300 font-medium">选择策略模式：</div>
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div
-            v-for="strategy in strategyOptions"
-            :key="strategy.key"
-            class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-4 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
-            :class="{
-              'border-blue-400 bg-blue-500/20': selectedStrategyKey === strategy.key
-            }"
-            @click="selectStrategy(strategy.key)"
-          >
-            <div class="mb-2 flex items-center justify-between">
-              <span class="flex items-center text-sm text-white font-medium space-x-2">
-                <span>{{ strategy.icon }}</span>
-                <span>{{ strategy.name }}</span>
-              </span>
-              <n-tag :type="selectedStrategyKey === strategy.key ? 'primary' : 'default'" size="small">
-                {{ strategy.tag }}
-              </n-tag>
+    <NSpin :show="configLoading" :description="configLoading ? '正在加载云端配置...' : ''">
+      <div class="space-y-6">
+        <!-- 策略选择按钮 -->
+        <div class="space-y-4">
+          <div class="text-sm text-gray-300 font-medium">选择策略模式：</div>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div
+              v-for="strategy in strategyOptions"
+              :key="strategy.key"
+              class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-4 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
+              :class="{
+                'border-blue-400 bg-blue-500/20': selectedStrategyKey === strategy.key
+              }"
+              @click="selectStrategy(strategy.key)"
+            >
+              <div class="mb-2 flex items-center justify-between">
+                <span class="flex items-center text-sm text-white font-medium space-x-2">
+                  <span>{{ strategy.icon }}</span>
+                  <span>{{ strategy.name }}</span>
+                </span>
+                <n-tag :type="selectedStrategyKey === strategy.key ? 'primary' : 'default'" size="small">
+                  {{ strategy.tag }}
+                </n-tag>
+              </div>
+              <div class="text-xs text-gray-400">{{ strategy.description }}</div>
             </div>
-            <div class="text-xs text-gray-400">{{ strategy.description }}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 基础配置 -->
-      <div class="border-t border-gray-600 pt-4">
-        <div class="grid grid-cols-1 gap-4">
-          <div class="space-y-2">
-            <NTooltip trigger="hover" placement="top">
-              <template #trigger>
-                <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
-                  <span>下注金额</span>
-                  <span class="text-blue-400">ℹ️</span>
-                </label>
-              </template>
-              每次下注的固定金额，范围在 $200-$2000
-              之间。金额越高收益越大，但风险也相应增加。建议根据个人资金情况合理设置。
-            </NTooltip>
-            <n-input-number
-              v-model:value="localConfig.bet_amount"
-              :min="200"
-              :max="2000"
-              :step="50"
-              :disabled="isRunning"
-              size="small"
-              @update:value="updateConfig"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- 动态条件构建器 -->
-      <div class="border-t border-gray-600 pt-4">
-        <DynamicConditionBuilder
-          v-model="localConfig.dynamic_conditions"
-          :disabled="isRunning"
-          @update:model-value="updateConfig"
-        />
-      </div>
-
-      <!-- 保存按钮 -->
-      <div class="text-center space-y-2">
-        <n-button @click="saveConfig" :disabled="isRunning" :loading="configSaving" type="primary">
-          <template #icon>
-            <span>💾</span>
-          </template>
-          {{ hasUID ? '保存到云端' : '本地保存' }}
-        </n-button>
-
-        <!-- 配置状态显示 -->
-        <div class="text-xs text-gray-400 space-y-1">
-          <div class="flex items-center justify-center gap-2">
-            <span>状态:</span>
-            <span v-if="configSaving" class="text-yellow-400">保存中...</span>
-            <span v-else class="text-green-400">就绪</span>
-          </div>
-          <div class="flex items-center justify-center gap-2">
-            <span>存储:</span>
-            <span v-if="hasUID" class="text-blue-400">云端同步</span>
-            <span v-else class="text-orange-400">仅本地</span>
           </div>
         </div>
 
-        <!-- 调试按钮 -->
-        <div v-if="isDev" class="mt-2">
-          <n-button @click="debugSaveConfig" :disabled="isRunning" type="tertiary" size="small">
+        <!-- 基础配置 -->
+        <div class="border-t border-gray-600 pt-4">
+          <div class="grid grid-cols-1 gap-4">
+            <div class="space-y-2">
+              <NTooltip trigger="hover" placement="top">
+                <template #trigger>
+                  <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
+                    <span>下注金额</span>
+                    <span class="text-blue-400">ℹ️</span>
+                  </label>
+                </template>
+                每次下注的固定金额，范围在 $200-$2000
+                之间。金额越高收益越大，但风险也相应增加。建议根据个人资金情况合理设置。
+              </NTooltip>
+              <n-input-number
+                v-model:value="localConfig.bet_amount"
+                :min="200"
+                :max="2000"
+                :step="50"
+                :disabled="isRunning"
+                size="small"
+                @update:value="updateConfig"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- 动态条件构建器 -->
+        <div class="border-t border-gray-600 pt-4">
+          <DynamicConditionBuilder
+            v-model="localConfig.dynamic_conditions"
+            :disabled="isRunning"
+            @update:model-value="updateConfig"
+          />
+        </div>
+
+        <!-- 保存按钮 -->
+        <div class="text-center space-y-2">
+          <n-button @click="saveConfig" :disabled="isRunning" :loading="configSaving" type="primary">
             <template #icon>
-              <span>🔧</span>
+              <span>💾</span>
             </template>
-            调试保存
+            {{ hasUID ? '保存到云端' : '本地保存' }}
           </n-button>
-        </div>
 
-        <!-- 调试信息显示 -->
-        <div v-if="isDev" class="mt-4 border border-blue-500/30 rounded-lg bg-blue-500/10 p-3">
-          <div class="mb-2 text-xs text-blue-300 font-medium">🔧 调试信息:</div>
-          <div class="text-xs text-blue-400 space-y-1">
-            <div>• hasUID: {{ hasUID }}</div>
-            <div>• configSaving: {{ configSaving }}</div>
-            <div>• isRunning: {{ isRunning }}</div>
-            <div>• JWT Token: {{ localConfig.jwt_token ? '已设置' : '未设置' }}</div>
-            <div>• 动态条件数量: {{ localConfig.dynamic_conditions?.length || 0 }}</div>
-            <div>• 配置大小: {{ JSON.stringify(localConfig).length }} 字符</div>
-            <div>• 当前策略类型: {{ selectedStrategyKey }}</div>
-            <div>• 计算策略类型: {{ computedStrategyType }}</div>
-            <div>• 正在应用预设: {{ isApplyingPreset }}</div>
-            <div v-if="localConfig.dynamic_conditions?.length > 0" class="mt-2">
-              <div class="text-blue-300 font-medium">动态条件详情:</div>
-              <div v-for="(condition, index) in localConfig.dynamic_conditions" :key="condition.id" class="ml-2">
-                <div>条件 {{ index + 1 }}: {{ condition.type }} {{ condition.operator }} {{ condition.value }}</div>
+          <!-- 配置状态显示 -->
+          <div class="text-xs text-gray-400 space-y-1">
+            <div class="flex items-center justify-center gap-2">
+              <span>状态:</span>
+              <span v-if="configSaving" class="text-yellow-400">保存中...</span>
+              <span v-else-if="configLoading" class="text-blue-400">加载中...</span>
+              <span v-else class="text-green-400">就绪</span>
+            </div>
+            <div class="flex items-center justify-center gap-2">
+              <span>存储:</span>
+              <span v-if="hasUID" class="text-blue-400">云端同步</span>
+              <span v-else class="text-orange-400">仅本地</span>
+            </div>
+          </div>
+
+          <!-- 调试按钮 -->
+          <div v-if="isDev" class="mt-2">
+            <n-button @click="debugSaveConfig" :disabled="isRunning" type="tertiary" size="small">
+              <template #icon>
+                <span>🔧</span>
+              </template>
+              调试保存
+            </n-button>
+          </div>
+
+          <!-- 调试信息显示 -->
+          <div v-if="isDev" class="mt-4 border border-blue-500/30 rounded-lg bg-blue-500/10 p-3">
+            <div class="mb-2 text-xs text-blue-300 font-medium">🔧 调试信息:</div>
+            <div class="text-xs text-blue-400 space-y-1">
+              <div>• hasUID: {{ hasUID }}</div>
+              <div>• configSaving: {{ configSaving }}</div>
+              <div>• configLoading: {{ configLoading }}</div>
+              <div>• isRunning: {{ isRunning }}</div>
+              <div>• JWT Token: {{ localConfig.jwt_token ? '已设置' : '未设置' }}</div>
+              <div>• 动态条件数量: {{ localConfig.dynamic_conditions?.length || 0 }}</div>
+              <div>• 配置大小: {{ JSON.stringify(localConfig).length }} 字符</div>
+              <div>• 当前策略类型: {{ selectedStrategyKey }}</div>
+              <div>• 计算策略类型: {{ computedStrategyType }}</div>
+              <div>• 正在应用预设: {{ isApplyingPreset }}</div>
+              <div v-if="localConfig.dynamic_conditions?.length > 0" class="mt-2">
+                <div class="text-blue-300 font-medium">动态条件详情:</div>
+                <div v-for="(condition, index) in localConfig.dynamic_conditions" :key="condition.id" class="ml-2">
+                  <div>条件 {{ index + 1 }}: {{ condition.type }} {{ condition.operator }} {{ condition.value }}</div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- 保存问题帮助 -->
-        <div class="mt-4 border border-gray-600/30 rounded-lg bg-gray-500/10 p-3">
-          <div class="mb-2 text-xs text-gray-300 font-medium">💡 保存问题排查:</div>
-          <div class="text-xs text-gray-400 space-y-1">
-            <div>• 确保已完成JWT Token验证</div>
-            <div>• 检查网络连接是否正常</div>
-            <div>• 查看浏览器控制台错误信息</div>
-            <div>• 尝试刷新页面后重新保存</div>
+          <!-- 保存问题帮助 -->
+          <div class="mt-4 border border-gray-600/30 rounded-lg bg-gray-500/10 p-3">
+            <div class="mb-2 text-xs text-gray-300 font-medium">💡 保存问题排查:</div>
+            <div class="text-xs text-gray-400 space-y-1">
+              <div>• 确保已完成JWT Token验证</div>
+              <div>• 检查网络连接是否正常</div>
+              <div>• 查看浏览器控制台错误信息</div>
+              <div>• 尝试刷新页面后重新保存</div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </NSpin>
   </NCard>
 </template>
 
 <script setup lang="ts">
   import { computed, ref, watch, nextTick } from 'vue';
-  import { NTag, NInputNumber, NTooltip } from 'naive-ui';
+  import { NTag, NInputNumber, NTooltip, NSpin } from 'naive-ui';
   import DynamicConditionBuilder from '@/components/DynamicConditionBuilder.vue';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
 
@@ -145,6 +149,7 @@
     config: AutoBettingConfig;
     isRunning: boolean;
     configSaving: boolean;
+    configLoading: boolean; // 新增：配置加载状态
     hasUID: boolean;
   }
 
@@ -358,22 +363,12 @@
     console.log('📋 当前配置数据:', {
       hasUID: props.hasUID,
       configSaving: props.configSaving,
+      configLoading: props.configLoading,
       isRunning: props.isRunning,
       configKeys: Object.keys(localConfig.value),
       dynamicConditions: localConfig.value.dynamic_conditions,
       configSize: JSON.stringify(localConfig.value).length
     });
-
-    // 检查localStorage
-    try {
-      const savedConfig = localStorage.getItem('autoBettingConfig');
-      console.log('💾 localStorage状态:', {
-        hasSavedConfig: !!savedConfig,
-        savedConfigSize: savedConfig?.length || 0
-      });
-    } catch (error) {
-      console.error('❌ localStorage检查失败:', error);
-    }
 
     // 检查网络连接
     if (navigator.onLine) {
@@ -388,16 +383,9 @@
     // 3秒后检查保存结果
     setTimeout(() => {
       console.log('⏰ 3秒后检查保存结果...');
-      try {
-        const savedConfig = localStorage.getItem('autoBettingConfig');
-        console.log('💾 保存后localStorage状态:', {
-          hasSavedConfig: !!savedConfig,
-          savedConfigSize: savedConfig?.length || 0,
-          configSaving: props.configSaving
-        });
-      } catch (error) {
-        console.error('❌ 保存后检查失败:', error);
-      }
+      console.log('💾 保存状态:', {
+        configSaving: props.configSaving
+      });
     }, 3000);
   };
 </script>

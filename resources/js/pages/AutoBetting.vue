@@ -170,6 +170,7 @@
                   :strategy-name="currentStrategyName"
                   :config="config"
                   :config-saving="configSaving"
+                  :config-loading="configLoading"
                   :config-sync-status="configSyncStatus"
                   :strategy-validation="strategyValidation"
                   :is-running="autoBettingStatus.is_running"
@@ -408,7 +409,8 @@
   // const { reconnectWebSocket } = predictionStore; // 已在下面定义
 
   // 从composables中解构状态和方法
-  const { config, configSaving, configSyncStatus, manualSaveConfig, initializeConfig } = configComposable;
+  const { config, configSaving, configLoading, configSyncStatus, manualSaveConfig, initializeConfig } =
+    configComposable;
 
   const {
     isTokenValidated,

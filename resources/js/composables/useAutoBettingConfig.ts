@@ -41,6 +41,7 @@ export const useAutoBettingConfig = () => {
 
   // 配置状态
   const configSaving = ref(false);
+  const configLoading = ref(false); // 新增：配置加载状态
   const configSyncStatus = ref<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
   // 防抖器
@@ -51,6 +52,7 @@ export const useAutoBettingConfig = () => {
     if (!uid) return false;
 
     try {
+      configLoading.value = true; // 开始加载
       const response = await autoBettingApi.getConfig(uid);
       if (response.data.success) {
         // 只保留必要的字段
@@ -71,6 +73,8 @@ export const useAutoBettingConfig = () => {
       console.error('加载云端配置失败:', error);
       configSyncStatus.value = { type: 'error', message: '网络错误，无法加载云端配置' };
       return false;
+    } finally {
+      configLoading.value = false; // 结束加载
     }
   };
 
@@ -108,41 +112,6 @@ export const useAutoBettingConfig = () => {
     }
   };
 
-  // 从本地存储加载配置
-  const loadConfigFromLocalStorage = () => {
-    try {
-      const savedConfig = localStorage.getItem('autoBettingConfig');
-      if (savedConfig) {
-        const parsedConfig = JSON.parse(savedConfig);
-        // 只保留必要的字段
-        config.jwt_token = parsedConfig.jwt_token || '';
-        config.bet_amount = parsedConfig.bet_amount || 200;
-        config.dynamic_conditions = parsedConfig.dynamic_conditions || optimizedDefaultConfig.dynamic_conditions;
-        config.is_active = parsedConfig.is_active || false;
-        config.uid = parsedConfig.uid || '';
-      }
-    } catch (error) {
-      console.error('加载本地配置失败:', error);
-    }
-  };
-
-  // 保存配置到本地存储
-  const saveConfigToLocalStorage = () => {
-    try {
-      // 只保存必要的字段
-      const configToSave = {
-        jwt_token: config.jwt_token,
-        bet_amount: config.bet_amount,
-        dynamic_conditions: config.dynamic_conditions,
-        is_active: config.is_active,
-        uid: config.uid
-      };
-      localStorage.setItem('autoBettingConfig', JSON.stringify(configToSave));
-    } catch (error) {
-      console.error('保存本地配置失败:', error);
-    }
-  };
-
   // 自动保存配置（防抖）
   const autoSaveConfig = (uid?: string) => {
     if (saveConfigTimeout) {
@@ -150,7 +119,6 @@ export const useAutoBettingConfig = () => {
     }
 
     saveConfigTimeout = setTimeout(async () => {
-      saveConfigToLocalStorage();
       if (uid) {
         await saveConfigToCloud(uid);
       }
@@ -159,7 +127,6 @@ export const useAutoBettingConfig = () => {
 
   // 手动保存配置
   const manualSaveConfig = async (uid?: string) => {
-    saveConfigToLocalStorage();
     if (uid) {
       return await saveConfigToCloud(uid);
     }
@@ -204,7 +171,6 @@ export const useAutoBettingConfig = () => {
       uid: config.uid, // 保留UID
       ...optimizedDefaultConfig
     });
-    saveConfigToLocalStorage();
   };
 
   // 重置所有配置
@@ -214,12 +180,10 @@ export const useAutoBettingConfig = () => {
       uid: '',
       ...optimizedDefaultConfig
     });
-    saveConfigToLocalStorage();
   };
 
   // 初始化配置
   const initializeConfig = async (uid?: string) => {
-    loadConfigFromLocalStorage();
     if (uid) {
       await loadConfigFromCloud(uid);
     }
@@ -229,14 +193,13 @@ export const useAutoBettingConfig = () => {
     // 状态
     config,
     configSaving,
+    configLoading, // 新增：配置加载状态
     configSyncStatus,
     optimizedDefaultConfig,
 
     // 方法
     loadConfigFromCloud,
     saveConfigToCloud,
-    loadConfigFromLocalStorage,
-    saveConfigToLocalStorage,
     autoSaveConfig,
     manualSaveConfig,
     initializeConfig,

@@ -90,12 +90,18 @@
           </div>
 
           <!-- 调试按钮 -->
-          <div v-if="isDev" class="mt-2">
+          <div v-if="isDev" class="mt-2 space-x-2">
             <n-button @click="debugSaveConfig" :disabled="isRunning" type="tertiary" size="small">
               <template #icon>
                 <span>🔧</span>
               </template>
               调试保存
+            </n-button>
+            <n-button @click="testConditionMatching" :disabled="isRunning" type="tertiary" size="small">
+              <template #icon>
+                <span>🧪</span>
+              </template>
+              测试条件
             </n-button>
           </div>
 
@@ -117,6 +123,33 @@
                 <div class="text-blue-300 font-medium">动态条件详情:</div>
                 <div v-for="(condition, index) in localConfig.dynamic_conditions" :key="condition.id" class="ml-2">
                   <div>条件 {{ index + 1 }}: {{ condition.type }} {{ condition.operator }} {{ condition.value }}</div>
+                </div>
+              </div>
+              <!-- 新增：条件匹配测试 -->
+              <div class="mt-2">
+                <div class="text-blue-300 font-medium">条件匹配测试:</div>
+                <div class="ml-2 text-xs">
+                  <div>测试Token: SUI (置信度: 86%, 排名: #1)</div>
+                  <div v-for="(condition, index) in localConfig.dynamic_conditions" :key="condition.id" class="ml-2">
+                    <div>
+                      条件{{ index + 1 }} ({{ condition.type }} {{ condition.operator }} {{ condition.value }}):
+                      <span
+                        v-if="condition.type === 'h2h_rank' && condition.operator === 'lte' && condition.value >= 1"
+                        class="text-green-400"
+                      >
+                        ✅ 通过
+                      </span>
+                      <span
+                        v-else-if="
+                          condition.type === 'confidence' && condition.operator === 'gte' && condition.value <= 86
+                        "
+                        class="text-green-400"
+                      >
+                        ✅ 通过
+                      </span>
+                      <span v-else class="text-red-400">❌ 不通过</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -143,6 +176,7 @@
   import { NTag, NInputNumber, NTooltip, NSpin } from 'naive-ui';
   import DynamicConditionBuilder from '@/components/DynamicConditionBuilder.vue';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
+  import { useConditionBuilder } from '@/composables/useConditionBuilder';
 
   // Props
   interface Props {
@@ -154,6 +188,9 @@
   }
 
   const props = defineProps<Props>();
+
+  // 使用条件构建器
+  const { generateId } = useConditionBuilder();
 
   // Emits
   const emit = defineEmits<{
@@ -266,28 +303,28 @@
     // 设置实战模式的动态条件：基础且宽松的条件，确保有足够的下注机会
     localConfig.value.dynamic_conditions = [
       {
-        id: `condition_${Date.now()}_confidence`,
+        id: generateId(),
         type: 'confidence',
         operator: 'gte',
         value: 70,
         logic: 'and'
       },
       {
-        id: `condition_${Date.now()}_score_gap`,
+        id: generateId(),
         type: 'score_gap',
         operator: 'gte',
         value: 50,
         logic: 'and'
       },
       {
-        id: `condition_${Date.now()}_sample_count`,
+        id: generateId(),
         type: 'sample_count',
         operator: 'gte',
         value: 8,
         logic: 'and'
       },
       {
-        id: `condition_${Date.now()}_historical_accuracy`,
+        id: generateId(),
         type: 'historical_accuracy',
         operator: 'gte',
         value: 20,
@@ -306,7 +343,7 @@
     // 设置动态条件：AI预测排名 <= 3
     localConfig.value.dynamic_conditions = [
       {
-        id: `condition_${Date.now()}_ranking`,
+        id: generateId(),
         type: 'h2h_rank',
         operator: 'lte',
         value: 3,
@@ -387,5 +424,80 @@
         configSaving: props.configSaving
       });
     }, 3000);
+  };
+
+  // 🔧 新增：条件匹配测试函数
+  const testConditionMatching = () => {
+    console.log('🧪 [StrategyConfigPanel] 开始条件匹配测试...');
+
+    // 模拟测试Token数据
+    const testToken = {
+      symbol: 'SUI',
+      rank_confidence: 86.3,
+      predicted_rank: 1,
+      predicted_final_value: 76.5,
+      total_games: 12,
+      win_rate: 0.167, // 16.7%
+      top3_rate: 0.833, // 83.3%
+      absolute_score: 84.5,
+      relative_score: 66.7
+    };
+
+    console.log('📊 测试Token数据:', testToken);
+
+    // 测试每个条件
+    if (localConfig.value.dynamic_conditions && localConfig.value.dynamic_conditions.length > 0) {
+      localConfig.value.dynamic_conditions.forEach((condition, index) => {
+        let tokenValue = 0;
+        let conditionResult = false;
+
+        // 根据条件类型获取Token值
+        switch (condition.type) {
+          case 'confidence':
+            tokenValue = testToken.rank_confidence || 0;
+            break;
+          case 'h2h_rank':
+            tokenValue = testToken.predicted_rank || 999;
+            break;
+          case 'score_gap':
+            tokenValue = testToken.predicted_final_value || 0;
+            break;
+          case 'sample_count':
+            tokenValue = testToken.total_games || 0;
+            break;
+          case 'historical_accuracy':
+            tokenValue = (testToken.win_rate || 0) * 100;
+            break;
+          default:
+            tokenValue = 0;
+        }
+
+        // 评估条件
+        switch (condition.operator) {
+          case 'gte':
+            conditionResult = tokenValue >= condition.value;
+            break;
+          case 'lte':
+            conditionResult = tokenValue <= condition.value;
+            break;
+          case 'eq':
+            conditionResult = Math.abs(tokenValue - condition.value) < 0.001;
+            break;
+          case 'ne':
+            conditionResult = Math.abs(tokenValue - condition.value) >= 0.001;
+            break;
+          default:
+            conditionResult = true;
+        }
+
+        console.log(`条件${index + 1} (${condition.type} ${condition.operator} ${condition.value}):`, {
+          tokenValue,
+          conditionResult: conditionResult ? '✅ 通过' : '❌ 不通过',
+          details: `${tokenValue} ${condition.operator} ${condition.value}`
+        });
+      });
+    } else {
+      console.log('⚠️ 没有配置动态条件');
+    }
   };
 </script>

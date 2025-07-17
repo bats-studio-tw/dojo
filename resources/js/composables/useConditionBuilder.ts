@@ -26,6 +26,16 @@ export const conditionTypes = {
     placeholder: '60',
     description: '预测分数的最低要求，分数越高表示该Token在预测中表现越突出'
   },
+  score_gap: {
+    label: '分数差距',
+    unit: '',
+    min: 0,
+    max: 100,
+    step: 1,
+    precision: 1,
+    placeholder: '50',
+    description: '预测分数与基准线的差距，数值越高表示优势越明显'
+  },
   sample_count: {
     label: '最少样本数',
     unit: '',
@@ -35,6 +45,16 @@ export const conditionTypes = {
     precision: 0,
     placeholder: '10',
     description: '预测所需的最少历史数据量，样本数越多预测结果越可靠'
+  },
+  historical_accuracy: {
+    label: '历史准确率',
+    unit: '%',
+    min: 0,
+    max: 100,
+    step: 1,
+    precision: 1,
+    placeholder: '20',
+    description: '该Token在历史预测中的准确率，数值越高表示过往预测越准确'
   },
   win_rate: {
     label: '胜率',
@@ -294,8 +314,12 @@ export const useConditionBuilder = () => {
         return token.rank_confidence || token.confidence || 0;
       case 'score':
         return token.predicted_final_value || token.score || 0;
+      case 'score_gap':
+        return token.predicted_final_value || token.score || 0; // 使用相同的分数字段
       case 'sample_count':
         return token.total_games || token.sample_count || 0;
+      case 'historical_accuracy':
+        return (token.win_rate || 0) * 100; // 转换为百分比，使用胜率作为历史准确率
       case 'win_rate':
         return (token.win_rate || 0) * 100; // 转换为百分比
       case 'top3_rate':

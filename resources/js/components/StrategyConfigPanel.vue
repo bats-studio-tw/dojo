@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref, watch } from 'vue';
+  import { computed, ref, watch, nextTick } from 'vue';
   import { NTag, NInputNumber, NTooltip } from 'naive-ui';
   import DynamicConditionBuilder from '@/components/DynamicConditionBuilder.vue';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
@@ -146,11 +146,20 @@
     return 'realistic';
   });
 
+  // [新增] 一个标志位，用于标识我们正在主动应用一个预设
+  const isApplyingPreset = ref(false);
+
   // 使用 ref 作为用户选择的"唯一真实来源"
   const selectedStrategyKey = ref(computedStrategyType.value);
 
-  // 监听配置变化，如果变化导致模式变为自定义，则自动更新我们的 ref
+  // [修改] 调整 watch 逻辑，增加对标志位的判断
   watch(computedStrategyType, (newType) => {
+    // 如果我们正在程序性地应用一个预设，就暂时不要让 watch 生效
+    // 这是为了防止子组件 v-model 可能引发的更新循环
+    if (isApplyingPreset.value) {
+      return;
+    }
+
     // 只有当计算出的类型和用户当前选择不一致时才更新
     // 主要是为了处理"变成custom"的场景
     if (selectedStrategyKey.value !== newType) {
@@ -241,12 +250,17 @@
     emit('update:config', newConfig);
   };
 
-  // 选择策略 (核心修改)
+  // [修改] 调整 selectStrategy 逻辑，使用标志位
   const selectStrategy = (strategyKey: string) => {
-    // 1. 直接更新我们的"意图"状态
+    // 如果点击的是当前已选中的，则不执行任何操作
+    if (selectedStrategyKey.value === strategyKey) return;
+
+    // 1. 设置标志位为 true，表示开始应用预设
+    isApplyingPreset.value = true;
+    // 2. 更新我们的"意图"状态
     selectedStrategyKey.value = strategyKey;
 
-    // 2. 根据意图应用配置
+    // 3. 根据意图应用配置
     switch (strategyKey) {
       case 'realistic':
         applyRealisticStrategy();
@@ -255,9 +269,15 @@
         applySmartRankingStrategy();
         break;
       case 'custom':
-        // 切换到自定义模式，不清空现有配置，什么都不用做
+        // 切换到自定义模式，不清空现有配置
         break;
     }
+
+    // 4. 使用 nextTick，在 DOM 更新循环之后，将标志位重置为 false
+    // 此时，所有数据和组件状态已经稳定下来
+    nextTick(() => {
+      isApplyingPreset.value = false;
+    });
   };
 
   // 保存配置

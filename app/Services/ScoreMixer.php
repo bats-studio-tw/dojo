@@ -14,6 +14,19 @@ class ScoreMixer
      */
     public function mix(array $eloProb, ?array $momScore = null): array
     {
+        // 使用默認參數調用 mixWithParams
+        return $this->mixWithParams($eloProb, $momScore, []);
+    }
+
+    /**
+     * 使用自定義參數混合 Elo 機率和動能分數
+     * @param array $eloProb [symbol => 0-1 機率]
+     * @param ?array $momScore [symbol => 0-100 動能分數]
+     * @param array $params 自定義參數 ['elo_weight' => 0.6, 'momentum_weight' => 0.4, ...]
+     * @return array 包含預測結果的陣列
+     */
+    public function mixWithParams(array $eloProb, ?array $momScore = null, array $params = []): array
+    {
         if (empty($eloProb)) {
             Log::warning('Elo 機率數據為空，無法進行分數混合');
 
@@ -24,9 +37,9 @@ class ScoreMixer
             // 檢查動能分數是否有效，用於決定權重
             $momOk = $momScore && count(array_filter($momScore, fn ($v) => $v !== null && is_numeric($v)));
 
-            // 從配置中獲取權重，如果動能無效則 wElo=1, wMom=0 (自動降級)
-            $wElo = $momOk ? config('prediction.w_elo', 0.65) : 1.0;
-            $wMom = $momOk ? (1 - $wElo) : 0.0;
+            // 從參數或配置中獲取權重
+            $wElo = $params['elo_weight'] ?? ($momOk ? config('prediction.w_elo', 0.65) : 1.0);
+            $wMom = $params['momentum_weight'] ?? ($momOk ? (1 - $wElo) : 0.0);
 
             Log::info('分數混合開始', [
                 'elo_symbols' => array_keys($eloProb),

@@ -26,6 +26,31 @@ class GamePredictionService
     ) {
     }
 
+    /**
+     * 从快取中获取当前线上的活跃策略参数。
+     * 如果快取不存在，则从数据库读取、写入快取、然后返回。
+     */
+    private function getActiveStrategyParameters(): array
+    {
+        return Cache::rememberForever(config('backtest.cache_key'), function () {
+            // Log::info("CACHE MISS: Reading prediction strategy from DATABASE.");
+
+            $strategy = \App\Models\PredictionStrategy::where('status', 'active')->latest('activated_at')->first();
+
+            if ($strategy) {
+                return $strategy->getParameters();
+            }
+
+            // 如果数据库中没有 active 策略，返回一个安全的默认值
+            return [
+                'elo_weight' => 0.65,
+                'momentum_weight' => 0.35,
+                'h2h_min_games_threshold' => 5,
+                'enhanced_stability_penalty' => 0.25,
+            ];
+        });
+    }
+
     //================== 核心參數配置 ==================
 
     // --- 基礎配置 ---
@@ -34,7 +59,6 @@ class GamePredictionService
     public const API_DELAY_MICROSECONDS = 200000;        // API調用間隔（微秒，0.2秒）
 
     // --- H2H 演算法核心權重與閾值 ---
-    public const H2H_MIN_GAMES_THRESHOLD = 5;            // H2H 有效對戰的最低局數門檻
     public const H2H_DEFAULT_SCORE = 50;                 // 無法計算H2H分數時的基礎分（通常會被智能回退覆蓋）
     public const MIN_H2H_COVERAGE_WEIGHT = 0.15;         // H2H數據覆蓋率貢獻的最低權重（優化：從0.2降低到0.15）
     public const MAX_H2H_COVERAGE_WEIGHT = 0.45;         // H2H數據覆蓋率貢獻的最高權重（優化：從0.6降低到0.45）
@@ -44,7 +68,7 @@ class GamePredictionService
     public const H2H_LOW_COVERAGE_PENALTY = 0.8;         // 低覆蓋率懲罰係數：對不可靠的H2H權重進行折扣
 
     // --- 風險控制與市場影響 ---
-    public const ENHANCED_STABILITY_PENALTY = 1.5;       // 基礎波動性懲罰因子
+    // 注意：以下参数现在从动态策略中获取，而不是使用常量
     public const STABILITY_THRESHOLD_MULTIPLIER = 1.3;   // 識別為「高風險」的波動性倍數閾值
     public const HIGH_RISK_PENALTY_FACTOR = 0.90;        // 對「高風險」代幣的額外懲罰係數 (乘以0.9)
     public const MARKET_ADJUSTMENT_WEIGHT = 0.2;         // 市場動量分數的影響權重
@@ -379,6 +403,9 @@ class GamePredictionService
     private function calculateHeadToHeadScores(array &$tokenStats): void
     {
         $currentTokenSymbols = array_keys($tokenStats);
+        $strategyParams = $this->getActiveStrategyParameters();
+        $h2hMinGamesThreshold = $strategyParams['h2h_min_games_threshold'] ?? 5;
+
         foreach ($tokenStats as $symbol => &$stats) {
             $totalWinRate = 0;
             $validOpponentCount = 0;
@@ -388,7 +415,7 @@ class GamePredictionService
                     continue;
                 }
                 $h2hData = $stats['h2h_stats'][$opponent] ?? null;
-                if ($h2hData && $h2hData['games'] >= self::H2H_MIN_GAMES_THRESHOLD) {
+                if ($h2hData && $h2hData['games'] >= $h2hMinGamesThreshold) {
                     $totalWinRate += $h2hData['wins'] / $h2hData['games'];
                     $validOpponentCount++;
                 }
@@ -414,6 +441,8 @@ class GamePredictionService
         $validH2HPairs = 0;
         $tokens = array_keys($tokenStats);
         $tokenCount = count($tokens);
+        $strategyParams = $this->getActiveStrategyParameters();
+        $h2hMinGamesThreshold = $strategyParams['h2h_min_games_threshold'] ?? 5;
 
         if ($tokenCount < 2) {
             return 0;
@@ -424,7 +453,7 @@ class GamePredictionService
                 $totalPossiblePairs++;
                 $h2hDataA = $tokenStats[$tokens[$i]]['h2h_stats'][$tokens[$j]] ?? null;
                 $h2hDataB = $tokenStats[$tokens[$j]]['h2h_stats'][$tokens[$i]] ?? null;
-                if ($h2hDataA && $h2hDataB && $h2hDataA['games'] >= self::H2H_MIN_GAMES_THRESHOLD && $h2hDataB['games'] >= self::H2H_MIN_GAMES_THRESHOLD) {
+                if ($h2hDataA && $h2hDataB && $h2hDataA['games'] >= $h2hMinGamesThreshold && $h2hDataB['games'] >= $h2hMinGamesThreshold) {
                     $validH2HPairs++;
                 }
             }
@@ -576,7 +605,9 @@ class GamePredictionService
             $riskAdjustedScore = $predictedValue - $riskFactor;
         } else {
             // 如果無法計算平均波動，使用原有的基礎懲罰
-            $riskAdjustedScore = $predictedValue / (1 + ($valueStddev * self::ENHANCED_STABILITY_PENALTY));
+            $strategyParams = $this->getActiveStrategyParameters();
+            $enhancedStabilityPenalty = $strategyParams['enhanced_stability_penalty'] ?? 1.5;
+            $riskAdjustedScore = $predictedValue / (1 + ($valueStddev * $enhancedStabilityPenalty));
         }
 
         // 高風險額外懲罰

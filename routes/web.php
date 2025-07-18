@@ -25,7 +25,7 @@ Route::get('/', function () {
     return Inertia::render('AutoBetting');
 })->name('dashboard');
 
-// 预测系统页面路由 - 已移除，功能整合到主Dashboard
+// 预测系统页面路由 - 已移除，功能整合到主AutoBetting页面
 
 
 

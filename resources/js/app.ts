@@ -27,7 +27,7 @@ const meta = document.createElement('meta');
 meta.name = 'naive-ui-style';
 document.head.appendChild(meta);
 
-const appName = import.meta.env.VITE_APP_NAME || 'DojoDashboard';
+const appName = import.meta.env.VITE_APP_NAME || 'Dojo AutoBetting';
 
 // Create i18n instance
 const i18n = createI18n({

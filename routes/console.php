@@ -212,7 +212,7 @@ Schedule::command('momentum:calculate --realtime')
     });
 
 // 批量动能计算 - 每5分钟兜底
-Schedule::command('momentum:calculate --batch')
+Schedule::command('momentum:calculate')
     ->name('momentum-batch-5min')
     ->everyFiveMinutes()
     ->withoutOverlapping()
@@ -293,7 +293,7 @@ Schedule::call(function () {
 // ==================== 系统维护排程 ====================
 
 // 清理回测结果 - 保留更多数据
-Schedule::command('backtest:cleanup --days=10 --force --keep-best=100')
+Schedule::command('backtest:cleanup --days=10 --force')
     ->name('weekly-backtest-cleanup')
     ->weekly()
     ->sundays()

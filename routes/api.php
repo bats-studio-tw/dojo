@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\ABTestingController;
 use App\Http\Controllers\AutoBettingController;
 use App\Http\Controllers\PredictionController;
 use Illuminate\Http\Request;
@@ -65,15 +64,7 @@ Route::prefix('auto-betting')->group(function () {
     Route::post('/config', [AutoBettingController::class, 'saveConfig'])->name('api.auto-betting.config.save');
 });
 
-// A/B測試API路由組
-Route::prefix('ab-testing')->group(function () {
-    Route::post('/start', [ABTestingController::class, 'startABTest'])->name('api.ab-testing.start');
-    Route::get('/list', [ABTestingController::class, 'listABTests'])->name('api.ab-testing.list');
-    Route::post('/report', [ABTestingController::class, 'getABTestReport'])->name('api.ab-testing.report');
-    Route::post('/stop', [ABTestingController::class, 'stopABTest'])->name('api.ab-testing.stop');
-    Route::get('/active', [ABTestingController::class, 'getActiveABTests'])->name('api.ab-testing.active');
-    Route::get('/detail', [ABTestingController::class, 'getABTestDetail'])->name('api.ab-testing.detail');
-});
+
 
 // 已移除的旧API路由 - 统一返回404错误
 Route::fallback(function () {
@@ -84,8 +75,7 @@ Route::fallback(function () {
             '/api/v2/predictions',
             '/api/v2/strategies',
             '/api/v2/analysis',
-            '/api/auto-betting',
-            '/api/ab-testing'
+            '/api/auto-betting'
         ],
         'code' => 404
     ], 404);

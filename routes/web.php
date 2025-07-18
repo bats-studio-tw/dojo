@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\ABTestingController;
 use App\Http\Controllers\AutoBettingController;
 use App\Http\Controllers\PredictionController;
 use App\Http\Controllers\ProfileController;
@@ -30,9 +29,7 @@ Route::get('/', function () {
 
 
 
-Route::get('/ab-testing-dashboard', function () {
-    return Inertia::render('ABTestingDashboard');
-})->name('ab-testing-dashboard');
+
 
 
 

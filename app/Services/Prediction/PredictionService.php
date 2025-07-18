@@ -138,18 +138,5 @@ class PredictionService
         }
     }
 
-    /**
-     * 为回测执行预测（不广播事件）
-     *
-     * @param array $symbols 代币符号数组
-     * @param int $timestamp 时间戳
-     * @param array $history 历史数据
-     * @param int $gameRoundId 游戏回合ID
-     * @return array 预测结果
-     */
-    public function predictForBacktest(array $symbols, int $timestamp, array $history, int $gameRoundId): array
-    {
-        // 回测时不广播事件，避免干扰
-        return $this->predict($symbols, $timestamp, $history, $gameRoundId);
-    }
+
 }

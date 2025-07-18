@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Prediction\BacktestService;
 use App\Services\Prediction\PredictionServiceFactory;
 use Illuminate\Console\Command;
 
@@ -63,34 +62,10 @@ class TestPredictionSystem extends Command
                 $this->warn("预测结果为空");
             }
 
-            // 4. 测试回测服务
-            $this->info("\n4. 测试回测服务...");
-            $backtestService = new BacktestService($predictionService);
 
-            // 创建模拟历史数据
-            $mockRounds = [];
-            for ($i = 1; $i <= 5; $i++) {
-                $mockRounds[] = [
-                    'id' => $i,
-                    'symbols' => $symbols,
-                    'timestamp' => time() - ($i * 3600),
-                    'history' => [],
-                ];
-            }
 
-            $backtestReport = $backtestService->runBacktest($mockRounds, [
-                'strategy' => $strategy,
-            ]);
-
-            $this->info("回测完成，指标:");
-            $this->line("  胜率: " . round($backtestReport['win_rate'] * 100, 2) . "%");
-            $this->line("  盈亏率: " . round($backtestReport['profit_rate'], 4));
-            $this->line("  夏普比率: " . round($backtestReport['sharpe_ratio'], 4));
-            $this->line("  最大回撤: " . round($backtestReport['max_drawdown'], 4));
-            $this->line("  总回合数: " . $backtestReport['total_rounds']);
-
-            // 5. 测试数据库记录
-            $this->info("\n5. 检查数据库记录...");
+            // 4. 测试数据库记录
+            $this->info("\n4. 检查数据库记录...");
             $predictionResults = \App\Models\PredictionResult::where('game_round_id', 999)->get();
             $this->info("数据库记录数: " . $predictionResults->count());
 

@@ -28,9 +28,7 @@ Route::get('/', function () {
 
 // 预测系统页面路由 - 已移除，功能整合到主Dashboard
 
-Route::get('/backtest-dashboard', function () {
-    return Inertia::render('BacktestDashboard');
-})->name('backtest-dashboard');
+
 
 Route::get('/ab-testing-dashboard', function () {
     return Inertia::render('ABTestingDashboard');

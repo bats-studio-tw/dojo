@@ -8,18 +8,6 @@
         <div class="mb-6 flex items-center justify-between">
           <h1 class="text-2xl text-white font-bold">📊 数据分析面板</h1>
           <div class="flex space-x-3">
-            <!-- 回測中心入口 -->
-            <NButton
-              type="primary"
-              size="small"
-              ghost
-              @click="$inertia.visit('/backtest')"
-              class="flex items-center space-x-1"
-            >
-              <span>📈</span>
-              <span>回測中心</span>
-            </NButton>
-
             <!-- 调试按钮 -->
             <NButton type="info" size="small" ghost @click="debugDataFlow" class="flex items-center space-x-1">
               <span>🐛</span>
@@ -387,7 +375,8 @@
   const fetchHistoryData = async () => {
     historyLoading.value = true;
     try {
-      const response = await api.get('/v2/backtest/historical-rounds');
+      // 使用游戏历史数据API，而不是回测API
+      const response = await api.get('/v2/analysis/game-history');
       if (response.data.success) {
         historyData.value = response.data.data;
       } else {

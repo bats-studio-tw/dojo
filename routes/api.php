@@ -35,13 +35,7 @@ Route::prefix('v2')->group(function () {
     Route::get('/strategies', [PredictionController::class, 'listStrategies'])->name('api.v2.strategies.list');
     Route::get('/strategies/performance', [PredictionController::class, 'getStrategyPerformance'])->name('api.v2.strategies.performance');
 
-    // 回测相关API
-    Route::post('/backtest', [PredictionController::class, 'runBacktest'])->name('api.v2.backtest.run');
-    Route::post('/backtest/async', [PredictionController::class, 'asyncBacktest'])->name('api.v2.backtest.async');
-    Route::post('/backtest/grid-search', [PredictionController::class, 'gridSearchBacktest'])->name('api.v2.backtest.grid-search');
-    Route::post('/backtest/batch-status', [PredictionController::class, 'getBacktestBatchStatus'])->name('api.v2.backtest.batch-status');
-    Route::post('/backtest/report-detail', [PredictionController::class, 'getBacktestReportDetail'])->name('api.v2.backtest.report-detail');
-    Route::get('/backtest/historical-rounds', [PredictionController::class, 'getHistoricalRounds'])->name('api.v2.backtest.historical-rounds');
+
 
     // 分析相关API
     Route::get('/analysis/accuracy', [PredictionController::class, 'getOverallAccuracy'])->name('api.v2.analysis.accuracy');
@@ -89,7 +83,6 @@ Route::fallback(function () {
         'available_endpoints' => [
             '/api/v2/predictions',
             '/api/v2/strategies',
-            '/api/v2/backtest',
             '/api/v2/analysis',
             '/api/auto-betting',
             '/api/ab-testing'

@@ -146,38 +146,7 @@ return [
         'dexscreener' => \App\Services\Prediction\Providers\DexScreenerProvider::class,
     ],
 
-    // 回测配置
-    'backtest' => [
-        'default_rounds' => 100,
-        'max_rounds' => 1000,
-        'min_rounds' => 10,
-        'performance_metrics' => [
-            'win_rate',
-            'profit_rate',
-            'sharpe_ratio',
-            'max_drawdown',
-            'max_profit',
-            'max_loss',
-            'avg_profit_loss_ratio',
-        ],
-    ],
 
-    // 网格搜索配置
-    'grid_search' => [
-        'weight_combinations' => [
-            ['elo' => 0.7, 'momentum' => 0.3],
-            ['elo' => 0.5, 'momentum' => 0.5],
-            ['elo' => 0.3, 'momentum' => 0.7],
-            ['elo' => 0.8, 'momentum' => 0.2],
-            ['elo' => 0.2, 'momentum' => 0.8],
-        ],
-        'normalization_combinations' => [
-            ['elo' => 'z-score', 'momentum' => 'min-max'],
-            ['elo' => 'min-max', 'momentum' => 'z-score'],
-            ['elo' => 'z-score', 'momentum' => 'z-score'],
-            ['elo' => 'min-max', 'momentum' => 'min-max'],
-        ],
-    ],
 
     // 缓存配置
     'cache' => [

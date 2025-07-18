@@ -1,7 +1,11 @@
 <?php
 
 use Log;
+use App\Models\GameRound;
+use App\Jobs\FetchTokenPricesJob;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Inspiring;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
@@ -32,21 +36,21 @@ Schedule::command('backtest:run --games=120 --queue --run-id=ultra-fast')
     ->runInBackground()
     ->before(function () {
         // 检查市场波动性，高波动时优先执行
-        $recentRounds = \App\Models\GameRound::latest()->limit(60)->count();
+        $recentRounds = GameRound::latest()->limit(60)->count();
         if ($recentRounds < 100) {
-            \Log::info('数据积累不足，跳过超快速回测', ['recent_rounds' => $recentRounds]);
+            Log::info('数据积累不足，跳过超快速回测', ['recent_rounds' => $recentRounds]);
             return false;
         }
 
         $queueSize = \Illuminate\Support\Facades\Queue::size('backtesting');
         if ($queueSize > 5) {
-            \Log::warning('回测队列积压，跳过超快速回测', ['queue_size' => $queueSize]);
+            Log::warning('回测队列积压，跳过超快速回测', ['queue_size' => $queueSize]);
             return false;
         }
-        \Log::info('开始执行超快速回测（2小时间隔）');
+        Log::info('开始执行超快速回测（2小时间隔）');
     })
     ->after(function () {
-        \Log::info('超快速回测完成');
+        Log::info('超快速回测完成');
     });
 
 // 快速回测 - 每4小时执行（标准优化）
@@ -57,15 +61,15 @@ Schedule::command('backtest:run --games=240 --queue --run-id=fast')
     ->onOneServer()
     ->runInBackground()
     ->before(function () {
-        $queueSize = \Illuminate\Support\Facades\Queue::size('backtesting');
+        $queueSize = Queue::size('backtesting');
         if ($queueSize > 8) {
-            \Log::warning('回测队列积压，跳过快速回测', ['queue_size' => $queueSize]);
+            Log::warning('回测队列积压，跳过快速回测', ['queue_size' => $queueSize]);
             return false;
         }
-        \Log::info('开始执行快速回测（4小时间隔）');
+        Log::info('开始执行快速回测（4小时间隔）');
     })
     ->after(function () {
-        \Log::info('快速回测完成');
+        Log::info('快速回测完成');
 
         // 自动触发快速策略评估
         \Artisan::call('strategy:promote-best', [
@@ -82,10 +86,10 @@ Schedule::command('backtest:run --games=480 --queue --run-id=standard')
     ->onOneServer()
     ->runInBackground()
     ->before(function () {
-        \Log::info('开始执行标准回测（8小时间隔）');
+        Log::info('开始执行标准回测（8小时间隔）');
     })
     ->after(function () {
-        \Log::info('标准回测完成');
+        Log::info('标准回测完成');
     });
 
 // 全面回测 - 每日执行（完整验证）
@@ -96,10 +100,10 @@ Schedule::command('backtest:run --games=1200 --queue --run-id=comprehensive')
     ->onOneServer()
     ->runInBackground()
     ->before(function () {
-        \Log::info('开始执行全面回测（每日）');
+        Log::info('开始执行全面回测（每日）');
     })
     ->after(function () {
-        \Log::info('全面回测完成');
+        Log::info('全面回测完成');
 
         // 触发严格策略晋升
         \Artisan::call('strategy:promote-best', ['--min-score' => 60]);
@@ -115,31 +119,31 @@ Schedule::command('strategy:promote-best --min-score=48 --force-quick')
     ->onOneServer()
     ->runInBackground()
     ->before(function () {
-        \Log::info('开始执行实时策略晋升（3小时间隔）');
+        Log::info('开始执行实时策略晋升（3小时间隔）');
 
         // 检查最新回测结果
         $latestBacktest = \App\Models\BacktestResult::latest('created_at')->first();
         if (!$latestBacktest || $latestBacktest->created_at->diffInHours(now()) > 4) {
-            \Log::warning('没有找到最近4小时内的回测结果，跳过实时策略晋升');
+            Log::warning('没有找到最近4小时内的回测结果，跳过实时策略晋升');
             return false;
         }
 
         // 检查市场活跃度（如果最近1小时游戏数少于50局，可能是市场不活跃）
         $recentGames = \App\Models\GameRound::where('created_at', '>=', now()->subHour())->count();
         if ($recentGames < 30) {
-            \Log::info('市场活跃度较低，跳过实时策略晋升', ['recent_games' => $recentGames]);
+            Log::info('市场活跃度较低，跳过实时策略晋升', ['recent_games' => $recentGames]);
             return false;
         }
 
         // 放宽冷却期限制（加密货币市场变化快）
         $currentStrategy = \App\Models\PredictionStrategy::where('status', 'active')->first();
         if ($currentStrategy && $currentStrategy->activated_at->diffInHours(now()) < 2) {
-            \Log::info('当前策略激活时间不足2小时，跳过本次晋升检查');
+            Log::info('当前策略激活时间不足2小时，跳过本次晋升检查');
             return false;
         }
     })
     ->after(function () {
-        \Log::info('实时策略晋升完成');
+        Log::info('实时策略晋升完成');
     });
 
 // 快速策略晋升 - 每6小时执行（平衡验证）
@@ -150,16 +154,16 @@ Schedule::command('strategy:promote-best --min-score=52')
     ->onOneServer()
     ->runInBackground()
     ->before(function () {
-        \Log::info('开始执行快速策略晋升（6小时间隔）');
+        Log::info('开始执行快速策略晋升（6小时间隔）');
 
         $latestBacktest = \App\Models\BacktestResult::latest('created_at')->first();
         if (!$latestBacktest || $latestBacktest->created_at->diffInHours(now()) > 6) {
-            \Log::warning('没有找到最近6小时内的回测结果，跳过快速策略晋升');
+            Log::warning('没有找到最近6小时内的回测结果，跳过快速策略晋升');
             return false;
         }
     })
     ->after(function () {
-        \Log::info('快速策略晋升完成');
+        Log::info('快速策略晋升完成');
     });
 
 // 标准策略晋升 - 每12小时执行（稳定验证）
@@ -170,27 +174,27 @@ Schedule::command('strategy:promote-best --min-score=58')
     ->onOneServer()
     ->runInBackground()
     ->before(function () {
-        \Log::info('开始执行标准策略晋升（12小时间隔）');
+        Log::info('开始执行标准策略晋升（12小时间隔）');
     })
     ->after(function () {
-        \Log::info('标准策略晋升完成');
+        Log::info('标准策略晋升完成');
     });
 
 // ==================== 高频数据更新排程 ====================
 
 // 代币价格更新 - 每分钟执行（保持原频率）
 Schedule::call(function () {
-    \App\Jobs\FetchTokenPricesJob::dispatch()->onQueue('default');
+    FetchTokenPricesJob::dispatch()->onQueue('default');
 })
 ->name('token-price-update-1min')
 ->everyMinute() // 保持高频更新
 ->withoutOverlapping()
 ->onOneServer()
 ->before(function () {
-    \Log::debug('开始更新代币价格数据（1分钟间隔）');
+    Log::debug('开始更新代币价格数据（1分钟间隔）');
 })
 ->after(function () {
-    \Log::debug('代币价格数据更新完成');
+    Log::debug('代币价格数据更新完成');
 });
 
 // 实时动能计算 - 每2分钟执行（加快响应）
@@ -201,10 +205,10 @@ Schedule::command('momentum:calculate --realtime')
     ->onOneServer()
     ->runInBackground()
     ->before(function () {
-        \Log::info('开始实时计算市场动能指标');
+        Log::info('开始实时计算市场动能指标');
     })
     ->after(function () {
-        \Log::info('实时市场动能指标计算完成');
+        Log::info('实时市场动能指标计算完成');
     });
 
 // 批量动能计算 - 每5分钟兜底
@@ -220,18 +224,18 @@ Schedule::command('momentum:calculate --batch')
 // 市场波动性检测 - 每5分钟执行
 Schedule::call(function () {
     // 检测市场异常波动，触发应急回测
-    $recentRounds = \App\Models\GameRound::where('created_at', '>=', now()->subMinutes(10))->count();
+    $recentRounds = GameRound::where('created_at', '>=', now()->subMinutes(10))->count();
     $normalRange = [8, 12]; // 正常情况下10分钟应该有10局左右
 
     if ($recentRounds < $normalRange[0] || $recentRounds > $normalRange[1]) {
-        \Log::warning('检测到市场异常活跃度', [
+        Log::warning('检测到市场异常活跃度', [
             'recent_rounds_10min' => $recentRounds,
             'normal_range' => $normalRange,
         ]);
 
         // 如果异常活跃，触发应急回测
         if ($recentRounds > $normalRange[1]) {
-            \Log::info('市场异常活跃，触发应急回测');
+            Log::info('市场异常活跃，触发应急回测');
             \Artisan::queue('backtest:run', [
                 '--games' => 60,
                 '--queue' => true,
@@ -240,7 +244,7 @@ Schedule::call(function () {
         }
     }
 
-    \Log::info('市场波动性监控', [
+    Log::info('市场波动性监控', [
         'recent_rounds_10min' => $recentRounds,
         'status' => $recentRounds >= $normalRange[0] && $recentRounds <= $normalRange[1] ? 'normal' : 'abnormal'
     ]);
@@ -254,11 +258,11 @@ Schedule::call(function () {
 
 // 队列健康监控 - 每5分钟执行（提高频率）
 Schedule::call(function () {
-    $backtestingQueueSize = \Illuminate\Support\Facades\Queue::size('backtesting');
-    $highQueueSize = \Illuminate\Support\Facades\Queue::size('high');
-    $failedJobs = \Illuminate\Support\Facades\DB::table('failed_jobs')->count();
+    $backtestingQueueSize = Queue::size('backtesting');
+    $highQueueSize = Queue::size('high');
+    $failedJobs = DB::table('failed_jobs')->count();
 
-    \Log::info('高频队列健康检查', [
+    Log::info('高频队列健康检查', [
         'backtesting_queue_size' => $backtestingQueueSize,
         'high_queue_size' => $highQueueSize,
         'failed_jobs_count' => $failedJobs,
@@ -267,18 +271,18 @@ Schedule::call(function () {
 
     // 更严格的队列管理
     if ($backtestingQueueSize > 15) {
-        \Log::warning('回测队列积压严重，暂停新任务', ['queue_size' => $backtestingQueueSize]);
+        Log::warning('回测队列积压严重，暂停新任务', ['queue_size' => $backtestingQueueSize]);
 
         // 可以考虑暂停非紧急的回测任务
         \Illuminate\Support\Facades\Cache::put('pause_non_urgent_backtest', true, now()->addMinutes(30));
     }
 
     if ($highQueueSize > 30) {
-        \Log::warning('高优先级队列积压', ['queue_size' => $highQueueSize]);
+        Log::warning('高优先级队列积压', ['queue_size' => $highQueueSize]);
     }
 
     if ($failedJobs > 5) {
-        \Log::warning('失败任务较多', ['failed_jobs' => $failedJobs]);
+        Log::warning('失败任务较多', ['failed_jobs' => $failedJobs]);
     }
 })
 ->name('high-frequency-queue-monitoring')
@@ -316,7 +320,7 @@ Schedule::call(function () {
     $diskTotal = disk_total_space($storagePath);
     $diskUsagePercent = $diskTotal > 0 ? ($diskFree / $diskTotal) * 100 : 0;
 
-    \Log::info('系统性能监控', [
+    Log::info('系统性能监控', [
         'memory_usage_mb' => round($memoryUsage / 1024 / 1024, 2),
         'memory_peak_mb' => round($memoryPeak / 1024 / 1024, 2),
         'disk_free_percent' => round($diskUsagePercent, 2),
@@ -324,13 +328,13 @@ Schedule::call(function () {
     ]);
 
     if ($memoryUsage > 1536 * 1024 * 1024) { // 1.5GB
-        \Log::warning('系统内存使用较高', [
+        Log::warning('系统内存使用较高', [
             'memory_mb' => round($memoryUsage / 1024 / 1024, 2)
         ]);
     }
 
     if ($diskUsagePercent < 10) {
-        \Log::warning('磁盘空间不足', [
+        Log::warning('磁盘空间不足', [
             'free_percent' => round($diskUsagePercent, 2)
         ]);
     }
@@ -364,22 +368,22 @@ Schedule::call(function () {
         ],
         'optimization_activity' => [
             'backtests_last_6h' => $recentBacktests,
-            'queue_backtesting' => \Illuminate\Support\Facades\Queue::size('backtesting'),
-            'queue_high' => \Illuminate\Support\Facades\Queue::size('high'),
+            'queue_backtesting' => Queue::size('backtesting'),
+            'queue_high' => Queue::size('high'),
         ],
         'system_health' => [
-            'failed_jobs' => \Illuminate\Support\Facades\DB::table('failed_jobs')->count(),
+            'failed_jobs' => DB::table('failed_jobs')->count(),
             'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
         ]
     ];
 
-    \Log::info('加密货币市场健康报告', $report);
+    Log::info('加密货币市场健康报告', $report);
 
     // 异常活跃度告警
     if ($hourlyGames < 30) {
-        \Log::warning('市场活跃度异常低', ['games_last_hour' => $hourlyGames]);
+        Log::warning('市场活跃度异常低', ['games_last_hour' => $hourlyGames]);
     } elseif ($hourlyGames > 90) {
-        \Log::warning('市场活跃度异常高', ['games_last_hour' => $hourlyGames]);
+        Log::warning('市场活跃度异常高', ['games_last_hour' => $hourlyGames]);
     }
 })
 ->name('crypto-market-health-report')

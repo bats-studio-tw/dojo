@@ -179,7 +179,7 @@ Schedule::command('strategy:promote-best --min-score=58')
 
 // 代币价格更新 - 每分钟执行（保持原频率）
 Schedule::call(function () {
-    \App\Jobs\FetchTokenPricesJob::dispatch()->onQueue('high');
+    \App\Jobs\FetchTokenPricesJob::dispatch()->onQueue('default');
 })
 ->name('token-price-update-1min')
 ->everyMinute() // 保持高频更新

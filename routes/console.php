@@ -1,5 +1,6 @@
 <?php
 
+use Log;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -25,7 +26,7 @@ Artisan::command('inspire', function () {
 // 超快速回测 - 每2小时执行（快速市场适应）
 Schedule::command('backtest:run --games=120 --queue --run-id=ultra-fast')
     ->name('ultra-fast-backtest-2h')
-    ->everyTwoHours() // 120局新数据，120局回测，0%重复
+    ->cron('0 */2 * * *') // 每2小时执行一次
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground()
@@ -51,7 +52,7 @@ Schedule::command('backtest:run --games=120 --queue --run-id=ultra-fast')
 // 快速回测 - 每4小时执行（标准优化）
 Schedule::command('backtest:run --games=240 --queue --run-id=fast')
     ->name('fast-backtest-4h')
-    ->everyFourHours() // 240局新数据，240局回测，0%重复
+    ->cron('0 */4 * * *') // 每4小时执行一次
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground()
@@ -76,7 +77,7 @@ Schedule::command('backtest:run --games=240 --queue --run-id=fast')
 // 深度回测 - 每8小时执行（稳定基准）
 Schedule::command('backtest:run --games=480 --queue --run-id=standard')
     ->name('standard-backtest-8h')
-    ->everyEightHours() // 480局新数据，480局回测
+    ->cron('0 */8 * * *') // 每8小时执行一次
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground()
@@ -109,7 +110,7 @@ Schedule::command('backtest:run --games=1200 --queue --run-id=comprehensive')
 // 实时策略晋升 - 每3小时执行（极速适应）
 Schedule::command('strategy:promote-best --min-score=48 --force-quick')
     ->name('realtime-strategy-promotion-3h')
-    ->everyThreeHours() // 180局数据验证
+    ->cron('0 */3 * * *') // 每3小时执行一次
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground()
@@ -144,7 +145,7 @@ Schedule::command('strategy:promote-best --min-score=48 --force-quick')
 // 快速策略晋升 - 每6小时执行（平衡验证）
 Schedule::command('strategy:promote-best --min-score=52')
     ->name('fast-strategy-promotion-6h')
-    ->everySixHours() // 360局数据验证
+    ->cron('0 */6 * * *') // 每6小时执行一次
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground()
@@ -164,7 +165,7 @@ Schedule::command('strategy:promote-best --min-score=52')
 // 标准策略晋升 - 每12小时执行（稳定验证）
 Schedule::command('strategy:promote-best --min-score=58')
     ->name('standard-strategy-promotion-12h')
-    ->everyTwelveHours() // 720局数据验证
+    ->cron('0 */12 * * *') // 每12小时执行一次
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground()

@@ -1,9 +1,9 @@
 <?php
 
-use Log;
 use App\Models\GameRound;
 use App\Jobs\FetchTokenPricesJob;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Artisan;

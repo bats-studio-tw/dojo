@@ -63,36 +63,41 @@
         <div
           class="border border-cyan-500/20 rounded-lg from-cyan-500/5 to-blue-600/2 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-cyan-400/30 hover:shadow-cyan-500/10"
         >
-          <div class="text-2xl font-bold text-cyan-400">{{ totalBets }}</div>
-          <div class="text-sm text-cyan-300">总下注次数</div>
+          <div class="text-xs text-cyan-300">总下注次数</div>
+          <div class="text-xl text-cyan-400 font-bold">{{ bettingStats.totalBets }}</div>
+          <div class="text-xs text-cyan-200/70">包括失败下注</div>
         </div>
 
         <div
           class="border border-blue-500/20 rounded-lg from-blue-500/5 to-indigo-600/2 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-blue-400/30 hover:shadow-blue-500/10"
         >
-          <div class="text-2xl font-bold text-blue-400">{{ winRate }}%</div>
-          <div class="text-sm text-blue-300">胜率</div>
+          <div class="text-xs text-blue-300">已结算次数</div>
+          <div class="text-xl text-blue-400 font-bold">{{ bettingStats.settledBets }}</div>
+          <div class="text-xs text-blue-200/70">有结果数据</div>
         </div>
 
         <div
           class="border border-emerald-500/20 rounded-lg from-emerald-500/5 to-green-600/2 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-emerald-400/30 hover:shadow-emerald-500/10"
         >
-          <div class="text-2xl font-bold text-emerald-400">${{ totalProfit }}</div>
-          <div class="text-sm text-emerald-300">总盈亏</div>
+          <div class="text-xs text-emerald-300">盈利次数</div>
+          <div class="text-xl text-emerald-400 font-bold">{{ bettingStats.successfulBets }}</div>
+          <div class="text-xs text-emerald-200/70">前三名</div>
         </div>
 
         <div
           class="border border-red-500/20 rounded-lg from-red-500/5 to-pink-600/2 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-red-400/30 hover:shadow-red-500/10"
         >
-          <div class="text-2xl font-bold text-red-400">{{ avgBetAmount }}</div>
-          <div class="text-sm text-red-300">平均下注</div>
+          <div class="text-xs text-red-300">亏损次数</div>
+          <div class="text-xl text-red-400 font-bold">{{ bettingStats.failedBets }}</div>
+          <div class="text-xs text-red-200/70">第四名及以后</div>
         </div>
 
         <div
           class="border border-violet-500/20 rounded-lg from-violet-500/5 to-purple-600/2 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-violet-400/30 hover:shadow-violet-500/10"
         >
-          <div class="text-2xl font-bold text-violet-400">{{ bestStreak }}</div>
-          <div class="text-sm text-violet-300">最佳连胜</div>
+          <div class="text-xs text-violet-300">胜率</div>
+          <div class="text-xl text-violet-400 font-bold">{{ bettingStats.successRate.toFixed(1) }}%</div>
+          <div class="text-xs text-violet-200/70">前三名比例</div>
         </div>
       </div>
 

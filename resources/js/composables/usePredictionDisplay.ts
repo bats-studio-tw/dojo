@@ -20,13 +20,13 @@ export function usePredictionDisplay() {
   // 获取统一的卡片样式类
   const getUnifiedCardClass = (index: number) => {
     if (index === 0) {
-      return 'border-yellow-400/20 bg-gradient-to-br from-yellow-500/5 to-amber-600/2 hover:border-yellow-400/30 hover:shadow-yellow-500/10';
+      return 'border-yellow-400/20 bg-yellow-500/10 hover:border-yellow-400/30 hover:bg-yellow-500/15';
     }
     if (index === 1) {
-      return 'border-slate-400/20 bg-gradient-to-br from-slate-500/5 to-gray-600/2 hover:border-slate-400/30 hover:shadow-slate-500/10';
+      return 'border-slate-400/20 bg-slate-500/10 hover:border-slate-400/30 hover:bg-slate-500/15';
     }
     if (index === 2) {
-      return 'border-orange-400/20 bg-gradient-to-br from-orange-500/5 to-red-600/2 hover:border-orange-400/30 hover:shadow-orange-500/10';
+      return 'border-orange-400/20 bg-orange-500/10 hover:border-orange-400/30 hover:bg-orange-500/15';
     }
     if (index === 3) {
       return 'border-blue-400/20 bg-gradient-to-br from-blue-500/5 to-indigo-600/2 hover:border-blue-400/30 hover:shadow-blue-500/10';
@@ -69,24 +69,24 @@ export function usePredictionDisplay() {
       case 1:
         return {
           border: 'border-yellow-500/20',
-          background: 'from-yellow-500/5 to-amber-600/2',
-          hover: 'hover:border-yellow-400/30 hover:shadow-yellow-500/10',
+          background: 'bg-yellow-500/10',
+          hover: 'hover:border-yellow-400/30 hover:bg-yellow-500/15',
           icon: '🥇',
           textColor: 'text-yellow-300'
         };
       case 2:
         return {
           border: 'border-slate-500/20',
-          background: 'from-slate-500/5 to-gray-600/2',
-          hover: 'hover:border-slate-400/30 hover:shadow-slate-500/10',
+          background: 'bg-slate-500/10',
+          hover: 'hover:border-slate-400/30 hover:bg-slate-500/15',
           icon: '🥈',
           textColor: 'text-slate-300'
         };
       case 3:
         return {
           border: 'border-orange-500/20',
-          background: 'from-orange-500/5 to-red-600/2',
-          hover: 'hover:border-orange-400/30 hover:shadow-orange-500/10',
+          background: 'bg-orange-500/10',
+          hover: 'hover:border-orange-400/30 hover:bg-orange-500/15',
           icon: '🥉',
           textColor: 'text-orange-300'
         };
@@ -127,7 +127,11 @@ export function usePredictionDisplay() {
 
   // 合并所有卡片样式类
   const getCombinedCardClass = (cardStyle: ReturnType<typeof getRankStatsCardClass>) => {
-    return `relative overflow-hidden ${cardStyle.border} rounded-xl bg-gradient-to-br ${cardStyle.background} p-4 transition-all duration-300 ${cardStyle.hover} sm:p-6 hover:shadow-lg`;
+    const backgroundClass = cardStyle.background.startsWith('bg-')
+      ? cardStyle.background
+      : `bg-gradient-to-br ${cardStyle.background}`;
+
+    return `relative overflow-hidden ${cardStyle.border} rounded-xl ${backgroundClass} p-4 transition-all duration-300 ${cardStyle.hover} sm:p-6 hover:shadow-lg`;
   };
 
   return {

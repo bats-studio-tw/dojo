@@ -20,18 +20,18 @@ export function usePredictionDisplay() {
   // 获取统一的卡片样式类
   const getUnifiedCardClass = (index: number) => {
     if (index === 0) {
-      return 'border-amber-500/20 from-amber-500/5 to-yellow-600/2 bg-gradient-to-br hover:border-amber-400/30 hover:shadow-amber-500/10';
+      return 'border-yellow-400/30 bg-gradient-to-br from-yellow-500/10 to-amber-600/5 hover:border-yellow-400/50 hover:shadow-yellow-500/20';
     }
     if (index === 1) {
-      return 'border-white/20 from-white/5 to-gray-300/2 bg-gradient-to-br hover:border-white/30 hover:shadow-white/10';
+      return 'border-slate-400/30 bg-gradient-to-br from-slate-500/10 to-gray-600/5 hover:border-slate-400/50 hover:shadow-slate-500/20';
     }
     if (index === 2) {
-      return 'border-yellow-500/20 from-yellow-500/5 to-amber-600/2 bg-gradient-to-br hover:border-yellow-400/30 hover:shadow-yellow-500/10';
+      return 'border-orange-400/30 bg-gradient-to-br from-orange-500/10 to-red-600/5 hover:border-orange-400/50 hover:shadow-orange-500/20';
     }
     if (index === 3) {
-      return 'border-blue-500/20 from-blue-500/5 to-indigo-600/2 bg-gradient-to-br hover:border-blue-400/30 hover:shadow-blue-500/10';
+      return 'border-blue-400/30 bg-gradient-to-br from-blue-500/10 to-indigo-600/5 hover:border-blue-400/50 hover:shadow-blue-500/20';
     }
-    return 'border-cyan-500/20 from-cyan-500/5 to-blue-600/2 bg-gradient-to-br hover:border-cyan-400/30 hover:shadow-cyan-500/10';
+    return 'border-purple-400/30 bg-gradient-to-br from-purple-500/10 to-pink-600/5 hover:border-purple-400/50 hover:shadow-purple-500/20';
   };
 
   // 获取边框样式

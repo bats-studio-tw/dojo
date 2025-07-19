@@ -4,7 +4,7 @@
     class="fixed inset-0 z-50 flex items-center justify-center from-slate-900 via-slate-800 to-slate-900 bg-gradient-to-br p-4"
   >
     <div class="mx-auto max-w-md w-full">
-      <NCard class="min-h-[500px] border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" size="large">
+      <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" size="large">
         <template #header>
           <div class="text-center">
             <h2 class="text-2xl text-white font-bold">🔐 身份验证</h2>

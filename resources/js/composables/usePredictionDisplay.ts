@@ -20,25 +20,37 @@ export function usePredictionDisplay() {
   // 获取统一的卡片样式类
   const getUnifiedCardClass = (index: number) => {
     if (index === 0) {
-      return 'border-yellow-400/20 bg-yellow-500/15 hover:border-yellow-400/30 hover:bg-yellow-500/20';
+      return 'bg-yellow-500/25 hover:bg-yellow-500/30';
     }
     if (index === 1) {
-      return 'border-blue-400/20 bg-blue-500/15 hover:border-blue-400/30 hover:bg-blue-500/20';
+      return 'bg-gradient-to-br from-gray-400/10 to-gray-500/5 hover:shadow-gray-400/10';
     }
     if (index === 2) {
-      return 'border-green-400/20 bg-green-500/15 hover:border-green-400/30 hover:bg-green-500/20';
+      return 'bg-gradient-to-br from-amber-600/10 to-orange-700/5 hover:shadow-amber-600/10';
     }
     if (index === 3) {
-      return 'border-blue-400/20 bg-gradient-to-br from-blue-500/5 to-indigo-600/2 hover:border-blue-400/30 hover:shadow-blue-500/10';
+      return 'bg-gradient-to-br from-blue-500/5 to-indigo-600/2 hover:shadow-blue-500/10';
     }
-    return 'border-cyan-400/20 bg-gradient-to-br from-cyan-500/5 to-blue-600/2 hover:border-cyan-400/30 hover:shadow-cyan-500/10';
+    return 'bg-gradient-to-br from-cyan-500/5 to-blue-600/2 hover:shadow-cyan-500/10';
+  };
+
+  // 获取边框样式
+  const getBorderStyle = (index: number) => {
+    const colors = [
+      'rgba(251, 191, 36, 0.2)', // 金色
+      'rgba(156, 163, 175, 0.2)', // 银色
+      'rgba(217, 119, 6, 0.2)', // 铜色
+      'rgba(59, 130, 246, 0.2)', // 蓝色
+      'rgba(34, 211, 238, 0.2)' // 青色
+    ];
+    return { borderColor: colors[index] || colors[4] };
   };
 
   // 获取评分文本颜色类
   const getScoreTextClass = (index: number) => {
     if (index === 0) return 'text-yellow-400';
-    if (index === 1) return 'text-blue-400';
-    if (index === 2) return 'text-green-400';
+    if (index === 1) return 'text-gray-400';
+    if (index === 2) return 'text-amber-400';
     if (index === 3) return 'text-blue-400';
     return 'text-cyan-400';
   };
@@ -69,26 +81,26 @@ export function usePredictionDisplay() {
       case 1:
         return {
           border: 'border-yellow-500/20',
-          background: 'bg-yellow-500/15',
-          hover: 'hover:border-yellow-400/30 hover:bg-yellow-500/20',
+          background: 'bg-yellow-500/25',
+          hover: 'hover:border-yellow-400/30 hover:bg-yellow-500/30',
           icon: '🥇',
           textColor: 'text-yellow-300'
         };
       case 2:
         return {
-          border: 'border-blue-500/20',
-          background: 'bg-blue-500/15',
-          hover: 'hover:border-blue-400/30 hover:bg-blue-500/20',
+          border: 'border-gray-400/20',
+          background: 'from-gray-400/10 to-gray-500/5',
+          hover: 'hover:border-gray-400/30 hover:shadow-gray-400/10',
           icon: '🥈',
-          textColor: 'text-blue-300'
+          textColor: 'text-gray-300'
         };
       case 3:
         return {
-          border: 'border-green-500/20',
-          background: 'bg-green-500/15',
-          hover: 'hover:border-green-400/30 hover:bg-green-500/20',
+          border: 'border-amber-600/20',
+          background: 'from-amber-600/10 to-orange-700/5',
+          hover: 'hover:border-amber-600/30 hover:shadow-amber-600/10',
           icon: '🥉',
-          textColor: 'text-green-300'
+          textColor: 'text-amber-300'
         };
       default:
         return {
@@ -143,6 +155,7 @@ export function usePredictionDisplay() {
     getScoreTextClass,
     getPredictionRowClass,
     getCombinedCardClass,
+    getBorderStyle,
 
     // 图标函数
     getPredictionIcon,

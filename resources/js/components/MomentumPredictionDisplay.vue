@@ -27,6 +27,7 @@
         v-for="(token, index) in sortedPredictionsByRank"
         :key="`momentum-${index}-${token.symbol}`"
         class="relative overflow-hidden border rounded-lg p-3 transition-all duration-300 hover:shadow-lg"
+        :style="getBorderStyle(index)"
         :class="getUnifiedCardClass(index)"
       >
         <!-- 动能预测排名头部 -->
@@ -94,7 +95,7 @@
 
   const props = withDefaults(defineProps<Props>(), {
     analysisLoading: false,
-    title: '⚡ 动能预测排名'
+    title: '⚡ 动能预测分析'
   });
 
   // Emits
@@ -148,5 +149,5 @@
 
   // ==================== 样式相关函数 ====================
 
-  const { getUnifiedCardClass, getScoreTextClass, getPredictionIcon } = usePredictionDisplay();
+  const { getUnifiedCardClass, getScoreTextClass, getPredictionIcon, getBorderStyle } = usePredictionDisplay();
 </script>

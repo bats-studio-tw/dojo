@@ -1,5 +1,9 @@
 <template>
-  <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="🔮 预测统计分析" size="large">
+  <NCard
+    class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+    title="🔮 智能对战预测分析"
+    size="large"
+  >
     <template #header-extra>
       <div class="flex items-center space-x-3">
         <n-button :loading="loading" @click="$emit('refresh')" type="primary" size="small">🔄 刷新统计</n-button>

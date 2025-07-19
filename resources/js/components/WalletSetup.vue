@@ -95,7 +95,7 @@
           </div>
 
           <!-- 操作按钮 -->
-          <div class="flex space-x-3">
+          <div class="flex flex-col space-x-3">
             <n-button
               @click="validateAndProceed"
               :loading="loading"
@@ -110,12 +110,7 @@
               {{ userInfo ? '进入控制台' : '验证Token' }}
             </n-button>
 
-            <n-button @click="goToGuestView" type="tertiary" size="large" class="transition-all duration-200">
-              <template #icon>
-                <span>👁️</span>
-              </template>
-              Guest 预览
-            </n-button>
+            <n-button @click="goToGuestView" type="tertiary" size="large" class="flex-1">Guest 预览</n-button>
           </div>
         </div>
       </NCard>

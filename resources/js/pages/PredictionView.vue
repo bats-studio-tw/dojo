@@ -34,12 +34,12 @@
 
       <!-- 主要内容区域 -->
       <div class="mx-auto max-w-7xl p-4 sm:p-6">
-        <div class="grid gap-6 lg:grid-cols-2">
+        <div class="flex flex-col gap-6">
           <!-- 🎯 智能对战预测面板 -->
           <div class="border border-white/10 rounded-xl bg-black/20 p-6 backdrop-blur-md">
             <div class="mb-4 flex items-center gap-2">
               <span class="text-2xl">🎯</span>
-              <h2 class="text-lg font-bold text-white">智能对战预测</h2>
+              <h2 class="text-lg text-white font-bold">智能对战预测</h2>
             </div>
 
             <AIPredictionRanking
@@ -57,7 +57,7 @@
           <div class="border border-white/10 rounded-xl bg-black/20 p-6 backdrop-blur-md">
             <div class="mb-4 flex items-center gap-2">
               <span class="text-2xl">⚡</span>
-              <h2 class="text-lg font-bold text-white">动能预测分析</h2>
+              <h2 class="text-lg text-white font-bold">动能预测分析</h2>
             </div>
 
             <MomentumPredictionDisplay

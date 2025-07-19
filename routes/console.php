@@ -123,7 +123,7 @@ Schedule::command('strategy:promote-best --min-score=48 --force-quick')
 
         // 检查最新回测结果
         $latestBacktest = \App\Models\BacktestResult::latest('created_at')->first();
-        if (!$latestBacktest || $latestBacktest->created_at->diffInHours(now()) > 4) {
+        if (!$latestBacktest || !$latestBacktest->created_at || $latestBacktest->created_at->diffInHours(now()) > 4) {
             Log::warning('没有找到最近4小时内的回测结果，跳过实时策略晋升');
             return false;
         }
@@ -137,7 +137,7 @@ Schedule::command('strategy:promote-best --min-score=48 --force-quick')
 
         // 放宽冷却期限制（加密货币市场变化快）
         $currentStrategy = \App\Models\PredictionStrategy::where('status', 'active')->first();
-        if ($currentStrategy && $currentStrategy->activated_at->diffInHours(now()) < 2) {
+        if ($currentStrategy && $currentStrategy->activated_at && $currentStrategy->activated_at->diffInHours(now()) < 2) {
             Log::info('当前策略激活时间不足2小时，跳过本次晋升检查');
             return false;
         }
@@ -157,7 +157,7 @@ Schedule::command('strategy:promote-best --min-score=52')
         Log::info('开始执行快速策略晋升（6小时间隔）');
 
         $latestBacktest = \App\Models\BacktestResult::latest('created_at')->first();
-        if (!$latestBacktest || $latestBacktest->created_at->diffInHours(now()) > 6) {
+        if (!$latestBacktest || !$latestBacktest->created_at || $latestBacktest->created_at->diffInHours(now()) > 6) {
             Log::warning('没有找到最近6小时内的回测结果，跳过快速策略晋升');
             return false;
         }

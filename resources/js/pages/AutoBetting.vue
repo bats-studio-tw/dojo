@@ -5,7 +5,7 @@
     <!-- 身份验证模态框 -->
     <WalletSetup :visible="!isTokenValidated" @validated="handleTokenValidated" />
 
-    <div v-if="isTokenValidated" class="min-h-screen from-slate-900 via-purple-900 to-slate-900 bg-gradient-to-br">
+    <div v-if="isTokenValidated" class="min-h-screen from-slate-900 via-slate-800 to-slate-900 bg-gradient-to-br">
       <!-- 🔧 调试面板 -->
       <div v-if="isDevMode" class="mb-4 border border-red-500/4 bg-red-900">
         <h3 class="mb-2 text-red-400 font-bold">🔧 调试面板 (开发模式)</h3>
@@ -119,11 +119,11 @@
               <!-- 用户信息 -->
               <div
                 v-if="userInfo"
-                class="status-indicator border border-purple-500/20 rounded-lg bg-purple-500/5 px-3 py-2 transition-all duration-300 hover:bg-purple-500/10"
+                class="status-indicator border border-blue-500/20 rounded-lg bg-blue-500/5 px-3 py-2 transition-all duration-300 hover:bg-blue-500/10"
               >
-                <div class="text-xs text-purple-400">用户ID</div>
+                <div class="text-xs text-blue-400">用户ID</div>
                 <div class="flex items-center gap-2">
-                  <span class="text-sm text-purple-300 font-mono">{{ userInfo.uid.slice(0, 8) }}...</span>
+                  <span class="text-sm text-blue-300 font-mono">{{ userInfo.uid.slice(0, 8) }}...</span>
                   <NButton
                     @click="reconnectToken"
                     :disabled="autoBettingStatus.is_running"

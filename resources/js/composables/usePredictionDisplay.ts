@@ -31,7 +31,7 @@ export function usePredictionDisplay() {
     if (index === 3) {
       return 'border-blue-400/20 bg-gradient-to-br from-blue-500/5 to-indigo-600/2 hover:border-blue-400/30 hover:shadow-blue-500/10';
     }
-    return 'border-purple-400/20 bg-gradient-to-br from-purple-500/5 to-pink-600/2 hover:border-purple-400/30 hover:shadow-purple-500/10';
+    return 'border-cyan-400/20 bg-gradient-to-br from-cyan-500/5 to-blue-600/2 hover:border-cyan-400/30 hover:shadow-cyan-500/10';
   };
 
   // 获取评分文本颜色类
@@ -40,7 +40,7 @@ export function usePredictionDisplay() {
     if (index === 1) return 'text-slate-400';
     if (index === 2) return 'text-orange-400';
     if (index === 3) return 'text-blue-400';
-    return 'text-purple-400';
+    return 'text-cyan-400';
   };
 
   // 获取预测图标 (统一使用排名参数)
@@ -92,11 +92,11 @@ export function usePredictionDisplay() {
         };
       default:
         return {
-          border: 'border-purple-500/20',
-          background: 'from-purple-500/5 to-indigo-600/2',
-          hover: 'hover:border-purple-400/30 hover:shadow-purple-500/10',
+          border: 'border-cyan-500/20',
+          background: 'from-cyan-500/5 to-blue-600/2',
+          hover: 'hover:border-cyan-400/30 hover:shadow-cyan-500/10',
           icon: '📊',
-          textColor: 'text-purple-300'
+          textColor: 'text-cyan-300'
         };
     }
   };
@@ -116,12 +116,12 @@ export function usePredictionDisplay() {
   // 获取总局数卡片样式
   const getTotalRoundsCardClass = () => {
     return {
-      border: 'border-purple-500/20',
-      background: 'from-purple-500/5 to-indigo-600/2',
-      hover: 'hover:border-purple-400/30 hover:shadow-purple-500/10',
+      border: 'border-cyan-500/20',
+      background: 'from-cyan-500/5 to-blue-600/2',
+      hover: 'hover:border-cyan-400/30 hover:shadow-cyan-500/10',
       icon: '📊',
-      textColor: 'text-purple-300',
-      valueColor: 'text-purple-400'
+      textColor: 'text-cyan-300',
+      valueColor: 'text-cyan-400'
     };
   };
 

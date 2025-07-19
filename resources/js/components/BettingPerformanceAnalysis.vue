@@ -93,11 +93,11 @@
         </div>
 
         <div
-          class="border border-violet-500/20 rounded-lg from-violet-500/5 to-purple-600/2 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-violet-400/30 hover:shadow-violet-500/10"
+          class="border border-emerald-500/20 rounded-lg from-emerald-500/5 to-green-600/2 bg-gradient-to-br p-3 text-center transition-all duration-300 hover:border-emerald-400/30 hover:shadow-emerald-500/10"
         >
-          <div class="text-xs text-violet-300">胜率</div>
-          <div class="text-xl text-violet-400 font-bold">{{ bettingStats.successRate.toFixed(1) }}%</div>
-          <div class="text-xs text-violet-200/70">前三名比例</div>
+          <div class="text-xs text-emerald-300">胜率</div>
+          <div class="text-xl text-emerald-400 font-bold">{{ bettingStats.successRate.toFixed(1) }}%</div>
+          <div class="text-xs text-emerald-200/70">前三名比例</div>
         </div>
       </div>
 

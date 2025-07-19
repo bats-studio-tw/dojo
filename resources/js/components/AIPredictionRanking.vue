@@ -50,7 +50,7 @@
         <div class="text-xs space-y-1">
           <div class="flex justify-between">
             <span class="text-gray-400">绝对分数:</span>
-            <span class="text-purple-400 font-bold">
+            <span class="text-blue-400 font-bold">
               {{ token.absolute_score && token.absolute_score > 0 ? (token.absolute_score || 0).toFixed(1) : '-' }}
             </span>
           </div>

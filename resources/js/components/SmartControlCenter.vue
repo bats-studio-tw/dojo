@@ -74,15 +74,15 @@
 
         <!-- 策略匹配 -->
         <div
-          class="prediction-stat-card border-purple-500/20 from-purple-500/5 to-indigo-600/2 bg-gradient-to-br hover:border-purple-400/30 hover:shadow-purple-500/10"
+          class="prediction-stat-card border-cyan-500/20 from-cyan-500/5 to-blue-600/2 bg-gradient-to-br hover:border-cyan-400/30 hover:shadow-cyan-500/10"
         >
           <div class="stat-icon">🎯</div>
           <div class="stat-content">
-            <div class="stat-label text-purple-300">策略匹配</div>
-            <div class="stat-value text-purple-400">
+            <div class="stat-label text-cyan-300">策略匹配</div>
+            <div class="stat-value text-cyan-400">
               {{ strategyValidation?.total_matched || 0 }}
             </div>
-            <div class="stat-desc text-purple-200/70">符合条件的Token</div>
+            <div class="stat-desc text-cyan-200/70">符合条件的Token</div>
           </div>
         </div>
 

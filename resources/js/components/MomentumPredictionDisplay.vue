@@ -53,7 +53,7 @@
         <div class="text-xs space-y-1">
           <div class="flex justify-between">
             <span class="text-gray-400">Elo概率:</span>
-            <span class="text-purple-400 font-bold">
+            <span class="text-blue-400 font-bold">
               {{ token.elo_prob ? (token.elo_prob || 0).toFixed(1) + '%' : '-' }}
             </span>
           </div>

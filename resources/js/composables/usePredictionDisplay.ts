@@ -23,10 +23,10 @@ export function usePredictionDisplay() {
       return 'border-amber-500/20 from-amber-500/5 to-yellow-600/2 bg-gradient-to-br hover:border-amber-400/30 hover:shadow-amber-500/10';
     }
     if (index === 1) {
-      return 'border-gray-400/20 from-gray-400/5 to-gray-500/2 bg-gradient-to-br hover:border-gray-400/30 hover:shadow-gray-400/10';
+      return 'border-slate-300/20 from-slate-300/5 to-slate-400/2 bg-gradient-to-br hover:border-slate-300/30 hover:shadow-slate-300/10';
     }
     if (index === 2) {
-      return 'border-orange-500/20 from-orange-500/5 to-amber-600/2 bg-gradient-to-br hover:border-orange-400/30 hover:shadow-orange-500/10';
+      return 'border-orange-600/20 from-orange-600/5 to-red-600/2 bg-gradient-to-br hover:border-orange-500/30 hover:shadow-orange-600/10';
     }
     if (index === 3) {
       return 'border-blue-500/20 from-blue-500/5 to-indigo-600/2 bg-gradient-to-br hover:border-blue-400/30 hover:shadow-blue-500/10';

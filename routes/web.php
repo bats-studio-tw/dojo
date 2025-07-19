@@ -20,4 +20,7 @@ Route::get('/', function () {
     return Inertia::render('AutoBetting');
 })->name('dashboard');
 
-// 预测系统页面路由 - 已移除，功能整合到主AutoBetting页面
+// 预测展示页面路由 - 纯展示用
+Route::get('/views', function () {
+    return Inertia::render('PredictionView');
+})->name('prediction.view');

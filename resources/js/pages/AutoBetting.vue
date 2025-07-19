@@ -1044,7 +1044,13 @@
     for (const match of strategyValidation.value.matches) {
       console.log(`🎲 [${timestamp}] 开始下注: ${match.symbol}, 金额: ${match.bet_amount}`);
       try {
-        const betSuccess = await executeSingleBet(roundId, match.symbol, match.bet_amount, config.jwt_token);
+        const betSuccess = await executeSingleBet(
+          roundId,
+          match.symbol,
+          match.bet_amount,
+          config.jwt_token,
+          config.betting_mode
+        );
         if (betSuccess) {
           successCount++;
           console.log(`✅ [${timestamp}] 下注成功: ${match.symbol}`);

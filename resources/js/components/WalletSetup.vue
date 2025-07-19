@@ -109,6 +109,13 @@
               </template>
               {{ userInfo ? '进入控制台' : '验证Token' }}
             </n-button>
+
+            <n-button @click="goToGuestView" type="tertiary" size="large" class="transition-all duration-200">
+              <template #icon>
+                <span>👁️</span>
+              </template>
+              Guest 预览
+            </n-button>
           </div>
         </div>
       </NCard>
@@ -118,6 +125,7 @@
 
 <script setup lang="ts">
   import { ref, defineProps, defineEmits } from 'vue';
+  import { router } from '@inertiajs/vue3';
   import { NCard, NInput, NButton } from 'naive-ui';
   import { getUserInfo } from '@/utils/api';
   import type { UserInfo } from '@/types';
@@ -165,6 +173,11 @@
     } catch (err) {
       console.error('获取用户统计失败:', err);
     }
+  };
+
+  // 跳转到游客预览页面
+  const goToGuestView = () => {
+    router.visit('/views');
   };
 
   // 验证并继续

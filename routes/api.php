@@ -34,6 +34,12 @@ Route::prefix('v2')->group(function () {
     Route::get('/analysis/betting-performance', [PredictionController::class, 'getUserBettingPerformance'])->name('api.v2.analysis.betting-performance');
 });
 
+// 展示页面API路由组 - 无需认证
+Route::prefix('prediction')->group(function () {
+    Route::get('/analysis', [PredictionController::class, 'getPublicAnalysis'])->name('api.prediction.analysis');
+    Route::get('/hybrid-analysis', [PredictionController::class, 'getPublicHybridAnalysis'])->name('api.prediction.hybrid-analysis');
+});
+
 // 自动下注API路由组 (保持兼容性)
 Route::prefix('auto-betting')->group(function () {
     Route::get('/user-stats', [AutoBettingController::class, 'getUserStats'])->name('api.auto-betting.user-stats');

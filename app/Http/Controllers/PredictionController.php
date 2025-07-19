@@ -671,4 +671,133 @@ class PredictionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * 获取公共预测分析数据（展示页面用）
+     */
+    public function getPublicAnalysis(): JsonResponse
+    {
+        try {
+            // 优先从缓存获取预测数据
+            $cachedPrediction = Cache::get('game:current_prediction');
+
+            if ($cachedPrediction && is_array($cachedPrediction)) {
+                $analysisData = $cachedPrediction['analysis_data'] ?? [];
+                $roundId = $cachedPrediction['round_id'] ?? 'unknown';
+
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'analysis' => $analysisData,
+                        'meta' => [
+                            'strategy' => 'ai_prediction',
+                            'timestamp' => now()->toISOString(),
+                            'round_id' => $roundId,
+                        ]
+                    ],
+                    'message' => '预测分析获取成功',
+                    'code' => 200,
+                ]);
+            }
+
+            // 如果没有缓存数据，返回空数据
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'analysis' => null,
+                    'meta' => [
+                        'strategy' => 'ai_prediction',
+                        'timestamp' => now()->toISOString(),
+                        'round_id' => 'unknown',
+                    ]
+                ],
+                'message' => '暂无预测数据',
+                'code' => 200,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取公共预测分析失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取预测分析失败: '.$e->getMessage(),
+                'code' => 500,
+            ], 500);
+        }
+    }
+
+    /**
+     * 获取公共混合预测分析数据（展示页面用）
+     */
+    public function getPublicHybridAnalysis(): JsonResponse
+    {
+        try {
+            // 获取最新的混合预测数据
+            $latestHybridPredictions = \App\Models\HybridRoundPredict::query()
+                ->with(['gameRound'])
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+
+            if ($latestHybridPredictions->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'predictions' => [],
+                        'meta' => [
+                            'strategy' => 'hybrid_momentum',
+                            'timestamp' => now()->toISOString(),
+                            'total_predictions' => 0,
+                        ]
+                    ],
+                    'message' => '暂无混合预测数据',
+                    'code' => 200,
+                ]);
+            }
+
+            // 格式化预测数据
+            $formattedPredictions = $latestHybridPredictions->map(function ($prediction) {
+                return [
+                    'token' => $prediction->token_symbol,
+                    'rank' => $prediction->predicted_rank,
+                    'score' => $prediction->prediction_score,
+                    'momentum_score' => $prediction->momentum_score,
+                    'elo_score' => $prediction->elo_score,
+                    'volume_score' => $prediction->volume_score,
+                    'confidence' => $prediction->confidence ?? 0.8,
+                    'timestamp' => $prediction->created_at->toISOString(),
+                ];
+            })->toArray();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'predictions' => $formattedPredictions,
+                    'meta' => [
+                        'strategy' => 'hybrid_momentum',
+                        'timestamp' => now()->toISOString(),
+                        'total_predictions' => count($formattedPredictions),
+                        'last_updated' => $latestHybridPredictions->first()->created_at->toISOString(),
+                    ]
+                ],
+                'message' => '混合预测分析获取成功',
+                'code' => 200,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('获取公共混合预测分析失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '获取混合预测分析失败: '.$e->getMessage(),
+                'code' => 500,
+            ], 500);
+        }
+    }
 }

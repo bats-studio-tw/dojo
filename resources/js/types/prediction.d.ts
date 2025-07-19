@@ -51,3 +51,52 @@ export interface PredictionState {
   currentStrategy: string | null;
   availableStrategies: StrategyDTO[];
 }
+
+// 游戏状态类型
+export type GameStatus = 'waiting' | 'running' | 'finished' | 'paused';
+
+// 代币排名信息
+export interface TokenWithRank {
+  symbol: string;
+  rank: number;
+  score: number;
+  price?: number;
+  change_24h?: number;
+}
+
+// 预测分析结果
+export interface PredictionAnalysis {
+  round_id: string;
+  predictions: Array<{
+    token: string;
+    rank: number;
+    score: number;
+    confidence: number;
+  }>;
+  meta: {
+    strategy: string;
+    timestamp: string;
+    accuracy?: number;
+  };
+}
+
+// 分析元数据
+export interface AnalysisMeta {
+  strategy: string;
+  timestamp: string;
+  accuracy?: number;
+  total_predictions?: number;
+  last_updated?: string;
+}
+
+// 混合预测结果
+export interface HybridPrediction {
+  token: string;
+  rank: number;
+  score: number;
+  momentum_score: number;
+  elo_score: number;
+  volume_score: number;
+  confidence: number;
+  timestamp: string;
+}

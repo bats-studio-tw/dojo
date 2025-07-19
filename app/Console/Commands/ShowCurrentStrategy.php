@@ -2,15 +2,15 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use App\Models\PredictionStrategy;
-use App\Models\GameRound;
 use App\Models\BacktestResult;
+use App\Models\GameRound;
+use App\Models\PredictionStrategy;
 use App\Models\TokenPrice;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 
 class ShowCurrentStrategy extends Command
 {
@@ -18,6 +18,7 @@ class ShowCurrentStrategy extends Command
                             {--detailed : 显示详细信息}
                             {--real-time : 显示实时状态}
                             {--monitoring : 显示监控数据}';
+
     protected $description = '显示当前活跃的预测策略参数和系统状态';
 
     public function handle(): int
@@ -73,10 +74,11 @@ class ShowCurrentStrategy extends Command
             ->latest('activated_at')
             ->first();
 
-        if (!$activeStrategy) {
+        if (! $activeStrategy) {
             $this->warn('⚠️  没有找到活跃策略');
             $this->info('📋 使用默认参数:');
             $this->showDefaultParameters();
+
             return;
         }
 
@@ -84,7 +86,7 @@ class ShowCurrentStrategy extends Command
         $this->line("  回测ID: {$activeStrategy->run_id}");
         $this->line("  策略分数: {$activeStrategy->score}");
         $this->line("  激活时间: {$activeStrategy->activated_at}");
-        $this->line("  运行时长: " . $activeStrategy->activated_at->diffForHumans());
+        $this->line('  运行时长: '.($activeStrategy->activated_at ? $activeStrategy->activated_at->diffForHumans() : '未知'));
         $this->line("  创建时间: {$activeStrategy->created_at}");
         $this->newLine();
 
@@ -98,7 +100,7 @@ class ShowCurrentStrategy extends Command
 
         // 显示性能摘要
         $performanceSummary = $activeStrategy->getPerformanceSummary();
-        if (!empty($performanceSummary)) {
+        if (! empty($performanceSummary)) {
             $this->info('📈 性能摘要:');
             foreach ($performanceSummary as $key => $value) {
                 if (is_array($value)) {
@@ -124,7 +126,7 @@ class ShowCurrentStrategy extends Command
         $this->line('📊 最近回测记录:');
         foreach ($recentBacktests as $backtest) {
             $status = $backtest->status ?? 'unknown';
-            $statusIcon = match($status) {
+            $statusIcon = match ($status) {
                 'completed' => '✅',
                 'running' => '🔄',
                 'failed' => '❌',
@@ -172,8 +174,8 @@ class ShowCurrentStrategy extends Command
         $this->line("  最近1小时: {$hourlyGames} 局");
         $this->line("  今日: {$dailyGames} 局");
         $this->line("  本周: {$weeklyGames} 局");
-        $this->line("  预期小时率: 60 局/小时");
-        $this->line("  活跃度比例: " . round($hourlyGames / 60, 2));
+        $this->line('  预期小时率: 60 局/小时');
+        $this->line('  活跃度比例: '.round($hourlyGames / 60, 2));
         $this->newLine();
 
         // 市场活跃度分析
@@ -245,15 +247,15 @@ class ShowCurrentStrategy extends Command
         $diskUsagePercent = $diskTotal > 0 ? (($diskTotal - $diskFree) / $diskTotal) * 100 : 0;
 
         $this->line('🧠 内存使用:');
-        $this->line("  当前使用: " . round($memoryUsage / 1024 / 1024, 2) . " MB");
-        $this->line("  峰值使用: " . round($memoryPeak / 1024 / 1024, 2) . " MB");
+        $this->line('  当前使用: '.round($memoryUsage / 1024 / 1024, 2).' MB');
+        $this->line('  峰值使用: '.round($memoryPeak / 1024 / 1024, 2).' MB');
         $this->line("  内存限制: {$memoryLimit}");
         $this->newLine();
 
         $this->line('💾 磁盘使用:');
-        $this->line("  已使用: " . round($diskUsagePercent, 2) . "%");
-        $this->line("  剩余空间: " . round($diskFree / 1024 / 1024 / 1024, 2) . " GB");
-        $this->line("  总空间: " . round($diskTotal / 1024 / 1024 / 1024, 2) . " GB");
+        $this->line('  已使用: '.round($diskUsagePercent, 2).'%');
+        $this->line('  剩余空间: '.round($diskFree / 1024 / 1024 / 1024, 2).' GB');
+        $this->line('  总空间: '.round($diskTotal / 1024 / 1024 / 1024, 2).' GB');
         $this->newLine();
 
         // 性能警告
@@ -275,16 +277,16 @@ class ShowCurrentStrategy extends Command
         $predictionCache = Cache::get('hybrid_prediction:*');
 
         $this->line('📋 缓存项目:');
-        $this->line("  策略参数: " . ($cachedParams ? '✅ 已缓存' : '❌ 未缓存'));
-        $this->line("  动能数据: " . ($momentumCache ? '✅ 已缓存' : '❌ 未缓存'));
-        $this->line("  预测结果: " . ($predictionCache ? '✅ 已缓存' : '❌ 未缓存'));
+        $this->line('  策略参数: '.($cachedParams ? '✅ 已缓存' : '❌ 未缓存'));
+        $this->line('  动能数据: '.($momentumCache ? '✅ 已缓存' : '❌ 未缓存'));
+        $this->line('  预测结果: '.($predictionCache ? '✅ 已缓存' : '❌ 未缓存'));
         $this->newLine();
 
         // 缓存配置
         $this->line('⚙️  缓存配置:');
-        $this->line("  策略缓存键: " . config('backtest.cache_key'));
-        $this->line("  性能缓存TTL: " . config('backtest.performance.cache_ttl') . " 秒");
-        $this->line("  预测缓存TTL: " . config('prediction.cache.ttl') . " 秒");
+        $this->line('  策略缓存键: '.config('backtest.cache_key'));
+        $this->line('  性能缓存TTL: '.config('backtest.performance.cache_ttl').' 秒');
+        $this->line('  预测缓存TTL: '.config('prediction.cache.ttl').' 秒');
         $this->newLine();
     }
 
@@ -303,10 +305,10 @@ class ShowCurrentStrategy extends Command
 
         // 系统状态
         $this->line('🔍 系统状态:');
-        $this->line("  当前时间: " . now()->format('Y-m-d H:i:s'));
-        $this->line("  系统运行: " . $this->getUptime());
-        $this->line("  PHP版本: " . PHP_VERSION);
-        $this->line("  Laravel版本: " . app()->version());
+        $this->line('  当前时间: '.now()->format('Y-m-d H:i:s'));
+        $this->line('  系统运行: '.$this->getUptime());
+        $this->line('  PHP版本: '.PHP_VERSION);
+        $this->line('  Laravel版本: '.app()->version());
     }
 
     private function showMonitoringData(): void
@@ -327,7 +329,7 @@ class ShowCurrentStrategy extends Command
 
         // 异常检测
         $anomalies = $this->detectAnomalies();
-        if (!empty($anomalies)) {
+        if (! empty($anomalies)) {
             $this->warn('⚠️  检测到异常:');
             foreach ($anomalies as $anomaly) {
                 $this->line("  - {$anomaly}");
@@ -359,7 +361,7 @@ class ShowCurrentStrategy extends Command
         $this->line('📋 参数网格配置:');
         $parameterGrid = config('backtest.parameter_grid');
         foreach ($parameterGrid as $param => $values) {
-            $this->line("  {$param}: [" . implode(', ', $values) . "]");
+            $this->line("  {$param}: [".implode(', ', $values).']');
         }
         $this->newLine();
 
@@ -388,7 +390,7 @@ class ShowCurrentStrategy extends Command
         if ($otherStrategies->isNotEmpty()) {
             $this->info('📚 其他策略 (最近5个):');
             foreach ($otherStrategies as $strategy) {
-                $status = match($strategy->status) {
+                $status = match ($strategy->status) {
                     'inactive' => '⏸️',
                     'deprecated' => '🗑️',
                     default => '❓'
@@ -402,12 +404,12 @@ class ShowCurrentStrategy extends Command
     {
         $activities = [];
 
-                // 最近的回测
+        // 最近的回测
         $latestBacktest = BacktestResult::latest('created_at')->first();
         if ($latestBacktest && $latestBacktest->created_at) {
             $activities[] = [
                 'time' => $latestBacktest->created_at->diffForHumans(),
-                'description' => "回测完成: {$latestBacktest->run_id}"
+                'description' => "回测完成: {$latestBacktest->run_id}",
             ];
         }
 
@@ -416,7 +418,7 @@ class ShowCurrentStrategy extends Command
         if ($latestGame && $latestGame->created_at) {
             $activities[] = [
                 'time' => $latestGame->created_at->diffForHumans(),
-                'description' => "新游戏: {$latestGame->round_id}"
+                'description' => "新游戏: {$latestGame->round_id}",
             ];
         }
 
@@ -425,7 +427,7 @@ class ShowCurrentStrategy extends Command
         if ($latestPrice && $latestPrice->created_at) {
             $activities[] = [
                 'time' => $latestPrice->created_at->diffForHumans(),
-                'description' => "价格更新: {$latestPrice->symbol}"
+                'description' => "价格更新: {$latestPrice->symbol}",
             ];
         }
 
@@ -436,8 +438,9 @@ class ShowCurrentStrategy extends Command
     {
         // 简单的运行时间计算
         $startTime = Cache::get('system_start_time');
-        if (!$startTime) {
+        if (! $startTime) {
             Cache::put('system_start_time', now(), 86400); // 24小时
+
             return '未知';
         }
 
@@ -457,23 +460,23 @@ class ShowCurrentStrategy extends Command
             '市场活跃度' => [
                 '小时游戏数' => $hourlyGames,
                 '活跃度比例' => round($hourlyGames / 60, 2),
-                '状态' => $hourlyGames >= 30 && $hourlyGames <= 90 ? '正常' : '异常'
+                '状态' => $hourlyGames >= 30 && $hourlyGames <= 90 ? '正常' : '异常',
             ],
             '策略状态' => [
                 '活跃策略' => $activeStrategy?->strategy_name ?? '无',
                 '策略分数' => $activeStrategy?->score ?? 'N/A',
-                '运行时长' => $activeStrategy ? $activeStrategy->activated_at->diffForHumans() : 'N/A'
+                '运行时长' => $activeStrategy && $activeStrategy->activated_at ? $activeStrategy->activated_at->diffForHumans() : 'N/A',
             ],
             '优化活动' => [
                 '6小时回测数' => $recentBacktests,
                 '回测队列' => $backtestingQueueSize,
-                '失败任务' => $failedJobs
+                '失败任务' => $failedJobs,
             ],
             '系统健康' => [
                 '内存使用' => "{$memoryUsage} MB",
-                '磁盘使用' => $this->getDiskUsagePercent() . '%',
-                '队列状态' => $backtestingQueueSize > 15 ? '积压' : '正常'
-            ]
+                '磁盘使用' => $this->getDiskUsagePercent().'%',
+                '队列状态' => $backtestingQueueSize > 15 ? '积压' : '正常',
+            ],
         ];
     }
 
@@ -500,7 +503,7 @@ class ShowCurrentStrategy extends Command
 
         $memoryUsage = memory_get_usage(true);
         if ($memoryUsage > 1536 * 1024 * 1024) {
-            $anomalies[] = "系统内存使用较高 (" . round($memoryUsage / 1024 / 1024, 2) . " MB)";
+            $anomalies[] = '系统内存使用较高 ('.round($memoryUsage / 1024 / 1024, 2).' MB)';
         }
 
         return $anomalies;

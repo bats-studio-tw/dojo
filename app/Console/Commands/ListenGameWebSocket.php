@@ -55,7 +55,7 @@ class ListenGameWebSocket extends Command
 
         // 设置控制台输出回调
         $this->webSocketService->setConsoleOutput(function ($message, $level = 'info') {
-            match($level) {
+            match ($level) {
                 'error' => $this->error($message),
                 'warn' => $this->warn($message),
                 default => $this->info($message)
@@ -63,7 +63,7 @@ class ListenGameWebSocket extends Command
         });
 
         try {
-            Log::info("游戏WebSocket监听器启动", ['pid' => getmypid()]);
+            Log::info('游戏WebSocket监听器启动', ['pid' => getmypid()]);
 
             // 直接启动服务，服务内部会处理循环和重连
             $this->webSocketService->startListening();
@@ -71,8 +71,8 @@ class ListenGameWebSocket extends Command
             return Command::SUCCESS;
 
         } catch (\Exception $e) {
-            $this->error("❌ WebSocket 监听器发生致命错误: " . $e->getMessage());
-            Log::error("WebSocket监听器致命错误", [
+            $this->error('❌ WebSocket 监听器发生致命错误: '.$e->getMessage());
+            Log::error('WebSocket监听器致命错误', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -93,7 +93,7 @@ class ListenGameWebSocket extends Command
         }
 
         $handler = function (int $signal) {
-            $this->info("📡 收到信号 " . $signal . "，正在优雅关闭...");
+            $this->info('📡 收到信号 '.$signal.'，正在优雅关闭...');
             $this->gracefulShutdown();
         };
 
@@ -198,7 +198,7 @@ class ListenGameWebSocket extends Command
 
         // 设置控制台输出回调
         $this->webSocketService->setConsoleOutput(function ($message, $level = 'info') {
-            match($level) {
+            match ($level) {
                 'error' => $this->error($message),
                 'warn' => $this->warn($message),
                 default => $this->info($message)
@@ -208,9 +208,11 @@ class ListenGameWebSocket extends Command
         try {
             // 启动WebSocket服务
             $this->webSocketService->startListening();
+
             return Command::SUCCESS;
         } catch (\Exception $e) {
-            $this->error("❌ 连接监控发生错误: " . $e->getMessage());
+            $this->error('❌ 连接监控发生错误: '.$e->getMessage());
+
             return Command::FAILURE;
         }
     }

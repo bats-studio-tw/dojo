@@ -51,10 +51,10 @@ class BatchUpdateEloCommand extends Command
         $toDate = $this->option('to-date');
         $mode = $this->option('mode');
 
-        $this->info("🚀 开始批量更新Elo评分");
+        $this->info('🚀 开始批量更新Elo评分');
         $this->info("处理轮次限制: {$limit}");
-        $this->info("重置模式: " . ($reset ? '是' : '否'));
-        $this->info("试运行模式: " . ($dryRun ? '是' : '否'));
+        $this->info('重置模式: '.($reset ? '是' : '否'));
+        $this->info('试运行模式: '.($dryRun ? '是' : '否'));
         $this->info("胜负关系模式: {$mode}");
 
         if ($fromDate) {
@@ -74,7 +74,7 @@ class BatchUpdateEloCommand extends Command
             $rounds = $this->getHistoricalRounds($limit, $fromDate, $toDate);
 
             if ($rounds->isEmpty()) {
-                $this->warn("⚠️ 没有找到符合条件的游戏轮次数据");
+                $this->warn('⚠️ 没有找到符合条件的游戏轮次数据');
 
                 return;
             }
@@ -88,7 +88,7 @@ class BatchUpdateEloCommand extends Command
             $this->displayFinalResults($dryRun);
 
         } catch (\Exception $e) {
-            $this->error("❌ 批量更新失败: " . $e->getMessage());
+            $this->error('❌ 批量更新失败: '.$e->getMessage());
             Log::error('批量更新Elo评分失败', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -97,7 +97,7 @@ class BatchUpdateEloCommand extends Command
             return 1;
         }
 
-        $this->info("✅ 批量更新Elo评分完成");
+        $this->info('✅ 批量更新Elo评分完成');
 
         return 0;
     }
@@ -107,10 +107,10 @@ class BatchUpdateEloCommand extends Command
      */
     private function resetAllTokenRatings(bool $dryRun): void
     {
-        $this->info("🔄 重置所有代币的Elo评分...");
+        $this->info('🔄 重置所有代币的Elo评分...');
 
         if ($dryRun) {
-            $this->line("  [试运行] 将重置所有代币评分到1500");
+            $this->line('  [试运行] 将重置所有代币评分到1500');
 
             return;
         }
@@ -133,16 +133,16 @@ class BatchUpdateEloCommand extends Command
         $query = GameRound::with(['roundResults' => function ($query) {
             $query->orderBy('rank');
         }])
-        ->whereHas('roundResults')
-        ->settled()
-        ->orderBy('settled_at', 'asc'); // 按时间顺序处理
+            ->whereHas('roundResults')
+            ->settled()
+            ->orderBy('settled_at', 'asc'); // 按时间顺序处理
 
         if ($fromDate) {
             $query->where('settled_at', '>=', $fromDate);
         }
 
         if ($toDate) {
-            $query->where('settled_at', '<=', $toDate . ' 23:59:59');
+            $query->where('settled_at', '<=', $toDate.' 23:59:59');
         }
 
         return $query->limit($limit)->get();
@@ -203,7 +203,7 @@ class BatchUpdateEloCommand extends Command
                 $losers = $results->slice(1)->pluck('token_symbol')->toArray();
 
                 if ($dryRun) {
-                    $this->line("  [试运行] 轮次 {$round->round_id}: {$winner} 击败 " . implode(', ', $losers));
+                    $this->line("  [试运行] 轮次 {$round->round_id}: {$winner} 击败 ".implode(', ', $losers));
                 } else {
                     foreach ($losers as $loser) {
                         $this->eloEngine->updateElo($winner, $loser);
@@ -221,7 +221,7 @@ class BatchUpdateEloCommand extends Command
                 if ($dryRun) {
                     $top3Symbols = $top3->pluck('token_symbol')->toArray();
                     $otherSymbols = $others->pluck('token_symbol')->toArray();
-                    $this->line("  [试运行] 轮次 {$round->round_id}: 前三名 " . implode(', ', $top3Symbols) . " 击败 " . implode(', ', $otherSymbols));
+                    $this->line("  [试运行] 轮次 {$round->round_id}: 前三名 ".implode(', ', $top3Symbols).' 击败 '.implode(', ', $otherSymbols));
                 } else {
                     foreach ($top3 as $winner) {
                         foreach ($others as $loser) {
@@ -263,18 +263,18 @@ class BatchUpdateEloCommand extends Command
     private function displayFinalResults(bool $dryRun): void
     {
         if ($dryRun) {
-            $this->info("📋 试运行完成，未实际更新数据库");
+            $this->info('📋 试运行完成，未实际更新数据库');
 
             return;
         }
 
-        $this->info("📊 最终Elo评分结果:");
+        $this->info('📊 最终Elo评分结果:');
 
         // 获取所有代币的当前评分
         $ratings = TokenRating::orderBy('elo', 'desc')->get();
 
         if ($ratings->isEmpty()) {
-            $this->warn("⚠️ 没有找到代币评分数据");
+            $this->warn('⚠️ 没有找到代币评分数据');
 
             return;
         }
@@ -294,11 +294,11 @@ class BatchUpdateEloCommand extends Command
         $this->table($headers, $rows);
 
         // 显示统计信息
-        $this->info("📈 统计信息:");
-        $this->line("  总代币数量: " . $ratings->count());
-        $this->line("  最高评分: " . round($ratings->max('elo'), 2));
-        $this->line("  最低评分: " . round($ratings->min('elo'), 2));
-        $this->line("  平均评分: " . round($ratings->avg('elo'), 2));
-        $this->line("  总游戏次数: " . $ratings->sum('games'));
+        $this->info('📈 统计信息:');
+        $this->line('  总代币数量: '.$ratings->count());
+        $this->line('  最高评分: '.round($ratings->max('elo'), 2));
+        $this->line('  最低评分: '.round($ratings->min('elo'), 2));
+        $this->line('  平均评分: '.round($ratings->avg('elo'), 2));
+        $this->line('  总游戏次数: '.$ratings->sum('games'));
     }
 }

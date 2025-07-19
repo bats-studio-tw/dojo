@@ -15,16 +15,15 @@ class PredictionService
         private array $featureProviders,
         private ScoreAggregator $aggregator,
         private string $strategyTag = 'default'
-    ) {
-    }
+    ) {}
 
     /**
      * 执行预测
      *
-     * @param array $symbols 代币符号数组
-     * @param int $timestamp 时间戳
-     * @param array $history 历史数据
-     * @param int $gameRoundId 游戏回合ID
+     * @param  array  $symbols  代币符号数组
+     * @param  int  $timestamp  时间戳
+     * @param  array  $history  历史数据
+     * @param  int  $gameRoundId  游戏回合ID
      * @return array 预测结果
      */
     public function predict(array $symbols, int $timestamp, array $history, int $gameRoundId): array
@@ -137,6 +136,4 @@ class PredictionService
             return [];
         }
     }
-
-
 }

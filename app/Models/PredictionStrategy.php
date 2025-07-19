@@ -42,6 +42,7 @@ class PredictionStrategy extends Model
         if (is_string($this->parameters)) {
             return json_decode($this->parameters, true) ?? [];
         }
+
         return $this->parameters ?? [];
     }
 

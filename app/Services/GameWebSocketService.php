@@ -15,30 +15,44 @@ use React\EventLoop\Loop;
 class GameWebSocketService
 {
     private string $websocketUrl = 'wss://minigamewspush.dojo3.io/';
+
     private bool $shouldStop = false;
+
     private $consoleOutput = null;
+
     private int $messageCount = 0;
+
     private int $settlementCount = 0;
+
     private array $processedRounds = []; // 记录已处理的轮次ID
 
     // 🔧 新增：连接健康检查相关属性
     private ?int $lastMessageTime = null;
+
     private ?int $lastHeartbeatTime = null;
+
     private bool $isConnected = false;
+
     private int $reconnectAttempts = 0;
+
     private int $maxReconnectAttempts = 3; // 减少重连次数，适配Daemon环境
+
     private int $reconnectDelay = 5; // 初始重连延迟（秒）
+
     private int $maxReconnectDelay = 60; // 减少最大重连延迟
+
     private $connection = null;
+
     private $healthCheckTimer = null;
+
     private $heartbeatTimer = null;
+
     private bool $isDaemonMode = true; // 标记为Daemon模式
 
     public function __construct(
         private GameDataProcessorService $dataProcessor,
         private GamePredictionService $predictionService
-    ) {
-    }
+    ) {}
 
     /**
      * 设置控制台输出回调
@@ -63,7 +77,7 @@ class GameWebSocketService
      */
     public function startListening(): void
     {
-        $this->logInfo("準備啟動 WebSocket 連線...");
+        $this->logInfo('準備啟動 WebSocket 連線...');
         $loop = Loop::get();
         $connector = new Connector($loop);
 
@@ -79,11 +93,12 @@ class GameWebSocketService
 
         $connect = function () use ($connector, &$connect) {
             if ($this->shouldStop) {
-                $this->logInfo("監聽器被要求停止，不再進行連線。");
+                $this->logInfo('監聽器被要求停止，不再進行連線。');
+
                 return;
             }
 
-            $this->consoleOutput("🔄 正在连接到游戏服务器... (尝试 #" . ($this->reconnectAttempts + 1) . ")");
+            $this->consoleOutput('🔄 正在连接到游戏服务器... (尝试 #'.($this->reconnectAttempts + 1).')');
 
             $connector($this->websocketUrl)
                 ->then(function ($conn) use (&$connect) {
@@ -93,7 +108,7 @@ class GameWebSocketService
                     $this->lastMessageTime = time();
                     $this->lastHeartbeatTime = time();
 
-                    $this->logInfo("✅ WebSocket 連線成功建立！");
+                    $this->logInfo('✅ WebSocket 連線成功建立！');
 
                     $conn->on('message', function (MessageInterface $msg) {
                         $this->lastMessageTime = time(); // 更新最后消息时间
@@ -105,7 +120,7 @@ class GameWebSocketService
                     });
 
                     $conn->on('error', function (\Exception $e) use ($conn) {
-                        $this->logError("❌ WebSocket 連接錯誤", ['error' => $e->getMessage()]);
+                        $this->logError('❌ WebSocket 連接錯誤', ['error' => $e->getMessage()]);
                         $this->isConnected = false;
                         $conn->close(); // 觸發 close 事件來處理重連
                     });
@@ -133,15 +148,16 @@ class GameWebSocketService
         $this->isConnected = false;
         $this->connection = null;
 
-        $this->logWarning("🔌 WebSocket 連線關閉", [
+        $this->logWarning('🔌 WebSocket 連線關閉', [
             'code' => $code,
             'reason' => $reason,
             'reconnect_attempts' => $this->reconnectAttempts,
-            'is_daemon_mode' => $this->isDaemonMode
+            'is_daemon_mode' => $this->isDaemonMode,
         ]);
 
         if ($this->shouldStop) {
-            $this->logInfo("監聽器被要求停止，不再重連。");
+            $this->logInfo('監聽器被要求停止，不再重連。');
+
             return;
         }
 
@@ -150,7 +166,7 @@ class GameWebSocketService
             $this->logError("🔄 Daemon模式：重连次数已达上限({$this->maxReconnectAttempts})，主动退出让Daemon重启", [
                 'reconnect_attempts' => $this->reconnectAttempts,
                 'max_attempts' => $this->maxReconnectAttempts,
-                'exit_code' => 1
+                'exit_code' => 1,
             ]);
 
             // 清理资源
@@ -163,7 +179,7 @@ class GameWebSocketService
         // 计算重连延迟（指数退避）
         $delay = min($this->reconnectDelay * pow(2, $this->reconnectAttempts), $this->maxReconnectDelay);
 
-        $this->logInfo("🔄 {$delay}秒後嘗試重連... (尝试 #" . ($this->reconnectAttempts + 1) . ")");
+        $this->logInfo("🔄 {$delay}秒後嘗試重連... (尝试 #".($this->reconnectAttempts + 1).')');
         Loop::addTimer($delay, $connect);
     }
 
@@ -175,14 +191,15 @@ class GameWebSocketService
         $this->isConnected = false;
         $this->connection = null;
 
-        $this->logError("❌ WebSocket 連線失敗", [
+        $this->logError('❌ WebSocket 連線失敗', [
             'error' => $e->getMessage(),
             'reconnect_attempts' => $this->reconnectAttempts,
-            'is_daemon_mode' => $this->isDaemonMode
+            'is_daemon_mode' => $this->isDaemonMode,
         ]);
 
         if ($this->shouldStop) {
-            $this->logInfo("監聽器被要求停止，不再重連。");
+            $this->logInfo('監聽器被要求停止，不再重連。');
+
             return;
         }
 
@@ -193,7 +210,7 @@ class GameWebSocketService
             $this->logError("🔄 Daemon模式：重连次数已达上限({$this->maxReconnectAttempts})，主动退出让Daemon重启", [
                 'reconnect_attempts' => $this->reconnectAttempts,
                 'max_attempts' => $this->maxReconnectAttempts,
-                'exit_code' => 1
+                'exit_code' => 1,
             ]);
 
             // 清理资源
@@ -205,16 +222,16 @@ class GameWebSocketService
 
         // 如果重连次数过多，增加延迟
         if ($this->reconnectAttempts > $this->maxReconnectAttempts) {
-            $this->logWarning("⚠️ 重连次数过多，使用最大延迟", [
+            $this->logWarning('⚠️ 重连次数过多，使用最大延迟', [
                 'attempts' => $this->reconnectAttempts,
-                'max_attempts' => $this->maxReconnectAttempts
+                'max_attempts' => $this->maxReconnectAttempts,
             ]);
         }
 
         // 计算重连延迟（指数退避）
         $delay = min($this->reconnectDelay * pow(2, $this->reconnectAttempts), $this->maxReconnectDelay);
 
-        $this->logInfo("🔄 {$delay}秒後嘗試重連... (尝试 #" . ($this->reconnectAttempts + 1) . ")");
+        $this->logInfo("🔄 {$delay}秒後嘗試重連... (尝试 #".($this->reconnectAttempts + 1).')');
         Loop::addTimer($delay, $connect);
     }
 
@@ -227,17 +244,17 @@ class GameWebSocketService
 
         // 检查是否长时间没有收到消息（超过2分钟）
         if ($this->lastMessageTime && ($currentTime - $this->lastMessageTime) > 120) {
-            $this->logWarning("⚠️ 连接可能已断开 - 超过2分钟未收到消息", [
+            $this->logWarning('⚠️ 连接可能已断开 - 超过2分钟未收到消息', [
                 'last_message_time' => date('Y-m-d H:i:s', $this->lastMessageTime),
-                'time_since_last_message' => $currentTime - $this->lastMessageTime . '秒',
-                'is_daemon_mode' => $this->isDaemonMode
+                'time_since_last_message' => $currentTime - $this->lastMessageTime.'秒',
+                'is_daemon_mode' => $this->isDaemonMode,
             ]);
 
             // 在Daemon模式下，如果长时间无消息，主动退出让Daemon重启
             if ($this->isDaemonMode) {
-                $this->logError("🔄 Daemon模式：长时间无消息，主动退出让Daemon重启", [
-                    'time_since_last_message' => $currentTime - $this->lastMessageTime . '秒',
-                    'exit_code' => 2
+                $this->logError('🔄 Daemon模式：长时间无消息，主动退出让Daemon重启', [
+                    'time_since_last_message' => $currentTime - $this->lastMessageTime.'秒',
+                    'exit_code' => 2,
                 ]);
 
                 // 清理资源
@@ -249,18 +266,18 @@ class GameWebSocketService
 
             // 如果连接对象存在但长时间无消息，主动关闭重连
             if ($this->connection && $this->isConnected) {
-                $this->logInfo("🔄 主动关闭连接以触发重连...");
+                $this->logInfo('🔄 主动关闭连接以触发重连...');
                 $this->connection->close();
             }
         }
 
         // 检查连接状态
-        if (!$this->isConnected && !$this->shouldStop) {
-            $this->logWarning("⚠️ 连接状态异常 - 标记为未连接但未停止监听", [
+        if (! $this->isConnected && ! $this->shouldStop) {
+            $this->logWarning('⚠️ 连接状态异常 - 标记为未连接但未停止监听', [
                 'is_connected' => $this->isConnected,
                 'should_stop' => $this->shouldStop,
                 'reconnect_attempts' => $this->reconnectAttempts,
-                'is_daemon_mode' => $this->isDaemonMode
+                'is_daemon_mode' => $this->isDaemonMode,
             ]);
         }
     }
@@ -277,34 +294,34 @@ class GameWebSocketService
         $timeSinceLastMessage = $this->lastMessageTime ? ($currentTime - $this->lastMessageTime) : 'N/A';
         $timeSinceLastHeartbeat = $this->lastHeartbeatTime ? ($currentTime - $this->lastHeartbeatTime) : 'N/A';
 
-        $statusMessage = "💓 WebSocket 监听器运行中... " . date('H:i:s') .
-            " | 连接状态: " . ($this->isConnected ? '✅ 已连接' : '❌ 未连接') .
-            " | 收到消息: {$this->messageCount}" .
-            " | 结算数据: {$this->settlementCount}" .
-            " | 处理轮次: {$processedRoundsCount}" .
-            " | 最后消息: " . ($timeSinceLastMessage === 'N/A' ? 'N/A' : $timeSinceLastMessage . '秒前') .
+        $statusMessage = '💓 WebSocket 监听器运行中... '.date('H:i:s').
+            ' | 连接状态: '.($this->isConnected ? '✅ 已连接' : '❌ 未连接').
+            " | 收到消息: {$this->messageCount}".
+            " | 结算数据: {$this->settlementCount}".
+            " | 处理轮次: {$processedRoundsCount}".
+            ' | 最后消息: '.($timeSinceLastMessage === 'N/A' ? 'N/A' : $timeSinceLastMessage.'秒前').
             " | 重连次数: {$this->reconnectAttempts}";
 
         $this->consoleOutput($statusMessage);
         $this->lastHeartbeatTime = $currentTime;
 
         // 记录到日志
-        $this->logInfo("心跳检查", [
+        $this->logInfo('心跳检查', [
             'is_connected' => $this->isConnected,
             'message_count' => $this->messageCount,
             'settlement_count' => $this->settlementCount,
             'processed_rounds' => $processedRoundsCount,
             'time_since_last_message' => $timeSinceLastMessage,
-            'reconnect_attempts' => $this->reconnectAttempts
+            'reconnect_attempts' => $this->reconnectAttempts,
         ]);
     }
 
     /**
-    * 連接成功回調
-    */
+     * 連接成功回調
+     */
     private function onConnectionOpen(WebSocket $conn): void
     {
-        $this->logInfo("✅ WebSocket 連線成功建立！");
+        $this->logInfo('✅ WebSocket 連線成功建立！');
         $this->reconnectAttempts = 0; // 重置重連计数器
 
         // *** 這就是修正的部分 ***
@@ -319,7 +336,7 @@ class GameWebSocketService
 
         // 監聽連接關閉
         $conn->on('close', function ($code = null, $reason = null) {
-            $this->logWarning("🔌 WebSocket 連線關閉", [
+            $this->logWarning('🔌 WebSocket 連線關閉', [
                 'code' => $code,
                 'reason' => $reason,
             ]);
@@ -328,25 +345,24 @@ class GameWebSocketService
 
         // 監聽錯誤
         $conn->on('error', function (\Exception $e) use ($conn) {
-            $this->logError("❌ WebSocket 連接錯誤", ['error' => $e->getMessage()]);
+            $this->logError('❌ WebSocket 連接錯誤', ['error' => $e->getMessage()]);
             $conn->close(); // 觸發 close 事件來處理重連
         });
     }
 
     /**
      * 發送初始註冊訊息
-     * @param WebSocket $conn
      */
     private function sendInitialMessage(WebSocket $conn): void
     {
         // 這段 PHP 程式碼等同於你提供的 JavaScript 函數，用於生成一個唯一的客戶端ID
-        $clientId = 'RG#' . bin2hex(random_bytes(16));
+        $clientId = 'RG#'.bin2hex(random_bytes(16));
 
         try {
             $conn->send($clientId);
-            $this->logInfo("🚀 已發送初始訊息", ['clientId' => $clientId]);
+            $this->logInfo('🚀 已發送初始訊息', ['clientId' => $clientId]);
         } catch (\Exception $e) {
-            $this->logError("❌ 發送初始訊息失敗", ['error' => $e->getMessage()]);
+            $this->logError('❌ 發送初始訊息失敗', ['error' => $e->getMessage()]);
         }
     }
 
@@ -374,7 +390,7 @@ class GameWebSocketService
             $this->connection = null;
         }
 
-        $this->logInfo("🧹 资源清理完成");
+        $this->logInfo('🧹 资源清理完成');
     }
 
     /**
@@ -386,7 +402,7 @@ class GameWebSocketService
 
         // 如果事件循環正在運行，停止它
         Loop::stop();
-        $this->logInfo("🛑 已請求停止 WebSocket 監聽器。");
+        $this->logInfo('🛑 已請求停止 WebSocket 監聽器。');
     }
 
     /**
@@ -416,7 +432,7 @@ class GameWebSocketService
 
             $gameData = json_decode($outerData['data'], true);
             if (! $gameData) {
-                $this->consoleOutput("⚠️ 无法解析游戏数据");
+                $this->consoleOutput('⚠️ 无法解析游戏数据');
 
                 return;
             }
@@ -434,7 +450,7 @@ class GameWebSocketService
 
                 if ($status === 'settling' || $status === 'settled') {
                     // 處理結算數據
-                    $this->logInfo("🎯 偵測到結算資料！", ['rdId' => $rdId, 'status' => $status]);
+                    $this->logInfo('🎯 偵測到結算資料！', ['rdId' => $rdId, 'status' => $status]);
                     $this->dataProcessor->processSettlementData($gameData);
                     $this->settlementCount++;
                     $this->consoleOutput("🎯 处理结算数据: {$rdId} (状态: {$status})");
@@ -446,8 +462,8 @@ class GameWebSocketService
                     }
 
                     // 處理新局開始的特殊逻辑
-                    $this->consoleOutput("🚀 发现新轮次，开始预测计算");
-                    $this->logInfo("🚀 偵測到新局開始！", ['rdId' => $rdId, 'status' => $status]);
+                    $this->consoleOutput('🚀 发现新轮次，开始预测计算');
+                    $this->logInfo('🚀 偵測到新局開始！', ['rdId' => $rdId, 'status' => $status]);
 
                     // 记录此轮次ID（用于预测计算去重）
                     $this->processedRounds[] = $rdId;
@@ -462,12 +478,12 @@ class GameWebSocketService
                     // 广播新轮次开始的游戏数据到前端
                     try {
                         broadcast(new GameDataUpdated($gameData, 'bet'));
-                        $this->logInfo("📡 新轮次开始数据已广播到WebSocket客户端", [
+                        $this->logInfo('📡 新轮次开始数据已广播到WebSocket客户端', [
                             'rdId' => $rdId,
                             'status' => $status,
                         ]);
                     } catch (\Exception $broadcastError) {
-                        $this->logError("广播新轮次开始数据失败", [
+                        $this->logError('广播新轮次开始数据失败', [
                             'rdId' => $rdId,
                             'error' => $broadcastError->getMessage(),
                         ]);
@@ -484,12 +500,12 @@ class GameWebSocketService
                     // 广播其他状态的游戏数据到前端 (如倒计时、等待等状态)
                     try {
                         broadcast(new GameDataUpdated($gameData, $status));
-                        $this->logInfo("📡 游戏状态数据已广播到WebSocket客户端", [
+                        $this->logInfo('📡 游戏状态数据已广播到WebSocket客户端', [
                             'rdId' => $rdId,
                             'status' => $status,
                         ]);
                     } catch (\Exception $broadcastError) {
-                        $this->logError("广播游戏状态数据失败", [
+                        $this->logError('广播游戏状态数据失败', [
                             'rdId' => $rdId,
                             'status' => $status,
                             'error' => $broadcastError->getMessage(),
@@ -502,9 +518,9 @@ class GameWebSocketService
             }
 
         } catch (\Exception $e) {
-            $this->logError("❌ 處理 WebSocket 訊息時發生錯誤", [
+            $this->logError('❌ 處理 WebSocket 訊息時發生錯誤', [
                 'error' => $e->getMessage(),
-                'payload' => substr($payload, 0, 200) . '...', // 只记录前200字符避免日志过长
+                'payload' => substr($payload, 0, 200).'...', // 只记录前200字符避免日志过长
             ]);
         }
     }
@@ -532,7 +548,7 @@ class GameWebSocketService
                     'round_id' => $roundId,
                     'game_data' => $gameData,
                 ]);
-                $this->consoleOutput("⚠️ 没有代币信息，跳过新轮次事件触发");
+                $this->consoleOutput('⚠️ 没有代币信息，跳过新轮次事件触发');
 
                 return;
             }
@@ -555,7 +571,7 @@ class GameWebSocketService
                 'valid_tokens' => $tokens,
             ]);
 
-            $this->consoleOutput("🎯 触发新轮次开始事件...");
+            $this->consoleOutput('🎯 触发新轮次开始事件...');
 
             // 触发 NewRoundStarted 事件
             $event = new NewRoundStarted($roundId, $tokens, $chainId);
@@ -578,7 +594,7 @@ class GameWebSocketService
                 'timestamp' => now()->toISOString(),
             ]);
 
-            $this->consoleOutput("✅ 新轮次开始事件已触发");
+            $this->consoleOutput('✅ 新轮次开始事件已触发');
 
         } catch (\Exception $e) {
             Log::channel('websocket')->error('❌ 触发新轮次开始事件异常', [
@@ -588,7 +604,7 @@ class GameWebSocketService
                 'game_data' => $gameData,
             ]);
 
-            $this->logError("触发新轮次开始事件异常", [
+            $this->logError('触发新轮次开始事件异常', [
                 'error' => $e->getMessage(),
                 'rdId' => $gameData['rdId'] ?? 'unknown',
             ]);
@@ -605,24 +621,24 @@ class GameWebSocketService
             $tokens = array_keys($gameData['token'] ?? []);
 
             if (empty($tokens)) {
-                $this->consoleOutput("⚠️ 没有代币信息，跳过预测计算");
+                $this->consoleOutput('⚠️ 没有代币信息，跳过预测计算');
 
                 return;
             }
 
-            $this->consoleOutput("🧠 开始计算预测分析...");
+            $this->consoleOutput('🧠 开始计算预测分析...');
 
             // 在后台异步生成预测数据
             $success = $this->predictionService->generateAndCachePrediction($tokens, $roundId);
 
             if ($success) {
-                $this->consoleOutput("✅ 预测分析已完成并缓存");
+                $this->consoleOutput('✅ 预测分析已完成并缓存');
             } else {
-                $this->consoleOutput("❌ 预测分析计算失败");
+                $this->consoleOutput('❌ 预测分析计算失败');
             }
 
         } catch (\Exception $e) {
-            $this->logError("预测分析计算异常", [
+            $this->logError('预测分析计算异常', [
                 'error' => $e->getMessage(),
                 'rdId' => $gameData['rdId'] ?? 'unknown',
             ]);
@@ -662,7 +678,7 @@ class GameWebSocketService
                 $currentRoundData['token_count'] = $tokenCount;
 
                 if ($tokenCount > 0) {
-                    $this->consoleOutput("💾 更新代币信息: " . implode(', ', $tokens) . " | 轮次: {$roundId} | 状态: {$status}");
+                    $this->consoleOutput('💾 更新代币信息: '.implode(', ', $tokens)." | 轮次: {$roundId} | 状态: {$status}");
                 }
             }
 
@@ -678,14 +694,14 @@ class GameWebSocketService
             // 存儲到緩存，設置過期時間為 20 分钟
             Cache::put('game:current_round', $currentRoundData, now()->addMinutes(20));
 
-            $this->logInfo("✅ 當前局游戏信息已更新到緩存", [
+            $this->logInfo('✅ 當前局游戏信息已更新到緩存', [
                 'rdId' => $roundId,
                 'status' => $status,
                 'token_count' => $currentRoundData['token_count'],
             ]);
 
         } catch (\Exception $e) {
-            $this->logError("❌ 存儲當前局游戏信息到緩存時發生錯誤", [
+            $this->logError('❌ 存儲當前局游戏信息到緩存時發生錯誤', [
                 'rdId' => $roundId,
                 'status' => $status,
                 'error' => $e->getMessage(),

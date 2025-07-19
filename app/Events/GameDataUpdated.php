@@ -17,8 +17,7 @@ class GameDataUpdated implements ShouldBroadcastNow
     public function __construct(
         public array $gameData,
         public string $type = 'game_data'
-    ) {
-    }
+    ) {}
 
     /**
      * 获取事件应该广播到的频道

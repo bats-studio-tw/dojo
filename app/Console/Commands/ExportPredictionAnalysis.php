@@ -73,8 +73,8 @@ class ExportPredictionAnalysis extends Command
         }
 
         $datetime = now()->format('Ymd_His');
-        $limitSuffix = $limit ? '_latest' . $limit : '_all';
-        $filePath = 'prediction_analysis_' . $version . $limitSuffix . '_' . $datetime . '.csv';
+        $limitSuffix = $limit ? '_latest'.$limit : '_all';
+        $filePath = 'prediction_analysis_'.$version.$limitSuffix.'_'.$datetime.'.csv';
         // 使用 Storage Facade 來處理檔案，更安全
         Storage::disk('local')->put($filePath, ''); // 建立或清空檔案
         $fullPath = Storage::disk('local')->path($filePath);
@@ -110,7 +110,7 @@ class ExportPredictionAnalysis extends Command
 
         // 使用 Query Builder 的 chunk，每次處理100筆
         $query->with(['roundPredicts', 'roundResults'])
-            ->chunk(100, function ($rounds) use ($fileHandle, &$processedPredictions, &$processedRounds, $version) {
+            ->chunk(100, function ($rounds) use ($fileHandle, &$processedPredictions, &$processedRounds) {
                 // 批量獲取這批回合的 Hybrid 預測數據
                 $roundIds = $rounds->pluck('id')->toArray();
                 $hybridPredictionsCollection = HybridRoundPredict::whereIn('game_round_id', $roundIds)
@@ -205,7 +205,7 @@ class ExportPredictionAnalysis extends Command
         fclose($fileHandle);
 
         $this->info("Export complete! {$processedPredictions} predictions from {$processedRounds} rounds have been saved.");
-        $this->comment("File location: " . $fullPath);
+        $this->comment('File location: '.$fullPath);
         if ($limit && $totalRounds > $limit) {
             $this->comment("Note: Only the latest {$limit} rounds were exported out of {$totalRounds} total rounds.");
         }

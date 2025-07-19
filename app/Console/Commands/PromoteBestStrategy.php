@@ -1,4 +1,5 @@
 <?php
+
 // app/Console/Commands/PromoteBestStrategy.php
 
 namespace App\Console\Commands;
@@ -44,16 +45,17 @@ class PromoteBestStrategy extends Command
             $minScore = 40;
         }
 
-        $this->info("開始策略晉升流程");
+        $this->info('開始策略晉升流程');
         $this->info("最低分數門檻: {$minScore}");
-        $this->info("強制晉升: " . ($force ? '是' : '否'));
-        $this->info("快速晉升: " . ($forceQuick ? '是' : '否'));
+        $this->info('強制晉升: '.($force ? '是' : '否'));
+        $this->info('快速晉升: '.($forceQuick ? '是' : '否'));
 
         try {
             // 獲取要處理的回測執行ID
             $targetRunId = $this->getTargetRunId($runId);
-            if (!$targetRunId) {
+            if (! $targetRunId) {
                 $this->error('沒有找到可用的回測結果');
+
                 return 1;
             }
 
@@ -62,18 +64,19 @@ class PromoteBestStrategy extends Command
             // 獲取最佳策略
             $bestStrategy = $this->findBestStrategy($targetRunId, $minScore, $force, $forceQuick);
 
-            if (!$bestStrategy) {
+            if (! $bestStrategy) {
                 $this->warn('沒有找到符合條件的策略');
+
                 return 0;
             }
 
             // 晉升策略
             $promotedStrategy = $this->promoteStrategy($bestStrategy, $targetRunId);
 
-            $this->info("策略晉升成功！");
+            $this->info('策略晉升成功！');
             $this->info("策略名稱: {$promotedStrategy->strategy_name}");
             $this->info("分數: {$promotedStrategy->score}");
-            $this->info("參數: " . json_encode($promotedStrategy->parameters));
+            $this->info('參數: '.json_encode($promotedStrategy->parameters));
 
             // 清除相關快取
             $this->clearRelatedCaches();
@@ -88,12 +91,13 @@ class PromoteBestStrategy extends Command
             return 0;
 
         } catch (\Exception $e) {
-            $this->error("策略晉升失敗: " . $e->getMessage());
+            $this->error('策略晉升失敗: '.$e->getMessage());
             Log::error('策略晉升失敗', [
                 'run_id' => $runId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
             return 1;
         }
     }
@@ -106,10 +110,12 @@ class PromoteBestStrategy extends Command
         if ($specifiedRunId) {
             // 檢查指定的run_id是否存在
             $exists = BacktestResult::where('run_id', $specifiedRunId)->exists();
-            if (!$exists) {
+            if (! $exists) {
                 $this->error("指定的回測執行ID '{$specifiedRunId}' 不存在");
+
                 return null;
             }
+
             return $specifiedRunId;
         }
 
@@ -129,20 +135,20 @@ class PromoteBestStrategy extends Command
         $query = BacktestResult::where('run_id', $runId)
             ->orderBy('score', 'desc');
 
-        if (!$force) {
+        if (! $force) {
             $query->where('score', '>=', $minScore);
         }
 
         $bestResult = $query->first();
 
-        if (!$bestResult) {
+        if (! $bestResult) {
             return null;
         }
 
         // 快速晉升模式跳過重複檢查
-        if (!$forceQuick) {
+        if (! $forceQuick) {
             // 檢查是否已經有相同參數的策略
-            $existingStrategy = PredictionStrategy::where('parameters', json_encode($bestResult->parameters))
+            $existingStrategy = PredictionStrategy::where('parameters', $bestResult->parameters)
                 ->first();
 
             if ($existingStrategy) {
@@ -151,11 +157,12 @@ class PromoteBestStrategy extends Command
                 // 如果現有策略分數更高，不進行晉升
                 if ($existingStrategy->score >= $bestResult->score) {
                     $this->warn("現有策略分數 ({$existingStrategy->score}) 不低於新策略 ({$bestResult->score})，跳過晉升");
+
                     return null;
                 }
             }
         } else {
-            $this->info("快速晉升模式：跳過重複檢查");
+            $this->info('快速晉升模式：跳過重複檢查');
         }
 
         return $bestResult;
@@ -179,9 +186,10 @@ class PromoteBestStrategy extends Command
         $strategy = PredictionStrategy::updateOrCreate(
             [
                 'run_id' => $runId,
-                'parameters' => json_encode($bestResult->parameters),
+                'parameters' => $bestResult->parameters,
             ],
             [
+                'run_id' => $runId,
                 'strategy_name' => $strategyName,
                 'score' => $bestResult->score,
                 'status' => 'active',
@@ -230,6 +238,6 @@ class PromoteBestStrategy extends Command
             Cache::forget($cacheKey);
         }
 
-        $this->info("已清除相關快取");
+        $this->info('已清除相關快取');
     }
 }

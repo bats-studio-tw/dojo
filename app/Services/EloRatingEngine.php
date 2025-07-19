@@ -14,7 +14,7 @@ class EloRatingEngine
      * 計算 K 值衰減因子
      * K = K_BASE * 200 / (200 + games)
      *
-     * @param int $games 已玩游戏次数
+     * @param  int  $games  已玩游戏次数
      * @return float K 值衰減因子
      */
     protected function calculateKFactor(int $games): float
@@ -24,9 +24,10 @@ class EloRatingEngine
 
     /**
      * 更新勝者和負者的 Elo 評分。
-     * @param string $win 勝者的代幣符號
-     * @param string $lose 負者的代幣符號
-     * @param float $kf K 值調整因子
+     *
+     * @param  string  $win  勝者的代幣符號
+     * @param  string  $lose  負者的代幣符號
+     * @param  float  $kf  K 值調整因子
      */
     public function updateElo(string $win, string $lose, float $kf = 1.0): void
     {
@@ -85,8 +86,9 @@ class EloRatingEngine
 
     /**
      * 批量更新 Elo 評分
-     * @param array $results 結果陣列 [['winner' => 'BTC', 'loser' => 'ETH'], ...]
-     * @param float $kf K 值調整因子
+     *
+     * @param  array  $results  結果陣列 [['winner' => 'BTC', 'loser' => 'ETH'], ...]
+     * @param  float  $kf  K 值調整因子
      */
     public function batchUpdateElo(array $results, float $kf = 1.0): void
     {
@@ -113,7 +115,8 @@ class EloRatingEngine
 
     /**
      * 計算代幣組中每個代幣擊敗其他代幣的機率。
-     * @param array $symbols 代幣符號陣列
+     *
+     * @param  array  $symbols  代幣符號陣列
      * @return array [symbol => 0-1 機率]
      */
     public function probabilities(array $symbols): array
@@ -129,7 +132,7 @@ class EloRatingEngine
         try {
             // 從資料庫中獲取現有的 Elo 評分
             $eloRatings = TokenRating::whereIn('symbol', $symbols)
-                           ->pluck('elo', 'symbol')->toArray();
+                ->pluck('elo', 'symbol')->toArray();
 
             // 為新幣設定預設 Elo 1500
             $currentElo = [];
@@ -169,7 +172,8 @@ class EloRatingEngine
 
     /**
      * 獲取代幣的當前 Elo 評分
-     * @param string $symbol 代幣符號
+     *
+     * @param  string  $symbol  代幣符號
      * @return float Elo 評分
      */
     public function getElo(string $symbol): float
@@ -181,7 +185,8 @@ class EloRatingEngine
 
     /**
      * 獲取多個代幣的 Elo 評分
-     * @param array $symbols 代幣符號陣列
+     *
+     * @param  array  $symbols  代幣符號陣列
      * @return array [symbol => elo]
      */
     public function getMultipleElo(array $symbols): array
@@ -189,7 +194,7 @@ class EloRatingEngine
         $symbols = array_unique(array_map('strtoupper', $symbols));
 
         $ratings = TokenRating::whereIn('symbol', $symbols)
-                             ->pluck('elo', 'symbol')->toArray();
+            ->pluck('elo', 'symbol')->toArray();
 
         $result = [];
         foreach ($symbols as $symbol) {
@@ -201,7 +206,8 @@ class EloRatingEngine
 
     /**
      * 重置代幣的 Elo 評分到預設值
-     * @param string $symbol 代幣符號
+     *
+     * @param  string  $symbol  代幣符號
      */
     public function resetElo(string $symbol): void
     {

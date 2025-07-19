@@ -1,12 +1,12 @@
 <?php
 
-use App\Models\GameRound;
 use App\Jobs\FetchTokenPricesJob;
+use App\Models\GameRound;
+use Illuminate\Foundation\Inspiring;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
 /*
@@ -39,12 +39,14 @@ Schedule::command('backtest:run --games=120 --queue --run-id=ultra-fast')
         $recentRounds = GameRound::latest()->limit(60)->count();
         if ($recentRounds < 100) {
             Log::info('数据积累不足，跳过超快速回测', ['recent_rounds' => $recentRounds]);
+
             return false;
         }
 
         $queueSize = \Illuminate\Support\Facades\Queue::size('backtesting');
         if ($queueSize > 5) {
             Log::warning('回测队列积压，跳过超快速回测', ['queue_size' => $queueSize]);
+
             return false;
         }
         Log::info('开始执行超快速回测（2小时间隔）');
@@ -64,6 +66,7 @@ Schedule::command('backtest:run --games=240 --queue --run-id=fast')
         $queueSize = Queue::size('backtesting');
         if ($queueSize > 8) {
             Log::warning('回测队列积压，跳过快速回测', ['queue_size' => $queueSize]);
+
             return false;
         }
         Log::info('开始执行快速回测（4小时间隔）');
@@ -74,7 +77,7 @@ Schedule::command('backtest:run --games=240 --queue --run-id=fast')
         // 自动触发快速策略评估
         \Artisan::call('strategy:promote-best', [
             '--min-score' => 50,
-            '--force-quick' => true
+            '--force-quick' => true,
         ]);
     });
 
@@ -123,8 +126,9 @@ Schedule::command('strategy:promote-best --min-score=48 --force-quick')
 
         // 检查最新回测结果
         $latestBacktest = \App\Models\BacktestResult::latest('created_at')->first();
-        if (!$latestBacktest || !$latestBacktest->created_at || $latestBacktest->created_at->diffInHours(now()) > 4) {
+        if (! $latestBacktest || ! $latestBacktest->created_at || $latestBacktest->created_at->diffInHours(now()) > 4) {
             Log::warning('没有找到最近4小时内的回测结果，跳过实时策略晋升');
+
             return false;
         }
 
@@ -132,6 +136,7 @@ Schedule::command('strategy:promote-best --min-score=48 --force-quick')
         $recentGames = \App\Models\GameRound::where('created_at', '>=', now()->subHour())->count();
         if ($recentGames < 30) {
             Log::info('市场活跃度较低，跳过实时策略晋升', ['recent_games' => $recentGames]);
+
             return false;
         }
 
@@ -139,6 +144,7 @@ Schedule::command('strategy:promote-best --min-score=48 --force-quick')
         $currentStrategy = \App\Models\PredictionStrategy::where('status', 'active')->first();
         if ($currentStrategy && $currentStrategy->activated_at && $currentStrategy->activated_at->diffInHours(now()) < 2) {
             Log::info('当前策略激活时间不足2小时，跳过本次晋升检查');
+
             return false;
         }
     })
@@ -157,8 +163,9 @@ Schedule::command('strategy:promote-best --min-score=52')
         Log::info('开始执行快速策略晋升（6小时间隔）');
 
         $latestBacktest = \App\Models\BacktestResult::latest('created_at')->first();
-        if (!$latestBacktest || !$latestBacktest->created_at || $latestBacktest->created_at->diffInHours(now()) > 6) {
+        if (! $latestBacktest || ! $latestBacktest->created_at || $latestBacktest->created_at->diffInHours(now()) > 6) {
             Log::warning('没有找到最近6小时内的回测结果，跳过快速策略晋升');
+
             return false;
         }
     })
@@ -186,16 +193,16 @@ Schedule::command('strategy:promote-best --min-score=58')
 Schedule::call(function () {
     FetchTokenPricesJob::dispatch()->onQueue('default');
 })
-->name('token-price-update-1min')
-->everyMinute() // 保持高频更新
-->withoutOverlapping()
-->onOneServer()
-->before(function () {
-    Log::debug('开始更新代币价格数据（1分钟间隔）');
-})
-->after(function () {
-    Log::debug('代币价格数据更新完成');
-});
+    ->name('token-price-update-1min')
+    ->everyMinute() // 保持高频更新
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->before(function () {
+        Log::debug('开始更新代币价格数据（1分钟间隔）');
+    })
+    ->after(function () {
+        Log::debug('代币价格数据更新完成');
+    });
 
 // 实时动能计算 - 每2分钟执行（加快响应）
 Schedule::command('momentum:calculate --realtime')
@@ -239,20 +246,20 @@ Schedule::call(function () {
             \Artisan::queue('backtest:run', [
                 '--games' => 60,
                 '--queue' => true,
-                '--run-id' => 'emergency-' . time()
+                '--run-id' => 'emergency-'.time(),
             ]);
         }
     }
 
     Log::info('市场波动性监控', [
         'recent_rounds_10min' => $recentRounds,
-        'status' => $recentRounds >= $normalRange[0] && $recentRounds <= $normalRange[1] ? 'normal' : 'abnormal'
+        'status' => $recentRounds >= $normalRange[0] && $recentRounds <= $normalRange[1] ? 'normal' : 'abnormal',
     ]);
 })
-->name('market-volatility-monitor')
-->everyFiveMinutes()
-->withoutOverlapping()
-->onOneServer();
+    ->name('market-volatility-monitor')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->onOneServer();
 
 // ==================== 高频队列管理 ====================
 
@@ -285,10 +292,10 @@ Schedule::call(function () {
         Log::warning('失败任务较多', ['failed_jobs' => $failedJobs]);
     }
 })
-->name('high-frequency-queue-monitoring')
-->everyFiveMinutes() // 提高监控频率
-->withoutOverlapping()
-->onOneServer();
+    ->name('high-frequency-queue-monitoring')
+    ->everyFiveMinutes() // 提高监控频率
+    ->withoutOverlapping()
+    ->onOneServer();
 
 // ==================== 系统维护排程 ====================
 
@@ -329,20 +336,20 @@ Schedule::call(function () {
 
     if ($memoryUsage > 1536 * 1024 * 1024) { // 1.5GB
         Log::warning('系统内存使用较高', [
-            'memory_mb' => round($memoryUsage / 1024 / 1024, 2)
+            'memory_mb' => round($memoryUsage / 1024 / 1024, 2),
         ]);
     }
 
     if ($diskUsagePercent < 10) {
         Log::warning('磁盘空间不足', [
-            'free_percent' => round($diskUsagePercent, 2)
+            'free_percent' => round($diskUsagePercent, 2),
         ]);
     }
 })
-->name('system-monitoring-30min')
-->everyThirtyMinutes()
-->withoutOverlapping()
-->onOneServer();
+    ->name('system-monitoring-30min')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping()
+    ->onOneServer();
 
 // ==================== 智能健康报告 ====================
 
@@ -374,7 +381,7 @@ Schedule::call(function () {
         'system_health' => [
             'failed_jobs' => DB::table('failed_jobs')->count(),
             'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
-        ]
+        ],
     ];
 
     Log::info('加密货币市场健康报告', $report);
@@ -386,7 +393,7 @@ Schedule::call(function () {
         Log::warning('市场活跃度异常高', ['games_last_hour' => $hourlyGames]);
     }
 })
-->name('crypto-market-health-report')
-->hourly() // 每小时生成报告
-->withoutOverlapping()
-->onOneServer();
+    ->name('crypto-market-health-report')
+    ->hourly() // 每小时生成报告
+    ->withoutOverlapping()
+    ->onOneServer();

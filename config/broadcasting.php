@@ -62,7 +62,6 @@ return [
             'client_options' => [],
         ],
 
-
         'ably' => [
             'driver' => 'ably',
             'key' => env('ABLY_KEY'),

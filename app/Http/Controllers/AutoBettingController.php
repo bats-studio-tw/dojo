@@ -18,6 +18,7 @@ use Inertia\Response;
 class AutoBettingController extends Controller
 {
     protected GameDataProcessorService $gameDataProcessor;
+
     protected GamePredictionService $gamePredictionService;
 
     public function __construct(
@@ -68,7 +69,7 @@ class AutoBettingController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => '获取统计信息失败: ' . $e->getMessage(),
+                'message' => '获取统计信息失败: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -138,7 +139,7 @@ class AutoBettingController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => '获取状态失败: ' . $e->getMessage(),
+                'message' => '获取状态失败: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -225,14 +226,10 @@ class AutoBettingController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => '操作失败: ' . $e->getMessage(),
+                'message' => '操作失败: '.$e->getMessage(),
             ], 500);
         }
     }
-
-
-
-
 
     /**
      * 获取当前轮次ID
@@ -331,7 +328,7 @@ class AutoBettingController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => '自动下注执行失败: ' . $e->getMessage(),
+                'message' => '自动下注执行失败: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -421,7 +418,7 @@ class AutoBettingController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => '记录下注结果失败: ' . $e->getMessage(),
+                'message' => '记录下注结果失败: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -483,7 +480,7 @@ class AutoBettingController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => '检查轮次下注状态失败: ' . $e->getMessage(),
+                'message' => '检查轮次下注状态失败: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -538,7 +535,7 @@ class AutoBettingController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => '获取配置失败: ' . $e->getMessage(),
+                'message' => '获取配置失败: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -595,7 +592,7 @@ class AutoBettingController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => '保存配置失败: ' . $e->getMessage(),
+                'message' => '保存配置失败: '.$e->getMessage(),
             ], 500);
         }
     }

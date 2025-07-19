@@ -39,8 +39,8 @@ class CalculateMomentumCommand extends Command
         $window = (int) $this->option('window');
         $cacheTtl = (int) $this->option('cache-ttl');
 
-        $this->info("🚀 開始計算市場動能指標...");
-        $this->info("模式: " . ($isRealtime ? '實時' : '歷史'));
+        $this->info('🚀 開始計算市場動能指標...');
+        $this->info('模式: '.($isRealtime ? '實時' : '歷史'));
         $this->info("窗口: {$window} 分鐘");
         $this->info("緩存: {$cacheTtl} 秒");
 
@@ -49,10 +49,11 @@ class CalculateMomentumCommand extends Command
             $symbols = $this->getSymbols();
             if (empty($symbols)) {
                 $this->error('❌ 沒有找到可用的代幣');
+
                 return 1;
             }
 
-            $this->info("📊 處理代幣數量: " . count($symbols));
+            $this->info('📊 處理代幣數量: '.count($symbols));
 
             // 計算動能指標
             $momentumData = $this->calculateMomentumIndicators($symbols, $window, $isRealtime, $dexPriceClient);
@@ -76,7 +77,7 @@ class CalculateMomentumCommand extends Command
             return 0;
 
         } catch (\Exception $e) {
-            $this->error("❌ 動能指標計算失敗: " . $e->getMessage());
+            $this->error('❌ 動能指標計算失敗: '.$e->getMessage());
             Log::error('市場動能指標計算失敗', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -93,7 +94,7 @@ class CalculateMomentumCommand extends Command
     {
         $specifiedSymbols = $this->option('symbols');
 
-        if (!empty($specifiedSymbols)) {
+        if (! empty($specifiedSymbols)) {
             return array_map('strtoupper', $specifiedSymbols);
         }
 
@@ -122,6 +123,7 @@ class CalculateMomentumCommand extends Command
 
             } catch (\Exception $e) {
                 Log::warning("計算 {$symbol} 動能指標失敗", ['error' => $e->getMessage()]);
+
                 continue;
             }
         }
@@ -140,7 +142,7 @@ class CalculateMomentumCommand extends Command
         $cacheKey = "momentum:{$symbol}:{$window}";
 
         // 如果不是實時模式，嘗試從緩存獲取
-        if (!$isRealtime && Cache::has($cacheKey)) {
+        if (! $isRealtime && Cache::has($cacheKey)) {
             return Cache::get($cacheKey);
         }
 
@@ -240,7 +242,7 @@ class CalculateMomentumCommand extends Command
         }
 
         $mean = array_sum($returns) / count($returns);
-        $variance = array_sum(array_map(function($r) use ($mean) {
+        $variance = array_sum(array_map(function ($r) use ($mean) {
             return pow($r - $mean, 2);
         }, $returns)) / count($returns);
 
@@ -308,9 +310,9 @@ class CalculateMomentumCommand extends Command
 
         $summary = [
             'total_symbols' => $totalSymbols,
-            'up_trend_count' => count(array_filter($momentumData, fn($m) => $m['trend_direction'] === 'up')),
-            'down_trend_count' => count(array_filter($momentumData, fn($m) => $m['trend_direction'] === 'down')),
-            'neutral_trend_count' => count(array_filter($momentumData, fn($m) => $m['trend_direction'] === 'neutral')),
+            'up_trend_count' => count(array_filter($momentumData, fn ($m) => $m['trend_direction'] === 'up')),
+            'down_trend_count' => count(array_filter($momentumData, fn ($m) => $m['trend_direction'] === 'down')),
+            'neutral_trend_count' => count(array_filter($momentumData, fn ($m) => $m['trend_direction'] === 'neutral')),
             'avg_momentum_score' => $totalSymbols > 0 ? array_sum(array_column($momentumData, 'momentum_score')) / $totalSymbols : 0,
             'calculated_at' => now()->toISOString(),
             'data' => $momentumData,
@@ -326,20 +328,21 @@ class CalculateMomentumCommand extends Command
     {
         if (empty($momentumData)) {
             $this->warn('⚠️ 沒有可用的動能數據');
+
             return;
         }
 
-        $upTrend = count(array_filter($momentumData, fn($m) => $m['trend_direction'] === 'up'));
-        $downTrend = count(array_filter($momentumData, fn($m) => $m['trend_direction'] === 'down'));
-        $neutralTrend = count(array_filter($momentumData, fn($m) => $m['trend_direction'] === 'neutral'));
+        $upTrend = count(array_filter($momentumData, fn ($m) => $m['trend_direction'] === 'up'));
+        $downTrend = count(array_filter($momentumData, fn ($m) => $m['trend_direction'] === 'down'));
+        $neutralTrend = count(array_filter($momentumData, fn ($m) => $m['trend_direction'] === 'neutral'));
         $totalSymbols = count($momentumData);
         $avgScore = $totalSymbols > 0 ? array_sum(array_column($momentumData, 'momentum_score')) / $totalSymbols : 0;
 
-        $this->info("📈 市場趨勢統計:");
+        $this->info('📈 市場趨勢統計:');
         $this->line("  上漲趨勢: {$upTrend} 個代幣");
         $this->line("  下跌趨勢: {$downTrend} 個代幣");
         $this->line("  橫盤整理: {$neutralTrend} 個代幣");
-        $this->line("  平均動能分數: " . round($avgScore, 2));
+        $this->line('  平均動能分數: '.round($avgScore, 2));
 
         // 顯示前5個動能最高的代幣
         $topMomentum = collect($momentumData)
@@ -347,9 +350,9 @@ class CalculateMomentumCommand extends Command
             ->take(5)
             ->toArray();
 
-        $this->info("🏆 動能排名前5:");
+        $this->info('🏆 動能排名前5:');
         foreach ($topMomentum as $symbol => $data) {
-            $this->line("  {$symbol}: " . round($data['momentum_score'], 2) . " 分 ({$data['trend_direction']})");
+            $this->line("  {$symbol}: ".round($data['momentum_score'], 2)." 分 ({$data['trend_direction']})");
         }
     }
 }

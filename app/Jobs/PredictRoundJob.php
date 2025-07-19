@@ -17,14 +17,17 @@ class PredictRoundJob implements ShouldQueue
     use SerializesModels;
 
     protected $roundId;
+
     protected $symbols;
+
     protected $chainId;
 
     /**
      * 创建一个新的 Job 实例。
-     * @param string $roundId 游戏回合 ID
-     * @param array $symbols 本局游戏的代币符号数组
-     * @param string $chainId 链 ID
+     *
+     * @param  string  $roundId  游戏回合 ID
+     * @param  array  $symbols  本局游戏的代币符号数组
+     * @param  string  $chainId  链 ID
      */
     public function __construct(string $roundId, array $symbols, string $chainId = 'ethereum')
     {

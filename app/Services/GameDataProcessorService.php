@@ -17,7 +17,7 @@ class GameDataProcessorService
     /**
      * 處理遊戲結算資料
      *
-     * @param array $gameData 從 WebSocket 收到的結算 payload
+     * @param  array  $gameData  從 WebSocket 收到的結算 payload
      */
     public function processSettlementData(array $gameData): void
     {
@@ -109,7 +109,7 @@ class GameDataProcessorService
             }
 
         } catch (Exception $e) {
-            Log::channel('websocket')->error("❌ 處理結算資料時發生錯誤", [
+            Log::channel('websocket')->error('❌ 處理結算資料時發生錯誤', [
                 'rdId' => $roundId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(), // 加上詳細追蹤訊息
@@ -119,9 +119,6 @@ class GameDataProcessorService
 
     /**
      * 為指定的遊戲輪次建立詳細的排名結果
-     *
-     * @param GameRound $gameRound
-     * @param array $gameData
      */
     private function createRoundResults(GameRound $gameRound, array $gameData): void
     {
@@ -382,11 +379,11 @@ class GameDataProcessorService
 
             // 步骤1: 读取结算后的 round_results
             $results = \App\Models\RoundResult::where('game_round_id', $gameRoundId)
-                                  ->orderBy('rank')
-                                  ->get();
+                ->orderBy('rank')
+                ->get();
 
             if ($results->isEmpty()) {
-                Log::warning("[GameDataProcessorService] 赛果不足，无法更新 Elo。Round ID: " . $gameRoundId, [
+                Log::warning('[GameDataProcessorService] 赛果不足，无法更新 Elo。Round ID: '.$gameRoundId, [
                     'game_round_id' => $gameRoundId,
                     'query_conditions' => [
                         'game_round_id' => $gameRoundId,
@@ -505,7 +502,7 @@ class GameDataProcessorService
      * 計算 K 值衰減因子
      * K = K_BASE * 200 / (200 + games)
      *
-     * @param int $games 已玩游戏次数
+     * @param  int  $games  已玩游戏次数
      * @return float K 值衰減因子
      */
     private function calculateKFactor(int $games): float

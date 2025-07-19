@@ -12,8 +12,8 @@ class TokenPriceRepository
     /**
      * 获取指定代币的最新价格记录
      *
-     * @param string $symbol 代币符号
-     * @param int $limit 返回的记录数量，默认2条（最新和前一条）
+     * @param  string  $symbol  代币符号
+     * @param  int  $limit  返回的记录数量，默认2条（最新和前一条）
      * @return Collection|null 价格记录集合，如果找不到记录则返回null
      */
     public function getLatestPricesForToken(string $symbol, int $limit = 2): ?Collection
@@ -44,8 +44,8 @@ class TokenPriceRepository
     /**
      * 获取指定代币的历史价格序列（用于线性回归计算）
      *
-     * @param string $symbol 代币符号
-     * @param int $dataPoints 需要的数据点数量，默认5个
+     * @param  string  $symbol  代币符号
+     * @param  int  $dataPoints  需要的数据点数量，默认5个
      * @return Collection|null 价格记录集合，按时间升序排列
      */
     public function getHistoricalPriceSequence(string $symbol, int $dataPoints = 5): ?Collection
@@ -78,8 +78,8 @@ class TokenPriceRepository
     /**
      * 批量获取多个代币的历史价格序列（用于线性回归计算）
      *
-     * @param array $symbols 代币符号数组
-     * @param int $dataPoints 每个代币需要的数据点数量，默认5个
+     * @param  array  $symbols  代币符号数组
+     * @param  int  $dataPoints  每个代币需要的数据点数量，默认5个
      * @return array 格式: ['SYMBOL' => Collection|null, ...]
      */
     public function getHistoricalPriceSequences(array $symbols, int $dataPoints = 5): array
@@ -132,7 +132,7 @@ class TokenPriceRepository
                     }
 
                     // 创建TokenPrice模型实例
-                    $tokenPrice = new TokenPrice();
+                    $tokenPrice = new TokenPrice;
                     $tokenPrice->fill([
                         'symbol' => $row->symbol,
                         'price_usd' => $row->price_usd,
@@ -186,8 +186,8 @@ class TokenPriceRepository
      * 批量获取多个代币的最新价格记录（优化版本）
      * 使用单个查询获取所有代币的最新价格，然后按代币分组
      *
-     * @param array $symbols 代币符号数组
-     * @param int $limit 每个代币返回的记录数量
+     * @param  array  $symbols  代币符号数组
+     * @param  int  $limit  每个代币返回的记录数量
      * @return array 格式: ['SYMBOL' => Collection|null, ...]
      */
     public function getLatestPricesForTokens(array $symbols, int $limit = 2): array
@@ -247,7 +247,7 @@ class TokenPriceRepository
                     }
 
                     // 创建TokenPrice模型实例
-                    $tokenPrice = new TokenPrice();
+                    $tokenPrice = new TokenPrice;
                     $tokenPrice->fill([
                         'symbol' => $row->symbol,
                         'price_usd' => $row->price_usd,
@@ -260,8 +260,6 @@ class TokenPriceRepository
                     $groupedResults[$symbol]->push($tokenPrice);
                 }
             }
-
-
 
             return $groupedResults;
 
@@ -294,8 +292,7 @@ class TokenPriceRepository
     /**
      * 检查代币是否有足够的价格记录来计算动能
      *
-     * @param string $symbol 代币符号
-     * @return bool
+     * @param  string  $symbol  代币符号
      */
     public function hasEnoughPriceData(string $symbol): bool
     {

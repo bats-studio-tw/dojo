@@ -9,7 +9,9 @@ use Illuminate\Support\Facades\Log;
 class AlchemyPriceService
 {
     private const API_BASE_URL = 'https://api.g.alchemy.com/prices/v1';
+
     private const API_TIMEOUT = 10;
+
     private const MAX_SYMBOLS_PER_REQUEST = 25; // 每次最多25个代币
 
     private DexPriceClient $dexPriceClient;
@@ -35,8 +37,9 @@ class AlchemyPriceService
 
     /**
      * 批量获取代币价格数据
-     * @param array $symbols 代币符号数组
-     * @param bool $forceFresh 是否强制刷新缓存（已废弃，保留参数兼容性）
+     *
+     * @param  array  $symbols  代币符号数组
+     * @param  bool  $forceFresh  是否强制刷新缓存（已废弃，保留参数兼容性）
      * @return array [symbol => priceUsd]
      */
     public function batchPrice(array $symbols, bool $forceFresh = false): array
@@ -48,8 +51,9 @@ class AlchemyPriceService
 
     /**
      * 批量获取代币完整价格数据
-     * @param array $symbols 代币符号数组
-     * @param bool $forceFresh 是否强制刷新缓存（已废弃，保留参数兼容性）
+     *
+     * @param  array  $symbols  代币符号数组
+     * @param  bool  $forceFresh  是否强制刷新缓存（已废弃，保留参数兼容性）
      * @return array [symbol => priceData]
      */
     public function batchPriceData(array $symbols, bool $forceFresh = false): array
@@ -61,9 +65,9 @@ class AlchemyPriceService
 
     /**
      * 获取单个代币价格
-     * @param string $symbol 代币符号
-     * @param bool $forceFresh 是否强制刷新缓存（已废弃，保留参数兼容性）
-     * @return float
+     *
+     * @param  string  $symbol  代币符号
+     * @param  bool  $forceFresh  是否强制刷新缓存（已废弃，保留参数兼容性）
      */
     public function getTokenPrice(string $symbol, bool $forceFresh = false): float
     {
@@ -82,9 +86,9 @@ class AlchemyPriceService
 
     /**
      * 获取单个代币完整价格数据
-     * @param string $symbol 代币符号
-     * @param bool $forceFresh 是否强制刷新缓存（已废弃，保留参数兼容性）
-     * @return array
+     *
+     * @param  string  $symbol  代币符号
+     * @param  bool  $forceFresh  是否强制刷新缓存（已废弃，保留参数兼容性）
      */
     public function getTokenPriceData(string $symbol, bool $forceFresh = false): array
     {
@@ -103,7 +107,8 @@ class AlchemyPriceService
 
     /**
      * 批量获取价格数据（内部方法）
-     * @param array $symbols 代币符号数组
+     *
+     * @param  array  $symbols  代币符号数组
      * @return array [symbol => priceUsd]
      */
     private function fetchBatchPrices(array $symbols): array
@@ -134,7 +139,7 @@ class AlchemyPriceService
                     }
                 }
             } catch (Exception $e) {
-                Log::error("批量获取价格失败", [
+                Log::error('批量获取价格失败', [
                     'symbols' => $chunk,
                     'error' => $e->getMessage(),
                 ]);
@@ -151,7 +156,8 @@ class AlchemyPriceService
 
     /**
      * 批量获取完整价格数据（内部方法）
-     * @param array $symbols 代币符号数组
+     *
+     * @param  array  $symbols  代币符号数组
      * @return array [symbol => priceData]
      */
     private function fetchBatchPriceData(array $symbols): array
@@ -188,7 +194,7 @@ class AlchemyPriceService
                     }
                 }
             } catch (Exception $e) {
-                Log::error("批量获取价格数据失败", [
+                Log::error('批量获取价格数据失败', [
                     'symbols' => $chunk,
                     'error' => $e->getMessage(),
                 ]);
@@ -205,8 +211,8 @@ class AlchemyPriceService
 
     /**
      * 使用DexScreener获取代币价格
-     * @param string $symbol 代币符号
-     * @return float
+     *
+     * @param  string  $symbol  代币符号
      */
     private function getDexPrice(string $symbol): float
     {
@@ -232,8 +238,8 @@ class AlchemyPriceService
 
     /**
      * 使用DexScreener获取代币完整价格数据
-     * @param string $symbol 代币符号
-     * @return array
+     *
+     * @param  string  $symbol  代币符号
      */
     private function getDexPriceData(string $symbol): array
     {
@@ -273,8 +279,9 @@ class AlchemyPriceService
 
     /**
      * 发送API请求
-     * @param array $symbols 代币符号数组
-     * @return array
+     *
+     * @param  array  $symbols  代币符号数组
+     *
      * @throws Exception
      */
     private function makeApiRequest(array $symbols): array
@@ -284,13 +291,13 @@ class AlchemyPriceService
         $response = Http::timeout(self::API_TIMEOUT)->get($url);
 
         if (! $response->successful()) {
-            throw new Exception("Alchemy API请求失败: HTTP " . $response->status());
+            throw new Exception('Alchemy API请求失败: HTTP '.$response->status());
         }
 
         $data = $response->json();
 
         if (! isset($data['data']) || ! is_array($data['data'])) {
-            throw new Exception("Alchemy API返回数据格式错误");
+            throw new Exception('Alchemy API返回数据格式错误');
         }
 
         return $data;
@@ -298,8 +305,8 @@ class AlchemyPriceService
 
     /**
      * 构建API URL
-     * @param array $symbols 代币符号数组
-     * @return string
+     *
+     * @param  array  $symbols  代币符号数组
      */
     private function buildApiUrl(array $symbols): string
     {
@@ -307,16 +314,16 @@ class AlchemyPriceService
         $symbolParams = [];
 
         foreach ($symbols as $symbol) {
-            $symbolParams[] = "symbols=" . urlencode($symbol);
+            $symbolParams[] = 'symbols='.urlencode($symbol);
         }
 
-        return self::API_BASE_URL . '/' . $this->getApiKey() . '/tokens/by-symbol?' . implode('&', $symbolParams);
+        return self::API_BASE_URL.'/'.$this->getApiKey().'/tokens/by-symbol?'.implode('&', $symbolParams);
     }
 
     /**
      * 获取默认价格数据
-     * @param string $symbol 代币符号
-     * @return array
+     *
+     * @param  string  $symbol  代币符号
      */
     private function getDefaultPriceData(string $symbol): array
     {

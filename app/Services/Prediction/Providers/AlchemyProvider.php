@@ -10,8 +10,7 @@ class AlchemyProvider implements MarketDataProviderInterface
 {
     public function __construct(
         private AlchemyPriceService $alchemyPriceService
-    ) {
-    }
+    ) {}
 
     public function fetchSnapshots(array $symbols, int $timestamp): array
     {
@@ -32,7 +31,7 @@ class AlchemyProvider implements MarketDataProviderInterface
                 }
             } catch (\Exception $e) {
                 // 记录错误但继续处理其他代币
-                \Log::warning("Failed to fetch Alchemy price for {$symbol}: " . $e->getMessage());
+                \Log::warning("Failed to fetch Alchemy price for {$symbol}: ".$e->getMessage());
             }
         }
 

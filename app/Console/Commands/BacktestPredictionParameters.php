@@ -1,12 +1,11 @@
 <?php
+
 // app/Console/Commands/BacktestPredictionParameters.php
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Str;
 use App\Jobs\EvaluateBacktestParameters;
-use App\Models\GameRound;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
 class BacktestPredictionParameters extends Command
@@ -37,16 +36,17 @@ class BacktestPredictionParameters extends Command
         $useQueue = $this->option('queue') === true; // 修复布尔选项处理
         $runId = $this->option('run-id') ?: uniqid('backtest_', true);
 
-        $this->info("開始執行預測參數回測");
+        $this->info('開始執行預測參數回測');
         $this->info("回測ID: {$runId}");
         $this->info("遊戲數量: {$gameCount}");
-        $this->info("使用隊列: " . ($useQueue ? '是' : '否'));
+        $this->info('使用隊列: '.($useQueue ? '是' : '否'));
 
         // 獲取參數網格
         $parameterGrid = config('backtest.parameter_grid', []);
 
         if (empty($parameterGrid)) {
             $this->error('未找到參數網格配置');
+
             return 1;
         }
 
@@ -56,10 +56,11 @@ class BacktestPredictionParameters extends Command
         // 過濾有效的權重組合
         $validCombinations = $this->filterValidWeightCombinations($combinations);
 
-        $this->info("生成了 " . count($validCombinations) . " 個有效參數組合");
+        $this->info('生成了 '.count($validCombinations).' 個有效參數組合');
 
         if (empty($validCombinations)) {
             $this->error('沒有有效的參數組合');
+
             return 1;
         }
 
@@ -72,7 +73,7 @@ class BacktestPredictionParameters extends Command
 
             if ($useQueue) {
                 dispatch($job->onQueue('backtesting'));
-                $this->line("已排程參數組合 #" . (++$jobCount) . ": " . json_encode($params));
+                $this->line('已排程參數組合 #'.(++$jobCount).': '.json_encode($params));
             } else {
                 // 使用依賴注入容器解析依賴
                 $job->handle(
@@ -80,7 +81,7 @@ class BacktestPredictionParameters extends Command
                     app(\App\Services\EloRatingEngine::class),
                     app(\App\Repositories\TokenPriceRepository::class)
                 );
-                $this->line("已完成參數組合 #" . (++$jobCount) . ": " . json_encode($params));
+                $this->line('已完成參數組合 #'.(++$jobCount).': '.json_encode($params));
             }
         }
 
@@ -88,7 +89,7 @@ class BacktestPredictionParameters extends Command
         $duration = round($endTime - $startTime, 2);
 
         if ($useQueue) {
-            $this->info("所有回測任務已排程到隊列，預計處理時間: " . count($validCombinations) . " 個任務");
+            $this->info('所有回測任務已排程到隊列，預計處理時間: '.count($validCombinations).' 個任務');
         } else {
             $this->info("回測完成，總耗時: {$duration} 秒");
         }

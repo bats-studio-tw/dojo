@@ -10,14 +10,18 @@ use Illuminate\Support\Facades\Log;
 class DexPriceClient
 {
     private const API_BASE_URL = 'https://api.dexscreener.com/latest/dex/search';
+
     private const API_TIMEOUT = 10;
+
     private const API_DELAY_MICROSECONDS = 200000; // 0.2秒延迟
+
     private const CACHE_DURATION = 1; // 减少到1秒缓存，确保能获取到价格变化
 
     /**
      * 批量获取代币价格数据
-     * @param array $symbols 代币符号数组
-     * @param bool $forceFresh 是否强制刷新缓存
+     *
+     * @param  array  $symbols  代币符号数组
+     * @param  bool  $forceFresh  是否强制刷新缓存
      * @return array [symbol => priceUsd]
      */
     public function batchPrice(array $symbols, bool $forceFresh = false): array
@@ -26,7 +30,7 @@ class DexPriceClient
 
         // 稳定缓存 key
         sort($symbols);
-        $cacheKey = "dex_price_batch:" . md5(json_encode($symbols));
+        $cacheKey = 'dex_price_batch:'.md5(json_encode($symbols));
 
         // 如果强制刷新，先清除缓存
         if ($forceFresh) {
@@ -57,7 +61,8 @@ class DexPriceClient
 
     /**
      * 批量获取代币完整市场数据
-     * @param array $symbols 代币符号数组
+     *
+     * @param  array  $symbols  代币符号数组
      * @return array [symbol => marketData]
      */
     public function batchMarketData(array $symbols): array
@@ -66,7 +71,7 @@ class DexPriceClient
 
         // 稳定缓存 key
         sort($symbols);
-        $cacheKey = "dex_market_batch:" . md5(json_encode($symbols));
+        $cacheKey = 'dex_market_batch:'.md5(json_encode($symbols));
 
         return Cache::remember($cacheKey, self::CACHE_DURATION, function () use ($symbols) {
             $marketData = [];
@@ -90,8 +95,8 @@ class DexPriceClient
 
     /**
      * 获取单个代币的完整市场数据
-     * @param string $symbol 代币符号
-     * @return array
+     *
+     * @param  string  $symbol  代币符号
      */
     public function getTokenMarketData(string $symbol): array
     {
@@ -101,14 +106,14 @@ class DexPriceClient
             ]);
 
             if (! $response->successful()) {
-                throw new Exception("DexScreener API returned error: " . $response->status());
+                throw new Exception('DexScreener API returned error: '.$response->status());
             }
 
             $data = $response->json();
 
             // 确保返回的数据结构符合预期
             if (! isset($data['pairs']) || ! is_array($data['pairs']) || empty($data['pairs'])) {
-                throw new Exception("Invalid response format from DexScreener API or no pairs found.");
+                throw new Exception('Invalid response format from DexScreener API or no pairs found.');
             }
 
             // 使用智能匹配找到最适合的代币
@@ -134,7 +139,7 @@ class DexPriceClient
             ];
 
         } catch (Exception $e) {
-            Log::error("Error fetching market data from DexScreener for {$symbol}: " . $e->getMessage());
+            Log::error("Error fetching market data from DexScreener for {$symbol}: ".$e->getMessage());
 
             return $this->getDefaultMarketData($symbol);
         }
@@ -142,9 +147,9 @@ class DexPriceClient
 
     /**
      * 智能匹配最适合的代币交易对
-     * @param array $pairs 交易对数组
-     * @param string $targetSymbol 目标代币符号
-     * @return array|null
+     *
+     * @param  array  $pairs  交易对数组
+     * @param  string  $targetSymbol  目标代币符号
      */
     private function findBestTokenMatch(array $pairs, string $targetSymbol): ?array
     {
@@ -153,7 +158,7 @@ class DexPriceClient
         try {
             // 验证输入数据
             if (! is_array($pairs)) {
-                Log::error("findBestTokenMatch: pairs 参数不是数组", [
+                Log::error('findBestTokenMatch: pairs 参数不是数组', [
                     'target_symbol' => $targetSymbol,
                     'pairs_type' => gettype($pairs),
                 ]);
@@ -162,7 +167,7 @@ class DexPriceClient
             }
 
             if (empty($pairs)) {
-                Log::warning("findBestTokenMatch: pairs 数组为空", [
+                Log::warning('findBestTokenMatch: pairs 数组为空', [
                     'target_symbol' => $targetSymbol,
                 ]);
 
@@ -187,7 +192,7 @@ class DexPriceClient
             }
 
             // 记录验证结果
-            Log::info("findBestTokenMatch: 交易对验证结果", [
+            Log::info('findBestTokenMatch: 交易对验证结果', [
                 'target_symbol' => $targetSymbol,
                 'total_pairs' => count($pairs),
                 'valid_pairs' => count($validPairs),
@@ -197,14 +202,14 @@ class DexPriceClient
 
             // 如果没有完全有效的交易对，尝试使用部分有效的交易对
             if (empty($validPairs)) {
-                Log::warning("findBestTokenMatch: 没有完全有效的交易对，尝试使用部分有效的交易对", [
+                Log::warning('findBestTokenMatch: 没有完全有效的交易对，尝试使用部分有效的交易对', [
                     'target_symbol' => $targetSymbol,
                 ]);
 
                 $validPairs = $this->getPartiallyValidPairs($pairs);
 
                 if (empty($validPairs)) {
-                    Log::error("findBestTokenMatch: 没有找到任何可用的交易对", [
+                    Log::error('findBestTokenMatch: 没有找到任何可用的交易对', [
                         'target_symbol' => $targetSymbol,
                         'total_pairs' => count($pairs),
                     ]);
@@ -227,20 +232,20 @@ class DexPriceClient
                 $liquidityInfo = [];
                 foreach ($topPairs as $index => $pair) {
                     $liquidityInfo[] = sprintf(
-                        "#%d: %s (%.2f USD)",
+                        '#%d: %s (%.2f USD)',
                         $index + 1,
                         $pair['baseToken']['symbol'] ?? 'Unknown',
                         floatval($pair['liquidity']['usd'] ?? 0)
                     );
                 }
-                Log::info("Token matching for {$targetSymbol} - Top liquidity pairs: " . implode(', ', $liquidityInfo));
+                Log::info("Token matching for {$targetSymbol} - Top liquidity pairs: ".implode(', ', $liquidityInfo));
             }
 
             // 第一优先级：精确匹配代币符号（在已排序的高流动性交易对中查找）
             foreach ($validPairs as $pair) {
                 $pairSymbol = strtoupper($pair['baseToken']['symbol'] ?? '');
                 if ($pairSymbol === $targetSymbol) {
-                    Log::info("findBestTokenMatch: 找到精确匹配", [
+                    Log::info('findBestTokenMatch: 找到精确匹配', [
                         'target_symbol' => $targetSymbol,
                         'matched_symbol' => $pairSymbol,
                         'liquidity' => $pair['liquidity']['usd'] ?? 0,
@@ -254,7 +259,7 @@ class DexPriceClient
             foreach ($validPairs as $pair) {
                 $tokenName = strtoupper($pair['baseToken']['name'] ?? '');
                 if (strpos($tokenName, $targetSymbol) !== false) {
-                    Log::info("findBestTokenMatch: 找到名称匹配", [
+                    Log::info('findBestTokenMatch: 找到名称匹配', [
                         'target_symbol' => $targetSymbol,
                         'matched_name' => $tokenName,
                         'liquidity' => $pair['liquidity']['usd'] ?? 0,
@@ -268,7 +273,7 @@ class DexPriceClient
             foreach ($validPairs as $pair) {
                 $pairSymbol = strtoupper($pair['baseToken']['symbol'] ?? '');
                 if ($this->isSimilarSymbol($targetSymbol, $pairSymbol)) {
-                    Log::info("findBestTokenMatch: 找到模糊匹配", [
+                    Log::info('findBestTokenMatch: 找到模糊匹配', [
                         'target_symbol' => $targetSymbol,
                         'matched_symbol' => $pairSymbol,
                         'liquidity' => $pair['liquidity']['usd'] ?? 0,
@@ -280,7 +285,7 @@ class DexPriceClient
 
             // 第四优先级：直接返回流动性最高的交易对（已经是排序后的第一个）
             $bestPair = $validPairs[0];
-            Log::info("findBestTokenMatch: 使用最高流动性交易对", [
+            Log::info('findBestTokenMatch: 使用最高流动性交易对', [
                 'target_symbol' => $targetSymbol,
                 'selected_symbol' => $bestPair['baseToken']['symbol'] ?? 'Unknown',
                 'liquidity' => $bestPair['liquidity']['usd'] ?? 0,
@@ -289,7 +294,7 @@ class DexPriceClient
             return $bestPair;
 
         } catch (\Throwable $e) {
-            Log::error("findBestTokenMatch: 发生未预期的错误", [
+            Log::error('findBestTokenMatch: 发生未预期的错误', [
                 'target_symbol' => $targetSymbol,
                 'pairs_count' => count($pairs),
                 'error_message' => $e->getMessage(),
@@ -302,8 +307,8 @@ class DexPriceClient
 
     /**
      * 获取部分有效的交易对（放宽验证条件）
-     * @param array $pairs 所有交易对
-     * @return array
+     *
+     * @param  array  $pairs  所有交易对
      */
     private function getPartiallyValidPairs(array $pairs): array
     {
@@ -343,7 +348,7 @@ class DexPriceClient
                 if ($volume > 0) {
                     // 使用交易量作为替代指标
                     $pair['liquidity']['usd'] = $volume * 0.1; // 估算流动性
-                    Log::info("findBestTokenMatch: 使用交易量估算流动性", [
+                    Log::info('findBestTokenMatch: 使用交易量估算流动性', [
                         'symbol' => $pair['baseToken']['symbol'],
                         'volume_24h' => $volume,
                         'estimated_liquidity' => $pair['liquidity']['usd'],
@@ -351,7 +356,7 @@ class DexPriceClient
                 } else {
                     // 设置最小流动性值
                     $pair['liquidity']['usd'] = 1000;
-                    Log::info("findBestTokenMatch: 设置最小流动性值", [
+                    Log::info('findBestTokenMatch: 设置最小流动性值', [
                         'symbol' => $pair['baseToken']['symbol'],
                         'min_liquidity' => 1000,
                     ]);
@@ -366,9 +371,6 @@ class DexPriceClient
 
     /**
      * 检查两个代币符号是否相似
-     * @param string $symbol1
-     * @param string $symbol2
-     * @return bool
      */
     private function isSimilarSymbol(string $symbol1, string $symbol2): bool
     {
@@ -394,8 +396,9 @@ class DexPriceClient
 
     /**
      * 验证交易对数据是否有效
-     * @param mixed $pair 交易对数据
-     * @param int $index 索引（用于日志）
+     *
+     * @param  mixed  $pair  交易对数据
+     * @param  int  $index  索引（用于日志）
      * @return array ['valid' => bool, 'reason' => string]
      */
     private function isValidPair($pair, int $index): array
@@ -445,8 +448,8 @@ class DexPriceClient
 
     /**
      * 选择流动性最高的交易对（已优化，现在直接在 findBestTokenMatch 中处理）
-     * @param array $pairs 交易对数组
-     * @return array|null
+     *
+     * @param  array  $pairs  交易对数组
      */
     private function selectHighestLiquidityPair(array $pairs): ?array
     {
@@ -467,12 +470,12 @@ class DexPriceClient
 
     /**
      * 获取默认市场数据（API失败时的备用数据）
-     * @param string $symbol 代币符号
-     * @return array
+     *
+     * @param  string  $symbol  代币符号
      */
     private function getDefaultMarketData(string $symbol): array
     {
-        Log::warning("使用默认市场数据", [
+        Log::warning('使用默认市场数据', [
             'symbol' => $symbol,
             'reason' => 'API失败或无匹配交易对',
         ]);
@@ -495,8 +498,8 @@ class DexPriceClient
 
     /**
      * 获取单个代币的价格变化数据
-     * @param string $symbol 代币符号
-     * @return array
+     *
+     * @param  string  $symbol  代币符号
      */
     public function getTokenPriceChanges(string $symbol): array
     {
@@ -513,7 +516,6 @@ class DexPriceClient
 
     /**
      * 检查API服务状态
-     * @return bool
      */
     public function checkApiStatus(): bool
     {
@@ -522,7 +524,7 @@ class DexPriceClient
 
             return $response->successful();
         } catch (Exception $e) {
-            Log::error("DexScreener API status check failed: " . $e->getMessage());
+            Log::error('DexScreener API status check failed: '.$e->getMessage());
 
             return false;
         }

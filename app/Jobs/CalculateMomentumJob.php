@@ -2,19 +2,19 @@
 
 namespace App\Jobs;
 
+use App\Events\HybridPredictionUpdated;
 use App\Models\GameRound;
+use App\Models\HybridRoundPredict;
+use App\Repositories\TokenPriceRepository;
+use App\Services\EloRatingEngine;
 use App\Services\ScoreMixer;
 use Illuminate\Bus\Queueable;
-use App\Services\EloRatingEngine;
-use App\Models\HybridRoundPredict;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Queue\SerializesModels;
-use App\Events\HybridPredictionUpdated;
-use Illuminate\Queue\InteractsWithQueue;
-use App\Repositories\TokenPriceRepository;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class CalculateMomentumJob implements ShouldQueue
 {
@@ -24,17 +24,23 @@ class CalculateMomentumJob implements ShouldQueue
     use SerializesModels;
 
     protected $roundId;
+
     protected $symbols;
+
     protected $chainId;
+
     protected $tokenPriceRepository;
+
     public $tries = 3; // 最大重试次数
+
     public $backoff = [10, 30, 60]; // 重试延迟（秒）
 
     /**
      * 创建一个新的 Job 实例。
-     * @param string $roundId 游戏回合 ID
-     * @param array $symbols 本局游戏的代币符号数组
-     * @param string $chainId 链 ID
+     *
+     * @param  string  $roundId  游戏回合 ID
+     * @param  array  $symbols  本局游戏的代币符号数组
+     * @param  string  $chainId  链 ID
      */
     public function __construct(string $roundId, array $symbols, string $chainId = 'ethereum')
     {
@@ -124,11 +130,10 @@ class CalculateMomentumJob implements ShouldQueue
         }
     }
 
-
-
     /**
      * 从数据库计算动能分数（基于线性回归趋势分析）
-     * @param array $priceData 价格数据数组，格式: ['SYMBOL' => Collection|null, ...]
+     *
+     * @param  array  $priceData  价格数据数组，格式: ['SYMBOL' => Collection|null, ...]
      * @return array 动能分数数组
      */
     private function calculateMomentumScoresFromDatabase(array $priceData): array
@@ -198,7 +203,8 @@ class CalculateMomentumJob implements ShouldQueue
 
     /**
      * 计算线性回归斜率
-     * @param Collection $prices 价格数据集合（按时间升序排列）
+     *
+     * @param  Collection  $prices  价格数据集合（按时间升序排列）
      * @return float|null 斜率值，如果计算失败返回null
      */
     private function calculateLinearRegressionSlope($prices): ?float
@@ -252,7 +258,8 @@ class CalculateMomentumJob implements ShouldQueue
 
     /**
      * 将斜率映射到0-100的分数范围
-     * @param array $trendSlopes 斜率数组 ['SYMBOL' => slope, ...]
+     *
+     * @param  array  $trendSlopes  斜率数组 ['SYMBOL' => slope, ...]
      * @return array 分数数组 ['SYMBOL' => score, ...]
      */
     private function mapSlopesToScores(array $trendSlopes): array
@@ -293,6 +300,7 @@ class CalculateMomentumJob implements ShouldQueue
 
     /**
      * 备用动能分数计算方案（当线性回归失败时）
+     *
      * @return array 动能分数数组
      */
     private function calculateFallbackMomentumScores(): array
@@ -313,9 +321,9 @@ class CalculateMomentumJob implements ShouldQueue
 
     /**
      * 验证价格数据是否有效
-     * @param mixed $priceP0 初始价格
-     * @param mixed $priceP1 后续价格
-     * @return bool
+     *
+     * @param  mixed  $priceP0  初始价格
+     * @param  mixed  $priceP1  后续价格
      */
     private function isValidPriceData($priceP0, $priceP1): bool
     {
@@ -340,10 +348,10 @@ class CalculateMomentumJob implements ShouldQueue
 
     /**
      * 计算智能默认动能分数
-     * @param string $symbol 代币符号
-     * @param mixed $priceP0 初始价格
-     * @param mixed $priceP1 后续价格
-     * @return float
+     *
+     * @param  string  $symbol  代币符号
+     * @param  mixed  $priceP0  初始价格
+     * @param  mixed  $priceP1  后续价格
      */
     private function calculateDefaultMomentumScore(string $symbol, $priceP0, $priceP1): float
     {
@@ -382,9 +390,9 @@ class CalculateMomentumJob implements ShouldQueue
 
     /**
      * 获取价格无效的原因
-     * @param mixed $priceP0 初始价格
-     * @param mixed $priceP1 后续价格
-     * @return string
+     *
+     * @param  mixed  $priceP0  初始价格
+     * @param  mixed  $priceP1  后续价格
      */
     private function getInvalidPriceReason($priceP0, $priceP1): string
     {
@@ -423,10 +431,16 @@ class CalculateMomentumJob implements ShouldQueue
         $savedCount = 0;
         foreach ($predictions as $predictionData) {
             try {
-                HybridRoundPredict::create(array_merge($predictionData, [
-                    'game_round_id' => $gameRoundNumericId,
-                    'token_symbol' => $predictionData['symbol'],
-                ]));
+                HybridRoundPredict::updateOrCreate(
+                    [
+                        'game_round_id' => $gameRoundNumericId,
+                        'token_symbol' => $predictionData['symbol'],
+                    ],
+                    array_merge($predictionData, [
+                        'game_round_id' => $gameRoundNumericId,
+                        'token_symbol' => $predictionData['symbol'],
+                    ])
+                );
                 $savedCount++;
             } catch (\Exception $saveError) {
                 Log::error('[CalculateMomentumJob] 保存单个预测记录失败', [
@@ -484,8 +498,8 @@ class CalculateMomentumJob implements ShouldQueue
 
     /**
      * 基于代币历史表现获取动能分数
-     * @param string $symbol 代币符号
-     * @return float
+     *
+     * @param  string  $symbol  代币符号
      */
     private function getHistoricalMomentumScore(string $symbol): float
     {

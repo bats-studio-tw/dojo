@@ -46,8 +46,6 @@ Route::prefix('auto-betting')->group(function () {
     Route::post('/config', [AutoBettingController::class, 'saveConfig'])->name('api.auto-betting.config.save');
 });
 
-
-
 // 已移除的旧API路由 - 统一返回404错误
 Route::fallback(function () {
     return response()->json([
@@ -67,8 +65,8 @@ Route::fallback(function () {
             '/api/auto-betting/execute',
             '/api/auto-betting/record-result',
             '/api/auto-betting/check-round-bet',
-            '/api/auto-betting/config'
+            '/api/auto-betting/config',
         ],
-        'code' => 404
+        'code' => 404,
     ], 404);
 });

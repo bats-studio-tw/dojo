@@ -39,13 +39,13 @@ class CleanupTokenPricesCommand extends Command
         $batchSize = (int) $this->option('batch-size');
         $symbols = $this->option('symbol');
 
-        $this->info("🧹 開始清理代幣價格數據...");
+        $this->info('🧹 開始清理代幣價格數據...');
         $this->info("保留天數: {$days} 天");
-        $this->info("模式: " . ($isDryRun ? '乾跑' : '實際執行'));
+        $this->info('模式: '.($isDryRun ? '乾跑' : '實際執行'));
         $this->info("批量大小: {$batchSize}");
 
-        if (!empty($symbols)) {
-            $this->info("指定代幣: " . implode(', ', $symbols));
+        if (! empty($symbols)) {
+            $this->info('指定代幣: '.implode(', ', $symbols));
         }
 
         try {
@@ -55,7 +55,7 @@ class CleanupTokenPricesCommand extends Command
             // 構建查詢
             $query = TokenPrice::where('created_at', '<', $cutoffDate);
 
-            if (!empty($symbols)) {
+            if (! empty($symbols)) {
                 $query->whereIn('symbol', array_map('strtoupper', $symbols));
             }
 
@@ -63,7 +63,8 @@ class CleanupTokenPricesCommand extends Command
             $totalRecords = $query->count();
 
             if ($totalRecords === 0) {
-                $this->info("✅ 沒有需要清理的數據");
+                $this->info('✅ 沒有需要清理的數據');
+
                 return 0;
             }
 
@@ -71,17 +72,19 @@ class CleanupTokenPricesCommand extends Command
 
             // 計算數據大小
             $dataSize = $this->calculateDataSize($query);
-            $this->info("💾 預計釋放空間: " . $this->formatBytes($dataSize));
+            $this->info('💾 預計釋放空間: '.$this->formatBytes($dataSize));
 
             // 如果是乾跑模式，只顯示統計信息
             if ($isDryRun) {
                 $this->showDryRunStatistics($query, $cutoffDate);
+
                 return 0;
             }
 
             // 確認執行
-            if (!$force && !$this->confirm("確定要刪除 {$totalRecords} 條記錄嗎？")) {
-                $this->info("❌ 操作已取消");
+            if (! $force && ! $this->confirm("確定要刪除 {$totalRecords} 條記錄嗎？")) {
+                $this->info('❌ 操作已取消');
+
                 return 0;
             }
 
@@ -100,7 +103,7 @@ class CleanupTokenPricesCommand extends Command
             return 0;
 
         } catch (\Exception $e) {
-            $this->error("❌ 清理失敗: " . $e->getMessage());
+            $this->error('❌ 清理失敗: '.$e->getMessage());
             Log::error('代幣價格數據清理失敗', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -131,7 +134,7 @@ class CleanupTokenPricesCommand extends Command
 
         $bytes /= pow(1024, $pow);
 
-        return round($bytes, 2) . ' ' . $units[$pow];
+        return round($bytes, 2).' '.$units[$pow];
     }
 
     /**
@@ -139,7 +142,7 @@ class CleanupTokenPricesCommand extends Command
      */
     private function showDryRunStatistics($query, $cutoffDate): void
     {
-        $this->info("📋 乾跑統計信息:");
+        $this->info('📋 乾跑統計信息:');
 
         // 按代幣統計
         $symbolStats = $query->select('symbol', DB::raw('count(*) as count'))
@@ -147,7 +150,7 @@ class CleanupTokenPricesCommand extends Command
             ->orderByDesc('count')
             ->get();
 
-        $this->info("按代幣統計:");
+        $this->info('按代幣統計:');
         foreach ($symbolStats as $stat) {
             $this->line("  {$stat->symbol}: {$stat->count} 條記錄");
         }
@@ -158,12 +161,12 @@ class CleanupTokenPricesCommand extends Command
             ->orderBy('date')
             ->get();
 
-        $this->info("按日期統計:");
+        $this->info('按日期統計:');
         foreach ($dateStats as $stat) {
             $this->line("  {$stat->date}: {$stat->count} 條記錄");
         }
 
-        $this->warn("⚠️ 這是乾跑模式，實際不會刪除任何數據");
+        $this->warn('⚠️ 這是乾跑模式，實際不會刪除任何數據');
     }
 
     /**

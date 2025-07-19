@@ -8,8 +8,9 @@ class ScoreMixer
 {
     /**
      * 混合 Elo 機率和動能分數，產生最終得分和預測排名。
-     * @param array $eloProb [symbol => 0-1 機率]
-     * @param ?array $momScore [symbol => 0-100 動能分數]
+     *
+     * @param  array  $eloProb  [symbol => 0-1 機率]
+     * @param  ?array  $momScore  [symbol => 0-100 動能分數]
      * @return array 包含預測結果的陣列
      */
     public function mix(array $eloProb, ?array $momScore = null): array
@@ -20,9 +21,10 @@ class ScoreMixer
 
     /**
      * 使用自定義參數混合 Elo 機率和動能分數
-     * @param array $eloProb [symbol => 0-1 機率]
-     * @param ?array $momScore [symbol => 0-100 動能分數]
-     * @param array $params 自定義參數 ['elo_weight' => 0.6, 'momentum_weight' => 0.4, ...]
+     *
+     * @param  array  $eloProb  [symbol => 0-1 機率]
+     * @param  ?array  $momScore  [symbol => 0-100 動能分數]
+     * @param  array  $params  自定義參數 ['elo_weight' => 0.6, 'momentum_weight' => 0.4, ...]
      * @return array 包含預測結果的陣列
      */
     public function mixWithParams(array $eloProb, ?array $momScore = null, array $params = []): array
@@ -122,7 +124,8 @@ class ScoreMixer
 
     /**
      * 驗證和清理 Elo 機率數據
-     * @param array $eloProb 原始 Elo 機率數據
+     *
+     * @param  array  $eloProb  原始 Elo 機率數據
      * @return array 清理後的數據
      */
     public function validateEloProb(array $eloProb): array
@@ -144,7 +147,8 @@ class ScoreMixer
 
     /**
      * 驗證和清理動能分數數據
-     * @param array|null $momScore 原始動能分數數據
+     *
+     * @param  array|null  $momScore  原始動能分數數據
      * @return array|null 清理後的數據
      */
     public function validateMomScore(?array $momScore): ?array
@@ -173,9 +177,10 @@ class ScoreMixer
 
     /**
      * 計算增強版信心度，考慮更多因素
-     * @param array $scores 分數陣列
-     * @param array $eloProb Elo 機率
-     * @param array|null $momScore 動能分數
+     *
+     * @param  array  $scores  分數陣列
+     * @param  array  $eloProb  Elo 機率
+     * @param  array|null  $momScore  動能分數
      * @return array [symbol => confidence]
      */
     public function calculateAdvancedConfidence(array $scores, array $eloProb, ?array $momScore = null): array
@@ -214,8 +219,9 @@ class ScoreMixer
 
     /**
      * 生成預測報告摘要
-     * @param array $predictions 預測結果
-     * @param bool $momOk 動能數據是否可用
+     *
+     * @param  array  $predictions  預測結果
+     * @param  bool  $momOk  動能數據是否可用
      * @return array 報告摘要
      */
     public function generateSummary(array $predictions, bool $momOk): array

@@ -27,7 +27,7 @@ class MomentumFeatureProvider implements FeatureProviderInterface
 
                 $scores[$symbol] = $momentumScore;
             } catch (\Exception $e) {
-                \Log::warning("Failed to extract momentum feature for {$symbol}: " . $e->getMessage());
+                \Log::warning("Failed to extract momentum feature for {$symbol}: ".$e->getMessage());
                 $scores[$symbol] = 0.0; // 默认值
             }
         }

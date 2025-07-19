@@ -24,7 +24,7 @@ class GameDataSeeder extends Seeder
         // 生成50局历史数据
         for ($i = 1; $i <= 50; $i++) {
             $round = GameRound::create([
-                'round_id' => 'RD' . str_pad($i, 6, '0', STR_PAD_LEFT),
+                'round_id' => 'RD'.str_pad($i, 6, '0', STR_PAD_LEFT),
                 'settled_at' => Carbon::now()->subMinutes(rand(10, 7200)), // 随机过去时间
                 'created_at' => Carbon::now()->subMinutes(rand(10, 7200)),
                 'updated_at' => Carbon::now()->subMinutes(rand(10, 7200)),

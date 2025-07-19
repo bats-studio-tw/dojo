@@ -19,8 +19,7 @@ class UserNotification implements ShouldBroadcastNow
         public string $message,
         public string $type = 'info',
         public array $data = []
-    ) {
-    }
+    ) {}
 
     /**
      * 获取事件应该广播到的频道
@@ -28,7 +27,7 @@ class UserNotification implements ShouldBroadcastNow
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('user.' . $this->userId),
+            new PrivateChannel('user.'.$this->userId),
         ];
     }
 

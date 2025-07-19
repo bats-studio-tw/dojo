@@ -99,7 +99,7 @@ class PredictionAnalysisService
             Log::error('分析预测准确度失败', ['error' => $e->getMessage()]);
 
             return [
-                'error' => '分析失败：' . $e->getMessage(),
+                'error' => '分析失败：'.$e->getMessage(),
             ];
         }
     }
@@ -216,7 +216,7 @@ class PredictionAnalysisService
             ]);
 
             return [
-                'error' => '获取预测历史失败：' . $e->getMessage(),
+                'error' => '获取预测历史失败：'.$e->getMessage(),
             ];
         }
     }
@@ -242,19 +242,19 @@ class PredictionAnalysisService
 
             return [
                 'prediction_performance' => [
-                    'overall_accuracy' => $overallStats['exact_match_rate'] . '%',
-                    'close_accuracy' => $overallStats['close_match_rate'] . '%',
-                    'average_error' => $overallStats['average_rank_difference'] . ' 个排名',
-                    'total_analyzed' => $overallStats['total_rounds'] . ' 轮次',
+                    'overall_accuracy' => $overallStats['exact_match_rate'].'%',
+                    'close_accuracy' => $overallStats['close_match_rate'].'%',
+                    'average_error' => $overallStats['average_rank_difference'].' 个排名',
+                    'total_analyzed' => $overallStats['total_rounds'].' 轮次',
                 ],
                 'best_predicted_token' => $bestToken ? [
                     'symbol' => $bestToken['symbol'],
-                    'accuracy' => $bestToken['exact_match_rate'] . '%',
+                    'accuracy' => $bestToken['exact_match_rate'].'%',
                     'total_predictions' => $bestToken['total_predictions'],
                 ] : null,
                 'worst_predicted_token' => $worstToken ? [
                     'symbol' => $worstToken['symbol'],
-                    'accuracy' => $worstToken['exact_match_rate'] . '%',
+                    'accuracy' => $worstToken['exact_match_rate'].'%',
                     'total_predictions' => $worstToken['total_predictions'],
                 ] : null,
                 'recent_performance' => array_slice($recentAnalysis['recent_rounds'], 0, 5),
@@ -265,7 +265,7 @@ class PredictionAnalysisService
             Log::error('获取预测性能摘要失败', ['error' => $e->getMessage()]);
 
             return [
-                'error' => '获取性能摘要失败：' . $e->getMessage(),
+                'error' => '获取性能摘要失败：'.$e->getMessage(),
             ];
         }
     }

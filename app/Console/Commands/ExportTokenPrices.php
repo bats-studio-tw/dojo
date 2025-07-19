@@ -32,7 +32,7 @@ class ExportTokenPrices extends Command
         $exportAll = $this->option('all');
 
         if ($exportAll) {
-            $this->info("Starting token price data export for all available data...");
+            $this->info('Starting token price data export for all available data...');
 
             // 获取数据总数
             $totalRecords = TokenPrice::count();
@@ -64,7 +64,7 @@ class ExportTokenPrices extends Command
         }
 
         if ($totalRecords === 0) {
-            $this->warn("No token price data found for the specified time range.");
+            $this->warn('No token price data found for the specified time range.');
 
             return 1;
         }
@@ -123,8 +123,8 @@ class ExportTokenPrices extends Command
         fclose($fileHandle);
 
         $this->info("Export complete! {$processedRecords} price records have been saved.");
-        $this->comment("File location: " . $fullPath);
-        $this->comment("Time range: " . $startTime->toDateTimeString() . " to " . $endTime->toDateTimeString());
+        $this->comment('File location: '.$fullPath);
+        $this->comment('Time range: '.$startTime->toDateTimeString().' to '.$endTime->toDateTimeString());
 
         return 0;
     }

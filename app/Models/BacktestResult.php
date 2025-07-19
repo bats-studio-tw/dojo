@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class BacktestResult extends Model
 {
@@ -83,6 +83,7 @@ class BacktestResult extends Model
         }
 
         $sum = array_sum($weights);
+
         return abs($sum - 1.0) < 1e-6;
     }
 

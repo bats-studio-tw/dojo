@@ -38,12 +38,12 @@ class FetchTokenPricesJob implements ShouldQueue
         $symbols = TokenRating::pluck('symbol')->toArray();
 
         if (empty($symbols)) {
-            Log::warning("token_ratings表中没有找到代币数据");
+            Log::warning('token_ratings表中没有找到代币数据');
 
             return;
         }
 
-        Log::info("开始获取代币价格数据", [
+        Log::info('开始获取代币价格数据', [
             'symbols_count' => count($symbols),
             'minute_timestamp' => $currentMinuteTimestamp,
         ]);
@@ -56,14 +56,14 @@ class FetchTokenPricesJob implements ShouldQueue
             // 执行外部API调用，这可能需要几秒到几十秒的时间
             $priceData = $alchemyService->batchPriceData($symbols);
 
-            Log::info("成功获取外部API价格数据", [
+            Log::info('成功获取外部API价格数据', [
                 'symbols_fetched' => count($priceData),
                 'minute_timestamp' => $currentMinuteTimestamp,
             ]);
 
         } catch (\Exception $e) {
             // 网络请求失败，记录错误并提前退出
-            Log::error("从外部API获取代币价格失败", [
+            Log::error('从外部API获取代币价格失败', [
                 'error' => $e->getMessage(),
                 'symbols_count' => count($symbols),
                 'minute_timestamp' => $currentMinuteTimestamp,
@@ -75,7 +75,7 @@ class FetchTokenPricesJob implements ShouldQueue
 
         // 如果没有获取到有效的价格数据，直接返回
         if (empty($priceData)) {
-            Log::warning("外部API返回空的价格数据", [
+            Log::warning('外部API返回空的价格数据', [
                 'symbols_count' => count($symbols),
                 'minute_timestamp' => $currentMinuteTimestamp,
             ]);
@@ -98,7 +98,7 @@ class FetchTokenPricesJob implements ShouldQueue
         // 步骤4: 只针对快速的数据库写入操作开启事务
         // 这样可以最大程度地缩短数据库锁定时间
         try {
-            DB::transaction(function () use ($upsertData, $currentMinuteTimestamp) {
+            DB::transaction(function () use ($upsertData) {
                 // 这里的操作应该在毫秒级完成，最小化锁定时间
                 TokenPrice::upsert(
                     $upsertData,
@@ -107,14 +107,14 @@ class FetchTokenPricesJob implements ShouldQueue
                 );
             });
 
-            Log::info("成功写入代币价格数据到数据库", [
+            Log::info('成功写入代币价格数据到数据库', [
                 'records_count' => count($upsertData),
                 'minute_timestamp' => $currentMinuteTimestamp,
                 'symbols' => array_keys($priceData),
             ]);
 
         } catch (\Exception $e) {
-            Log::error("写入代币价格数据到数据库失败", [
+            Log::error('写入代币价格数据到数据库失败', [
                 'error' => $e->getMessage(),
                 'records_count' => count($upsertData),
                 'minute_timestamp' => $currentMinuteTimestamp,

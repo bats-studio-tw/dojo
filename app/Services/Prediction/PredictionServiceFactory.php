@@ -14,8 +14,7 @@ class PredictionServiceFactory
     /**
      * 创建预测服务实例
      *
-     * @param string $strategy 策略名称
-     * @return PredictionService
+     * @param  string  $strategy  策略名称
      */
     public static function create(string $strategy = 'default'): PredictionService
     {
@@ -58,14 +57,12 @@ class PredictionServiceFactory
     private static function createDataProvider(string $providerClass): MarketDataProviderInterface
     {
         return match ($providerClass) {
-            \App\Services\Prediction\Providers\DexScreenerProvider::class =>
-                new \App\Services\Prediction\Providers\DexScreenerProvider(
-                    App::make(DexPriceClient::class)
-                ),
-            \App\Services\Prediction\Providers\AlchemyProvider::class =>
-                new \App\Services\Prediction\Providers\AlchemyProvider(
-                    App::make(AlchemyPriceService::class)
-                ),
+            \App\Services\Prediction\Providers\DexScreenerProvider::class => new \App\Services\Prediction\Providers\DexScreenerProvider(
+                App::make(DexPriceClient::class)
+            ),
+            \App\Services\Prediction\Providers\AlchemyProvider::class => new \App\Services\Prediction\Providers\AlchemyProvider(
+                App::make(AlchemyPriceService::class)
+            ),
             default => throw new \InvalidArgumentException("Unknown data provider: {$providerClass}")
         };
     }
@@ -84,11 +81,11 @@ class PredictionServiceFactory
         }
 
         if ($features['momentum'] ?? false) {
-            $providers['momentum'] = new \App\Services\Prediction\Features\MomentumFeatureProvider();
+            $providers['momentum'] = new \App\Services\Prediction\Features\MomentumFeatureProvider;
         }
 
         if ($features['volume'] ?? false) {
-            $providers['volume'] = new \App\Services\Prediction\Features\VolumeFeatureProvider();
+            $providers['volume'] = new \App\Services\Prediction\Features\VolumeFeatureProvider;
         }
 
         return $providers;
@@ -118,12 +115,9 @@ class PredictionServiceFactory
     private static function createNormalizationStrategy(string $strategyClass): NormalizationStrategyInterface
     {
         return match ($strategyClass) {
-            \App\Services\Prediction\Normalization\ZScoreNormalization::class =>
-                new \App\Services\Prediction\Normalization\ZScoreNormalization(),
-            \App\Services\Prediction\Normalization\MinMaxNormalization::class =>
-                new \App\Services\Prediction\Normalization\MinMaxNormalization(),
-            \App\Services\Prediction\Normalization\IdentityNormalization::class =>
-                new \App\Services\Prediction\Normalization\IdentityNormalization(),
+            \App\Services\Prediction\Normalization\ZScoreNormalization::class => new \App\Services\Prediction\Normalization\ZScoreNormalization,
+            \App\Services\Prediction\Normalization\MinMaxNormalization::class => new \App\Services\Prediction\Normalization\MinMaxNormalization,
+            \App\Services\Prediction\Normalization\IdentityNormalization::class => new \App\Services\Prediction\Normalization\IdentityNormalization,
             default => throw new \InvalidArgumentException("Unknown normalization strategy: {$strategyClass}")
         };
     }
@@ -131,8 +125,7 @@ class PredictionServiceFactory
     /**
      * 创建自定义配置的预测服务
      *
-     * @param array $customConfig 自定义配置
-     * @return PredictionService
+     * @param  array  $customConfig  自定义配置
      */
     public static function createWithCustomConfig(array $customConfig): PredictionService
     {

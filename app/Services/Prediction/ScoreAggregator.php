@@ -9,13 +9,12 @@ class ScoreAggregator
     public function __construct(
         private array $featureWeights,
         private array $featureNormalizations
-    ) {
-    }
+    ) {}
 
     /**
      * 聚合所有特征分数
      *
-     * @param array $allFeatureScores 格式: ['feature_name' => ['symbol' => score, ...], ...]
+     * @param  array  $allFeatureScores  格式: ['feature_name' => ['symbol' => score, ...], ...]
      * @return array 返回格式: ['symbol' => final_score, ...]
      */
     public function aggregate(array $allFeatureScores): array

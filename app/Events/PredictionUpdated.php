@@ -19,8 +19,7 @@ class PredictionUpdated implements ShouldBroadcastNow
         public string $roundId,
         public string $type = 'prediction',
         public ?string $source = 'original' // 添加预测源标识符，允许为null以兼容旧队列任务
-    ) {
-    }
+    ) {}
 
     /**
      * 获取事件应该广播到的频道

@@ -1,12 +1,7 @@
 <?php
 
-use App\Http\Controllers\AutoBettingController;
-use App\Http\Controllers\PredictionController;
-use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
-use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -26,11 +21,3 @@ Route::get('/', function () {
 })->name('dashboard');
 
 // 预测系统页面路由 - 已移除，功能整合到主AutoBetting页面
-
-
-
-
-
-
-
-

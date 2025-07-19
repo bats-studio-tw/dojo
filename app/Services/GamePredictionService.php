@@ -23,8 +23,7 @@ class GamePredictionService
 {
     public function __construct(
         private DexPriceClient $dexPriceClient
-    ) {
-    }
+    ) {}
 
     /**
      * 从快取中获取当前线上的活跃策略参数。
@@ -51,33 +50,44 @@ class GamePredictionService
         });
     }
 
-    //================== 核心參數配置 ==================
+    // ================== 核心參數配置 ==================
 
     // --- 基礎配置 ---
     public const CACHE_DURATION_MINUTES = 10;           // 預測緩存時長（分鐘）
+
     public const ANALYSIS_ROUNDS_LIMIT = 120;            // 分析歷史數據的輪次數量
+
     public const API_DELAY_MICROSECONDS = 200000;        // API調用間隔（微秒，0.2秒）
 
     // --- H2H 演算法核心權重與閾值 ---
     public const H2H_DEFAULT_SCORE = 50;                 // 無法計算H2H分數時的基礎分（通常會被智能回退覆蓋）
+
     public const MIN_H2H_COVERAGE_WEIGHT = 0.15;         // H2H數據覆蓋率貢獻的最低權重（優化：從0.2降低到0.15）
+
     public const MAX_H2H_COVERAGE_WEIGHT = 0.45;         // H2H數據覆蓋率貢獻的最高權重（優化：從0.6降低到0.45）
 
     // --- 動態 H2H 門檻與加權參數 (v8.3 新增) ---
     public const H2H_RELIABILITY_THRESHOLD = 0.5;        // H2H 可靠性門檻：低於此覆蓋率時進一步降低權重
+
     public const H2H_LOW_COVERAGE_PENALTY = 0.8;         // 低覆蓋率懲罰係數：對不可靠的H2H權重進行折扣
 
     // --- 風險控制與市場影響 ---
     // 注意：以下参数现在从动态策略中获取，而不是使用常量
     public const STABILITY_THRESHOLD_MULTIPLIER = 1.3;   // 識別為「高風險」的波動性倍數閾值
+
     public const HIGH_RISK_PENALTY_FACTOR = 0.90;        // 對「高風險」代幣的額外懲罰係數 (乘以0.9)
+
     public const MARKET_ADJUSTMENT_WEIGHT = 0.2;         // 市場動量分數的影響權重
 
     // --- 置信度計算參數 ---
     public const BASE_CONFIDENCE = 50;                   // 基礎置信度 (%)
+
     public const CONFIDENCE_PER_GAME = 1.5;              // 每局遊戲貢獻的置信度 (%)
+
     public const MAX_DATA_CONFIDENCE = 35;               // 數據量最大貢獻置信度 (%)
+
     public const STABILITY_BONUS_THRESHOLD = 10;         // 穩定性獎勵閾值
+
     public const MAX_CONSISTENCY_BONUS = 5;              // 一致性最大獎勵 (%)
 
     /**
@@ -124,7 +134,7 @@ class GamePredictionService
                 'round_id' => $roundId,
                 'analysis_data' => $analysisData,
                 'generated_at' => now()->toISOString(),
-                'algorithm' => $algorithmInfo['name'] . '_' . $algorithmInfo['version'],
+                'algorithm' => $algorithmInfo['name'].'_'.$algorithmInfo['version'],
                 'algorithm_description' => $algorithmInfo['description'],
                 'analysis_rounds_count' => self::ANALYSIS_ROUNDS_LIMIT,
             ];
@@ -134,7 +144,7 @@ class GamePredictionService
             // 同时保存到 PredictionResult 表
             $this->saveToPredictionResultTable($analysisData, $roundId);
 
-            Log::info("預測分析完成並已快取", [
+            Log::info('預測分析完成並已快取', [
                 'round_id' => $roundId,
                 'algorithm' => $cacheData['algorithm'],
                 'tokens_count' => count($analysisData),
@@ -154,7 +164,7 @@ class GamePredictionService
                         'status' => $roundInfo['status'] ?? 'bet',
                         'current_tokens' => array_column($analysisData, 'symbol'),
                         'analysis_rounds_count' => self::ANALYSIS_ROUNDS_LIMIT,
-                        'prediction_algorithm' => $algorithmInfo['name'] . '_' . $algorithmInfo['version'],
+                        'prediction_algorithm' => $algorithmInfo['name'].'_'.$algorithmInfo['version'],
                         'algorithm_description' => $algorithmInfo['description'],
                         'timestamp' => $roundInfo['timestamp'] ?? now()->toISOString(),
                         'generated_at' => now()->toISOString(),
@@ -242,7 +252,7 @@ class GamePredictionService
         try {
             // 获取或创建游戏轮次记录
             $gameRound = \App\Models\GameRound::where('round_id', $roundId)->first();
-            if (!$gameRound) {
+            if (! $gameRound) {
                 $gameRound = \App\Models\GameRound::create([
                     'round_id' => $roundId,
                 ]);
@@ -484,7 +494,7 @@ class GamePredictionService
                 ];
             }
         } catch (\Exception $e) {
-            Log::warning("批量獲取市場數據失敗，將使用預設值", ['error' => $e->getMessage()]);
+            Log::warning('批量獲取市場數據失敗，將使用預設值', ['error' => $e->getMessage()]);
         }
 
         $analysisData = [];
@@ -633,8 +643,8 @@ class GamePredictionService
         $weightedScore = 0;
 
         foreach ($weights as $tf => $weight) {
-            if (isset($data['change_' . $tf]) && is_numeric($data['change_' . $tf])) {
-                $change = $data['change_' . $tf];
+            if (isset($data['change_'.$tf]) && is_numeric($data['change_'.$tf])) {
+                $change = $data['change_'.$tf];
                 // 簡化映射：+/-20% 的變化大致對應 0/100 分
                 $score = 50 + ($change * 2.5);
                 $weightedScore += $score * $weight;

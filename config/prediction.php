@@ -146,8 +146,6 @@ return [
         'dexscreener' => \App\Services\Prediction\Providers\DexScreenerProvider::class,
     ],
 
-
-
     // 缓存配置
     'cache' => [
         'enabled' => true,

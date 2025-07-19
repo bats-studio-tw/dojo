@@ -20,8 +20,7 @@ class NewPredictionMade implements ShouldBroadcastNow
         public string $roundId,
         public string $type = 'new_prediction',
         public ?string $source = 'prediction_service'
-    ) {
-    }
+    ) {}
 
     /**
      * 获取事件应该广播到的频道

@@ -1,26 +1,27 @@
 <?php
+
 // app/Jobs/EvaluateBacktestParameters.php
 
 namespace App\Jobs;
 
-use App\Models\GameRound;
 use App\Models\BacktestResult;
-use App\Services\ScoreMixer;
-use App\Services\EloRatingEngine;
+use App\Models\GameRound;
 use App\Repositories\TokenPriceRepository;
+use App\Services\EloRatingEngine;
+use App\Services\ScoreMixer;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 
 class EvaluateBacktestParameters implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $timeout = 300; // 5分鐘超時
+
     public $tries = 3; // 重試3次
 
     /**
@@ -62,6 +63,7 @@ class EvaluateBacktestParameters implements ShouldQueue
                     'run_id' => $this->runId,
                     'params_hash' => $paramsHash,
                 ]);
+
                 return;
             }
 
@@ -70,6 +72,7 @@ class EvaluateBacktestParameters implements ShouldQueue
 
             if (empty($gameIds)) {
                 Log::warning('沒有找到可用的遊戲數據');
+
                 return;
             }
 
@@ -137,7 +140,7 @@ class EvaluateBacktestParameters implements ShouldQueue
                 break;
             }
 
-        } while (!empty($batch));
+        } while (! empty($batch));
 
         return $gameIds;
     }
@@ -161,7 +164,7 @@ class EvaluateBacktestParameters implements ShouldQueue
         $gameBatches = array_chunk($gameIds, $batchSize);
 
         foreach ($gameBatches as $batchIndex => $batchGameIds) {
-            Log::info("處理遊戲批次", [
+            Log::info('處理遊戲批次', [
                 'batch' => $batchIndex + 1,
                 'total_batches' => count($gameBatches),
                 'batch_size' => count($batchGameIds),
@@ -272,6 +275,7 @@ class EvaluateBacktestParameters implements ShouldQueue
                 'game_id' => $game['id'],
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -285,6 +289,7 @@ class EvaluateBacktestParameters implements ShouldQueue
         foreach ($game['round_results'] as $result) {
             $results[$result['token_symbol']] = $result['rank'];
         }
+
         return $results;
     }
 
@@ -296,17 +301,19 @@ class EvaluateBacktestParameters implements ShouldQueue
         try {
             // 從遊戲結果中獲取代幣符號
             $game = GameRound::with('roundResults')->find($gameId);
-            if (!$game || empty($game->roundResults)) {
+            if (! $game || empty($game->roundResults)) {
                 return [];
             }
 
             $symbols = $game->roundResults->pluck('token_symbol')->toArray();
+
             return $eloEngine->probabilities($symbols);
         } catch (\Exception $e) {
             Log::warning('獲取Elo機率失敗', [
                 'game_id' => $gameId,
                 'error' => $e->getMessage(),
             ]);
+
             return [];
         }
     }
@@ -320,12 +327,14 @@ class EvaluateBacktestParameters implements ShouldQueue
             // 暫時返回null，避免動能計算錯誤
             // TODO: 實現完整的動能分數計算邏輯
             Log::info('動能分數計算暫時禁用', ['game_id' => $gameId]);
+
             return null;
         } catch (\Exception $e) {
             Log::warning('獲取動能分數失敗', [
                 'game_id' => $gameId,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }

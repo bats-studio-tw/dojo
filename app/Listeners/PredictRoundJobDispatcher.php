@@ -4,8 +4,8 @@ namespace App\Listeners;
 
 use App\Events\NewRoundStarted;
 use App\Jobs\CalculateMomentumJob;
-use App\Services\Prediction\PredictionServiceFactory;
 use App\Models\GameRound;
+use App\Services\Prediction\PredictionServiceFactory;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 
@@ -58,7 +58,7 @@ class PredictRoundJobDispatcher
 
             // 获取或创建游戏轮次记录
             $gameRound = GameRound::where('round_id', $event->roundId)->first();
-            if (!$gameRound) {
+            if (! $gameRound) {
                 $gameRound = GameRound::create([
                     'round_id' => $event->roundId,
                 ]);

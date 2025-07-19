@@ -10,8 +10,7 @@ class EloFeatureProvider implements FeatureProviderInterface
 {
     public function __construct(
         private EloRatingEngine $eloRatingEngine
-    ) {
-    }
+    ) {}
 
     public function extractFeatures(array $snapshots, array $history): array
     {
@@ -26,18 +25,18 @@ class EloFeatureProvider implements FeatureProviderInterface
 
             try {
                 // 获取当前Elo评分
-                $eloRating = TokenRating::where('token', $symbol)
+                $eloRating = TokenRating::where('symbol', $symbol)
                     ->orderBy('created_at', 'desc')
                     ->first();
 
                 if ($eloRating) {
-                    $scores[$symbol] = $eloRating->elo_rating;
+                    $scores[$symbol] = $eloRating->elo;
                 } else {
                     // 如果没有历史Elo评分，使用默认值
                     $scores[$symbol] = 1500.0;
                 }
             } catch (\Exception $e) {
-                \Log::warning("Failed to extract Elo feature for {$symbol}: " . $e->getMessage());
+                \Log::warning("Failed to extract Elo feature for {$symbol}: ".$e->getMessage());
                 $scores[$symbol] = 1500.0; // 默认值
             }
         }

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\GameRound;
 use App\Models\PredictionResult;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,9 +11,7 @@ use Illuminate\Support\Facades\Validator;
 
 class PredictionController extends Controller
 {
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 
     /**
      * 获取预测历史
@@ -46,10 +43,10 @@ class PredictionController extends Controller
             // 先查最新 N 局的 game_round_id
             $roundQuery = \App\Models\GameRound::query()
                 ->whereHas('roundPredicts');
-            if (!empty($validated['start_date'])) {
+            if (! empty($validated['start_date'])) {
                 $roundQuery->where('created_at', '>=', $validated['start_date']);
             }
-            if (!empty($validated['end_date'])) {
+            if (! empty($validated['end_date'])) {
                 $roundQuery->where('created_at', '<=', $validated['end_date']);
             }
             $roundIds = $roundQuery
@@ -64,7 +61,7 @@ class PredictionController extends Controller
                 ->whereIn('game_round_id', $roundIds);
 
             // 应用筛选条件
-            if (!empty($validated['strategy_tag'])) {
+            if (! empty($validated['strategy_tag'])) {
                 $query->where('strategy_tag', $validated['strategy_tag']);
             }
 
@@ -132,7 +129,7 @@ class PredictionController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => '获取预测历史失败: ' . $e->getMessage(),
+                'message' => '获取预测历史失败: '.$e->getMessage(),
                 'code' => 500,
             ], 500);
         }
@@ -188,11 +185,6 @@ class PredictionController extends Controller
         ];
     }
 
-
-
-
-
-
     /**
      * 获取当前分析数据
      */
@@ -236,7 +228,7 @@ class PredictionController extends Controller
                 ->groupBy('game_round_id')
                 ->first();
 
-            if (!$latestPredictions) {
+            if (! $latestPredictions) {
                 return response()->json([
                     'success' => false,
                     'message' => '暂无预测数据',
@@ -287,7 +279,7 @@ class PredictionController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => '获取当前分析数据失败: ' . $e->getMessage(),
+                'message' => '获取当前分析数据失败: '.$e->getMessage(),
                 'code' => 500,
             ], 500);
         }
@@ -307,7 +299,7 @@ class PredictionController extends Controller
                 ->groupBy('game_round_id')
                 ->first();
 
-            if (!$latestHybridPredictions) {
+            if (! $latestHybridPredictions) {
                 return response()->json([
                     'success' => false,
                     'message' => '暂无混合预测数据',
@@ -354,7 +346,7 @@ class PredictionController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => '获取混合预测数据失败: ' . $e->getMessage(),
+                'message' => '获取混合预测数据失败: '.$e->getMessage(),
                 'code' => 500,
             ], 500);
         }
@@ -396,7 +388,7 @@ class PredictionController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => '获取动量预测统计失败: ' . $e->getMessage(),
+                'message' => '获取动量预测统计失败: '.$e->getMessage(),
                 'code' => 500,
             ], 500);
         }
@@ -431,10 +423,10 @@ class PredictionController extends Controller
             // 先查最新 N 局的 game_round_id
             $roundQuery = \App\Models\GameRound::query()
                 ->whereHas('hybridRoundPredicts');
-            if (!empty($validated['start_date'])) {
+            if (! empty($validated['start_date'])) {
                 $roundQuery->where('created_at', '>=', $validated['start_date']);
             }
-            if (!empty($validated['end_date'])) {
+            if (! empty($validated['end_date'])) {
                 $roundQuery->where('created_at', '<=', $validated['end_date']);
             }
             $roundIds = $roundQuery
@@ -507,15 +499,11 @@ class PredictionController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => '获取动量预测历史失败: ' . $e->getMessage(),
+                'message' => '获取动量预测历史失败: '.$e->getMessage(),
                 'code' => 500,
             ], 500);
         }
     }
-
-
-
-
 
     /**
      * 获取性能摘要
@@ -530,23 +518,23 @@ class PredictionController extends Controller
                 AVG(predict_score) as avg_score,
                 SUM(CASE WHEN predict_rank = 1 THEN 1 ELSE 0 END) as wins
             ')
-            ->groupBy('strategy_tag')
-            ->get()
-            ->map(function ($item) {
-                $winRate = $item->total_predictions > 0
-                    ? ($item->wins / $item->total_predictions) * 100
-                    : 0;
+                ->groupBy('strategy_tag')
+                ->get()
+                ->map(function ($item) {
+                    $winRate = $item->total_predictions > 0
+                        ? ($item->wins / $item->total_predictions) * 100
+                        : 0;
 
-                return [
-                    'strategy_tag' => $item->strategy_tag,
-                    'total_predictions' => $item->total_predictions,
-                    'wins' => $item->wins,
-                    'win_rate' => round($winRate, 2),
-                    'avg_score' => round($item->avg_score, 4),
-                ];
-            })
-            ->values()
-            ->toArray();
+                    return [
+                        'strategy_tag' => $item->strategy_tag,
+                        'total_predictions' => $item->total_predictions,
+                        'wins' => $item->wins,
+                        'win_rate' => round($winRate, 2),
+                        'avg_score' => round($item->avg_score, 4),
+                    ];
+                })
+                ->values()
+                ->toArray();
 
             return response()->json([
                 'success' => true,
@@ -563,13 +551,11 @@ class PredictionController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => '获取性能摘要失败: ' . $e->getMessage(),
+                'message' => '获取性能摘要失败: '.$e->getMessage(),
                 'code' => 500,
             ], 500);
         }
     }
-
-
 
     /**
      * 获取用户投注表现
@@ -680,7 +666,7 @@ class PredictionController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => '获取用户投注表现失败: ' . $e->getMessage(),
+                'message' => '获取用户投注表现失败: '.$e->getMessage(),
                 'code' => 500,
             ], 500);
         }

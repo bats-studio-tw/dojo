@@ -23,7 +23,8 @@ class EloUpdateJob implements ShouldQueue
 
     /**
      * 創建一個新的 Job 實例。
-     * @param int $gameRoundId 已結算的遊戲回合 ID
+     *
+     * @param  int  $gameRoundId  已結算的遊戲回合 ID
      */
     public function __construct(int $gameRoundId)
     {
@@ -41,11 +42,11 @@ class EloUpdateJob implements ShouldQueue
         try {
             // 步骤1: 读取结算后的 round_results
             $results = RoundResult::where('game_round_id', $this->gameRoundId)
-                                  ->orderBy('rank')
-                                  ->get();
+                ->orderBy('rank')
+                ->get();
 
             if ($results->isEmpty()) {
-                Log::warning("[EloUpdateJob] 赛果不足，无法更新 Elo。Round ID: " . $this->gameRoundId, [
+                Log::warning('[EloUpdateJob] 赛果不足，无法更新 Elo。Round ID: '.$this->gameRoundId, [
                     'game_round_id' => $this->gameRoundId,
                     'query_conditions' => [
                         'game_round_id' => $this->gameRoundId,
@@ -151,7 +152,7 @@ class EloUpdateJob implements ShouldQueue
      * 計算 K 值衰減因子
      * K = K_BASE * 200 / (200 + games)
      *
-     * @param int $games 已玩游戏次数
+     * @param  int  $games  已玩游戏次数
      * @return float K 值衰減因子
      */
     private function calculateKFactor(int $games): float

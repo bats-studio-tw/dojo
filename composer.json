@@ -76,6 +76,12 @@
         "format:check": [
             "php-cs-fixer fix --config=.php-cs-fixer.php --dry-run --diff"
         ],
+        "pint": [
+            "vendor/bin/pint"
+        ],
+        "pint:check": [
+            "vendor/bin/pint --test"
+        ],
         "analyse": [
             "phpstan analyse --configuration=phpstan.neon"
         ],

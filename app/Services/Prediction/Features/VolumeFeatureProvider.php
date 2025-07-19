@@ -44,7 +44,7 @@ class VolumeFeatureProvider implements FeatureProviderInterface
 
                 $scores[$symbol] = $volumeScore;
             } catch (\Exception $e) {
-                \Log::warning("Failed to extract volume feature for {$symbol}: " . $e->getMessage());
+                \Log::warning("Failed to extract volume feature for {$symbol}: ".$e->getMessage());
                 $scores[$symbol] = 50.0; // 默认值
             }
         }

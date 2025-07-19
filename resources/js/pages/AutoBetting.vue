@@ -6,45 +6,6 @@
     <WalletSetup :visible="!isTokenValidated" @validated="handleTokenValidated" />
 
     <div v-if="isTokenValidated" class="min-h-screen from-slate-900 via-slate-800 to-slate-900 bg-gradient-to-br">
-      <!-- 🔧 调试面板 -->
-      <div v-if="isDevMode" class="mb-4 border border-red-500/4 bg-red-900">
-        <h3 class="mb-2 text-red-400 font-bold">🔧 调试面板 (开发模式)</h3>
-        <div class="grid grid-cols-2 text-sm md:grid-cols-4">
-          <div>
-            <div class="text-red-300">WebSocket状态:</div>
-            <div class="text-red-200">{{ websocketStatus.status }} - {{ websocketStatus.message }}</div>
-          </div>
-          <div>
-            <div class="text-red-300">自动下注状态:</div>
-            <div class="text-red-200">{{ autoBettingStatus.is_running ? '运行中' : '已停止' }}</div>
-          </div>
-          <div>
-            <div class="text-red-300">当前游戏状态:</div>
-            <div class="text-red-200">{{ currentGameStatus || '未知' }}</div>
-          </div>
-          <div>
-            <div class="text-red-300">当前轮次ID:</div>
-            <div class="text-red-200">{{ currentRoundId || '无' }}</div>
-          </div>
-          <div>
-            <div class="text-red-300">分析数据:</div>
-            <div class="text-red-200">{{ currentAnalysis?.length || 0 }} 个</div>
-          </div>
-          <div>
-            <div class="text-red-300">动能预测:</div>
-            <div class="text-red-200">{{ hybridPredictions?.length || 0 }} 个</div>
-          </div>
-          <div>
-            <div class="text-red-300">JWT Token:</div>
-            <div class="text-red-200">{{ config.jwt_token ? '已设置' : '未设置' }}</div>
-          </div>
-          <div>
-            <div class="text-red-300">用户ID:</div>
-            <div class="text-red-200">{{ currentUID || '未认证' }}</div>
-          </div>
-        </div>
-      </div>
-
       <!-- 顶部状态栏 -->
       <div class="status-bar">
         <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6">
@@ -175,6 +136,7 @@
                   :strategy-validation="strategyValidation"
                   :is-running="autoBettingStatus.is_running"
                   :has-u-i-d="!!currentUID"
+                  :user-info="userInfo"
                   :hybrid-predictions="hybridPredictions"
                   :hybrid-analysis-meta="hybridAnalysisMeta"
                   :hybrid-analysis-loading="hybridAnalysisLoading"
@@ -773,7 +735,19 @@
     // 计算总下注金额
     const totalMatchedValue = finalMatches.reduce((sum, match) => sum + match.bet_amount, 0);
 
-    const actualBalance = userInfo.value?.ojoValue || 0;
+    // 🎯 根据下注模式选择正确的余额
+    const bettingMode = config.betting_mode || 'dummy';
+    let actualBalance = 0;
+    let balanceType = '';
+
+    if (bettingMode === 'real') {
+      actualBalance = userInfo.value?.ojoValue || 0;
+      balanceType = 'OJO代币';
+    } else {
+      actualBalance = userInfo.value?.available || 0;
+      balanceType = '模拟代币';
+    }
+
     const balanceInsufficient = totalMatchedValue > actualBalance;
 
     strategyValidation.value = {
@@ -785,7 +759,7 @@
     };
 
     console.log(
-      `📊 策略验证完成：${finalMatches.length} 个目标，需要余额 $${totalMatchedValue.toFixed(2)}，实际余额 $${actualBalance.toFixed(2)}`
+      `📊 策略验证完成：${finalMatches.length} 个目标，需要${balanceType} $${totalMatchedValue.toFixed(2)}，实际余额 $${actualBalance.toFixed(2)}`
     );
   };
 

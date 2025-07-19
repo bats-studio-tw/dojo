@@ -203,7 +203,8 @@ export const useAutoBettingControl = () => {
     roundId: string,
     tokenSymbol: string,
     amount: number,
-    jwtToken: string
+    jwtToken: string,
+    bettingMode: 'real' | 'dummy' = 'dummy' // 新增：下注模式参数
   ): Promise<boolean> => {
     try {
       const betIdResponse = await gameApi.getBetId(roundId, jwtToken);
@@ -213,7 +214,16 @@ export const useAutoBettingControl = () => {
       }
 
       const betId = betIdResponse.data.data;
-      const betResponse = await gameApi.placeBet(roundId, betId, tokenSymbol, amount, jwtToken);
+
+      // 🎯 根据下注模式选择不同的API
+      let betResponse;
+      if (bettingMode === 'real') {
+        console.log(`💰 执行真实下注: ${tokenSymbol} $${amount}`);
+        betResponse = await gameApi.placeBet(roundId, betId, tokenSymbol, amount, jwtToken);
+      } else {
+        console.log(`🎮 执行模拟下注: ${tokenSymbol} $${amount}`);
+        betResponse = await gameApi.placeDummyBet(roundId, betId, tokenSymbol, amount, jwtToken);
+      }
 
       if (betResponse.data.success) {
         await autoBettingApi.recordResult({
@@ -280,10 +290,22 @@ export const useAutoBettingControl = () => {
         const { recommended_bets, round_id, jwt_token } = response.data.data;
 
         const totalBetAmount = recommended_bets.reduce((sum: number, bet: any) => sum + bet.bet_amount, 0);
-        const actualBalance = userInfo.value?.ojoValue || 0;
+
+        // 🎯 根据下注模式选择正确的余额
+        const bettingMode = config.betting_mode || 'dummy';
+        let actualBalance = 0;
+        let balanceType = '';
+
+        if (bettingMode === 'real') {
+          actualBalance = userInfo.value?.ojoValue || 0;
+          balanceType = 'OJO代币';
+        } else {
+          actualBalance = userInfo.value?.available || 0;
+          balanceType = '模拟代币';
+        }
 
         if (totalBetAmount > actualBalance) {
-          window.$message?.error(`余额不足！需要 $${totalBetAmount.toFixed(2)}，当前余额 $${actualBalance.toFixed(2)}`);
+          window.$message?.error(`${balanceType}余额不足！需要 $${totalBetAmount.toFixed(2)}，当前余额 $${actualBalance.toFixed(2)}`);
           return;
         }
 
@@ -293,7 +315,9 @@ export const useAutoBettingControl = () => {
 
         for (const bet of recommended_bets) {
           try {
-            const betSuccess = await executeSingleBet(round_id, bet.symbol, bet.bet_amount, jwt_token);
+            // 🎯 从配置中获取下注模式
+            const bettingMode = config.betting_mode || 'dummy';
+            const betSuccess = await executeSingleBet(round_id, bet.symbol, bet.bet_amount, jwt_token, bettingMode);
             if (betSuccess) {
               successCount++;
             } else {

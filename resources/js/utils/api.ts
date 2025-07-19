@@ -257,6 +257,25 @@ export const gameApi = {
         }
       }
     );
+  },
+
+  // 代幣下注
+  placeDummyBet: (roundId: string, betId: string, token: string, amount: number, jwtToken: string) => {
+    return dojoGameApi.post(
+      `/games/battle/${roundId}/dummy/bets`,
+      {},
+      {
+        params: {
+          betId,
+          token,
+          amount
+        },
+        headers: {
+          jwt_token: jwtToken,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   }
 };
 

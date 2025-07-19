@@ -26,9 +26,43 @@
     </div>
 
     <!-- 🤖 自动下注状态面板 -->
-    <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="🤖 自动下注状态" size="large">
+    <NCard
+      class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
+      :title="`🤖 自动下注状态 (${localConfig.betting_mode === 'real' ? '💰 Real' : '🎮 Dummy'})`"
+      size="large"
+    >
       <template #header-extra>
         <div class="flex items-center space-x-3">
+          <!-- 🎯 Real/Dummy模式切换开关 -->
+          <div class="flex items-center space-x-2">
+            <span class="text-xs text-gray-400">模式:</span>
+            <n-switch
+              v-model:value="localConfig.betting_mode"
+              :checked-value="'real'"
+              :unchecked-value="'dummy'"
+              size="small"
+              @update:value="onBettingModeChange"
+            >
+              <template #checked>
+                <span class="text-xs text-red-400 font-medium">💰 Real</span>
+              </template>
+              <template #unchecked>
+                <span class="text-xs text-blue-400 font-medium">🎮 Dummy</span>
+              </template>
+            </n-switch>
+            <!-- 🎯 模式状态指示器 -->
+            <div
+              class="rounded px-2 py-1 text-xs font-medium"
+              :class="
+                localConfig.betting_mode === 'real'
+                  ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                  : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+              "
+            >
+              {{ localConfig.betting_mode === 'real' ? '真实模式' : '模拟模式' }}
+            </div>
+          </div>
+
           <n-button
             v-if="!autoBettingStatus.is_running"
             @click="startAutoBetting"
@@ -66,9 +100,13 @@
         >
           <div class="stat-icon">👤</div>
           <div class="stat-content">
-            <div class="stat-label text-blue-300">用户余额</div>
-            <div class="stat-value text-blue-400">${{ (strategyValidation?.actual_balance || 0).toFixed(2) }}</div>
-            <div class="stat-desc text-blue-200/70">可用于下注</div>
+            <div class="stat-label text-blue-300">
+              {{ localConfig.betting_mode === 'real' ? '真实余额' : '模拟余额' }}
+            </div>
+            <div class="stat-value text-blue-400">${{ (getUserBalance() || 0).toFixed(2) }}</div>
+            <div class="stat-desc text-blue-200/70">
+              {{ localConfig.betting_mode === 'real' ? 'OJO代币' : '模拟代币' }}
+            </div>
           </div>
         </div>
 
@@ -125,7 +163,7 @@
               class="stat-desc"
               :class="(strategyValidation?.balance_sufficient ?? true) ? 'text-green-200/70' : 'text-red-200/70'"
             >
-              实际余额: ${{ (strategyValidation?.actual_balance || 0).toFixed(0) }}
+              实际余额: ${{ (getUserBalance() || 0).toFixed(0) }}
             </div>
           </div>
         </div>
@@ -288,6 +326,7 @@
 
     isRunning: boolean;
     hasUID: boolean;
+    userInfo?: any; // 新增：用户信息，用于获取余额
     hybridPredictions?: any[]; // 新增：Hybrid-Edge v1.0 動能預測數據
     hybridAnalysisMeta?: any; // 新增：Hybrid预测元数据
     hybridAnalysisLoading?: boolean; // 新增：Hybrid预测加载状态
@@ -329,6 +368,35 @@
     localConfig.value = JSON.parse(JSON.stringify(config));
     // 同步回父组件
     emit('updateConfig', config);
+  };
+
+  // 🎯 处理下注模式切换
+  const onBettingModeChange = (newMode: 'real' | 'dummy') => {
+    console.log(`🎯 [SmartControlCenter] 下注模式切换: ${newMode}`);
+    localConfig.value.betting_mode = newMode;
+
+    // 显示模式切换提示
+    if (newMode === 'real') {
+      window.$message?.warning('⚠️ 已切换到真实下注模式，将使用真实代币进行下注！');
+    } else {
+      window.$message?.info('🎮 已切换到模拟下注模式，将使用模拟代币进行下注');
+    }
+
+    // 同步回父组件
+    emit('updateConfig', localConfig.value);
+  };
+
+  // 💰 获取用户余额 - 根据模式返回不同的余额
+  const getUserBalance = (): number => {
+    if (!props.userInfo) return 0;
+
+    if (localConfig.value.betting_mode === 'real') {
+      // Real模式使用ojoValue
+      return props.userInfo.ojoValue || 0;
+    } else {
+      // Dummy模式使用available
+      return props.userInfo.available || 0;
+    }
   };
 
   // ==================== 动态条件构建器 ====================

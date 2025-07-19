@@ -13,6 +13,7 @@ export interface AutoBettingConfig {
     logic: 'and' | 'or';
   }>;
   is_active: boolean;
+  betting_mode: 'real' | 'dummy'; // 新增：下注模式 - real(真实) 或 dummy(模拟)
 }
 
 /**
@@ -20,8 +21,9 @@ export interface AutoBettingConfig {
  */
 export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token' | 'uid'> = {
   bet_amount: 200,
-  dynamic_conditions: [], // 🔧 修复：改为空数组，避免预设条件
-  is_active: false
+  dynamic_conditions: [],
+  is_active: false,
+  betting_mode: 'real'
 };
 
 export const useAutoBettingConfig = () => {

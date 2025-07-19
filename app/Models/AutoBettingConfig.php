@@ -27,6 +27,7 @@ class AutoBettingConfig extends Model
             'bet_amount' => 200,
             'dynamic_conditions' => [], // 🔧 修复：改为空数组，避免预设条件
             'is_active' => false,
+            'betting_mode' => 'dummy', // 新增：默认使用模拟模式，更安全
         ];
     }
 

@@ -20,13 +20,13 @@ export function usePredictionDisplay() {
   // 获取统一的卡片样式类
   const getUnifiedCardClass = (index: number) => {
     if (index === 0) {
-      return 'bg-yellow-500/25 hover:bg-yellow-500/30';
+      return 'bg-gradient-to-br from-amber-500/5 to-yellow-600/2 hover:shadow-amber-500/10';
     }
     if (index === 1) {
-      return 'bg-gradient-to-br from-gray-400/10 to-gray-500/5 hover:shadow-gray-400/10';
+      return 'bg-gradient-to-br from-gray-400/15 to-gray-500/10 hover:shadow-gray-400/10';
     }
     if (index === 2) {
-      return 'bg-gradient-to-br from-amber-600/10 to-orange-700/5 hover:shadow-amber-600/10';
+      return 'bg-gradient-to-br from-amber-600/15 to-orange-700/10 hover:shadow-amber-600/10';
     }
     if (index === 3) {
       return 'bg-gradient-to-br from-blue-500/5 to-indigo-600/2 hover:shadow-blue-500/10';
@@ -37,7 +37,7 @@ export function usePredictionDisplay() {
   // 获取边框样式
   const getBorderStyle = (index: number) => {
     const colors = [
-      'rgba(251, 191, 36, 0.2)', // 金色
+      'rgba(245, 158, 11, 0.2)', // 金色 (amber-500)
       'rgba(156, 163, 175, 0.2)', // 银色
       'rgba(217, 119, 6, 0.2)', // 铜色
       'rgba(59, 130, 246, 0.2)', // 蓝色
@@ -48,7 +48,7 @@ export function usePredictionDisplay() {
 
   // 获取评分文本颜色类
   const getScoreTextClass = (index: number) => {
-    if (index === 0) return 'text-yellow-400';
+    if (index === 0) return 'text-amber-400';
     if (index === 1) return 'text-gray-400';
     if (index === 2) return 'text-amber-400';
     if (index === 3) return 'text-blue-400';
@@ -80,16 +80,16 @@ export function usePredictionDisplay() {
     switch (rank) {
       case 1:
         return {
-          border: 'border-yellow-500/20',
-          background: 'bg-yellow-500/25',
-          hover: 'hover:border-yellow-400/30 hover:bg-yellow-500/30',
+          border: 'border-amber-500/20',
+          background: 'from-amber-500/5 to-yellow-600/2',
+          hover: 'hover:border-amber-400/30 hover:shadow-amber-500/10',
           icon: '🥇',
-          textColor: 'text-yellow-300'
+          textColor: 'text-amber-300'
         };
       case 2:
         return {
           border: 'border-gray-400/20',
-          background: 'from-gray-400/10 to-gray-500/5',
+          background: 'from-gray-400/15 to-gray-500/10',
           hover: 'hover:border-gray-400/30 hover:shadow-gray-400/10',
           icon: '🥈',
           textColor: 'text-gray-300'
@@ -97,7 +97,7 @@ export function usePredictionDisplay() {
       case 3:
         return {
           border: 'border-amber-600/20',
-          background: 'from-amber-600/10 to-orange-700/5',
+          background: 'from-amber-600/15 to-orange-700/10',
           hover: 'hover:border-amber-600/30 hover:shadow-amber-600/10',
           icon: '🥉',
           textColor: 'text-amber-300'

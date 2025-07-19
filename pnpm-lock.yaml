@@ -20,9 +20,6 @@ dependencies:
   '@unocss/preset-uno':
     specifier: ^66.2.3
     version: 66.2.3
-  '@unocss/runtime':
-    specifier: ^66.3.3
-    version: 66.3.3
   '@unocss/transformer-directives':
     specifier: ^66.2.3
     version: 66.2.3
@@ -1237,10 +1234,6 @@ packages:
     resolution: {integrity: sha512-mRpwm3HUAqCtQrBB7+vkCp0qDZT+G1s2EAVJIF6zzrnoqb2BmIlHgz7DXVDufRFMRJtQUCp2jVMtEQZCTXEVjQ==}
     dev: false
 
-  /@unocss/core@66.3.3:
-    resolution: {integrity: sha512-6WFLd92TJelVQARtCGaF+EgEoHKIVe43gkGXVoWILu0HUDRWdhv+cpcyX0RTJV22Y976AxeneU7/zmhAh+CXNg==}
-    dev: false
-
   /@unocss/eslint-plugin@0.63.6(eslint@9.29.0)(typescript@5.8.3):
     resolution: {integrity: sha512-t+3INH3dc1NsfH2Eq4UQHtHDG06b/YEe9ULKgi36M+u8gcBDJpPutGmihU7Ftd5XqwoCn0OIMRBcEVwy3mqPaA==}
     engines: {node: '>=14'}
@@ -1260,12 +1253,6 @@ packages:
     resolution: {integrity: sha512-QQig1VnIfFJPVnp3lSM0za/7zZS91A+qOmEfOvbabiJ+dyI48wUU6MgP6/xZ5qZK6bvkuyQC9Ta73g9vXXuSZw==}
     dependencies:
       '@unocss/core': 66.2.3
-    dev: false
-
-  /@unocss/extractor-arbitrary-variants@66.3.3:
-    resolution: {integrity: sha512-TXzjH6FcITQ8V2x7ETHgVOlAHf3ll/ysxL+W4fMROm8jP/o7jvsg36tRfOwU0sDGo/qoCPux82ix9e6/JW0oqQ==}
-    dependencies:
-      '@unocss/core': 66.3.3
     dev: false
 
   /@unocss/inspector@66.2.3(vue@3.5.17):
@@ -1301,12 +1288,6 @@ packages:
       '@unocss/core': 66.2.3
     dev: false
 
-  /@unocss/preset-attributify@66.3.3:
-    resolution: {integrity: sha512-22+0Cqqu09q+xHfZ3Wk8Coxe5m6PmpgWz4U5xrEC8056UfG3Q1KEqoCxy2wySJIq8SqxQ30Nlll7oMa31B8Krw==}
-    dependencies:
-      '@unocss/core': 66.3.3
-    dev: false
-
   /@unocss/preset-icons@66.2.3:
     resolution: {integrity: sha512-U0Y4n7Oiq4wqAAdnhVInx6eu+dwxK0H35hwKdPra54ge0maDXzoYP9mFwsgZ7V4FZWZA985cSwhHgvcbqKeAVg==}
     dependencies:
@@ -1323,14 +1304,6 @@ packages:
       '@unocss/core': 66.2.3
       '@unocss/extractor-arbitrary-variants': 66.2.3
       '@unocss/rule-utils': 66.2.3
-    dev: false
-
-  /@unocss/preset-mini@66.3.3:
-    resolution: {integrity: sha512-pz8rgvHRYS/6fsZNtG7iArLzwANnLy5GkHY/lbuqkWhO2S2Nf7kpJCbR/uV/XeuFsLnYcZW3NLOmelfvZvJamA==}
-    dependencies:
-      '@unocss/core': 66.3.3
-      '@unocss/extractor-arbitrary-variants': 66.3.3
-      '@unocss/rule-utils': 66.3.3
     dev: false
 
   /@unocss/preset-tagify@66.2.3:
@@ -1354,13 +1327,6 @@ packages:
       '@unocss/preset-wind3': 66.2.3
     dev: false
 
-  /@unocss/preset-uno@66.3.3:
-    resolution: {integrity: sha512-Tiho4LidpuMHrB19GHTU6XrL0A5eFELHk9ebQ/3WeTy+K/9a6Hn5zsHJe5UCtOsEcUdKB33oZx0hXUp93hb/YQ==}
-    dependencies:
-      '@unocss/core': 66.3.3
-      '@unocss/preset-wind3': 66.3.3
-    dev: false
-
   /@unocss/preset-web-fonts@66.2.3:
     resolution: {integrity: sha512-I7raQj7QzjNeIdsBsEJiJE+fZ9+kpT8P/QnNVHmDtJgQOnFzmf+QdJrysEZ3tLqWX94tQX7gTBVElI138jGAAw==}
     dependencies:
@@ -1374,14 +1340,6 @@ packages:
       '@unocss/core': 66.2.3
       '@unocss/preset-mini': 66.2.3
       '@unocss/rule-utils': 66.2.3
-    dev: false
-
-  /@unocss/preset-wind3@66.3.3:
-    resolution: {integrity: sha512-iXmjvPqvmPTo4z7epQDqHxzlGRsbLJEgfETqTrRJeagvFG7Gs+ajS8cQhbf6wL01dSRHjvhVXi3MsIvqfHHXOw==}
-    dependencies:
-      '@unocss/core': 66.3.3
-      '@unocss/preset-mini': 66.3.3
-      '@unocss/rule-utils': 66.3.3
     dev: false
 
   /@unocss/preset-wind4@66.2.3:
@@ -1409,22 +1367,6 @@ packages:
     dependencies:
       '@unocss/core': 66.2.3
       magic-string: 0.30.17
-    dev: false
-
-  /@unocss/rule-utils@66.3.3:
-    resolution: {integrity: sha512-QKgVGV5nRRnK44/reUKFLAc5UGyl98vz3hrfk8JI8pVza58vmQWTdAB2rIpNJ5a5j+EkWfDOUlGQaOrIeYGLdg==}
-    engines: {node: '>=14'}
-    dependencies:
-      '@unocss/core': 66.3.3
-      magic-string: 0.30.17
-    dev: false
-
-  /@unocss/runtime@66.3.3:
-    resolution: {integrity: sha512-rj0ZtwLAjuGPX121+kP8OLGkQWfG8N3s9cjFIS8qFJSRJCAd3J1xZJsFYflgO1sPDlwM5DkMsfnAkgvNIVAVgA==}
-    dependencies:
-      '@unocss/core': 66.3.3
-      '@unocss/preset-attributify': 66.3.3
-      '@unocss/preset-uno': 66.3.3
     dev: false
 
   /@unocss/transformer-attributify-jsx@66.2.3:

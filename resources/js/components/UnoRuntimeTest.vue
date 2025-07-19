@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed } from 'vue';
+  import { ref, computed, onMounted } from 'vue';
 
   // 响应式颜色状态
   const currentColor = ref('red');
@@ -58,4 +58,32 @@
     const nextIndex = (currentIndex + 1) % colors.length;
     currentColor.value = colors[nextIndex];
   };
+
+  // 检查Runtime状态
+  const checkRuntimeStatus = () => {
+    console.log('🔍 检查 UnoCSS Runtime 状态...');
+
+    // 检查是否有runtime相关的style标签
+    const runtimeStyles = document.querySelectorAll('style[data-unocss-runtime], style[uno-css-runtime]');
+    const hasStyleElement = runtimeStyles.length > 0;
+
+    // 检查window对象
+    const hasWindowUno = !!(window as any).__unocss_runtime || !!(window as any).__unocss;
+
+    console.log('Runtime样式标签数量:', runtimeStyles.length);
+    console.log('Window UnoCSS对象:', hasWindowUno);
+    console.log('当前动态类名:', dynamicClasses.value);
+    console.log('运行时生成类名:', runtimeGeneratedClass.value);
+
+    return {
+      hasStyleElement,
+      hasWindowUno,
+      styleElementsCount: runtimeStyles.length
+    };
+  };
+
+  // 在组件挂载时检查状态
+  onMounted(() => {
+    setTimeout(checkRuntimeStatus, 1000);
+  });
 </script>

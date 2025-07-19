@@ -672,6 +672,4 @@ class PredictionController extends Controller
         }
     }
 
-            // 注释：已移除getPublicAnalysis和getPublicHybridAnalysis方法
-    // 展示页面现在使用与主页面相同的useGamePredictionStore，无需单独的API
 }

@@ -20,18 +20,30 @@ export function usePredictionDisplay() {
   // 获取统一的卡片样式类
   const getUnifiedCardClass = (index: number) => {
     if (index === 0) {
-      return '!bg-gradient-to-br !from-amber-500/5 !to-yellow-600/2 hover:!shadow-amber-500/10';
+      return 'bg-gradient-to-br from-amber-500/20 to-yellow-600/15 hover:shadow-amber-500/20';
     }
     if (index === 1) {
-      return '!bg-gradient-to-br !from-gray-400/15 !to-gray-500/10 hover:!shadow-gray-400/10';
+      return 'bg-gradient-to-br from-gray-400/25 to-gray-500/20 hover:shadow-gray-400/20';
     }
     if (index === 2) {
-      return '!bg-gradient-to-br !from-amber-600/15 !to-orange-700/10 hover:!shadow-amber-600/10';
+      return 'bg-gradient-to-br from-amber-600/25 to-orange-700/20 hover:shadow-amber-600/20';
     }
     if (index === 3) {
-      return '!bg-gradient-to-br !from-blue-500/5 !to-indigo-600/2 hover:!shadow-blue-500/10';
+      return 'bg-gradient-to-br from-blue-500/20 to-indigo-600/15 hover:shadow-blue-500/20';
     }
-    return '!bg-gradient-to-br !from-cyan-500/5 !to-blue-600/2 hover:!shadow-cyan-500/10';
+    return 'bg-gradient-to-br from-cyan-500/20 to-blue-600/15 hover:shadow-cyan-500/20';
+  };
+
+  // 获取背景样式（内联样式，强制覆盖）
+  const getBackgroundStyle = (index: number) => {
+    const gradients = [
+      'linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.15) 100%)', // 金色
+      'linear-gradient(135deg, rgba(156, 163, 175, 0.25) 0%, rgba(107, 114, 128, 0.2) 100%)', // 银色
+      'linear-gradient(135deg, rgba(217, 119, 6, 0.25) 0%, rgba(194, 65, 12, 0.2) 100%)', // 铜色
+      'linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(99, 102, 241, 0.15) 100%)', // 蓝色
+      'linear-gradient(135deg, rgba(34, 211, 238, 0.2) 0%, rgba(59, 130, 246, 0.15) 100%)' // 青色
+    ];
+    return { background: gradients[index] || gradients[4] };
   };
 
   // 获取边框样式
@@ -156,6 +168,7 @@ export function usePredictionDisplay() {
     getPredictionRowClass,
     getCombinedCardClass,
     getBorderStyle,
+    getBackgroundStyle,
 
     // 图标函数
     getPredictionIcon,

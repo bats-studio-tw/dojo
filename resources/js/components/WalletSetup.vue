@@ -4,7 +4,7 @@
     class="fixed inset-0 z-50 flex items-center justify-center from-slate-900 via-slate-800 to-slate-900 bg-gradient-to-br p-4"
   >
     <div class="mx-auto max-w-md w-full">
-      <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" size="large">
+      <NCard class="min-h-[500px] border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" size="large">
         <template #header>
           <div class="text-center">
             <h2 class="text-2xl text-white font-bold">🔐 身份验证</h2>
@@ -95,14 +95,14 @@
           </div>
 
           <!-- 操作按钮 -->
-          <div class="flex flex-col space-x-3">
+          <div class="flex flex-col space-y-3">
             <n-button
               @click="validateAndProceed"
               :loading="loading"
               :disabled="!form.jwt_token"
               type="primary"
               size="large"
-              class="flex-1"
+              class="h-12"
             >
               <template #icon>
                 <span>🚀</span>
@@ -110,7 +110,7 @@
               {{ userInfo ? '进入控制台' : '验证Token' }}
             </n-button>
 
-            <n-button @click="goToGuestView" type="tertiary" size="large" class="flex-1">Guest 预览</n-button>
+            <n-button @click="goToGuestView" type="tertiary" size="large" class="h-12">Guest 预览</n-button>
           </div>
         </div>
       </NCard>

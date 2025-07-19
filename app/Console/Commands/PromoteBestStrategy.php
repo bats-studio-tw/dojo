@@ -182,6 +182,14 @@ class PromoteBestStrategy extends Command
         // 生成策略名稱
         $strategyName = $this->generateStrategyName($bestResult);
 
+        // 檢查策略名稱是否已存在，如果存在則添加隨機後綴
+        $originalName = $strategyName;
+        $counter = 1;
+        while (PredictionStrategy::where('strategy_name', $strategyName)->exists()) {
+            $strategyName = $originalName . '_' . $counter;
+            $counter++;
+        }
+
         // 使用 updateOrCreate 防止重複插入
         $strategy = PredictionStrategy::updateOrCreate(
             [
@@ -212,12 +220,13 @@ class PromoteBestStrategy extends Command
         $eloWeight = $params['elo_weight'] ?? 0;
         $momentumWeight = $params['momentum_weight'] ?? 0;
 
+        // 添加秒數和微秒數以確保唯一性
         $name = sprintf(
             'Strategy_E%.1f_M%.1f_S%.1f_%s',
             $eloWeight,
             $momentumWeight,
             $score,
-            now()->format('Ymd_Hi')
+            now()->format('Ymd_His')
         );
 
         return $name;

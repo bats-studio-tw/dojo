@@ -24,10 +24,10 @@ class AutoBettingConfig extends Model
     public static function getDefaultConfig(): array
     {
         return [
-            'bet_amount' => 5, // 默认使用模拟模式的下注金额
-            'dynamic_conditions' => [], // 🔧 修复：改为空数组，避免预设条件
+            'bet_amount' => 5,
+            'dynamic_conditions' => [],
             'is_active' => false,
-            'betting_mode' => 'dummy', // 新增：默认使用模拟模式，更安全
+            'betting_mode' => 'real',
         ];
     }
 

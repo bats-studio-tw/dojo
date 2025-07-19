@@ -676,7 +676,13 @@
   const calculateBetAmount = (prediction: any): number => {
     let betAmount = config.bet_amount;
 
-    betAmount = Math.max(betAmount, 200);
+    // 🎯 根据betting_mode设置不同的最小值
+    if (config.betting_mode === 'real') {
+      betAmount = Math.max(betAmount, 200); // Real模式最小200
+    } else {
+      betAmount = Math.max(betAmount, 5); // Dummy模式最小5
+    }
+
     return Math.round(betAmount);
   };
 

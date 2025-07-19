@@ -334,7 +334,7 @@
   import type { UserInfo } from '@/types';
   import type { MomentumPredictionHistoryRound } from '@/composables/useMomentumPredictionStats';
 
-  import { autoBettingApi, gameApi } from '@/utils/api';
+  import { autoBettingApi, gameApi, getUserInfo } from '@/utils/api';
   import { canBet } from '@/utils/statusUtils';
   import { websocketManager } from '@/utils/websocketManager';
 
@@ -1160,6 +1160,24 @@
       // 🔧 新增：检查轮次变化，只有在新轮次开始时才执行下注
       const isNewRound = roundId && roundId !== prevRoundId;
       const isGameStatusChanged = gameStatus !== prevGameStatus;
+
+      // 💰 新增：当游戏状态变为bet时，获取最新用户信息
+      if (isGameStatusChanged && gameStatus === 'bet' && jwtToken) {
+        console.log('💰 游戏状态变为投注中，获取最新用户信息...');
+        try {
+          const userInfoResponse = await getUserInfo(jwtToken);
+          if (userInfoResponse.success && userInfoResponse.obj) {
+            userInfo.value = userInfoResponse.obj;
+            localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
+            console.log('✅ 用户信息已更新:', {
+              ojoValue: userInfo.value?.ojoValue,
+              available: userInfo.value?.available
+            });
+          }
+        } catch (error) {
+          console.warn('获取最新用户信息失败:', error);
+        }
+      }
 
       // 检查基础条件
       const conditions = checkAutoBettingConditions();

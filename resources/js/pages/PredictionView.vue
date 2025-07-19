@@ -84,156 +84,81 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, onUnmounted } from 'vue';
+  import { onMounted, onUnmounted } from 'vue';
   import { router } from '@inertiajs/vue3';
   import { NButton } from 'naive-ui';
   import { Head } from '@inertiajs/vue3';
+  import { storeToRefs } from 'pinia';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
   import MomentumPredictionDisplay from '@/components/MomentumPredictionDisplay.vue';
-  import api from '@/utils/api';
-  import type {
-    PredictionAnalysis,
-    AnalysisMeta,
-    GameStatus,
-    TokenWithRank,
-    HybridPrediction
-  } from '@/types/prediction';
+  import { useGamePredictionStore } from '@/stores/gamePrediction';
+  import { websocketManager } from '@/utils/websocketManager';
 
-  // 响应式数据
-  const currentAnalysis = ref<any[]>([]);
-  const analysisMeta = ref<AnalysisMeta | null>(null);
-  const currentRoundId = ref<string>('');
-  const currentGameStatus = ref<GameStatus>('waiting');
-  const currentGameTokensWithRanks = ref<TokenWithRank[]>([]);
-  const analysisLoading = ref(false);
+  // 使用与AutoBetting.vue相同的store
+  const predictionStore = useGamePredictionStore();
 
-  const hybridPredictions = ref<HybridPrediction[]>([]);
-  const hybridAnalysisMeta = ref<AnalysisMeta | null>(null);
-  const hybridAnalysisLoading = ref(false);
-
-  // WebSocket连接
-  let ws: WebSocket | null = null;
+  // 从store中获取响应式数据
+  const {
+    currentAnalysis,
+    analysisMeta,
+    currentRoundId,
+    currentGameStatus,
+    currentGameTokensWithRanks,
+    analysisLoading,
+    hybridPredictions,
+    hybridAnalysisMeta,
+    hybridAnalysisLoading
+  } = storeToRefs(predictionStore);
 
   // 跳转到登录页面
   const goToLogin = () => {
     router.visit('/');
   };
 
-  // 获取预测分析
-  const fetchAnalysis = async () => {
-    if (analysisLoading.value) return;
-
-    analysisLoading.value = true;
-    try {
-      const response = await api.get('/prediction/analysis');
-      if (response.data.success) {
-        // 确保返回的是数组格式
-        const analysisData = response.data.data.analysis;
-        if (analysisData && analysisData.predictions) {
-          currentAnalysis.value = analysisData.predictions;
-        } else {
-          currentAnalysis.value = [];
-        }
-        analysisMeta.value = response.data.data.meta;
-      }
-    } catch (error) {
-      console.error('获取预测分析失败:', error);
-      currentAnalysis.value = [];
-    } finally {
-      analysisLoading.value = false;
-    }
-  };
-
-  // 获取混合预测分析
-  const fetchHybridAnalysis = async () => {
-    if (hybridAnalysisLoading.value) return;
-
-    hybridAnalysisLoading.value = true;
-    try {
-      const response = await api.get('/prediction/hybrid-analysis');
-      if (response.data.success) {
-        hybridPredictions.value = response.data.data.predictions;
-        hybridAnalysisMeta.value = response.data.data.meta;
-      }
-    } catch (error) {
-      console.error('获取混合预测分析失败:', error);
-    } finally {
-      hybridAnalysisLoading.value = false;
-    }
-  };
+  // 使用store的方法获取数据
+  const { fetchCurrentAnalysis, fetchHybridAnalysis } = predictionStore;
 
   // 刷新分析
   const refreshAnalysis = () => {
-    fetchAnalysis();
+    fetchCurrentAnalysis(true); // 强制刷新
   };
 
   // 刷新混合分析
   const refreshHybridAnalysis = () => {
-    fetchHybridAnalysis();
-  };
-
-  // 初始化WebSocket连接
-  const initWebSocket = () => {
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/game`;
-
-    ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      console.log('WebSocket连接已建立');
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        if (data.type === 'game_update') {
-          currentRoundId.value = data.round_id || '';
-          currentGameStatus.value = data.status || 'waiting';
-          currentGameTokensWithRanks.value = data.tokens_with_ranks || [];
-        }
-      } catch (error) {
-        console.error('解析WebSocket消息失败:', error);
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket错误:', error);
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket连接已关闭');
-      // 5秒后重连
-      setTimeout(() => {
-        if (ws?.readyState === WebSocket.CLOSED) {
-          initWebSocket();
-        }
-      }, 5000);
-    };
+    fetchHybridAnalysis(true); // 强制刷新
   };
 
   // 组件挂载时初始化
-  onMounted(() => {
-    // 获取初始数据
-    fetchAnalysis();
-    fetchHybridAnalysis();
+  onMounted(async () => {
+    console.log('🔮 PredictionView: 页面开始初始化...');
 
-    // 建立WebSocket连接
-    initWebSocket();
+    // 确保WebSocket管理器已初始化
+    if (!websocketManager.isInitialized) {
+      console.log('🔌 初始化WebSocket管理器...');
+      websocketManager.initialize();
+    }
+
+    // 获取初始数据 - 使用与AutoBetting相同的方法
+    console.log('📡 PredictionView: 开始获取初始数据...');
+    await predictionStore.fetchInitialData();
+    console.log('✅ PredictionView: 初始数据获取完成');
 
     // 设置定时刷新（每30秒）
     const interval = setInterval(() => {
-      fetchAnalysis();
-      fetchHybridAnalysis();
+      refreshAnalysis();
+      refreshHybridAnalysis();
     }, 30000);
 
     // 清理定时器
     onUnmounted(() => {
       clearInterval(interval);
-      if (ws) {
-        ws.close();
-      }
+      console.log('🧹 PredictionView: 组件已卸载，清理完成');
     });
+
+    console.log('🎉 PredictionView: 页面初始化完成');
+    console.log('📊 当前分析数据:', currentAnalysis.value?.length || 0);
+    console.log('📊 当前混合预测数据:', hybridPredictions.value?.length || 0);
   });
 </script>
 

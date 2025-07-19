@@ -34,11 +34,7 @@ Route::prefix('v2')->group(function () {
     Route::get('/analysis/betting-performance', [PredictionController::class, 'getUserBettingPerformance'])->name('api.v2.analysis.betting-performance');
 });
 
-// 展示页面API路由组 - 无需认证
-Route::prefix('prediction')->group(function () {
-    Route::get('/analysis', [PredictionController::class, 'getPublicAnalysis'])->name('api.prediction.analysis');
-    Route::get('/hybrid-analysis', [PredictionController::class, 'getPublicHybridAnalysis'])->name('api.prediction.hybrid-analysis');
-});
+// 注释：已移除展示页面专用API，现在使用与主页面相同的store数据源
 
 // 自动下注API路由组 (保持兼容性)
 Route::prefix('auto-betting')->group(function () {
@@ -71,7 +67,7 @@ Route::fallback(function () {
             '/api/auto-betting/execute',
             '/api/auto-betting/record-result',
             '/api/auto-betting/check-round-bet',
-            '/api/auto-betting/config',
+            '/api/auto-betting/config'
         ],
         'code' => 404,
     ], 404);

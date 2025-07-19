@@ -7,7 +7,6 @@
 
     <div v-if="isTokenValidated" class="min-h-screen from-slate-900 via-slate-800 to-slate-900 bg-gradient-to-br">
       <!-- 🔧 调试面板 -->
-      <UnoRuntimeTest />
       <div v-if="isDevMode" class="mb-4 border border-red-500/4 bg-red-900">
         <h3 class="mb-2 text-red-400 font-bold">🔧 调试面板 (开发模式)</h3>
         <div class="grid grid-cols-2 text-sm md:grid-cols-4">
@@ -362,7 +361,6 @@
   import WalletSetup from '@/components/WalletSetup.vue';
   import SmartControlCenter from '@/components/SmartControlCenter.vue';
   import HistoryAnalysisTab from '@/components/HistoryAnalysisTab.vue';
-  import UnoRuntimeTest from '@/components/UnoRuntimeTest.vue';
   // 导入composables和stores
   import { useAutoBettingConfig } from '@/composables/useAutoBettingConfig';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';

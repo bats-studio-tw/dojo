@@ -1,6 +1,21 @@
 import { getGameStatusTagType } from '@/utils/statusUtils';
 
 export function usePredictionDisplay() {
+  // 测试 UnoCSS Runtime 是否正常工作
+  const testUnoCSSRuntime = () => {
+    // 这些动态类名应该通过 UnoCSS runtime 生成
+    const testClasses = [
+      'bg-red-500',
+      'text-blue-400',
+      'border-green-300',
+      'hover:bg-yellow-200',
+      'focus:ring-purple-500'
+    ];
+
+    console.log('🎨 UnoCSS Runtime 测试类名:', testClasses);
+    return testClasses.join(' ');
+  };
+
   // 格式化价格变化百分比
   const formatPriceChange = (change: number | null) => {
     if (change === null || change === undefined) {
@@ -48,11 +63,11 @@ export function usePredictionDisplay() {
 
   // 获取评分文本颜色类
   const getScoreTextClass = (index: number) => {
-    if (index === 0) return 'text-amber-400';
-    if (index === 1) return 'text-gray-400';
-    if (index === 2) return 'text-amber-400';
+    if (index === 0) return 'text-yellow-400';
+    if (index === 1) return 'text-slate-400';
+    if (index === 2) return 'text-orange-400';
     if (index === 3) return 'text-blue-400';
-    return 'text-cyan-400';
+    return 'text-purple-400';
   };
 
   // 获取预测图标 (统一使用排名参数)
@@ -80,35 +95,43 @@ export function usePredictionDisplay() {
     switch (rank) {
       case 1:
         return {
-          border: 'border-amber-500/20',
-          background: 'from-amber-500/5 to-yellow-600/2',
-          hover: 'hover:border-amber-400/30 hover:shadow-amber-500/10',
+          border: 'border-yellow-400/20',
+          background: 'from-yellow-500/10 to-amber-600/5',
+          hover: 'hover:border-yellow-400/30 hover:shadow-yellow-500/20',
           icon: '🥇',
-          textColor: 'text-amber-300'
+          textColor: 'text-yellow-300'
         };
       case 2:
         return {
-          border: 'border-gray-400/20',
-          background: 'from-gray-400/15 to-gray-500/10',
-          hover: 'hover:border-gray-400/30 hover:shadow-gray-400/10',
+          border: 'border-slate-400/20',
+          background: 'from-slate-500/10 to-gray-600/5',
+          hover: 'hover:border-slate-400/30 hover:shadow-slate-500/20',
           icon: '🥈',
-          textColor: 'text-gray-300'
+          textColor: 'text-slate-300'
         };
       case 3:
         return {
-          border: 'border-amber-600/20',
-          background: 'from-amber-600/15 to-orange-700/10',
-          hover: 'hover:border-amber-600/30 hover:shadow-amber-600/10',
+          border: 'border-orange-400/20',
+          background: 'from-orange-500/10 to-red-600/5',
+          hover: 'hover:border-orange-400/30 hover:shadow-orange-500/20',
           icon: '🥉',
-          textColor: 'text-amber-300'
+          textColor: 'text-orange-300'
+        };
+      case 4:
+        return {
+          border: 'border-blue-400/20',
+          background: 'from-blue-500/10 to-indigo-600/5',
+          hover: 'hover:border-blue-400/30 hover:shadow-blue-500/20',
+          icon: '🏅',
+          textColor: 'text-blue-300'
         };
       default:
         return {
-          border: 'border-cyan-500/20',
-          background: 'from-cyan-500/5 to-blue-600/2',
-          hover: 'hover:border-cyan-400/30 hover:shadow-cyan-500/10',
+          border: 'border-purple-400/20',
+          background: 'from-purple-500/10 to-pink-600/5',
+          hover: 'hover:border-purple-400/30 hover:shadow-purple-500/20',
           icon: '📊',
-          textColor: 'text-cyan-300'
+          textColor: 'text-purple-300'
         };
     }
   };
@@ -166,6 +189,9 @@ export function usePredictionDisplay() {
     // 卡片样式配置
     getRankStatsCardClass,
     getAccuracyCardClass,
-    getTotalRoundsCardClass
+    getTotalRoundsCardClass,
+
+    // 测试函数
+    testUnoCSSRuntime
   };
 }

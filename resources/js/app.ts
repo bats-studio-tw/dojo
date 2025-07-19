@@ -4,6 +4,9 @@ import './bootstrap';
 // UnoCSS styles
 import 'uno.css';
 
+// UnoCSS Runtime for dynamic class generation
+import '@unocss/runtime';
+
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, DefineComponent, h } from 'vue';

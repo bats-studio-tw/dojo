@@ -84,10 +84,10 @@
                     <span class="text-xs text-yellow-200/70">保本率</span>
                   </div>
                   <div class="flex items-center justify-between">
-                    <span class="text-base text-amber-300 font-bold sm:text-lg">
+                    <span class="text-base text-yellow-300 font-bold sm:text-lg">
                       {{ (allStats.rank1.firstPlaceRate || 0).toFixed(1) }}%
                     </span>
-                    <span class="text-xs text-amber-200/70">第一名率</span>
+                    <span class="text-xs text-yellow-200/70">第一名率</span>
                   </div>
                 </div>
                 <!-- 最新N局数据 -->
@@ -126,10 +126,10 @@
                     <span class="text-xs text-slate-200/70">保本率</span>
                   </div>
                   <div class="flex items-center justify-between">
-                    <span class="text-base text-gray-300 font-bold sm:text-lg">
+                    <span class="text-base text-slate-300 font-bold sm:text-lg">
                       {{ (allStats.rank2.firstPlaceRate || 0).toFixed(1) }}%
                     </span>
-                    <span class="text-xs text-gray-200/70">第一名率</span>
+                    <span class="text-xs text-slate-200/70">第一名率</span>
                   </div>
                 </div>
                 <!-- 最新N局数据 -->
@@ -168,10 +168,10 @@
                     <span class="text-xs text-orange-200/70">保本率</span>
                   </div>
                   <div class="flex items-center justify-between">
-                    <span class="text-base text-red-300 font-bold sm:text-lg">
+                    <span class="text-base text-orange-300 font-bold sm:text-lg">
                       {{ (allStats.rank3.firstPlaceRate || 0).toFixed(1) }}%
                     </span>
-                    <span class="text-xs text-red-200/70">第一名率</span>
+                    <span class="text-xs text-orange-200/70">第一名率</span>
                   </div>
                 </div>
                 <!-- 最新N局数据 -->

@@ -5,7 +5,7 @@ import './bootstrap';
 import 'uno.css';
 
 // UnoCSS Runtime for dynamic class generation
-import '@unocss/runtime';
+import initUnoCSS from '@unocss/runtime';
 
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
@@ -45,6 +45,9 @@ const i18n = createI18n({
 
 // Create Pinia store
 const pinia = createPinia();
+
+// Initialize UnoCSS Runtime for dynamic class generation
+initUnoCSS();
 
 createInertiaApp({
   title: (title) => `${title} - ${appName}`,

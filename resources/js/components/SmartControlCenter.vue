@@ -28,7 +28,7 @@
     <!-- 🤖 自动下注状态面板 -->
     <NCard
       class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg"
-      :title="`🤖 自动下注状态 (${localConfig.betting_mode === 'real' ? '💰 Real' : '🎮 Dummy'})`"
+      :title="`自动下注状态 (${localConfig.betting_mode === 'real' ? 'Real' : 'Dummy'})`"
       size="large"
     >
       <template #header-extra>
@@ -44,13 +44,13 @@
               @update:value="onBettingModeChange"
             >
               <template #checked>
-                <span class="text-xs text-red-400 font-medium">💰 Real</span>
+                <span class="text-xs text-red-400 font-medium">Real</span>
               </template>
               <template #unchecked>
-                <span class="text-xs text-blue-400 font-medium">🎮 Dummy</span>
+                <span class="text-xs text-blue-400 font-medium">Dummy</span>
               </template>
             </n-switch>
-            <!-- 🎯 模式状态指示器 -->
+            <!-- 模式状态指示器 -->
             <div
               class="rounded px-2 py-1 text-xs font-medium"
               :class="
@@ -375,11 +375,13 @@
     console.log(`🎯 [SmartControlCenter] 下注模式切换: ${newMode}`);
     localConfig.value.betting_mode = newMode;
 
-    // 显示模式切换提示
+    // ⚙️ 根据模式自动重置下注金额
     if (newMode === 'real') {
-      window.$message?.warning('⚠️ 已切换到真实下注模式，将使用真实代币进行下注！');
+      localConfig.value.bet_amount = 200;
+      window.$message?.warning('⚠️ 已切换到真实下注模式，下注金额已重置为$200');
     } else {
-      window.$message?.info('🎮 已切换到模拟下注模式，将使用模拟代币进行下注');
+      localConfig.value.bet_amount = 5;
+      window.$message?.info('🎮 已切换到模拟下注模式，下注金额已重置为$5');
     }
 
     // 同步回父组件

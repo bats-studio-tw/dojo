@@ -20,10 +20,10 @@ export interface AutoBettingConfig {
  * 简化后的默认配置 - 只保留必要字段
  */
 export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token' | 'uid'> = {
-  bet_amount: 200,
+  bet_amount: 200, // 默认值，会根据betting_mode动态调整
   dynamic_conditions: [],
   is_active: false,
-  betting_mode: 'real'
+  betting_mode: 'dummy' // 默认使用模拟模式，更安全
 };
 
 export const useAutoBettingConfig = () => {
@@ -55,16 +55,23 @@ export const useAutoBettingConfig = () => {
         if (cloudConfig.jwt_token !== undefined) {
           config.jwt_token = cloudConfig.jwt_token;
         }
-        if (cloudConfig.bet_amount !== undefined) {
-          config.bet_amount = cloudConfig.bet_amount;
-        }
         if (cloudConfig.dynamic_conditions !== undefined) {
           config.dynamic_conditions = cloudConfig.dynamic_conditions;
         }
         if (cloudConfig.is_active !== undefined) {
           config.is_active = cloudConfig.is_active;
         }
+        if (cloudConfig.betting_mode !== undefined) {
+          config.betting_mode = cloudConfig.betting_mode;
+        }
         config.uid = uid;
+
+        // ⚙️ 根据betting_mode设置正确的下注金额
+        if (config.betting_mode === 'real') {
+          config.bet_amount = 200;
+        } else {
+          config.bet_amount = 5;
+        }
 
         console.log('✅ [loadConfigFromCloud] 成功加载云端配置:', {
           bet_amount: config.bet_amount,
@@ -155,9 +162,17 @@ export const useAutoBettingConfig = () => {
 
     console.log('🔍 [validateConfig] 开始验证配置...');
 
-    // 检查必要字段
-    if (typeof config.bet_amount !== 'number' || config.bet_amount < 200 || config.bet_amount > 2000) {
-      errors.push('下注金额必须在200-2000之间');
+    // 检查必要字段 - 根据betting_mode使用不同的验证规则
+    if (typeof config.bet_amount !== 'number') {
+      errors.push('下注金额必须是数字');
+    } else if (config.betting_mode === 'real') {
+      if (config.bet_amount < 200 || config.bet_amount > 2000) {
+        errors.push('真实模式下注金额必须在200-2000之间');
+      }
+    } else {
+      if (config.bet_amount < 1 || config.bet_amount > 100) {
+        errors.push('模拟模式下注金额必须在1-100之间');
+      }
     }
 
     // 检查动态条件

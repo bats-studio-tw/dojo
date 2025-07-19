@@ -30,7 +30,7 @@
       <div
         v-for="(condition, index) in modelValue"
         :key="condition.id"
-        class="border border-gray-500/30 rounded-lg bg-gray-500/10 p-3"
+        class="border border-gray-500/20 rounded-lg bg-gray-500/5 p-3"
       >
         <!-- 条件头部 -->
         <div class="mb-3 flex items-center justify-between">

@@ -62,7 +62,7 @@
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-5 md:grid-cols-3 sm:grid-cols-2">
         <!-- 用户余额 -->
         <div
-          class="prediction-stat-card border-blue-500/30 from-blue-500/10 to-indigo-600/5 bg-gradient-to-br hover:border-blue-400/50 hover:shadow-blue-500/20"
+          class="prediction-stat-card border-blue-500/20 from-blue-500/5 to-indigo-600/2 bg-gradient-to-br hover:border-blue-400/30 hover:shadow-blue-500/10"
         >
           <div class="stat-icon">👤</div>
           <div class="stat-content">
@@ -74,7 +74,7 @@
 
         <!-- 策略匹配 -->
         <div
-          class="prediction-stat-card border-purple-500/30 from-purple-500/10 to-indigo-600/5 bg-gradient-to-br hover:border-purple-400/50 hover:shadow-purple-500/20"
+          class="prediction-stat-card border-purple-500/20 from-purple-500/5 to-indigo-600/2 bg-gradient-to-br hover:border-purple-400/30 hover:shadow-purple-500/10"
         >
           <div class="stat-icon">🎯</div>
           <div class="stat-content">
@@ -88,7 +88,7 @@
 
         <!-- 下注金额 -->
         <div
-          class="prediction-stat-card border-cyan-500/30 from-cyan-500/10 to-blue-600/5 bg-gradient-to-br hover:border-cyan-400/50 hover:shadow-cyan-500/20"
+          class="prediction-stat-card border-cyan-500/20 from-cyan-500/5 to-blue-600/2 bg-gradient-to-br hover:border-cyan-400/30 hover:shadow-cyan-500/10"
         >
           <div class="stat-icon">💰</div>
           <div class="stat-content">
@@ -103,8 +103,8 @@
           class="prediction-stat-card hover:shadow-lg"
           :class="
             (strategyValidation?.balance_sufficient ?? true)
-              ? 'border-green-500/30 from-green-500/10 to-emerald-600/5 bg-gradient-to-br hover:border-green-400/50 hover:shadow-green-500/20'
-              : 'border-red-500/30 from-red-500/10 to-pink-600/5 bg-gradient-to-br hover:border-red-400/50 hover:shadow-red-500/20'
+              ? 'border-green-500/20 from-green-500/5 to-emerald-600/2 bg-gradient-to-br hover:border-green-400/30 hover:shadow-green-500/10'
+              : 'border-red-500/20 from-red-500/5 to-pink-600/2 bg-gradient-to-br hover:border-red-400/30 hover:shadow-red-500/10'
           "
         >
           <div class="stat-icon">{{ (strategyValidation?.balance_sufficient ?? true) ? '✅' : '❌' }}</div>
@@ -132,7 +132,7 @@
 
         <!-- 总下注次数 -->
         <div
-          class="prediction-stat-card border-amber-500/30 from-amber-500/10 to-yellow-600/5 bg-gradient-to-br hover:border-amber-400/50 hover:shadow-amber-500/20"
+          class="prediction-stat-card border-amber-500/20 from-amber-500/5 to-yellow-600/2 bg-gradient-to-br hover:border-amber-400/30 hover:shadow-amber-500/10"
         >
           <div class="stat-icon">📊</div>
           <div class="stat-content">
@@ -519,7 +519,7 @@
 
   const getTokenDebugClass = (token: any): string => {
     const isMatching = isTokenMatching(token);
-    return isMatching ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5';
+    return isMatching ? 'border-green-500/20 bg-green-500/3' : 'border-red-500/20 bg-red-500/3';
   };
 
   // Methods

@@ -64,7 +64,7 @@
               <div class="mt-3">
                 <div
                   v-if="currentUID"
-                  class="status-indicator inline-flex items-center gap-2 border border-green-500/20 rounded-full bg-green-500/10 px-3 py-1.5"
+                  class="status-indicator inline-flex items-center gap-2 border border-green-500/20 rounded-full bg-green-500/5 px-3 py-1.5"
                 >
                   <div class="pulse-dot h-2 w-2 rounded-full bg-green-400"></div>
                   <span class="text-xs text-green-400 font-medium">
@@ -73,7 +73,7 @@
                 </div>
                 <div
                   v-else
-                  class="status-indicator inline-flex items-center gap-2 border border-yellow-500/20 rounded-full bg-yellow-500/10 px-3 py-1.5"
+                  class="status-indicator inline-flex items-center gap-2 border border-yellow-500/20 rounded-full bg-yellow-500/5 px-3 py-1.5"
                 >
                   <div class="pulse-dot h-2 w-2 rounded-full bg-yellow-400"></div>
                   <span class="text-xs text-yellow-400 font-medium">配置本地存储 - 完成验证后可云端同步</span>
@@ -110,7 +110,7 @@
 
               <!-- 当前策略 -->
               <div
-                class="status-indicator border border-blue-500/30 rounded-lg bg-blue-500/10 px-3 py-2 transition-all duration-300 hover:bg-blue-500/15"
+                class="status-indicator border border-blue-500/20 rounded-lg bg-blue-500/5 px-3 py-2 transition-all duration-300 hover:bg-blue-500/10"
               >
                 <div class="text-xs text-blue-400">当前策略</div>
                 <div class="text-sm text-blue-300 font-medium">{{ currentStrategyName }}</div>
@@ -119,7 +119,7 @@
               <!-- 用户信息 -->
               <div
                 v-if="userInfo"
-                class="status-indicator border border-purple-500/30 rounded-lg bg-purple-500/10 px-3 py-2 transition-all duration-300 hover:bg-purple-500/15"
+                class="status-indicator border border-purple-500/20 rounded-lg bg-purple-500/5 px-3 py-2 transition-all duration-300 hover:bg-purple-500/10"
               >
                 <div class="text-xs text-purple-400">用户ID</div>
                 <div class="flex items-center gap-2">
@@ -508,15 +508,15 @@
     const status = websocketStatus.value.status;
     switch (status) {
       case 'connected':
-        return 'bg-green-500/20 border border-green-500/30 text-green-400';
+        return 'bg-green-500/10 border border-green-500/20 text-green-400';
       case 'connecting':
-        return 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-400';
+        return 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400';
       case 'disconnected':
-        return 'bg-gray-500/20 border border-gray-500/30 text-gray-400';
+        return 'bg-gray-500/10 border border-gray-500/20 text-gray-400';
       case 'error':
-        return 'bg-red-500/20 border border-red-500/30 text-red-400';
+        return 'bg-red-500/10 border border-red-500/20 text-red-400';
       default:
-        return 'bg-gray-500/20 border border-gray-500/30 text-gray-400';
+        return 'bg-gray-500/10 border border-gray-500/20 text-gray-400';
     }
   };
 
@@ -539,8 +539,8 @@
   // 自动下注状态样式
   const getAutoBettingStatusClass = () => {
     return autoBettingStatus.value.is_running
-      ? 'bg-green-500/20 border border-green-500/30 text-green-400'
-      : 'bg-gray-500/20 border border-gray-500/30 text-gray-400';
+      ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+      : 'bg-gray-500/10 border border-gray-500/20 text-gray-400';
   };
 
   const getAutoBettingStatusIcon = () => {
@@ -678,8 +678,8 @@
 
       console.log(`🔍 [条件评估] ${condition.type} ${condition.operator} ${condition.value}:`, {
         actualValue: getConditionValue(prediction, condition.type),
-        conditionResult: conditionResult,
-        logic: logic,
+        conditionResult,
+        logic,
         currentResult: result
       });
 
@@ -747,7 +747,7 @@
         predicted_rank: prediction.predicted_rank,
         win_rate: prediction.win_rate,
         top3_rate: prediction.top3_rate,
-        isMatch: isMatch,
+        isMatch,
         conditions: config.dynamic_conditions?.map((c) => ({
           type: c.type,
           operator: c.operator,

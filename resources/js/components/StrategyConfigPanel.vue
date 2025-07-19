@@ -9,7 +9,7 @@
             <div
               v-for="strategy in strategyOptions"
               :key="strategy.key"
-              class="cursor-pointer border border-gray-500/30 rounded-lg bg-gray-500/10 p-4 transition-all duration-200 hover:border-blue-400/60 hover:bg-blue-500/10"
+              class="cursor-pointer border border-gray-500/20 rounded-lg bg-gray-500/5 p-4 transition-all duration-200 hover:border-blue-400/40 hover:bg-blue-500/5"
               :class="{
                 'border-blue-400 bg-blue-500/20': selectedStrategyKey === strategy.key
               }"
@@ -100,7 +100,7 @@
             </div>
 
             <!-- 调试信息显示 -->
-            <div v-if="isDev" class="mt-4 border border-blue-500/30 rounded-lg bg-blue-500/10 p-3">
+            <div v-if="isDev" class="mt-4 border border-blue-500/20 rounded-lg bg-blue-500/5 p-3">
               <div class="mb-2 text-xs text-blue-300 font-medium">🔧 调试信息:</div>
               <div class="text-xs text-blue-400 space-y-1">
                 <div>• hasUID: {{ hasUID }}</div>

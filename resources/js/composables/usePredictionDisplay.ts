@@ -20,18 +20,18 @@ export function usePredictionDisplay() {
   // 获取统一的卡片样式类
   const getUnifiedCardClass = (index: number) => {
     if (index === 0) {
-      return 'border-yellow-400/30 bg-gradient-to-br from-yellow-500/10 to-amber-600/5 hover:border-yellow-400/50 hover:shadow-yellow-500/20';
+      return 'border-yellow-400/20 bg-gradient-to-br from-yellow-500/5 to-amber-600/2 hover:border-yellow-400/30 hover:shadow-yellow-500/10';
     }
     if (index === 1) {
-      return 'border-slate-400/30 bg-gradient-to-br from-slate-500/10 to-gray-600/5 hover:border-slate-400/50 hover:shadow-slate-500/20';
+      return 'border-slate-400/20 bg-gradient-to-br from-slate-500/5 to-gray-600/2 hover:border-slate-400/30 hover:shadow-slate-500/10';
     }
     if (index === 2) {
-      return 'border-orange-400/30 bg-gradient-to-br from-orange-500/10 to-red-600/5 hover:border-orange-400/50 hover:shadow-orange-500/20';
+      return 'border-orange-400/20 bg-gradient-to-br from-orange-500/5 to-red-600/2 hover:border-orange-400/30 hover:shadow-orange-500/10';
     }
     if (index === 3) {
-      return 'border-blue-400/30 bg-gradient-to-br from-blue-500/10 to-indigo-600/5 hover:border-blue-400/50 hover:shadow-blue-500/20';
+      return 'border-blue-400/20 bg-gradient-to-br from-blue-500/5 to-indigo-600/2 hover:border-blue-400/30 hover:shadow-blue-500/10';
     }
-    return 'border-purple-400/30 bg-gradient-to-br from-purple-500/10 to-pink-600/5 hover:border-purple-400/50 hover:shadow-purple-500/20';
+    return 'border-purple-400/20 bg-gradient-to-br from-purple-500/5 to-pink-600/2 hover:border-purple-400/30 hover:shadow-purple-500/10';
   };
 
   // 获取评分文本颜色类
@@ -68,33 +68,33 @@ export function usePredictionDisplay() {
     switch (rank) {
       case 1:
         return {
-          border: 'border-yellow-500/30',
-          background: 'from-yellow-500/10 to-amber-600/5',
-          hover: 'hover:border-yellow-400/50 hover:shadow-yellow-500/20',
+          border: 'border-yellow-500/20',
+          background: 'from-yellow-500/5 to-amber-600/2',
+          hover: 'hover:border-yellow-400/30 hover:shadow-yellow-500/10',
           icon: '🥇',
           textColor: 'text-yellow-300'
         };
       case 2:
         return {
-          border: 'border-slate-500/30',
-          background: 'from-slate-500/10 to-gray-600/5',
-          hover: 'hover:border-slate-400/50 hover:shadow-slate-500/20',
+          border: 'border-slate-500/20',
+          background: 'from-slate-500/5 to-gray-600/2',
+          hover: 'hover:border-slate-400/30 hover:shadow-slate-500/10',
           icon: '🥈',
           textColor: 'text-slate-300'
         };
       case 3:
         return {
-          border: 'border-orange-500/30',
-          background: 'from-orange-500/10 to-red-600/5',
-          hover: 'hover:border-orange-400/50 hover:shadow-orange-500/20',
+          border: 'border-orange-500/20',
+          background: 'from-orange-500/5 to-red-600/2',
+          hover: 'hover:border-orange-400/30 hover:shadow-orange-500/10',
           icon: '🥉',
           textColor: 'text-orange-300'
         };
       default:
         return {
-          border: 'border-purple-500/30',
-          background: 'from-purple-500/10 to-indigo-600/5',
-          hover: 'hover:border-purple-400/50 hover:shadow-purple-500/20',
+          border: 'border-purple-500/20',
+          background: 'from-purple-500/5 to-indigo-600/2',
+          hover: 'hover:border-purple-400/30 hover:shadow-purple-500/10',
           icon: '📊',
           textColor: 'text-purple-300'
         };
@@ -104,9 +104,9 @@ export function usePredictionDisplay() {
   // 获取精准预测率卡片样式
   const getAccuracyCardClass = () => {
     return {
-      border: 'border-green-500/30',
-      background: 'from-green-500/10 to-emerald-600/5',
-      hover: 'hover:border-green-400/50 hover:shadow-green-500/20',
+      border: 'border-green-500/20',
+      background: 'from-green-500/5 to-emerald-600/2',
+      hover: 'hover:border-green-400/30 hover:shadow-green-500/10',
       icon: '🎯',
       textColor: 'text-green-300',
       valueColor: 'text-green-400'
@@ -116,9 +116,9 @@ export function usePredictionDisplay() {
   // 获取总局数卡片样式
   const getTotalRoundsCardClass = () => {
     return {
-      border: 'border-purple-500/30',
-      background: 'from-purple-500/10 to-indigo-600/5',
-      hover: 'hover:border-purple-400/50 hover:shadow-purple-500/20',
+      border: 'border-purple-500/20',
+      background: 'from-purple-500/5 to-indigo-600/2',
+      hover: 'hover:border-purple-400/30 hover:shadow-purple-500/10',
       icon: '📊',
       textColor: 'text-purple-300',
       valueColor: 'text-purple-400'

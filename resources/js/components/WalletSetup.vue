@@ -28,14 +28,14 @@
           </div>
 
           <!-- 错误信息 -->
-          <div v-if="error" class="border border-red-500/30 rounded-lg bg-red-500/10 p-3">
+          <div v-if="error" class="border border-red-500/20 rounded-lg bg-red-500/5 p-3">
             <div class="text-sm text-red-400">
               {{ error }}
             </div>
           </div>
 
           <!-- 用户信息显示 -->
-          <div v-if="userInfo" class="border border-green-500/30 rounded-lg bg-green-500/10 p-4">
+          <div v-if="userInfo" class="border border-green-500/20 rounded-lg bg-green-500/5 p-4">
             <div class="mb-2 flex items-center space-x-2">
               <span class="text-lg">👤</span>
               <span class="text-sm text-green-400 font-medium">用户信息</span>
@@ -62,7 +62,7 @@
           </div>
 
           <!-- 用户资金信息 -->
-          <div v-if="userStats || todayStats" class="border border-blue-500/30 rounded-lg bg-blue-500/10 p-4">
+          <div v-if="userStats || todayStats" class="border border-blue-500/20 rounded-lg bg-blue-500/5 p-4">
             <div class="mb-2 flex items-center space-x-2">
               <span class="text-lg">📊</span>
               <span class="text-sm text-blue-400 font-medium">下注统计</span>

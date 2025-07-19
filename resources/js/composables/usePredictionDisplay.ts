@@ -20,13 +20,13 @@ export function usePredictionDisplay() {
   // 获取统一的卡片样式类
   const getUnifiedCardClass = (index: number) => {
     if (index === 0) {
-      return 'border-yellow-400/20 bg-yellow-500/10 hover:border-yellow-400/30 hover:bg-yellow-500/15';
+      return 'border-yellow-400/20 bg-yellow-500/15 hover:border-yellow-400/30 hover:bg-yellow-500/20';
     }
     if (index === 1) {
-      return 'border-slate-400/20 bg-slate-500/10 hover:border-slate-400/30 hover:bg-slate-500/15';
+      return 'border-blue-400/20 bg-blue-500/15 hover:border-blue-400/30 hover:bg-blue-500/20';
     }
     if (index === 2) {
-      return 'border-orange-400/20 bg-orange-500/10 hover:border-orange-400/30 hover:bg-orange-500/15';
+      return 'border-green-400/20 bg-green-500/15 hover:border-green-400/30 hover:bg-green-500/20';
     }
     if (index === 3) {
       return 'border-blue-400/20 bg-gradient-to-br from-blue-500/5 to-indigo-600/2 hover:border-blue-400/30 hover:shadow-blue-500/10';
@@ -37,8 +37,8 @@ export function usePredictionDisplay() {
   // 获取评分文本颜色类
   const getScoreTextClass = (index: number) => {
     if (index === 0) return 'text-yellow-400';
-    if (index === 1) return 'text-slate-400';
-    if (index === 2) return 'text-orange-400';
+    if (index === 1) return 'text-blue-400';
+    if (index === 2) return 'text-green-400';
     if (index === 3) return 'text-blue-400';
     return 'text-cyan-400';
   };
@@ -69,26 +69,26 @@ export function usePredictionDisplay() {
       case 1:
         return {
           border: 'border-yellow-500/20',
-          background: 'bg-yellow-500/10',
-          hover: 'hover:border-yellow-400/30 hover:bg-yellow-500/15',
+          background: 'bg-yellow-500/15',
+          hover: 'hover:border-yellow-400/30 hover:bg-yellow-500/20',
           icon: '🥇',
           textColor: 'text-yellow-300'
         };
       case 2:
         return {
-          border: 'border-slate-500/20',
-          background: 'bg-slate-500/10',
-          hover: 'hover:border-slate-400/30 hover:bg-slate-500/15',
+          border: 'border-blue-500/20',
+          background: 'bg-blue-500/15',
+          hover: 'hover:border-blue-400/30 hover:bg-blue-500/20',
           icon: '🥈',
-          textColor: 'text-slate-300'
+          textColor: 'text-blue-300'
         };
       case 3:
         return {
-          border: 'border-orange-500/20',
-          background: 'bg-orange-500/10',
-          hover: 'hover:border-orange-400/30 hover:bg-orange-500/15',
+          border: 'border-green-500/20',
+          background: 'bg-green-500/15',
+          hover: 'hover:border-green-400/30 hover:bg-green-500/20',
           icon: '🥉',
-          textColor: 'text-orange-300'
+          textColor: 'text-green-300'
         };
       default:
         return {

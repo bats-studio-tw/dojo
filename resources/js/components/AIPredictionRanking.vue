@@ -27,7 +27,6 @@
         v-for="(token, index) in sortedPredictionsByRank"
         :key="`prediction-${index}-${token.symbol}`"
         class="relative overflow-hidden border rounded-lg p-3 transition-all duration-300 hover:shadow-lg"
-        :style="{ ...getBorderStyle(index), ...getBackgroundStyle(index) }"
         :class="getUnifiedCardClass(index)"
       >
         <!-- 预测排名头部 -->
@@ -231,6 +230,5 @@
 
   // ==================== 样式相关函数 ====================
 
-  const { getUnifiedCardClass, getScoreTextClass, getPredictionIcon, getBorderStyle, getBackgroundStyle } =
-    usePredictionDisplay();
+  const { getUnifiedCardClass, getScoreTextClass, getPredictionIcon } = usePredictionDisplay();
 </script>

@@ -20,18 +20,18 @@ export function usePredictionDisplay() {
   // 获取统一的卡片样式类
   const getUnifiedCardClass = (index: number) => {
     if (index === 0) {
-      return 'bg-gradient-to-br from-amber-500/5 to-yellow-600/2 hover:shadow-amber-500/10';
+      return '!bg-gradient-to-br !from-amber-500/5 !to-yellow-600/2 hover:!shadow-amber-500/10';
     }
     if (index === 1) {
-      return 'bg-gradient-to-br from-gray-400/15 to-gray-500/10 hover:shadow-gray-400/10';
+      return '!bg-gradient-to-br !from-gray-400/15 !to-gray-500/10 hover:!shadow-gray-400/10';
     }
     if (index === 2) {
-      return 'bg-gradient-to-br from-amber-600/15 to-orange-700/10 hover:shadow-amber-600/10';
+      return '!bg-gradient-to-br !from-amber-600/15 !to-orange-700/10 hover:!shadow-amber-600/10';
     }
     if (index === 3) {
-      return 'bg-gradient-to-br from-blue-500/5 to-indigo-600/2 hover:shadow-blue-500/10';
+      return '!bg-gradient-to-br !from-blue-500/5 !to-indigo-600/2 hover:!shadow-blue-500/10';
     }
-    return 'bg-gradient-to-br from-cyan-500/5 to-blue-600/2 hover:shadow-cyan-500/10';
+    return '!bg-gradient-to-br !from-cyan-500/5 !to-blue-600/2 hover:!shadow-cyan-500/10';
   };
 
   // 获取边框样式

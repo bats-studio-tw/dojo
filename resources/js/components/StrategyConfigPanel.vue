@@ -263,8 +263,8 @@
       {
         id: generateId(),
         type: 'h2h_rank',
-        operator: 'lte',
-        value: 3,
+        operator: 'eq',
+        value: 1,
         logic: 'and'
       }
     ];

@@ -29,23 +29,6 @@
           </div>
         </div>
 
-        <!-- 下注金额显示 -->
-        <div class="border-t border-gray-600 pt-4">
-          <div class="grid grid-cols-1 gap-4">
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <label class="text-xs text-gray-300 font-medium">下注金额</label>
-                <n-tag :type="hasUID ? 'success' : 'warning'" size="small">
-                  {{ hasUID ? '$200 (真实模式)' : '$5 (模拟模式)' }}
-                </n-tag>
-              </div>
-              <div class="text-xs text-gray-400">
-                {{ hasUID ? '真实模式：每局固定下注 $200' : '模拟模式：每局固定下注 $5' }}
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- 动态条件构建器 -->
         <div class="border-t border-gray-600 pt-4">
           <DynamicConditionBuilder

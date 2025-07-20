@@ -85,15 +85,27 @@
                 <div class="text-xs text-blue-400">用户ID</div>
                 <div class="flex items-center gap-2">
                   <span class="text-sm text-blue-300 font-mono">{{ userInfo.uid.slice(0, 8) }}...</span>
-                  <NButton
-                    @click="reconnectToken"
-                    :disabled="autoBettingStatus.is_running"
-                    type="tertiary"
-                    size="tiny"
-                    class="transition-all duration-200 !h-5 !text-xs"
-                  >
-                    重新验证
-                  </NButton>
+                  <div class="flex gap-1">
+                    <NButton
+                      @click="reconnectToken"
+                      :disabled="autoBettingStatus.is_running"
+                      type="tertiary"
+                      size="tiny"
+                      class="transition-all duration-200 !h-5 !text-xs"
+                    >
+                      登出
+                    </NButton>
+                    <NButton
+                      @click="refreshUserInfo"
+                      :loading="userInfoRefreshing"
+                      :disabled="autoBettingStatus.is_running"
+                      type="tertiary"
+                      size="tiny"
+                      class="transition-all duration-200 !h-5 !text-xs"
+                    >
+                      刷新用戶信息
+                    </NButton>
+                  </div>
                 </div>
               </div>
             </div>
@@ -334,7 +346,7 @@
   import type { UserInfo } from '@/types';
   import type { MomentumPredictionHistoryRound } from '@/composables/useMomentumPredictionStats';
 
-  import { autoBettingApi, gameApi, getUserInfo } from '@/utils/api';
+  import { autoBettingApi, gameApi, getUserInfo, networkUtils } from '@/utils/api';
   import { canBet } from '@/utils/statusUtils';
   import { websocketManager } from '@/utils/websocketManager';
 
@@ -446,9 +458,6 @@
   // 标签页状态
   const activeTab = ref('control');
 
-  // 🔧 开发模式检测
-  const isDevMode = computed(() => import.meta.env.DEV);
-
   // 预测统计相关
   const recentRoundsCount = ref(50);
   const predictionStats = usePredictionStats(predictionHistory, recentRoundsCount);
@@ -462,7 +471,28 @@
   // 策略验证状态
   const strategyValidation = ref<StrategyValidation | null>(null);
 
+  // 🔧 新增：用户信息刷新状态
+  const userInfoRefreshing = ref(false);
+
+  // 🔧 新增：防抖机制，避免短时间内重复执行
+  const isExecuting = ref(false);
+  const executionTimeout = ref<NodeJS.Timeout | null>(null);
+
   // ==================== 工具函数 ====================
+
+  // 🔧 新增：获取条件值的辅助函数
+  const getConditionValue = (prediction: any, type: string): number => {
+    switch (type) {
+      case 'h2h_rank':
+        return prediction.predicted_rank || 999;
+      case 'win_rate':
+        return prediction.win_rate || 0;
+      case 'top3_rate':
+        return prediction.top3_rate || 0;
+      default:
+        return 0;
+    }
+  };
 
   // WebSocket状态样式
   const getWebSocketStatusClass = () => {
@@ -657,20 +687,6 @@
     return result;
   };
 
-  // 🔧 新增：获取条件值的辅助函数
-  const getConditionValue = (prediction: any, type: string): number => {
-    switch (type) {
-      case 'h2h_rank':
-        return prediction.predicted_rank || 999;
-      case 'win_rate':
-        return prediction.win_rate || 0;
-      case 'top3_rate':
-        return prediction.top3_rate || 0;
-      default:
-        return 0;
-    }
-  };
-
   // 计算下注金额
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const calculateBetAmount = (prediction: any): number => {
@@ -774,6 +790,45 @@
   // 清空下注结果
   const clearBetResults = () => {
     debugInfo.lastBetResults = [];
+  };
+
+  // 🔧 新增：刷新用户信息方法
+  const refreshUserInfo = async () => {
+    if (!config.jwt_token) {
+      window.$message?.warning('没有JWT Token，无法刷新用户信息');
+      return;
+    }
+
+    userInfoRefreshing.value = true;
+    try {
+      console.log('🔄 开始刷新用户信息...');
+      const userInfoResponse = await getUserInfo(config.jwt_token);
+
+      if (userInfoResponse.success && userInfoResponse.obj) {
+        userInfo.value = userInfoResponse.obj;
+        localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
+        window.$message?.success('用户信息刷新成功');
+        console.log('✅ 用户信息刷新成功:', {
+          ojoValue: userInfo.value?.ojoValue,
+          available: userInfo.value?.available
+        });
+      } else {
+        throw new Error('获取用户信息失败');
+      }
+    } catch (error: any) {
+      console.error('刷新用户信息失败:', error.message);
+
+      // 根据错误类型显示不同的提示
+      if (networkUtils.isAuthError(error)) {
+        window.$message?.error('JWT Token已过期，请重新验证');
+      } else if (networkUtils.isNetworkError(error)) {
+        window.$message?.warning('网络连接不稳定，请稍后重试');
+      } else {
+        window.$message?.error('刷新用户信息失败，请稍后重试');
+      }
+    } finally {
+      userInfoRefreshing.value = false;
+    }
   };
 
   // 更新最近轮次数量
@@ -935,10 +990,6 @@
 
   // 记录已处理的轮次，避免重复下注
   const processedRounds = ref<Set<string>>(new Set());
-
-  // 🔧 新增：防抖机制，避免短时间内重复执行
-  const isExecuting = ref(false);
-  const executionTimeout = ref<NodeJS.Timeout | null>(null);
 
   // 检查所有自动下注条件
   const checkAutoBettingConditions = (): { canProceed: boolean; reason?: string } => {

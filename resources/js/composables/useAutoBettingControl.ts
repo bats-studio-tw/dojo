@@ -1,5 +1,5 @@
 import { ref, reactive, computed } from 'vue';
-import { getUserInfo, autoBettingApi, gameApi } from '@/utils/api';
+import { autoBettingApi, gameApi, getUserInfo, networkUtils, api } from '@/utils/api';
 import { getGameStatusTagType } from '@/utils/statusUtils';
 import type { UserInfo } from '@/types';
 import api from '@/utils/api';
@@ -242,23 +242,33 @@ export const useAutoBettingControl = () => {
             userInfo.value = userInfoResponse.obj;
             localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
           }
-        } catch (error) {
-          console.warn('下注后更新用户信息失败，JWT Token可能已过期:', error);
-          // 🔧 重要修复：当下注后更新用户信息失败时，清除验证状态并触发重新验证
-          localStorage.removeItem('tokenValidated');
-          localStorage.removeItem('currentUID');
-          localStorage.removeItem('tokenSetupData');
-          localStorage.removeItem('userInfo');
+        } catch (error: any) {
+          console.warn('下注后更新用户信息失败:', error.message);
 
-          isTokenValidated.value = false;
-          currentUID.value = '';
-          userInfo.value = null;
+          // 🔧 重要改进：区分错误类型，只有认证错误才清除状态
+          if (networkUtils.isAuthError(error)) {
+            // 认证错误：清除验证状态
+            console.error('🔐 JWT Token已过期，清除验证状态');
+            localStorage.removeItem('tokenValidated');
+            localStorage.removeItem('currentUID');
+            localStorage.removeItem('tokenSetupData');
+            localStorage.removeItem('userInfo');
 
-          // 显示提示信息
-          window.$message?.warning('JWT Token已过期，请重新验证');
+            isTokenValidated.value = false;
+            currentUID.value = '';
+            userInfo.value = null;
 
-          // 触发页面重新加载以显示JWT输入界面
-          window.location.reload();
+            window.$message?.warning('JWT Token已过期，请重新验证');
+            window.location.reload();
+          } else if (networkUtils.isNetworkError(error)) {
+            // 网络错误：保留状态，显示友好提示
+            console.warn('🌐 网络连接不稳定，保留验证状态');
+            window.$message?.warning('网络连接不稳定，用户信息更新失败，但下注已成功');
+          } else {
+            // 其他错误：保留状态，显示错误信息
+            console.warn('⚠️ 更新用户信息失败，但保留验证状态:', error.message);
+            window.$message?.warning('用户信息更新失败，但下注已成功');
+          }
         }
 
         return true;
@@ -305,7 +315,9 @@ export const useAutoBettingControl = () => {
         }
 
         if (totalBetAmount > actualBalance) {
-          window.$message?.error(`${balanceType}余额不足！需要 $${totalBetAmount.toFixed(2)}，当前余额 $${actualBalance.toFixed(2)}`);
+          window.$message?.error(
+            `${balanceType}余额不足！需要 $${totalBetAmount.toFixed(2)}，当前余额 $${actualBalance.toFixed(2)}`
+          );
           return;
         }
 
@@ -447,23 +459,35 @@ export const useAutoBettingControl = () => {
             const userInfoResponse = await getUserInfo(tokenData.jwt_token);
             userInfo.value = userInfoResponse.obj || userInfoResponse;
             localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
-          } catch (error) {
-            console.warn('获取最新用户信息失败，JWT Token可能已过期:', error);
-            // 🔧 重要修复：当JWT Token验证失败时，清除所有验证状态
-            localStorage.removeItem('tokenValidated');
-            localStorage.removeItem('currentUID');
-            localStorage.removeItem('tokenSetupData');
-            localStorage.removeItem('userInfo');
+          } catch (error: any) {
+            console.warn('获取最新用户信息失败:', error.message);
 
-            isTokenValidated.value = false;
-            currentUID.value = '';
-            userInfo.value = null;
+            // 🔧 重要改进：区分错误类型，只有认证错误才清除状态
+            if (networkUtils.isAuthError(error)) {
+              // 认证错误：清除所有验证状态
+              console.error('🔐 JWT Token验证失败，清除所有验证状态');
+              localStorage.removeItem('tokenValidated');
+              localStorage.removeItem('currentUID');
+              localStorage.removeItem('tokenSetupData');
+              localStorage.removeItem('userInfo');
 
-            // 显示提示信息
-            window.$message?.warning('JWT Token已过期，请重新验证');
+              isTokenValidated.value = false;
+              currentUID.value = '';
+              userInfo.value = null;
 
-            // 抛出错误，让调用方知道验证失败
-            throw error;
+              window.$message?.warning('JWT Token已过期，请重新验证');
+              throw error;
+            } else if (networkUtils.isNetworkError(error)) {
+              // 网络错误：保留状态，使用缓存的用户信息
+              console.warn('🌐 网络连接不稳定，使用缓存的用户信息');
+              window.$message?.info('网络连接不稳定，使用缓存的用户信息');
+              // 继续使用已缓存的用户信息，不清除状态
+            } else {
+              // 其他错误：保留状态，显示错误信息但不清除
+              console.warn('⚠️ 获取用户信息失败，但保留验证状态:', error.message);
+              window.$message?.warning('获取用户信息失败，但保留登录状态');
+              // 继续使用已缓存的用户信息，不清除状态
+            }
           }
         }
 

@@ -63,39 +63,150 @@ const dojoGameApi = axios.create({
   }
 });
 
+// 🔧 新增：网络状态检测工具
+export const networkUtils = {
+  // 检测是否为网络错误
+  isNetworkError: (error: any): boolean => {
+    return (
+      !error.response ||
+      error.code === 'NETWORK_ERROR' ||
+      error.code === 'ECONNABORTED' ||
+      error.message.includes('timeout') ||
+      error.message.includes('Network Error')
+    );
+  },
+
+  // 检测是否为认证错误
+  isAuthError: (error: any): boolean => {
+    // 检查HTTP状态码
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      return true;
+    }
+
+    // 🔧 重要修复：检查API响应体中的认证错误
+    // JWT有问题时可能返回200状态码，但success为false且有特定错误码
+    if (error.response?.status === 200 && error.response?.data) {
+      const data = error.response.data;
+      if (data.success === false) {
+        // 检查特定的认证错误码和消息
+        const authErrorCodes = ['1000', '1001', '1002']; // 根据实际情况调整
+        const authErrorMsgKeys = ['customer.login.required', 'token.expired', 'token.invalid'];
+
+        if (authErrorCodes.includes(data.code) || authErrorMsgKeys.includes(data.msgKey)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  },
+
+  // 检测是否为服务器错误
+  isServerError: (error: any): boolean => {
+    return error.response?.status >= 500 && error.response?.status < 600;
+  },
+
+  // 带重试的API调用
+  retryApiCall: async <T>(apiCall: () => Promise<T>, maxRetries: number = 5, retryDelay: number = 1000): Promise<T> => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 [retryApiCall] 尝试第 ${attempt}/${maxRetries} 次...`);
+        return await apiCall();
+      } catch (error: any) {
+        console.warn(`⚠️ [retryApiCall] 第 ${attempt}/${maxRetries} 次尝试失败:`, error.message);
+
+        const isNetworkError = networkUtils.isNetworkError(error);
+        const isServerError = networkUtils.isServerError(error);
+        const isAuthError = networkUtils.isAuthError(error);
+
+        // 认证错误不重试
+        if (isAuthError) {
+          throw error;
+        }
+
+        // 网络或服务器错误且还有重试机会，则重试
+        if ((isNetworkError || isServerError) && attempt < maxRetries) {
+          const delay = retryDelay * attempt; // 递增延迟
+          console.log(`🔄 [retryApiCall] ${delay}ms后重试...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // 最后一次尝试或其他错误
+        throw error;
+      }
+    }
+
+    throw new Error('所有重试都失败了');
+  }
+};
+
 // 获取用户信息的方法
 export const getUserInfo = async (jwtToken: string): Promise<GetUserInfoResponse> => {
   try {
-    const res = await dojoGameApi.get('ladders/me', {
-      headers: {
-        jwt_token: jwtToken
-      }
-    });
-    console.log(res.data);
+    return await networkUtils.retryApiCall(async () => {
+      console.log('🔄 [getUserInfo] 开始获取用户信息...');
 
-    if (res.data.success === false) {
-      throw new Error(res.data.message);
+      const res = await dojoGameApi.get('ladders/me', {
+        headers: {
+          jwt_token: jwtToken
+        }
+      });
+      console.log('📡 [getUserInfo] dojoGameApi响应:', res.data);
+
+      // 🔧 重要修复：检查第一个API的响应
+      if (res.data.success === false) {
+        // 创建包含响应数据的错误对象
+        const authError = new Error(res.data.msgKey || res.data.message || '认证失败');
+        (authError as any).response = {
+          status: 200,
+          data: res.data
+        };
+        throw authError;
+      }
+
+      const response = await dojoQuestApi.get('/customer/me?businessType=ojo,asset', {
+        headers: {
+          jwt_token: jwtToken
+        }
+      });
+      console.log('📡 [getUserInfo] dojoQuestApi响应:', response.data);
+
+      // 🔧 重要修复：检查第二个API的响应
+      if (response.data.success === false) {
+        // 创建包含响应数据的错误对象
+        const authError = new Error(response.data.msgKey || response.data.message || '认证失败');
+        (authError as any).response = {
+          status: 200,
+          data: response.data
+        };
+        throw authError;
+      }
+
+      console.log('✅ [getUserInfo] 获取用户信息成功');
+      return response.data;
+    });
+  } catch (error: any) {
+    console.error('❌ [getUserInfo] 获取用户信息失败:', error.message);
+
+    // 只有认证错误才清除状态
+    if (networkUtils.isAuthError(error)) {
+      console.error('🔐 [getUserInfo] 认证失败，Token无效，清除验证状态');
+      console.log('🔐 [getUserInfo] 错误详情:', {
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      localStorage.removeItem('tokenValidated');
+      localStorage.removeItem('currentUID');
+      localStorage.removeItem('tokenSetupData');
+      localStorage.removeItem('userInfo');
+      window.location.reload();
+    } else {
+      // 网络或其他错误，显示友好提示但不清除状态
+      console.log('🌐 [getUserInfo] 可能是网络问题，保留验证状态');
+      window.$message?.warning('网络连接不稳定，请检查网络后重试');
     }
 
-    const response = await dojoQuestApi.get('/customer/me?businessType=ojo,asset', {
-      headers: {
-        jwt_token: jwtToken
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('获取用户信息失败:', error);
-
-    // 🔧 重要修复：当获取用户信息失败时，清除验证状态并触发重新验证
-    localStorage.removeItem('tokenValidated');
-    localStorage.removeItem('currentUID');
-    localStorage.removeItem('tokenSetupData');
-    localStorage.removeItem('userInfo');
-
-    // 触发页面重新加载以显示JWT输入界面
-    window.location.reload();
-
-    // 抛出错误，让调用方知道验证失败
     throw error;
   }
 };

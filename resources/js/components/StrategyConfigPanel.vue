@@ -29,29 +29,19 @@
           </div>
         </div>
 
-        <!-- 基础配置 -->
+        <!-- 下注金额显示 -->
         <div class="border-t border-gray-600 pt-4">
           <div class="grid grid-cols-1 gap-4">
             <div class="space-y-2">
-              <NTooltip trigger="hover" placement="top">
-                <template #trigger>
-                  <label class="inline-flex cursor-help items-center text-xs text-gray-300 font-medium space-x-1">
-                    <span>下注金额</span>
-                    <span class="text-blue-400">ℹ️</span>
-                  </label>
-                </template>
-                每次下注的固定金额，范围在 $200-$2000
-                之间。金额越高收益越大，但风险也相应增加。建议根据个人资金情况合理设置。
-              </NTooltip>
-              <n-input-number
-                v-model:value="localConfig.bet_amount"
-                :min="200"
-                :max="2000"
-                :step="50"
-                :disabled="isRunning"
-                size="small"
-                @update:value="updateConfig"
-              />
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-gray-300 font-medium">下注金额</label>
+                <n-tag :type="hasUID ? 'success' : 'warning'" size="small">
+                  {{ hasUID ? '$200 (真实模式)' : '$5 (模拟模式)' }}
+                </n-tag>
+              </div>
+              <div class="text-xs text-gray-400">
+                {{ hasUID ? '真实模式：每局固定下注 $200' : '模拟模式：每局固定下注 $5' }}
+              </div>
             </div>
           </div>
         </div>
@@ -91,7 +81,7 @@
 
 <script setup lang="ts">
   import { computed, ref, watch, nextTick } from 'vue';
-  import { NTag, NInputNumber, NTooltip, NSpin } from 'naive-ui';
+  import { NTag, NSpin } from 'naive-ui';
   import DynamicConditionBuilder from '@/components/DynamicConditionBuilder.vue';
   import type { AutoBettingConfig } from '@/composables/useAutoBettingConfig';
   import { useConditionBuilder } from '@/composables/useConditionBuilder';
@@ -195,9 +185,6 @@
   // 使用 ref 作为用户选择的"唯一真实来源"
   const selectedStrategyKey = ref(computedStrategyType.value);
 
-  // 开发环境检测
-  const isDev = computed(() => import.meta.env.DEV);
-
   // [修改] 调整 watch 逻辑，增加对标志位的判断
   watch(computedStrategyType, (newType) => {
     // 如果我们正在程序性地应用一个预设，就暂时不要让 watch 生效
@@ -215,8 +202,8 @@
 
   // 应用实战模式配置
   const applyRealisticStrategy = () => {
-    // 实战模式的基础配置
-    localConfig.value.bet_amount = 200;
+    // 根据是否有UID设置硬编码的下注金额
+    localConfig.value.bet_amount = props.hasUID ? 200 : 5;
 
     // 设置实战模式的动态条件：基础且宽松的条件，确保有足够的下注机会
     localConfig.value.dynamic_conditions = [
@@ -255,8 +242,8 @@
 
   // 应用智能排名配置
   const applySmartRankingStrategy = () => {
-    // 智能排名配置 - 使用排名策略
-    localConfig.value.bet_amount = 200;
+    // 根据是否有UID设置硬编码的下注金额
+    localConfig.value.bet_amount = props.hasUID ? 200 : 5;
 
     // 设置动态条件：智能对战预测排名 <= 3
     localConfig.value.dynamic_conditions = [
@@ -308,130 +295,5 @@
   // 保存配置
   const saveConfig = () => {
     emit('save-config');
-  };
-
-  // 调试保存配置
-  const debugSaveConfig = () => {
-    console.log('🔧 [StrategyConfigPanel] 开始调试保存配置...');
-
-    // 检查配置数据
-    console.log('📋 当前配置数据:', {
-      hasUID: props.hasUID,
-      configSaving: props.configSaving,
-      configLoading: props.configLoading,
-      isRunning: props.isRunning,
-      configKeys: Object.keys(localConfig.value),
-      dynamicConditions: localConfig.value.dynamic_conditions,
-      configSize: JSON.stringify(localConfig.value).length
-    });
-
-    // 检查网络连接
-    if (navigator.onLine) {
-      console.log('🌐 网络连接: 在线');
-    } else {
-      console.log('🌐 网络连接: 离线');
-    }
-
-    // 触发保存并监听结果
-    emit('save-config');
-
-    // 3秒后检查保存结果
-    setTimeout(() => {
-      console.log('⏰ 3秒后检查保存结果...');
-      console.log('💾 保存状态:', {
-        configSaving: props.configSaving
-      });
-    }, 3000);
-  };
-
-  // 🔧 新增：条件匹配测试函数
-  const testConditionMatching = () => {
-    console.log('🧪 [StrategyConfigPanel] 开始条件匹配测试...');
-
-    // 模拟测试Token数据 - 包含AI预测和动能预测数据
-    const testToken: any = {
-      symbol: 'SUI',
-      // AI预测数据 (来自currentAnalysis)
-      rank_confidence: 86.3,
-      predicted_rank: 1, // 智能对战预测排名
-      predicted_final_value: 76.5,
-      total_games: 12,
-      win_rate: 18.8, // 胜率已经是百分比格式
-      top3_rate: 83.3, // 保本率已经是百分比格式
-      absolute_score: 84.5,
-      relative_score: 66.7,
-      // 动能预测数据 (来自hybridPredictions，合并后)
-      momentum_rank: 2, // 动能预测排名
-      mom_score: 0.75,
-      final_score: 0.82,
-      elo_prob: 0.65
-    };
-
-    console.log('📊 测试Token数据:', testToken);
-
-    // 测试每个条件
-    if (localConfig.value.dynamic_conditions && localConfig.value.dynamic_conditions.length > 0) {
-      localConfig.value.dynamic_conditions.forEach((condition, index) => {
-        let tokenValue = 0;
-        let conditionResult = false;
-
-        // 根据条件类型获取Token值
-        switch (condition.type) {
-          case 'confidence':
-            tokenValue = testToken.rank_confidence || 0;
-            break;
-          case 'h2h_rank':
-            tokenValue = testToken.predicted_rank || 999;
-            break;
-          case 'momentum_rank':
-            tokenValue = testToken.momentum_rank || testToken.predicted_rank || 999;
-            break;
-
-          case 'sample_count':
-            tokenValue = testToken.total_games || 0;
-            break;
-          case 'win_rate':
-            tokenValue = testToken.win_rate || 0;
-            break;
-          case 'top3_rate':
-            tokenValue = testToken.top3_rate || 0;
-            break;
-          case 'momentum_score':
-            tokenValue = testToken.momentum_score || testToken.mom_score || 0;
-            break;
-          case 'elo_win_rate':
-            tokenValue = testToken.elo_win_rate || testToken.elo_prob || 0;
-            break;
-          default:
-            tokenValue = 0;
-        }
-
-        // 评估条件
-        switch (condition.operator) {
-          case 'gte':
-            conditionResult = tokenValue >= condition.value;
-            break;
-          case 'lte':
-            conditionResult = tokenValue <= condition.value;
-            break;
-          case 'eq':
-            conditionResult = Math.abs(tokenValue - condition.value) < 0.001;
-            break;
-          case 'ne':
-            conditionResult = Math.abs(tokenValue - condition.value) >= 0.001;
-            break;
-          default:
-            conditionResult = true;
-        }
-
-        console.log(`条件${index + 1} (${condition.type} ${condition.operator} ${condition.value}):`, {
-          tokenValue,
-          conditionResult: conditionResult ? '✅ 通过' : '❌ 不通过',
-          details: `${tokenValue} ${condition.operator} ${condition.value}`
-        });
-      });
-    } else {
-      console.log('⚠️ 没有配置动态条件');
-    }
   };
 </script>

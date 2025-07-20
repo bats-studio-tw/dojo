@@ -687,19 +687,14 @@
     return result;
   };
 
-  // 计算下注金额
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const calculateBetAmount = (prediction: any): number => {
-    let betAmount = config.bet_amount;
-
-    // 🎯 根据betting_mode设置不同的最小值
+  // 计算下注金额 - 硬编码模式
+  const calculateBetAmount = (): number => {
+    // 🎯 根据betting_mode硬编码下注金额
     if (config.betting_mode === 'real') {
-      betAmount = Math.max(betAmount, 200); // Real模式最小200
+      return 200; // 真实模式固定200
     } else {
-      betAmount = Math.max(betAmount, 5); // Dummy模式最小5
+      return 5; // 模拟模式固定5
     }
-
-    return Math.round(betAmount);
   };
 
   // 验证当前策略
@@ -740,7 +735,7 @@
       });
 
       if (isMatch) {
-        const betAmount = calculateBetAmount(prediction);
+        const betAmount = calculateBetAmount();
         allMatches.push({
           ...prediction,
           bet_amount: betAmount

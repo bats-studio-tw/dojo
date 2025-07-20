@@ -19,8 +19,7 @@ export interface AutoBettingConfig {
 /**
  * 简化后的默认配置 - 只保留必要字段
  */
-export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token' | 'uid'> = {
-  bet_amount: 200, // 默认值，会根据betting_mode动态调整
+export const optimizedDefaultConfig: Omit<AutoBettingConfig, 'jwt_token' | 'uid' | 'bet_amount'> = {
   dynamic_conditions: [],
   is_active: false,
   betting_mode: 'dummy' // 默认使用模拟模式，更安全
@@ -30,6 +29,7 @@ export const useAutoBettingConfig = () => {
   // 配置状态 - 使用简化后的默认配置
   const config = reactive<AutoBettingConfig>({
     jwt_token: '',
+    bet_amount: 5, // 硬编码默认值，会根据betting_mode动态调整
     ...optimizedDefaultConfig
   });
 
@@ -99,18 +99,18 @@ export const useAutoBettingConfig = () => {
     try {
       configSaving.value = true;
 
-      // 只发送必要的字段
+      // 只发送必要的字段 - bet_amount现在是硬编码的，不需要保存
       const configData = {
         uid,
         jwt_token: config.jwt_token,
-        bet_amount: config.bet_amount,
         dynamic_conditions: config.dynamic_conditions,
-        is_active: config.is_active
+        is_active: config.is_active,
+        betting_mode: config.betting_mode
       };
 
       console.log('💾 [saveConfigToCloud] 准备保存配置到云端:', {
         uid,
-        bet_amount: configData.bet_amount,
+        betting_mode: configData.betting_mode,
         dynamic_conditions: configData.dynamic_conditions,
         is_active: configData.is_active
       });
@@ -162,17 +162,9 @@ export const useAutoBettingConfig = () => {
 
     console.log('🔍 [validateConfig] 开始验证配置...');
 
-    // 检查必要字段 - 根据betting_mode使用不同的验证规则
-    if (typeof config.bet_amount !== 'number') {
-      errors.push('下注金额必须是数字');
-    } else if (config.betting_mode === 'real') {
-      if (config.bet_amount < 200 || config.bet_amount > 2000) {
-        errors.push('真实模式下注金额必须在200-2000之间');
-      }
-    } else {
-      if (config.bet_amount < 1 || config.bet_amount > 100) {
-        errors.push('模拟模式下注金额必须在1-100之间');
-      }
+    // 检查下注模式
+    if (!config.betting_mode || !['real', 'dummy'].includes(config.betting_mode)) {
+      errors.push('下注模式必须是real或dummy');
     }
 
     // 检查动态条件
@@ -200,6 +192,7 @@ export const useAutoBettingConfig = () => {
     Object.assign(config, {
       jwt_token: config.jwt_token, // 保留JWT token
       uid: config.uid, // 保留UID
+      bet_amount: config.betting_mode === 'real' ? 200 : 5, // 根据模式设置硬编码值
       ...optimizedDefaultConfig
     });
   };
@@ -209,6 +202,7 @@ export const useAutoBettingConfig = () => {
     Object.assign(config, {
       jwt_token: '',
       uid: '',
+      bet_amount: 5, // 默认模拟模式
       ...optimizedDefaultConfig
     });
   };

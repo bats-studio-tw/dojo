@@ -4,7 +4,7 @@ import type { GetUserInfoResponse } from '@/types';
 // 创建axios实例
 const api = axios.create({
   baseURL: '/api',
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json'
@@ -45,7 +45,7 @@ api.interceptors.response.use(
 // 创建 dojo quest API 实例
 const dojoQuestApi = axios.create({
   baseURL: '/dojo-quest',
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
     Accept: '*/*',
@@ -56,7 +56,7 @@ const dojoQuestApi = axios.create({
 // 创建 dojo game API 实例
 const dojoGameApi = axios.create({
   baseURL: '/dojo-api',
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json'

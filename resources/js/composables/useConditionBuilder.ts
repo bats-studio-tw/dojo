@@ -171,8 +171,11 @@ export const useConditionBuilder = () => {
       // 重置为默认值
       condition.value = parseFloat(typeConfig.placeholder);
       // 根据条件类型设置合适的操作符
-      if (['avg_rank', 'h2h_rank', 'momentum_rank'].includes(condition.type)) {
-        condition.operator = 'lte'; // 排名使用小于等于
+      if (['h2h_rank', 'momentum_rank'].includes(condition.type)) {
+        condition.operator = 'eq'; // 排名条件使用等于，默认选择第一名
+        condition.value = 1; // 默认选择第一名
+      } else if (['avg_rank'].includes(condition.type)) {
+        condition.operator = 'lte'; // 平均排名使用小于等于
       } else {
         condition.operator = 'gte'; // 其他条件使用大于等于
       }
@@ -347,7 +350,6 @@ export const useConditionBuilder = () => {
     // AND 的优先级高于 OR，所以先处理 AND 连接的条件组
     const stack: boolean[] = [];
     let currentGroup: boolean[] = [];
-    const currentLogic: 'and' | 'or' | null = null;
 
     // 处理第一个条件
     currentGroup.push(evaluateSingleCondition(token, conditions[0]));

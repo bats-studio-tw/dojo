@@ -1,8 +1,8 @@
 import { ref, reactive, computed } from 'vue';
-import { autoBettingApi, gameApi, getUserInfo, networkUtils, api } from '@/utils/api';
+import { autoBettingApi, gameApi, getUserInfo, networkUtils } from '@/utils/api';
+import api from '@/utils/api';
 import { getGameStatusTagType } from '@/utils/statusUtils';
 import type { UserInfo } from '@/types';
-import api from '@/utils/api';
 
 export interface AutoBettingStatus {
   is_running: boolean;

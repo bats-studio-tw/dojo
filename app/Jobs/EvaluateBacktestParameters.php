@@ -78,21 +78,21 @@ class EvaluateBacktestParameters implements ShouldQueue
 
             $results = $this->evaluateParameters($gameIds, $scoreMixer, $eloEngine, $tokenPriceRepo);
 
-            // 使用 updateOrInsert 防止重複插入
-            BacktestResult::updateOrInsert(
+            // 使用 Eloquent 的 updateOrCreate 以正确设置 timestamps
+            BacktestResult::updateOrCreate(
                 [
                     'run_id' => $this->runId,
                     'params_hash' => $paramsHash,
                 ],
                 [
-                    'parameters' => json_encode($this->parameters),
+                    'parameters' => $this->parameters, // 直接传递数组，由模型自动转换
                     'score' => $results['score'],
                     'total_games' => $results['total_games'],
                     'correct_predictions' => $results['correct_predictions'],
                     'accuracy' => $results['accuracy'],
-                    'weighted_accuracy' => $results['weighted_accuracy'], // 新增加權準確率
+                    'weighted_accuracy' => $results['weighted_accuracy'],
                     'avg_confidence' => $results['avg_confidence'],
-                    'detailed_results' => json_encode($results['detailed_results']),
+                    'detailed_results' => $results['detailed_results'], // 直接传递数组
                 ]
             );
 

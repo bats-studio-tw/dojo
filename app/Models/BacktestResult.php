@@ -22,6 +22,7 @@ class BacktestResult extends Model
         'total_games',
         'correct_predictions',
         'accuracy',
+        'weighted_accuracy',
         'avg_confidence',
         'detailed_results',
     ];
@@ -36,6 +37,7 @@ class BacktestResult extends Model
         'detailed_results' => 'array',
         'score' => 'decimal:4',
         'accuracy' => 'decimal:2',
+        'weighted_accuracy' => 'decimal:2',
         'avg_confidence' => 'decimal:2',
     ];
 
@@ -95,6 +97,7 @@ class BacktestResult extends Model
         return [
             'score' => $this->score,
             'accuracy' => $this->accuracy,
+            'weighted_accuracy' => $this->weighted_accuracy,
             'total_games' => $this->total_games,
             'correct_predictions' => $this->correct_predictions,
             'avg_confidence' => $this->avg_confidence,
@@ -117,6 +120,14 @@ class BacktestResult extends Model
     public function scopeAccuracyRange($query, float $min, float $max)
     {
         return $query->whereBetween('accuracy', [$min, $max]);
+    }
+
+    /**
+     * 範圍查詢：按加權準確率範圍
+     */
+    public function scopeWeightedAccuracyRange($query, float $min, float $max)
+    {
+        return $query->whereBetween('weighted_accuracy', [$min, $max]);
     }
 
     /**

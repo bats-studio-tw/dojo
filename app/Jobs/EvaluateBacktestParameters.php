@@ -90,6 +90,7 @@ class EvaluateBacktestParameters implements ShouldQueue
                     'total_games' => $results['total_games'],
                     'correct_predictions' => $results['correct_predictions'],
                     'accuracy' => $results['accuracy'],
+                    'weighted_accuracy' => $results['weighted_accuracy'], // 新增加權準確率
                     'avg_confidence' => $results['avg_confidence'],
                     'detailed_results' => json_encode($results['detailed_results']),
                 ]
@@ -100,6 +101,8 @@ class EvaluateBacktestParameters implements ShouldQueue
                 'params_hash' => $paramsHash,
                 'score' => $results['score'],
                 'accuracy' => $results['accuracy'],
+                'weighted_accuracy' => $results['weighted_accuracy'], // 記錄加權準確率
+                'avg_confidence' => $results['avg_confidence'],
             ]);
 
         } catch (\Exception $e) {
@@ -146,7 +149,7 @@ class EvaluateBacktestParameters implements ShouldQueue
     }
 
     /**
-     * 評估參數組合
+     * 評估參數組合 - 引入近期數據加權機制
      */
     private function evaluateParameters(
         array $gameIds,
@@ -159,9 +162,18 @@ class EvaluateBacktestParameters implements ShouldQueue
         $totalConfidence = 0;
         $detailedResults = [];
 
+        // 新增：時間加權相關變數
+        $totalWeightedScore = 0;
+        $totalWeight = 0;
+        $maxRecentWeight = 1.5; // 最新遊戲的權重
+        $minOldWeight = 0.5;    // 最舊遊戲的權重
+
         // 分批處理遊戲以優化內存
         $batchSize = 50;
         $gameBatches = array_chunk($gameIds, $batchSize);
+
+        // 計算總遊戲數以便權重計算
+        $totalExpectedGames = count($gameIds);
 
         foreach ($gameBatches as $batchIndex => $batchGameIds) {
             Log::info('處理遊戲批次', [
@@ -173,15 +185,23 @@ class EvaluateBacktestParameters implements ShouldQueue
             // 獲取當前批次的遊戲數據
             $games = $this->loadGameData($batchGameIds);
 
-            foreach ($games as $game) {
+            foreach ($games as $gameIndex => $game) {
                 $result = $this->evaluateSingleGame($game, $scoreMixer, $eloEngine, $tokenPriceRepo);
 
                 if ($result) {
+                    // 計算當前遊戲在整體序列中的索引
+                    $globalIndex = ($batchIndex * $batchSize) + $gameIndex;
+
+                    // 計算時間權重：最新的遊戲權重最高，最舊的權重最低
+                    $recencyWeight = $maxRecentWeight - (($globalIndex / $totalExpectedGames) * ($maxRecentWeight - $minOldWeight));
+
                     $totalGames++;
                     $totalConfidence += $result['confidence'];
+                    $totalWeight += $recencyWeight;
 
                     if ($result['is_correct']) {
                         $correctPredictions++;
+                        $totalWeightedScore += $recencyWeight; // 加權正確預測
                     }
 
                     $detailedResults[] = [
@@ -190,6 +210,7 @@ class EvaluateBacktestParameters implements ShouldQueue
                         'actual_rank' => $result['actual_rank'],
                         'confidence' => $result['confidence'],
                         'is_correct' => $result['is_correct'],
+                        'recency_weight' => $recencyWeight, // 記錄權重用於調試
                     ];
                 }
             }
@@ -199,17 +220,29 @@ class EvaluateBacktestParameters implements ShouldQueue
             gc_collect_cycles();
         }
 
+        // 計算傳統準確率和加權準確率
         $accuracy = $totalGames > 0 ? ($correctPredictions / $totalGames) * 100 : 0;
+        $weightedAccuracy = $totalWeight > 0 ? ($totalWeightedScore / $totalWeight) * 100 : 0;
         $avgConfidence = $totalGames > 0 ? $totalConfidence / $totalGames : 0;
 
-        // 計算綜合評分
-        $score = $this->calculateCompositeScore($accuracy, $avgConfidence, $totalGames);
+        Log::info('評估統計', [
+            'run_id' => $this->runId,
+            'traditional_accuracy' => $accuracy,
+            'weighted_accuracy' => $weightedAccuracy,
+            'avg_confidence' => $avgConfidence,
+            'total_weight' => $totalWeight,
+            'weight_difference' => abs($accuracy - $weightedAccuracy),
+        ]);
+
+        // 計算綜合評分 - 使用加權準確率
+        $score = $this->calculateCompositeScore($weightedAccuracy, $avgConfidence, $totalGames);
 
         return [
             'score' => $score,
             'total_games' => $totalGames,
             'correct_predictions' => $correctPredictions,
             'accuracy' => $accuracy,
+            'weighted_accuracy' => $weightedAccuracy, // 新增加權準確率
             'avg_confidence' => $avgConfidence,
             'detailed_results' => $detailedResults,
         ];
@@ -340,19 +373,28 @@ class EvaluateBacktestParameters implements ShouldQueue
     }
 
     /**
-     * 計算綜合評分
+     * 計算綜合評分 - 提升信賴度權重
      */
     private function calculateCompositeScore(float $accuracy, float $avgConfidence, int $totalGames): float
     {
-        // 基礎分數：準確率 * 100
+        // 基礎分數：準確率 (已是加權準確率)
         $baseScore = $accuracy;
 
-        // 信心度獎勵：平均信心度 * 0.1
-        $confidenceBonus = $avgConfidence * 0.1;
+        // 信心度獎勵：平均信心度 * 0.5 (從0.1提升到0.5)
+        $confidenceBonus = $avgConfidence * 0.5;
 
         // 樣本量獎勵：遊戲數量越多，獎勵越高（但有限制）
         $sampleBonus = min($totalGames / 1000 * 5, 10); // 最多10分獎勵
 
-        return round($baseScore + $confidenceBonus + $sampleBonus, 4);
+        $totalScore = $baseScore + $confidenceBonus + $sampleBonus;
+
+        Log::debug('綜合評分計算詳情', [
+            'base_score' => $baseScore,
+            'confidence_bonus' => $confidenceBonus,
+            'sample_bonus' => $sampleBonus,
+            'total_score' => $totalScore,
+        ]);
+
+        return round($totalScore, 4);
     }
 }

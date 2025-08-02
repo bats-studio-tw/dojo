@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * 核心遊戲預測服務
  *
- * 演算法版本: v8.3 - h2h_breakeven_prediction
+ * 演算法版本: v8.4 - h2h_bayesian_prediction
  * 策略: 保本優先，基於歷史對戰關係 (H2H) 和嚴格的風險控制。
  * 核心邏輯:
  * 1.  **絕對分數 (Absolute Score)**: 完全由歷史保本率 (top3_rate) 決定，輔以少量數據可靠性加分。
@@ -19,7 +19,9 @@ use Illuminate\Support\Facades\Log;
  * 3.  **動態權重 (Dynamic Weighting)**: 根據 H2H 數據的覆蓋完整度，智能調整絕對分和相對分的權重。
  * 4.  **【v8.3 新增】動態 H2H 門檻**: 當 H2H 覆蓋率低於可靠性門檻時，進一步降低 H2H 權重，避免被不可靠數據誤導。
  * 5.  **【新增】Laplace 平滑**: 對 top3_rate 使用 Laplace 平滑 (α=1, k=4)，提高少量數據時的穩定性。
- * 6.  **風險調整 (Risk Adjustment)**: 對歷史表現不穩定的代幣施加雙重懲罰，最終排名以此為準。
+ * 6.  **【v8.4 新增】貝式平均 H2H**: 使用 Beta-Binomial 平滑計算 H2H 勝率，避免少量對戰數據造成的極端值。
+ *     採用先驗參數 α (勝利) 和 β (失敗) 來平滑勝率計算: posterior = (wins + α) / (total_games + α + β)
+ * 7.  **風險調整 (Risk Adjustment)**: 對歷史表現不穩定的代幣施加雙重懲罰，最終排名以此為準。
  */
 class GamePredictionService
 {
@@ -52,6 +54,8 @@ class GamePredictionService
                 'momentum_weight' => 0.35,
                 'h2h_min_games_threshold' => 5,
                 'enhanced_stability_penalty' => 0.25,
+                'h2h_bayesian_alpha' => 2,  // 貝式先驗勝利參數
+                'h2h_bayesian_beta' => 2,   // 貝式先驗失敗參數
             ];
         });
     }
@@ -421,6 +425,23 @@ class GamePredictionService
     }
 
     /**
+     * 計算貝式平均勝率 (Beta-Binomial smoothing)
+     *
+     * 使用先驗參數來平滑勝率，避免少量對戰數據造成的極端值
+     *
+     * @param int $wins 勝利次數
+     * @param int $losses 失敗次數
+     * @param float $alpha 先驗勝利參數 (α)
+     * @param float $beta 先驗失敗參數 (β)
+     * @return float 平滑後的勝率 (0-1)
+     */
+    private function calculateBayesianWinRate(int $wins, int $losses, float $alpha, float $beta): float
+    {
+        // 貝式後驗勝率 = (wins + α) / (wins + losses + α + β)
+        return ($wins + $alpha) / ($wins + $losses + $alpha + $beta);
+    }
+
+    /**
      * 計算 H2H 相對強度分數
      */
     private function calculateHeadToHeadScores(array &$tokenStats): void
@@ -429,8 +450,12 @@ class GamePredictionService
         $strategyParams = $this->getActiveStrategyParameters();
         $h2hMinGamesThreshold = $strategyParams['h2h_min_games_threshold'] ?? 5;
 
+        // 獲取貝式平均參數
+        $bayesianAlpha = $strategyParams['h2h_bayesian_alpha'] ?? 2;
+        $bayesianBeta = $strategyParams['h2h_bayesian_beta'] ?? 2;
+
         foreach ($tokenStats as $symbol => &$stats) {
-            $totalWinRate = 0;
+            $totalPosteriorWinRate = 0;
             $validOpponentCount = 0;
 
             foreach ($currentTokenSymbols as $opponent) {
@@ -439,13 +464,20 @@ class GamePredictionService
                 }
                 $h2hData = $stats['h2h_stats'][$opponent] ?? null;
                 if ($h2hData && $h2hData['games'] >= $h2hMinGamesThreshold) {
-                    $totalWinRate += $h2hData['wins'] / $h2hData['games'];
+                    // 使用貝式平均計算平滑後的勝率
+                    $bayesianWinRate = $this->calculateBayesianWinRate(
+                        $h2hData['wins'],
+                        $h2hData['losses'],
+                        $bayesianAlpha,
+                        $bayesianBeta
+                    );
+                    $totalPosteriorWinRate += $bayesianWinRate;
                     $validOpponentCount++;
                 }
             }
 
             if ($validOpponentCount > 0) {
-                $stats['h2h_score'] = ($totalWinRate / $validOpponentCount) * 100;
+                $stats['h2h_score'] = ($totalPosteriorWinRate / $validOpponentCount) * 100;
             } else {
                 // H2H數據不足時，基於絕對實力智能回退
                 $absoluteScore = $this->calculateAbsoluteScore($stats);

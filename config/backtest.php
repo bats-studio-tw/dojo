@@ -13,6 +13,9 @@ return [
         'momentum_weight' => [0.6, 0.5, 0.4, 0.3],
         'h2h_min_games_threshold' => [3, 5],
         'enhanced_stability_penalty' => [0.1, 0.25, 0.5],
+        // 貝式平均H2H參數 (Beta-Binomial smoothing)
+        'h2h_bayesian_alpha' => [1, 2, 3],  // 先驗勝利次數
+        'h2h_bayesian_beta' => [1, 2, 3],   // 先驗失敗次數
         // 在此加入更多你想測試的參數...
     ],
 

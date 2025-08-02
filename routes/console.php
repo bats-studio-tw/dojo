@@ -28,12 +28,17 @@ Artisan::command('inspire', function () {
 // ==================== 激进的回测排程（加密货币市场适配） ====================
 
 // 超快速回测 - 每2小时执行（快速市场适应）
-Schedule::command('backtest:run --games=120 --queue --run-id=ultra-fast')
-    ->name('ultra-fast-backtest-2h')
+Schedule::call(function () {
+    $runId = 'ultra-fast-' . now()->format('YmdHi'); // 生成唯一的run_id
+    \Artisan::call('backtest:run', [
+        '--games' => 120,
+        '--queue' => true,
+        '--run-id' => $runId
+    ]);
+})->name('ultra-fast-backtest-2h')
     ->cron('0 */2 * * *') // 每2小时执行一次
     ->withoutOverlapping()
     ->onOneServer()
-    ->runInBackground()
     ->before(function () {
         // 检查市场波动性，高波动时优先执行
         $recentRounds = GameRound::latest()->limit(60)->count();
@@ -56,12 +61,17 @@ Schedule::command('backtest:run --games=120 --queue --run-id=ultra-fast')
     });
 
 // 快速回测 - 每4小时执行（标准优化）
-Schedule::command('backtest:run --games=240 --queue --run-id=fast')
-    ->name('fast-backtest-4h')
+Schedule::call(function () {
+    $runId = 'fast-' . now()->format('YmdHi'); // 生成唯一的run_id
+    \Artisan::call('backtest:run', [
+        '--games' => 240,
+        '--queue' => true,
+        '--run-id' => $runId
+    ]);
+})->name('fast-backtest-4h')
     ->cron('0 */4 * * *') // 每4小时执行一次
     ->withoutOverlapping()
     ->onOneServer()
-    ->runInBackground()
     ->before(function () {
         $queueSize = Queue::size('backtesting');
         if ($queueSize > 8) {
@@ -72,22 +82,29 @@ Schedule::command('backtest:run --games=240 --queue --run-id=fast')
         Log::info('开始执行快速回测（4小时间隔）');
     })
     ->after(function () {
-        Log::info('快速回测完成');
+        $runId = 'fast-' . now()->format('YmdHi');
+        Log::info('快速回测完成', ['run_id' => $runId]);
 
         // 自动触发快速策略评估
         \Artisan::call('strategy:promote-best', [
+            '--run-id' => $runId,
             '--min-score' => 50,
             '--force-quick' => true,
         ]);
     });
 
 // 深度回测 - 每8小时执行（稳定基准）
-Schedule::command('backtest:run --games=480 --queue --run-id=standard')
-    ->name('standard-backtest-8h')
+Schedule::call(function () {
+    $runId = 'standard-' . now()->format('YmdHi'); // 生成唯一的run_id
+    \Artisan::call('backtest:run', [
+        '--games' => 480,
+        '--queue' => true,
+        '--run-id' => $runId
+    ]);
+})->name('standard-backtest-8h')
     ->cron('0 */8 * * *') // 每8小时执行一次
     ->withoutOverlapping()
     ->onOneServer()
-    ->runInBackground()
     ->before(function () {
         Log::info('开始执行标准回测（8小时间隔）');
     })
@@ -96,20 +113,29 @@ Schedule::command('backtest:run --games=480 --queue --run-id=standard')
     });
 
 // 全面回测 - 每日执行（完整验证）
-Schedule::command('backtest:run --games=1200 --queue --run-id=comprehensive')
-    ->name('comprehensive-backtest-daily')
+Schedule::call(function () {
+    $runId = 'comprehensive-' . now()->format('YmdHi'); // 生成唯一的run_id
+    \Artisan::call('backtest:run', [
+        '--games' => 1200,
+        '--queue' => true,
+        '--run-id' => $runId
+    ]);
+})->name('comprehensive-backtest-daily')
     ->dailyAt('02:00')
     ->withoutOverlapping()
     ->onOneServer()
-    ->runInBackground()
     ->before(function () {
         Log::info('开始执行全面回测（每日）');
     })
     ->after(function () {
-        Log::info('全面回测完成');
+        $runId = 'comprehensive-' . now()->format('YmdHi');
+        Log::info('全面回测完成', ['run_id' => $runId]);
 
         // 触发严格策略晋升
-        \Artisan::call('strategy:promote-best', ['--min-score' => 60]);
+        \Artisan::call('strategy:promote-best', [
+            '--run-id' => $runId,
+            '--min-score' => 60
+        ]);
     });
 
 // ==================== 激进的策略晋升排程 ====================

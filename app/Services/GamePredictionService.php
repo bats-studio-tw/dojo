@@ -14,13 +14,19 @@ use Illuminate\Support\Facades\Log;
  * 策略: 保本優先，基於歷史對戰關係 (H2H) 和嚴格的風險控制。
  * 核心邏輯:
  * 1.  **絕對分數 (Absolute Score)**: 完全由歷史保本率 (top3_rate) 決定，輔以少量數據可靠性加分。
+ *     使用 Laplace 平滑處理 top3_rate，避免數據稀少時的極端值。
  * 2.  **相對分數 (Relative Score)**: 基於當前對手組合的 H2H 歷史平均勝率。
  * 3.  **動態權重 (Dynamic Weighting)**: 根據 H2H 數據的覆蓋完整度，智能調整絕對分和相對分的權重。
  * 4.  **【v8.3 新增】動態 H2H 門檻**: 當 H2H 覆蓋率低於可靠性門檻時，進一步降低 H2H 權重，避免被不可靠數據誤導。
- * 5.  **風險調整 (Risk Adjustment)**: 對歷史表現不穩定的代幣施加雙重懲罰，最終排名以此為準。
+ * 5.  **【新增】Laplace 平滑**: 對 top3_rate 使用 Laplace 平滑 (α=1, k=4)，提高少量數據時的穩定性。
+ * 6.  **風險調整 (Risk Adjustment)**: 對歷史表現不穩定的代幣施加雙重懲罰，最終排名以此為準。
  */
 class GamePredictionService
 {
+    // Laplace 平滑參數
+    private const LAPLACE_ALPHA = 1;           // 平滑常數
+    private const LAPLACE_K = 4;               // 可能的結果類別數（成功/失敗的組合）
+
     public function __construct(
         private DexPriceClient $dexPriceClient
     ) {}
@@ -374,7 +380,12 @@ class GamePredictionService
         foreach ($tokenStats as $symbol => &$stats) {
             if ($stats['total_games'] > 0) {
                 $stats['win_rate'] = ($stats['wins'] / $stats['total_games']) * 100;
-                $stats['top3_rate'] = ($stats['top3'] / $stats['total_games']) * 100;
+
+                // 使用 Laplace 平滑計算 top3_rate，提高資料少時的穩定性
+                $top3RateSmoothed = ($stats['top3'] + self::LAPLACE_ALPHA) /
+                                   ($stats['total_games'] + self::LAPLACE_K * self::LAPLACE_ALPHA);
+                $stats['top3_rate'] = $top3RateSmoothed * 100;
+
                 $stats['avg_rank'] = $stats['rank_sum'] / $stats['total_games'];
                 $avg_value = $stats['value_sum'] / $stats['total_games'];
                 $stats['avg_value'] = $avg_value;
@@ -388,9 +399,11 @@ class GamePredictionService
                     $stats['value_stddev'] = 0;
                 }
             } else {
-                // 如果沒有歷史數據，給予所有指標預設值
+                // 如果沒有歷史數據，使用 Laplace 平滑給予預設值
                 $stats['win_rate'] = 0;
-                $stats['top3_rate'] = 0;
+                // 無歷史數據時，使用純平滑值：alpha / (k * alpha)
+                $top3RateSmoothed = self::LAPLACE_ALPHA / (self::LAPLACE_K * self::LAPLACE_ALPHA);
+                $stats['top3_rate'] = $top3RateSmoothed * 100;
                 $stats['avg_rank'] = 3; // 中間排名
                 $stats['avg_value'] = 0;
                 $stats['value_stddev'] = 0;
@@ -575,6 +588,12 @@ class GamePredictionService
 
     /**
      * 計算絕對分數（保本優先策略）
+     *
+     * 使用經過 Laplace 平滑處理的 top3_rate 作為基礎分數，
+     * 避免歷史數據較少時產生極端值（0% 或 100%）。
+     *
+     * Laplace 平滑公式：(top3 + α) / (total_games + k * α)
+     * 其中 α = 1，k = 4
      */
     private function calculateAbsoluteScore(array $data): float
     {

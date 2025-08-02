@@ -35,8 +35,14 @@ api.interceptors.response.use(
   (error) => {
     // 对响应错误做些什么
     if (error.response?.status === 401) {
-      // 处理未授权错误，例如重定向到登录页
-      window.location.href = '/login';
+      // 🔧 临时修改：改为console输出而不是重定向
+      console.error('🔐 [API拦截器] 检测到401未授权错误:', error);
+      console.log('🔐 [API拦截器] 当前错误详情:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      // window.location.href = '/login'; // 暂时注释掉重定向
     }
     return Promise.reject(error);
   }
@@ -189,23 +195,34 @@ export const getUserInfo = async (jwtToken: string): Promise<GetUserInfoResponse
   } catch (error: any) {
     console.error('❌ [getUserInfo] 获取用户信息失败:', error.message);
 
-    // 只有认证错误才清除状态
-    if (networkUtils.isAuthError(error)) {
-      console.error('🔐 [getUserInfo] 认证失败，Token无效，清除验证状态');
-      console.log('🔐 [getUserInfo] 错误详情:', {
-        status: error.response?.status,
-        data: error.response?.data
-      });
-      localStorage.removeItem('tokenValidated');
-      localStorage.removeItem('currentUID');
-      localStorage.removeItem('tokenSetupData');
-      localStorage.removeItem('userInfo');
-      window.location.reload();
-    } else {
-      // 网络或其他错误，显示友好提示但不清除状态
-      console.log('🌐 [getUserInfo] 可能是网络问题，保留验证状态');
-      window.$message?.warning('网络连接不稳定，请检查网络后重试');
-    }
+    // 🔧 临时修改：所有错误都只输出console，不清除状态也不重定向
+    console.error('🔐 [getUserInfo] 获取用户信息失败:', error);
+    console.log('🔐 [getUserInfo] 错误详情:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+      isAuthError: networkUtils.isAuthError(error),
+      isNetworkError: networkUtils.isNetworkError(error),
+      isServerError: networkUtils.isServerError(error)
+    });
+
+    // 临时注释掉状态清除和重定向逻辑
+    // if (networkUtils.isAuthError(error)) {
+    //   console.error('🔐 [getUserInfo] 认证失败，Token无效，清除验证状态');
+    //   console.log('🔐 [getUserInfo] 错误详情:', {
+    //     status: error.response?.status,
+    //     data: error.response?.data
+    //   });
+    //   localStorage.removeItem('tokenValidated');
+    //   localStorage.removeItem('currentUID');
+    //   localStorage.removeItem('tokenSetupData');
+    //   localStorage.removeItem('userInfo');
+    //   window.location.reload();
+    // } else {
+    //   // 网络或其他错误，显示友好提示但不清除状态
+    //   console.log('🌐 [getUserInfo] 可能是网络问题，保留验证状态');
+    //   window.$message?.warning('网络连接不稳定，请检查网络后重试');
+    // }
 
     throw error;
   }

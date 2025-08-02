@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Events\PredictionUpdated;
 use App\Models\GameRound;
+use App\Services\TimeDecayCalculatorService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -28,6 +29,8 @@ class GamePredictionService
     // Laplace 平滑參數
     private const LAPLACE_ALPHA = 1;           // 平滑常數
     private const LAPLACE_K = 4;               // 可能的結果類別數（成功/失敗的組合）
+    // 時間衰減相關參數
+    private const USE_TIME_DECAY = true;       // 是否啟用時間衰減
 
     public function __construct(
         private DexPriceClient $dexPriceClient
@@ -385,10 +388,33 @@ class GamePredictionService
             if ($stats['total_games'] > 0) {
                 $stats['win_rate'] = ($stats['wins'] / $stats['total_games']) * 100;
 
-                // 使用 Laplace 平滑計算 top3_rate，提高資料少時的穩定性
-                $top3RateSmoothed = ($stats['top3'] + self::LAPLACE_ALPHA) /
-                                   ($stats['total_games'] + self::LAPLACE_K * self::LAPLACE_ALPHA);
-                $stats['top3_rate'] = $top3RateSmoothed * 100;
+                // 計算時間衰減的 top3_rate
+                if (self::USE_TIME_DECAY) {
+                    $decayCalculator = app(TimeDecayCalculatorService::class);
+                    $decayedTop3Data = $decayCalculator->calculateDecayedTop3Rate($symbol);
+
+                    // 使用時間衰減的 top3_rate，如果沒有應用衰減則回退到傳統計算
+                    if ($decayedTop3Data['decay_applied']) {
+                        $stats['top3_rate'] = $decayedTop3Data['decayed_top3_rate'];
+                        $stats['traditional_top3_rate'] = $decayedTop3Data['top3_rate'];
+                        $stats['decay_applied'] = true;
+                        $stats['decay_rate'] = $decayedTop3Data['decay_rate'] ?? 0.97;
+                    } else {
+                        // 使用 Laplace 平滑計算 top3_rate，提高資料少時的穩定性
+                        $top3RateSmoothed = ($stats['top3'] + self::LAPLACE_ALPHA) /
+                                           ($stats['total_games'] + self::LAPLACE_K * self::LAPLACE_ALPHA);
+                        $stats['top3_rate'] = $top3RateSmoothed * 100;
+                        $stats['traditional_top3_rate'] = $stats['top3_rate'];
+                        $stats['decay_applied'] = false;
+                    }
+                } else {
+                    // 使用 Laplace 平滑計算 top3_rate，提高資料少時的穩定性
+                    $top3RateSmoothed = ($stats['top3'] + self::LAPLACE_ALPHA) /
+                                       ($stats['total_games'] + self::LAPLACE_K * self::LAPLACE_ALPHA);
+                    $stats['top3_rate'] = $top3RateSmoothed * 100;
+                    $stats['traditional_top3_rate'] = $stats['top3_rate'];
+                    $stats['decay_applied'] = false;
+                }
 
                 $stats['avg_rank'] = $stats['rank_sum'] / $stats['total_games'];
                 $avg_value = $stats['value_sum'] / $stats['total_games'];

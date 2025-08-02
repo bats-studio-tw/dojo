@@ -178,4 +178,12 @@ return [
             'aggregation_time',
         ],
     ],
+
+    // 时间衰减配置
+    'time_decay' => [
+        'enabled' => true,
+        'decay_rate' => 0.97,  // 衰减因子，越新的游戏权重越高
+        'min_games_for_decay' => 10,  // 少于此数量的游戏不应用衰减
+        'max_decay_rounds' => 1000,  // 最大考虑的游戏轮数
+    ],
 ];

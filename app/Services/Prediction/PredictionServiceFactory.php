@@ -63,6 +63,7 @@ class PredictionServiceFactory
             \App\Services\Prediction\Providers\AlchemyProvider::class => new \App\Services\Prediction\Providers\AlchemyProvider(
                 App::make(AlchemyPriceService::class)
             ),
+            \App\Services\Prediction\Providers\TestDataProvider::class => new \App\Services\Prediction\Providers\TestDataProvider(),
             default => throw new \InvalidArgumentException("Unknown data provider: {$providerClass}")
         };
     }
@@ -84,8 +85,10 @@ class PredictionServiceFactory
             $providers['momentum'] = new \App\Services\Prediction\Features\MomentumFeatureProvider;
         }
 
-        if ($features['volume'] ?? false) {
-            $providers['volume'] = new \App\Services\Prediction\Features\VolumeFeatureProvider;
+        if ($features['short_term_momentum'] ?? false) {
+            $providers['short_term_momentum'] = new \App\Services\Prediction\Features\ShortTermMomentumFeatureProvider(
+                new \App\Services\Prediction\Utils\MathUtils()
+            );
         }
 
         return $providers;

@@ -17,14 +17,14 @@ return [
     'features' => [
         'elo' => true,
         'momentum' => true,
-        'volume' => true,
+        'short_term_momentum' => true,  // 新增短期动能特征
     ],
 
     // 特征标准化方法
     'feature_normalization' => [
         'elo' => 'z-score',
         'momentum' => 'min-max',
-        'volume' => 'z-score',
+        'short_term_momentum' => 'min-max',  // 短期动能使用min-max标准化
     ],
 
     // 预测策略配置
@@ -35,12 +35,10 @@ return [
             'weights' => [
                 'elo' => 0.7,
                 'momentum' => 0.3,
-                'volume' => 0.0,
             ],
             'feature_normalization' => [
                 'elo' => 'z-score',
                 'momentum' => 'min-max',
-                'volume' => 'z-score',
             ],
             'risk_level' => 'low',
         ],
@@ -51,12 +49,10 @@ return [
             'weights' => [
                 'elo' => 0.3,
                 'momentum' => 0.7,
-                'volume' => 0.0,
             ],
             'feature_normalization' => [
                 'elo' => 'z-score',
                 'momentum' => 'min-max',
-                'volume' => 'z-score',
             ],
             'risk_level' => 'high',
         ],
@@ -67,12 +63,10 @@ return [
             'weights' => [
                 'elo' => 0.5,
                 'momentum' => 0.5,
-                'volume' => 0.0,
             ],
             'feature_normalization' => [
                 'elo' => 'z-score',
                 'momentum' => 'min-max',
-                'volume' => 'z-score',
             ],
             'risk_level' => 'medium',
         ],
@@ -83,12 +77,10 @@ return [
             'weights' => [
                 'elo' => 0.0,
                 'momentum' => 1.0,
-                'volume' => 0.0,
             ],
             'feature_normalization' => [
                 'elo' => 'z-score',
                 'momentum' => 'min-max',
-                'volume' => 'z-score',
             ],
             'risk_level' => 'high',
         ],
@@ -99,28 +91,44 @@ return [
             'weights' => [
                 'elo' => 1.0,
                 'momentum' => 0.0,
-                'volume' => 0.0,
             ],
             'feature_normalization' => [
                 'elo' => 'z-score',
                 'momentum' => 'min-max',
-                'volume' => 'z-score',
             ],
             'risk_level' => 'low',
         ],
 
-        'volume_weighted' => [
-            'name' => '交易量加权策略',
-            'description' => '结合交易量指标，适合市场活跃度分析',
+
+
+        'short_term' => [
+            'name' => '短期动能策略',
+            'description' => '专注于短期价格动能，适合30秒游戏预测',
             'weights' => [
-                'elo' => 0.4,
-                'momentum' => 0.4,
-                'volume' => 0.2,
+                'elo' => 0.2,
+                'momentum' => 0.2,
+                'short_term_momentum' => 0.6,  // 主要依赖短期动能
             ],
             'feature_normalization' => [
                 'elo' => 'z-score',
                 'momentum' => 'min-max',
-                'volume' => 'z-score',
+                'short_term_momentum' => 'min-max',
+            ],
+            'risk_level' => 'high',
+        ],
+
+        'hybrid_momentum' => [
+            'name' => '混合动能策略',
+            'description' => '结合长期和短期动能，平衡趋势和即时性',
+            'weights' => [
+                'elo' => 0.3,
+                'momentum' => 0.3,
+                'short_term_momentum' => 0.4,
+            ],
+            'feature_normalization' => [
+                'elo' => 'z-score',
+                'momentum' => 'min-max',
+                'short_term_momentum' => 'min-max',
             ],
             'risk_level' => 'medium',
         ],
@@ -130,7 +138,7 @@ return [
     'feature_providers' => [
         'elo' => \App\Services\Prediction\Features\EloFeatureProvider::class,
         'momentum' => \App\Services\Prediction\Features\MomentumFeatureProvider::class,
-        'volume' => \App\Services\Prediction\Features\VolumeFeatureProvider::class,
+        'short_term_momentum' => \App\Services\Prediction\Features\ShortTermMomentumFeatureProvider::class,
     ],
 
     // 标准化策略配置

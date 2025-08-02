@@ -11,7 +11,14 @@ class MomentumFeatureProvider implements FeatureProviderInterface
         $scores = [];
 
         foreach ($snapshots as $snapshot) {
-            $symbol = $snapshot['symbol'] ?? $snapshot->symbol ?? '';
+            // 处理数组和对象两种格式
+            if (is_array($snapshot)) {
+                $symbol = $snapshot['symbol'] ?? '';
+                $priceChange24h = $snapshot['price_change_24h'] ?? 0;
+            } else {
+                $symbol = $snapshot->symbol ?? '';
+                $priceChange24h = $snapshot->price_change_24h ?? 0;
+            }
 
             if (empty($symbol)) {
                 continue;
@@ -19,7 +26,6 @@ class MomentumFeatureProvider implements FeatureProviderInterface
 
             try {
                 // 计算动量分数 - 基于24小时价格变化
-                $priceChange24h = $snapshot['price_change_24h'] ?? $snapshot->price_change_24h ?? 0;
 
                 // 将价格变化转换为动量分数 (0-100)
                 // 正变化为正分数，负变化为负分数

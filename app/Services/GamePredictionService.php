@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Events\PredictionUpdated;
 use App\Models\GameRound;
+use App\Services\GlobalStatistics;
 use App\Services\TimeDecayCalculatorService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -31,6 +32,11 @@ class GamePredictionService
     private const LAPLACE_K = 4;               // 可能的結果類別數（成功/失敗的組合）
     // 時間衰減相關參數
     private const USE_TIME_DECAY = true;       // 是否啟用時間衰減
+
+    // === 冷啟動策略相關參數 ===
+    private const USE_COLD_START_STRATEGY = true;        // 是否啟用冷啟動策略
+    private const MIN_GAMES_FOR_VALID_STATS = 10;        // 認為統計數據有效的最小遊戲數（與GlobalStatistics保持一致）
+    private const MIN_H2H_GAMES_FOR_FALLBACK = 3;        // H2H需要回退到全域預設的最小遊戲數
 
     public function __construct(
         private DexPriceClient $dexPriceClient
@@ -386,19 +392,57 @@ class GamePredictionService
         // 計算並格式化所有指標
         foreach ($tokenStats as $symbol => &$stats) {
             if ($stats['total_games'] > 0) {
-                $stats['win_rate'] = ($stats['wins'] / $stats['total_games']) * 100;
+                // === 冷啟動策略：檢查數據是否足夠可靠 ===
+                $isDataSufficient = $stats['total_games'] >= self::MIN_GAMES_FOR_VALID_STATS;
 
-                // 計算時間衰減的 top3_rate
-                if (self::USE_TIME_DECAY) {
-                    $decayCalculator = app(TimeDecayCalculatorService::class);
-                    $decayedTop3Data = $decayCalculator->calculateDecayedTop3Rate($symbol);
+                if (self::USE_COLD_START_STRATEGY && !$isDataSufficient) {
+                    // 數據不足，使用全域預設值
+                    $globalStats = GlobalStatistics::getGlobalStats();
+                    $defaultTop3Rate = $globalStats['average_top3_rate'];
+                    $defaultWinRate = $globalStats['average_win_rate'];
+                    $defaultAvgRank = $globalStats['average_avg_rank'];
 
-                    // 使用時間衰減的 top3_rate，如果沒有應用衰減則回退到傳統計算
-                    if ($decayedTop3Data['decay_applied']) {
-                        $stats['top3_rate'] = $decayedTop3Data['decayed_top3_rate'];
-                        $stats['traditional_top3_rate'] = $decayedTop3Data['top3_rate'];
-                        $stats['decay_applied'] = true;
-                        $stats['decay_rate'] = $decayedTop3Data['decay_rate'] ?? 0.97;
+                    $stats['win_rate'] = $defaultWinRate;
+                    $stats['top3_rate'] = $defaultTop3Rate;
+                    $stats['avg_rank'] = $defaultAvgRank;
+                    $avg_value = $stats['value_sum'] / $stats['total_games'];
+                    $stats['avg_value'] = $avg_value;
+                    $stats['value_stddev'] = 0; // 設為0避免因數據少產生極端波動值
+                    $stats['cold_start_applied'] = true;
+                    $stats['data_insufficient'] = true;
+
+                    Log::debug('冷啟動策略應用於數據不足的代幣', [
+                        'symbol' => $symbol,
+                        'total_games' => $stats['total_games'],
+                        'threshold' => self::MIN_GAMES_FOR_VALID_STATS,
+                        'default_top3_rate' => $defaultTop3Rate,
+                        'original_top3_count' => $stats['top3'],
+                    ]);
+                } else {
+                    // 數據充足，使用正常計算
+                    $stats['win_rate'] = ($stats['wins'] / $stats['total_games']) * 100;
+                    $stats['cold_start_applied'] = false;
+                    $stats['data_insufficient'] = false;
+
+                    // 計算時間衰減的 top3_rate
+                    if (self::USE_TIME_DECAY) {
+                        $decayCalculator = app(TimeDecayCalculatorService::class);
+                        $decayedTop3Data = $decayCalculator->calculateDecayedTop3Rate($symbol);
+
+                        // 使用時間衰減的 top3_rate，如果沒有應用衰減則回退到傳統計算
+                        if ($decayedTop3Data['decay_applied']) {
+                            $stats['top3_rate'] = $decayedTop3Data['decayed_top3_rate'];
+                            $stats['traditional_top3_rate'] = $decayedTop3Data['top3_rate'];
+                            $stats['decay_applied'] = true;
+                            $stats['decay_rate'] = $decayedTop3Data['decay_rate'] ?? 0.97;
+                        } else {
+                            // 使用 Laplace 平滑計算 top3_rate，提高資料少時的穩定性
+                            $top3RateSmoothed = ($stats['top3'] + self::LAPLACE_ALPHA) /
+                                               ($stats['total_games'] + self::LAPLACE_K * self::LAPLACE_ALPHA);
+                            $stats['top3_rate'] = $top3RateSmoothed * 100;
+                            $stats['traditional_top3_rate'] = $stats['top3_rate'];
+                            $stats['decay_applied'] = false;
+                        }
                     } else {
                         // 使用 Laplace 平滑計算 top3_rate，提高資料少時的穩定性
                         $top3RateSmoothed = ($stats['top3'] + self::LAPLACE_ALPHA) /
@@ -407,36 +451,52 @@ class GamePredictionService
                         $stats['traditional_top3_rate'] = $stats['top3_rate'];
                         $stats['decay_applied'] = false;
                     }
-                } else {
-                    // 使用 Laplace 平滑計算 top3_rate，提高資料少時的穩定性
-                    $top3RateSmoothed = ($stats['top3'] + self::LAPLACE_ALPHA) /
-                                       ($stats['total_games'] + self::LAPLACE_K * self::LAPLACE_ALPHA);
-                    $stats['top3_rate'] = $top3RateSmoothed * 100;
-                    $stats['traditional_top3_rate'] = $stats['top3_rate'];
-                    $stats['decay_applied'] = false;
-                }
 
-                $stats['avg_rank'] = $stats['rank_sum'] / $stats['total_games'];
-                $avg_value = $stats['value_sum'] / $stats['total_games'];
-                $stats['avg_value'] = $avg_value;
+                    $stats['avg_rank'] = $stats['rank_sum'] / $stats['total_games'];
+                    $avg_value = $stats['value_sum'] / $stats['total_games'];
+                    $stats['avg_value'] = $avg_value;
 
-                if (count($stats['value_history']) > 1) {
-                    $variance = array_reduce($stats['value_history'], function ($carry, $item) use ($avg_value) {
-                        return $carry + pow($item - $avg_value, 2);
-                    }, 0);
-                    $stats['value_stddev'] = sqrt($variance / (count($stats['value_history']) - 1));
-                } else {
-                    $stats['value_stddev'] = 0;
+                    if (count($stats['value_history']) > 1) {
+                        $variance = array_reduce($stats['value_history'], function ($carry, $item) use ($avg_value) {
+                            return $carry + pow($item - $avg_value, 2);
+                        }, 0);
+                        $stats['value_stddev'] = sqrt($variance / (count($stats['value_history']) - 1));
+                    } else {
+                        $stats['value_stddev'] = 0;
+                    }
                 }
             } else {
-                // 如果沒有歷史數據，使用 Laplace 平滑給予預設值
-                $stats['win_rate'] = 0;
-                // 無歷史數據時，使用純平滑值：alpha / (k * alpha)
-                $top3RateSmoothed = self::LAPLACE_ALPHA / (self::LAPLACE_K * self::LAPLACE_ALPHA);
-                $stats['top3_rate'] = $top3RateSmoothed * 100;
-                $stats['avg_rank'] = 3; // 中間排名
-                $stats['avg_value'] = 0;
-                $stats['value_stddev'] = 0;
+                // === 冷啟動策略：無歷史數據時使用全域平均值 ===
+                if (self::USE_COLD_START_STRATEGY) {
+                    $globalStats = GlobalStatistics::getGlobalStats();
+                    $defaultTop3Rate = $globalStats['average_top3_rate'];
+                    $defaultWinRate = $globalStats['average_win_rate'];
+                    $defaultAvgRank = $globalStats['average_avg_rank'];
+
+                    $stats['win_rate'] = $defaultWinRate;
+                    $stats['top3_rate'] = $defaultTop3Rate;
+                    $stats['avg_rank'] = $defaultAvgRank;
+                    $stats['avg_value'] = 0;
+                    $stats['value_stddev'] = 0;
+                    $stats['cold_start_applied'] = true;
+
+                    Log::debug('冷啟動策略應用於新代幣', [
+                        'symbol' => $symbol,
+                        'default_top3_rate' => $defaultTop3Rate,
+                        'default_win_rate' => $defaultWinRate,
+                        'default_avg_rank' => $defaultAvgRank,
+                    ]);
+                } else {
+                    // 原有的 Laplace 平滑策略
+                    $stats['win_rate'] = 0;
+                    // 無歷史數據時，使用純平滑值：alpha / (k * alpha)
+                    $top3RateSmoothed = self::LAPLACE_ALPHA / (self::LAPLACE_K * self::LAPLACE_ALPHA);
+                    $stats['top3_rate'] = $top3RateSmoothed * 100;
+                    $stats['avg_rank'] = 3; // 中間排名
+                    $stats['avg_value'] = 0;
+                    $stats['value_stddev'] = 0;
+                    $stats['cold_start_applied'] = false;
+                }
             }
 
             // 格式化輸出，方便查看和使用
@@ -504,11 +564,30 @@ class GamePredictionService
 
             if ($validOpponentCount > 0) {
                 $stats['h2h_score'] = ($totalPosteriorWinRate / $validOpponentCount) * 100;
+                $stats['h2h_cold_start_applied'] = false;
             } else {
-                // H2H數據不足時，基於絕對實力智能回退
-                $absoluteScore = $this->calculateAbsoluteScore($stats);
-                $fallbackScore = ($absoluteScore / 105) * 50 + 25; // 將0-105分的absolute_score映射到25-75分區間
-                $stats['h2h_score'] = max(25, min(75, $fallbackScore));
+                // === 冷啟動策略：H2H數據不足時的處理 ===
+                if (self::USE_COLD_START_STRATEGY) {
+                    // 使用全域統計的預設值：接近中性的分數
+                    $globalStats = GlobalStatistics::getGlobalStats();
+                    $defaultH2HScore = GlobalStatistics::DEFAULT_H2H_SCORE; // 50分，保持中性
+
+                    $stats['h2h_score'] = $defaultH2HScore;
+                    $stats['h2h_cold_start_applied'] = true;
+
+                    Log::debug('冷啟動策略應用於H2H數據不足', [
+                        'symbol' => $symbol,
+                        'valid_opponent_count' => $validOpponentCount,
+                        'default_h2h_score' => $defaultH2HScore,
+                        'total_opponents' => count($currentTokenSymbols) - 1,
+                    ]);
+                } else {
+                    // 原有的智能回退策略
+                    $absoluteScore = $this->calculateAbsoluteScore($stats);
+                    $fallbackScore = ($absoluteScore / 105) * 50 + 25; // 將0-105分的absolute_score映射到25-75分區間
+                    $stats['h2h_score'] = max(25, min(75, $fallbackScore));
+                    $stats['h2h_cold_start_applied'] = false;
+                }
             }
         }
     }

@@ -21,8 +21,12 @@ class BacktestResult extends Model
         'score',
         'total_games',
         'correct_predictions',
+        'top3_correct_predictions',
         'accuracy',
         'weighted_accuracy',
+        'top3_accuracy',
+        'top3_weighted_accuracy',
+        'precision_at_3',
         'avg_confidence',
         'detailed_results',
     ];
@@ -38,6 +42,9 @@ class BacktestResult extends Model
         'score' => 'decimal:4',
         'accuracy' => 'decimal:2',
         'weighted_accuracy' => 'decimal:2',
+        'top3_accuracy' => 'decimal:2',
+        'top3_weighted_accuracy' => 'decimal:2',
+        'precision_at_3' => 'decimal:2',
         'avg_confidence' => 'decimal:2',
     ];
 
@@ -98,11 +105,17 @@ class BacktestResult extends Model
             'score' => $this->score,
             'accuracy' => $this->accuracy,
             'weighted_accuracy' => $this->weighted_accuracy,
+            'top3_accuracy' => $this->top3_accuracy,
+            'top3_weighted_accuracy' => $this->top3_weighted_accuracy,
+            'precision_at_3' => $this->precision_at_3,
             'total_games' => $this->total_games,
             'correct_predictions' => $this->correct_predictions,
+            'top3_correct_predictions' => $this->top3_correct_predictions,
             'avg_confidence' => $this->avg_confidence,
             'success_rate' => $this->total_games > 0 ?
                 round(($this->correct_predictions / $this->total_games) * 100, 2) : 0,
+            'top3_success_rate' => $this->total_games > 0 ?
+                round(($this->top3_correct_predictions / $this->total_games) * 100, 2) : 0,
         ];
     }
 
@@ -152,5 +165,53 @@ class BacktestResult extends Model
     public function scopeWithParameterRange($query, string $key, $min, $max)
     {
         return $query->whereRaw("JSON_EXTRACT(parameters, '$.{$key}') BETWEEN ? AND ?", [$min, $max]);
+    }
+
+    /**
+     * 範圍查詢：按 Top3 準確率範圍
+     */
+    public function scopeTop3AccuracyRange($query, float $min, float $max)
+    {
+        return $query->whereBetween('top3_accuracy', [$min, $max]);
+    }
+
+    /**
+     * 範圍查詢：按 Top3 加權準確率範圍
+     */
+    public function scopeTop3WeightedAccuracyRange($query, float $min, float $max)
+    {
+        return $query->whereBetween('top3_weighted_accuracy', [$min, $max]);
+    }
+
+    /**
+     * 範圍查詢：按 Precision@3 範圍
+     */
+    public function scopePrecisionAt3Range($query, float $min, float $max)
+    {
+        return $query->whereBetween('precision_at_3', [$min, $max]);
+    }
+
+    /**
+     * 獲取 Top3 相關指標
+     */
+    public function getTop3Metrics(): array
+    {
+        return [
+            'top3_accuracy' => $this->top3_accuracy,
+            'top3_weighted_accuracy' => $this->top3_weighted_accuracy,
+            'precision_at_3' => $this->precision_at_3,
+            'top3_correct_predictions' => $this->top3_correct_predictions,
+            'top3_success_rate' => $this->total_games > 0 ?
+                round(($this->top3_correct_predictions / $this->total_games) * 100, 2) : 0,
+            'traditional_vs_top3_improvement' => $this->top3_accuracy - $this->accuracy,
+        ];
+    }
+
+    /**
+     * 比較傳統準確率與 Top3 準確率的提升幅度
+     */
+    public function getTop3Improvement(): float
+    {
+        return round($this->top3_accuracy - $this->accuracy, 2);
     }
 }

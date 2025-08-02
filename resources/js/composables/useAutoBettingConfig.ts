@@ -51,10 +51,12 @@ export const useAutoBettingConfig = () => {
         // 只保留必要的字段
         const cloudConfig = response.data.data;
 
-        // 🔧 修复：确保正确加载云端数据，避免被默认值覆盖
-        if (cloudConfig.jwt_token !== undefined) {
-          config.jwt_token = cloudConfig.jwt_token;
-        }
+        // 🔧 修复：JWT Token应该始终使用当前会话的Token，不应该被云端配置覆盖
+        // JWT Token是会话级别的，不应该从云端加载
+        // if (cloudConfig.jwt_token !== undefined) {
+        //   config.jwt_token = cloudConfig.jwt_token;
+        // }
+        console.log('🔑 [loadConfigFromCloud] 跳过云端JWT Token，保持当前会话Token');
         if (cloudConfig.dynamic_conditions !== undefined) {
           config.dynamic_conditions = cloudConfig.dynamic_conditions;
         }
@@ -99,10 +101,11 @@ export const useAutoBettingConfig = () => {
     try {
       configSaving.value = true;
 
-      // 只发送必要的字段 - bet_amount现在是硬编码的，不需要保存
+      // 🔧 修复：JWT Token是会话级别的，不应该保存到云端
+      // 只发送必要的配置字段，bet_amount现在是硬编码的，不需要保存
       const configData = {
         uid,
-        jwt_token: config.jwt_token,
+        // jwt_token: config.jwt_token, // 不保存JWT Token到云端
         dynamic_conditions: config.dynamic_conditions,
         is_active: config.is_active,
         betting_mode: config.betting_mode

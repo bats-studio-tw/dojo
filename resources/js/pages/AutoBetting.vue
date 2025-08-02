@@ -346,7 +346,7 @@
   import type { UserInfo } from '@/types';
   import type { MomentumPredictionHistoryRound } from '@/composables/useMomentumPredictionStats';
 
-  import { autoBettingApi, gameApi, getUserInfo, networkUtils } from '@/utils/api';
+  import { autoBettingApi, gameApi, getUserInfo, networkUtils, jwtTokenUtils } from '@/utils/api';
   import { canBet } from '@/utils/statusUtils';
   import { websocketManager } from '@/utils/websocketManager';
 
@@ -414,9 +414,19 @@
 
     // 🔧 关键修复：先同步JWT Token到配置中
     if (data.jwt_token) {
+      console.log('🔑 [handleTokenValidated] 开始同步JWT Token到配置:', `${data.jwt_token.slice(0, 20)}...`);
+      console.log(
+        '🔑 [handleTokenValidated] 同步前 config.jwt_token:',
+        config.jwt_token ? `${config.jwt_token.slice(0, 20)}...` : 'null'
+      );
+
       config.jwt_token = data.jwt_token;
-      console.log('✅ JWT Token已同步到自动下注配置中:', `${data.jwt_token.slice(0, 20)}...`);
-      console.log('🔧 config.jwt_token现在是:', !!config.jwt_token);
+
+      console.log('✅ [handleTokenValidated] JWT Token已同步到自动下注配置中:', `${data.jwt_token.slice(0, 20)}...`);
+      console.log(
+        '✅ [handleTokenValidated] 同步后 config.jwt_token:',
+        config.jwt_token ? `${config.jwt_token.slice(0, 20)}...` : 'null'
+      );
     }
 
     // 然后调用原始的验证回调
@@ -424,8 +434,18 @@
 
     // 🔧 关键修复：Token验证成功后，重新加载该用户的配置
     if (data.uid) {
-      console.log('🔄 Token验证成功，重新加载用户配置...');
+      console.log('🔄 [handleTokenValidated] Token验证成功，重新加载用户配置...');
+      console.log(
+        '🔑 [handleTokenValidated] 加载云端配置前 config.jwt_token:',
+        config.jwt_token ? `${config.jwt_token.slice(0, 20)}...` : 'null'
+      );
+
       await configComposable.loadConfigFromCloud(data.uid);
+
+      console.log(
+        '🔑 [handleTokenValidated] 加载云端配置后 config.jwt_token:',
+        config.jwt_token ? `${config.jwt_token.slice(0, 20)}...` : 'null'
+      );
     }
 
     console.log('✅ Token验证和配置同步完成');
@@ -794,6 +814,13 @@
       return;
     }
 
+    // 🔧 新增：Token一致性检查
+    const tokenCheck = jwtTokenUtils.checkSystemTokenConsistency(config.jwt_token);
+    console.log('🔑 [refreshUserInfo] Token一致性检查:', tokenCheck.report);
+    if (!tokenCheck.isConsistent) {
+      console.warn('⚠️ [refreshUserInfo] Token一致性问题:', tokenCheck.issues);
+    }
+
     userInfoRefreshing.value = true;
     try {
       console.log('🔄 开始刷新用户信息...');
@@ -1083,6 +1110,16 @@
     console.log(`🤖 [${timestamp}] 自动下注：检测到 ${strategyValidation.value.matches.length} 个符合条件的目标`);
     window.$message?.info(`🤖 自动下注：检测到 ${strategyValidation.value.matches.length} 个符合条件的目标`);
 
+    // 🔧 新增：执行下注前的Token一致性检查
+    const tokenCheck = jwtTokenUtils.checkSystemTokenConsistency(config.jwt_token);
+    console.log(`🔑 [${timestamp}] 下注前Token一致性检查:`, tokenCheck.report);
+    if (!tokenCheck.isConsistent) {
+      console.error(`❌ [${timestamp}] Token一致性问题，停止自动下注:`, tokenCheck.issues);
+      window.$message?.error('JWT Token不一致，请重新验证');
+      isExecuting.value = false;
+      return;
+    }
+
     let successCount = 0;
     let failCount = 0;
 
@@ -1287,16 +1324,37 @@
     await initializeConfig(currentUID.value);
 
     // 从localStorage恢复JWT Token到配置中
+    console.log('🔑 [onMounted] 开始恢复JWT Token...');
+    console.log(
+      '🔑 [onMounted] 当前 config.jwt_token:',
+      config.jwt_token ? `${config.jwt_token.slice(0, 20)}...` : 'null'
+    );
+
     const savedTokenData = localStorage.getItem('tokenSetupData');
     if (savedTokenData) {
       try {
         const tokenData = JSON.parse(savedTokenData);
+        console.log(
+          '🔑 [onMounted] localStorage中的Token:',
+          tokenData.jwt_token ? `${tokenData.jwt_token.slice(0, 20)}...` : 'null'
+        );
+
         if (tokenData.jwt_token && !config.jwt_token) {
           config.jwt_token = tokenData.jwt_token;
+          console.log('✅ [onMounted] JWT Token已从localStorage恢复到配置中');
+        } else if (config.jwt_token) {
+          console.log('⚠️ [onMounted] config.jwt_token已存在，跳过恢复');
         }
+
+        console.log(
+          '🔑 [onMounted] 恢复后 config.jwt_token:',
+          config.jwt_token ? `${config.jwt_token.slice(0, 20)}...` : 'null'
+        );
       } catch (error) {
         console.warn('恢复JWT Token失败:', error);
       }
+    } else {
+      console.log('⚠️ [onMounted] localStorage中没有找到tokenSetupData');
     }
 
     if (!isMonitoringRounds.value) {

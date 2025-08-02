@@ -69,6 +69,125 @@ const dojoGameApi = axios.create({
   }
 });
 
+// 🔧 新增：JWT Token同步和验证工具
+export const jwtTokenUtils = {
+  // 获取当前存储的JWT Token
+  getStoredToken: (): string | null => {
+    try {
+      const savedData = localStorage.getItem('tokenSetupData');
+      if (savedData) {
+        const tokenData = JSON.parse(savedData);
+        return tokenData.jwt_token || null;
+      }
+    } catch (error) {
+      console.error('获取存储的JWT Token失败:', error);
+    }
+    return null;
+  },
+
+  // 同步JWT Token到localStorage
+  syncTokenToStorage: (jwtToken: string): void => {
+    try {
+      const currentData = localStorage.getItem('tokenSetupData');
+      let tokenData = {};
+
+      if (currentData) {
+        tokenData = JSON.parse(currentData);
+      }
+
+      tokenData = { ...tokenData, jwt_token: jwtToken };
+      localStorage.setItem('tokenSetupData', JSON.stringify(tokenData));
+
+      console.log('✅ JWT Token已同步到localStorage');
+    } catch (error) {
+      console.error('同步JWT Token到localStorage失败:', error);
+    }
+  },
+
+  // 验证JWT Token是否一致
+  validateTokenConsistency: (
+    jwtToken: string
+  ): {
+    isConsistent: boolean;
+    storedToken: string | null;
+    differences: string[];
+  } => {
+    const storedToken = jwtTokenUtils.getStoredToken();
+    const differences: string[] = [];
+
+    if (!storedToken) {
+      differences.push('localStorage中没有存储的Token');
+      return { isConsistent: false, storedToken: null, differences };
+    }
+
+    if (storedToken !== jwtToken) {
+      differences.push('Token内容不一致');
+      differences.push(`存储Token长度: ${storedToken.length}`);
+      differences.push(`传入Token长度: ${jwtToken.length}`);
+      differences.push(`存储Token前缀: ${storedToken.slice(0, 20)}...`);
+      differences.push(`传入Token前缀: ${jwtToken.slice(0, 20)}...`);
+    }
+
+    return {
+      isConsistent: storedToken === jwtToken,
+      storedToken,
+      differences
+    };
+  },
+
+  // 清理所有Token相关数据
+  clearAllTokenData: (): void => {
+    localStorage.removeItem('tokenValidated');
+    localStorage.removeItem('currentUID');
+    localStorage.removeItem('tokenSetupData');
+    localStorage.removeItem('userInfo');
+    console.log('🧹 所有Token相关数据已清理');
+  },
+
+  // 🔧 新增：全面检查Token一致性
+  checkSystemTokenConsistency: (
+    currentConfigToken: string
+  ): {
+    isConsistent: boolean;
+    report: string[];
+    issues: string[];
+  } => {
+    const report: string[] = [];
+    const issues: string[] = [];
+
+    // 检查localStorage中的Token
+    const storedToken = jwtTokenUtils.getStoredToken();
+    report.push(`📱 localStorage Token: ${storedToken ? `${storedToken.slice(0, 20)}...` : 'null'}`);
+    report.push(`⚙️ Config Token: ${currentConfigToken ? `${currentConfigToken.slice(0, 20)}...` : 'null'}`);
+
+    // 检查一致性
+    if (!storedToken) {
+      issues.push('localStorage中没有JWT Token');
+    }
+
+    if (!currentConfigToken) {
+      issues.push('配置中没有JWT Token');
+    }
+
+    if (storedToken && currentConfigToken && storedToken !== currentConfigToken) {
+      issues.push('localStorage和配置中的Token不一致');
+      report.push(`❌ Token不匹配:`);
+      report.push(`   localStorage: ${storedToken.slice(0, 30)}...`);
+      report.push(`   Config:       ${currentConfigToken.slice(0, 30)}...`);
+    }
+
+    const isConsistent = issues.length === 0 && storedToken === currentConfigToken;
+
+    if (isConsistent) {
+      report.push('✅ 所有Token一致');
+    } else {
+      report.push(`❌ 发现 ${issues.length} 个Token一致性问题`);
+    }
+
+    return { isConsistent, report, issues };
+  }
+};
+
 // 🔧 新增：网络状态检测工具
 export const networkUtils = {
   // 检测是否为网络错误
@@ -153,6 +272,22 @@ export const getUserInfo = async (jwtToken: string): Promise<GetUserInfoResponse
     return await networkUtils.retryApiCall(async () => {
       console.log('🔄 [getUserInfo] 开始获取用户信息...');
 
+      // 🔧 新增：JWT Token来源追踪和一致性验证
+      const tokenValidation = jwtTokenUtils.validateTokenConsistency(jwtToken);
+      console.log('🔑 [getUserInfo] JWT Token来源追踪:', {
+        tokenLength: jwtToken?.length || 0,
+        tokenPrefix: `${jwtToken?.slice(0, 20)}...`,
+        tokenSuffix: jwtToken?.slice(-10),
+        isConsistent: tokenValidation.isConsistent,
+        storedTokenExists: !!tokenValidation.storedToken,
+        differences: tokenValidation.differences
+      });
+
+      // 🔧 如果Token不一致，输出警告
+      if (!tokenValidation.isConsistent) {
+        console.warn('⚠️ [getUserInfo] JWT Token不一致:', tokenValidation.differences);
+      }
+
       const res = await dojoGameApi.get('ladders/me', {
         headers: {
           jwt_token: jwtToken
@@ -195,34 +330,23 @@ export const getUserInfo = async (jwtToken: string): Promise<GetUserInfoResponse
   } catch (error: any) {
     console.error('❌ [getUserInfo] 获取用户信息失败:', error.message);
 
-    // 🔧 临时修改：所有错误都只输出console，不清除状态也不重定向
-    console.error('🔐 [getUserInfo] 获取用户信息失败:', error);
-    console.log('🔐 [getUserInfo] 错误详情:', {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-      isAuthError: networkUtils.isAuthError(error),
-      isNetworkError: networkUtils.isNetworkError(error),
-      isServerError: networkUtils.isServerError(error)
-    });
-
-    // 临时注释掉状态清除和重定向逻辑
-    // if (networkUtils.isAuthError(error)) {
-    //   console.error('🔐 [getUserInfo] 认证失败，Token无效，清除验证状态');
-    //   console.log('🔐 [getUserInfo] 错误详情:', {
-    //     status: error.response?.status,
-    //     data: error.response?.data
-    //   });
-    //   localStorage.removeItem('tokenValidated');
-    //   localStorage.removeItem('currentUID');
-    //   localStorage.removeItem('tokenSetupData');
-    //   localStorage.removeItem('userInfo');
-    //   window.location.reload();
-    // } else {
-    //   // 网络或其他错误，显示友好提示但不清除状态
-    //   console.log('🌐 [getUserInfo] 可能是网络问题，保留验证状态');
-    //   window.$message?.warning('网络连接不稳定，请检查网络后重试');
-    // }
+    // 临时注释掉状态清除和重定向逻辑;
+    if (networkUtils.isAuthError(error)) {
+      console.error('🔐 [getUserInfo] 认证失败，Token无效，清除验证状态');
+      console.log('🔐 [getUserInfo] 错误详情:', {
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      localStorage.removeItem('tokenValidated');
+      localStorage.removeItem('currentUID');
+      localStorage.removeItem('tokenSetupData');
+      localStorage.removeItem('userInfo');
+      window.location.reload();
+    } else {
+      // 网络或其他错误，显示友好提示但不清除状态
+      console.log('🌐 [getUserInfo] 可能是网络问题，保留验证状态');
+      window.$message?.warning('网络连接不稳定，请检查网络后重试');
+    }
 
     throw error;
   }

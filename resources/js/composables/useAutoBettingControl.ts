@@ -297,7 +297,15 @@ export const useAutoBettingControl = () => {
     try {
       const response = await autoBettingApi.execute(currentUID.value, config);
       if (response.data.success) {
-        const { recommended_bets, round_id, jwt_token } = response.data.data;
+        const { recommended_bets, round_id } = response.data.data;
+        // 🔧 修复：不使用后端返回的jwt_token，始终使用前端配置中的Token
+        const jwt_token = config.jwt_token;
+
+        console.log('🔑 [executeAutoBetting] Token使用情况:', {
+          backend_token: response.data.data.jwt_token ? `${response.data.data.jwt_token.slice(0, 20)}...` : 'null',
+          frontend_token: jwt_token ? `${jwt_token.slice(0, 20)}...` : 'null',
+          using_frontend_token: true
+        });
 
         const totalBetAmount = recommended_bets.reduce((sum: number, bet: any) => sum + bet.bet_amount, 0);
 

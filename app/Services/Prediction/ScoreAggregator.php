@@ -15,7 +15,7 @@ class ScoreAggregator
      * 聚合所有特征分数
      *
      * @param  array  $allFeatureScores  格式: ['feature_name' => ['symbol' => score, ...], ...]
-     * @return array 返回格式: ['symbol' => final_score, ...]
+     * @return array 返回格式: ['symbol' => ['final_score' => score, 'details' => [...]], ...]
      */
     public function aggregate(array $allFeatureScores): array
     {
@@ -48,8 +48,17 @@ class ScoreAggregator
         foreach ($symbols as $symbol) {
             $weightedSum = 0;
             $totalWeight = 0;
+            $scoreDetails = [];
 
+            // 收集原始分数
+            foreach ($allFeatureScores as $featureName => $featureScores) {
+                $scoreDetails[$featureName . '_score'] = $featureScores[$symbol] ?? 0;
+            }
+
+            // 收集标准化分数
             foreach ($normalizedScores as $featureName => $scores) {
+                $scoreDetails['norm_' . $featureName] = $scores[$symbol] ?? 0;
+
                 if (isset($scores[$symbol])) {
                     $weight = $this->featureWeights[$featureName] ?? 0;
                     $weightedSum += $scores[$symbol] * $weight;
@@ -57,12 +66,15 @@ class ScoreAggregator
                 }
             }
 
-            // 避免除零错误
-            if ($totalWeight > 0) {
-                $finalScores[$symbol] = $weightedSum / $totalWeight;
-            } else {
-                $finalScores[$symbol] = 0;
-            }
+            // 计算最终分数
+            $finalScore = $totalWeight > 0 ? $weightedSum / $totalWeight : 0;
+
+            $finalScores[$symbol] = [
+                'final_score' => $finalScore,
+                'weights' => $this->featureWeights,
+                'normalization' => array_keys($this->featureNormalizations),
+                ...$scoreDetails
+            ];
         }
 
         return $finalScores;

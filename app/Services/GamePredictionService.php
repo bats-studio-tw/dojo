@@ -4,23 +4,40 @@ namespace App\Services;
 
 use App\Events\PredictionUpdated;
 use App\Models\GameRound;
+use App\Services\GlobalStatistics;
+use App\Services\TimeDecayCalculatorService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
  * 核心遊戲預測服務
  *
- * 演算法版本: v8.3 - h2h_breakeven_prediction
+ * 演算法版本: v8.4 - h2h_bayesian_prediction
  * 策略: 保本優先，基於歷史對戰關係 (H2H) 和嚴格的風險控制。
  * 核心邏輯:
  * 1.  **絕對分數 (Absolute Score)**: 完全由歷史保本率 (top3_rate) 決定，輔以少量數據可靠性加分。
+ *     使用 Laplace 平滑處理 top3_rate，避免數據稀少時的極端值。
  * 2.  **相對分數 (Relative Score)**: 基於當前對手組合的 H2H 歷史平均勝率。
  * 3.  **動態權重 (Dynamic Weighting)**: 根據 H2H 數據的覆蓋完整度，智能調整絕對分和相對分的權重。
  * 4.  **【v8.3 新增】動態 H2H 門檻**: 當 H2H 覆蓋率低於可靠性門檻時，進一步降低 H2H 權重，避免被不可靠數據誤導。
- * 5.  **風險調整 (Risk Adjustment)**: 對歷史表現不穩定的代幣施加雙重懲罰，最終排名以此為準。
+ * 5.  **【新增】Laplace 平滑**: 對 top3_rate 使用 Laplace 平滑 (α=1, k=4)，提高少量數據時的穩定性。
+ * 6.  **【v8.4 新增】貝式平均 H2H**: 使用 Beta-Binomial 平滑計算 H2H 勝率，避免少量對戰數據造成的極端值。
+ *     採用先驗參數 α (勝利) 和 β (失敗) 來平滑勝率計算: posterior = (wins + α) / (total_games + α + β)
+ * 7.  **風險調整 (Risk Adjustment)**: 對歷史表現不穩定的代幣施加雙重懲罰，最終排名以此為準。
  */
 class GamePredictionService
 {
+    // Laplace 平滑參數
+    private const LAPLACE_ALPHA = 1;           // 平滑常數
+    private const LAPLACE_K = 4;               // 可能的結果類別數（成功/失敗的組合）
+    // 時間衰減相關參數
+    private const USE_TIME_DECAY = true;       // 是否啟用時間衰減
+
+    // === 冷啟動策略相關參數 ===
+    private const USE_COLD_START_STRATEGY = true;        // 是否啟用冷啟動策略
+    private const MIN_GAMES_FOR_VALID_STATS = 10;        // 認為統計數據有效的最小遊戲數（與GlobalStatistics保持一致）
+    private const MIN_H2H_GAMES_FOR_FALLBACK = 3;        // H2H需要回退到全域預設的最小遊戲數
+
     public function __construct(
         private DexPriceClient $dexPriceClient
     ) {}
@@ -46,6 +63,8 @@ class GamePredictionService
                 'momentum_weight' => 0.35,
                 'h2h_min_games_threshold' => 5,
                 'enhanced_stability_penalty' => 0.25,
+                'h2h_bayesian_alpha' => 2,  // 貝式先驗勝利參數
+                'h2h_bayesian_beta' => 2,   // 貝式先驗失敗參數
             ];
         });
     }
@@ -373,27 +392,111 @@ class GamePredictionService
         // 計算並格式化所有指標
         foreach ($tokenStats as $symbol => &$stats) {
             if ($stats['total_games'] > 0) {
-                $stats['win_rate'] = ($stats['wins'] / $stats['total_games']) * 100;
-                $stats['top3_rate'] = ($stats['top3'] / $stats['total_games']) * 100;
-                $stats['avg_rank'] = $stats['rank_sum'] / $stats['total_games'];
-                $avg_value = $stats['value_sum'] / $stats['total_games'];
-                $stats['avg_value'] = $avg_value;
+                // === 冷啟動策略：檢查數據是否足夠可靠 ===
+                $isDataSufficient = $stats['total_games'] >= self::MIN_GAMES_FOR_VALID_STATS;
 
-                if (count($stats['value_history']) > 1) {
-                    $variance = array_reduce($stats['value_history'], function ($carry, $item) use ($avg_value) {
-                        return $carry + pow($item - $avg_value, 2);
-                    }, 0);
-                    $stats['value_stddev'] = sqrt($variance / (count($stats['value_history']) - 1));
+                if (self::USE_COLD_START_STRATEGY && !$isDataSufficient) {
+                    // 數據不足，使用全域預設值
+                    $globalStats = GlobalStatistics::getGlobalStats();
+                    $defaultTop3Rate = $globalStats['average_top3_rate'];
+                    $defaultWinRate = $globalStats['average_win_rate'];
+                    $defaultAvgRank = $globalStats['average_avg_rank'];
+
+                    $stats['win_rate'] = $defaultWinRate;
+                    $stats['top3_rate'] = $defaultTop3Rate;
+                    $stats['avg_rank'] = $defaultAvgRank;
+                    $avg_value = $stats['value_sum'] / $stats['total_games'];
+                    $stats['avg_value'] = $avg_value;
+                    $stats['value_stddev'] = 0; // 設為0避免因數據少產生極端波動值
+                    $stats['cold_start_applied'] = true;
+                    $stats['data_insufficient'] = true;
+
+                    Log::debug('冷啟動策略應用於數據不足的代幣', [
+                        'symbol' => $symbol,
+                        'total_games' => $stats['total_games'],
+                        'threshold' => self::MIN_GAMES_FOR_VALID_STATS,
+                        'default_top3_rate' => $defaultTop3Rate,
+                        'original_top3_count' => $stats['top3'],
+                    ]);
                 } else {
-                    $stats['value_stddev'] = 0;
+                    // 數據充足，使用正常計算
+                    $stats['win_rate'] = ($stats['wins'] / $stats['total_games']) * 100;
+                    $stats['cold_start_applied'] = false;
+                    $stats['data_insufficient'] = false;
+
+                    // 計算時間衰減的 top3_rate
+                    if (self::USE_TIME_DECAY) {
+                        $decayCalculator = app(TimeDecayCalculatorService::class);
+                        $decayedTop3Data = $decayCalculator->calculateDecayedTop3Rate($symbol);
+
+                        // 使用時間衰減的 top3_rate，如果沒有應用衰減則回退到傳統計算
+                        if ($decayedTop3Data['decay_applied']) {
+                            $stats['top3_rate'] = $decayedTop3Data['decayed_top3_rate'];
+                            $stats['traditional_top3_rate'] = $decayedTop3Data['top3_rate'];
+                            $stats['decay_applied'] = true;
+                            $stats['decay_rate'] = $decayedTop3Data['decay_rate'] ?? 0.97;
+                        } else {
+                            // 使用 Laplace 平滑計算 top3_rate，提高資料少時的穩定性
+                            $top3RateSmoothed = ($stats['top3'] + self::LAPLACE_ALPHA) /
+                                               ($stats['total_games'] + self::LAPLACE_K * self::LAPLACE_ALPHA);
+                            $stats['top3_rate'] = $top3RateSmoothed * 100;
+                            $stats['traditional_top3_rate'] = $stats['top3_rate'];
+                            $stats['decay_applied'] = false;
+                        }
+                    } else {
+                        // 使用 Laplace 平滑計算 top3_rate，提高資料少時的穩定性
+                        $top3RateSmoothed = ($stats['top3'] + self::LAPLACE_ALPHA) /
+                                           ($stats['total_games'] + self::LAPLACE_K * self::LAPLACE_ALPHA);
+                        $stats['top3_rate'] = $top3RateSmoothed * 100;
+                        $stats['traditional_top3_rate'] = $stats['top3_rate'];
+                        $stats['decay_applied'] = false;
+                    }
+
+                    $stats['avg_rank'] = $stats['rank_sum'] / $stats['total_games'];
+                    $avg_value = $stats['value_sum'] / $stats['total_games'];
+                    $stats['avg_value'] = $avg_value;
+
+                    if (count($stats['value_history']) > 1) {
+                        $variance = array_reduce($stats['value_history'], function ($carry, $item) use ($avg_value) {
+                            return $carry + pow($item - $avg_value, 2);
+                        }, 0);
+                        $stats['value_stddev'] = sqrt($variance / (count($stats['value_history']) - 1));
+                    } else {
+                        $stats['value_stddev'] = 0;
+                    }
                 }
             } else {
-                // 如果沒有歷史數據，給予所有指標預設值
-                $stats['win_rate'] = 0;
-                $stats['top3_rate'] = 0;
-                $stats['avg_rank'] = 3; // 中間排名
-                $stats['avg_value'] = 0;
-                $stats['value_stddev'] = 0;
+                // === 冷啟動策略：無歷史數據時使用全域平均值 ===
+                if (self::USE_COLD_START_STRATEGY) {
+                    $globalStats = GlobalStatistics::getGlobalStats();
+                    $defaultTop3Rate = $globalStats['average_top3_rate'];
+                    $defaultWinRate = $globalStats['average_win_rate'];
+                    $defaultAvgRank = $globalStats['average_avg_rank'];
+
+                    $stats['win_rate'] = $defaultWinRate;
+                    $stats['top3_rate'] = $defaultTop3Rate;
+                    $stats['avg_rank'] = $defaultAvgRank;
+                    $stats['avg_value'] = 0;
+                    $stats['value_stddev'] = 0;
+                    $stats['cold_start_applied'] = true;
+
+                    Log::debug('冷啟動策略應用於新代幣', [
+                        'symbol' => $symbol,
+                        'default_top3_rate' => $defaultTop3Rate,
+                        'default_win_rate' => $defaultWinRate,
+                        'default_avg_rank' => $defaultAvgRank,
+                    ]);
+                } else {
+                    // 原有的 Laplace 平滑策略
+                    $stats['win_rate'] = 0;
+                    // 無歷史數據時，使用純平滑值：alpha / (k * alpha)
+                    $top3RateSmoothed = self::LAPLACE_ALPHA / (self::LAPLACE_K * self::LAPLACE_ALPHA);
+                    $stats['top3_rate'] = $top3RateSmoothed * 100;
+                    $stats['avg_rank'] = 3; // 中間排名
+                    $stats['avg_value'] = 0;
+                    $stats['value_stddev'] = 0;
+                    $stats['cold_start_applied'] = false;
+                }
             }
 
             // 格式化輸出，方便查看和使用
@@ -408,6 +511,23 @@ class GamePredictionService
     }
 
     /**
+     * 計算貝式平均勝率 (Beta-Binomial smoothing)
+     *
+     * 使用先驗參數來平滑勝率，避免少量對戰數據造成的極端值
+     *
+     * @param int $wins 勝利次數
+     * @param int $losses 失敗次數
+     * @param float $alpha 先驗勝利參數 (α)
+     * @param float $beta 先驗失敗參數 (β)
+     * @return float 平滑後的勝率 (0-1)
+     */
+    private function calculateBayesianWinRate(int $wins, int $losses, float $alpha, float $beta): float
+    {
+        // 貝式後驗勝率 = (wins + α) / (wins + losses + α + β)
+        return ($wins + $alpha) / ($wins + $losses + $alpha + $beta);
+    }
+
+    /**
      * 計算 H2H 相對強度分數
      */
     private function calculateHeadToHeadScores(array &$tokenStats): void
@@ -416,8 +536,12 @@ class GamePredictionService
         $strategyParams = $this->getActiveStrategyParameters();
         $h2hMinGamesThreshold = $strategyParams['h2h_min_games_threshold'] ?? 5;
 
+        // 獲取貝式平均參數
+        $bayesianAlpha = $strategyParams['h2h_bayesian_alpha'] ?? 2;
+        $bayesianBeta = $strategyParams['h2h_bayesian_beta'] ?? 2;
+
         foreach ($tokenStats as $symbol => &$stats) {
-            $totalWinRate = 0;
+            $totalPosteriorWinRate = 0;
             $validOpponentCount = 0;
 
             foreach ($currentTokenSymbols as $opponent) {
@@ -426,18 +550,44 @@ class GamePredictionService
                 }
                 $h2hData = $stats['h2h_stats'][$opponent] ?? null;
                 if ($h2hData && $h2hData['games'] >= $h2hMinGamesThreshold) {
-                    $totalWinRate += $h2hData['wins'] / $h2hData['games'];
+                    // 使用貝式平均計算平滑後的勝率
+                    $bayesianWinRate = $this->calculateBayesianWinRate(
+                        $h2hData['wins'],
+                        $h2hData['losses'],
+                        $bayesianAlpha,
+                        $bayesianBeta
+                    );
+                    $totalPosteriorWinRate += $bayesianWinRate;
                     $validOpponentCount++;
                 }
             }
 
             if ($validOpponentCount > 0) {
-                $stats['h2h_score'] = ($totalWinRate / $validOpponentCount) * 100;
+                $stats['h2h_score'] = ($totalPosteriorWinRate / $validOpponentCount) * 100;
+                $stats['h2h_cold_start_applied'] = false;
             } else {
-                // H2H數據不足時，基於絕對實力智能回退
-                $absoluteScore = $this->calculateAbsoluteScore($stats);
-                $fallbackScore = ($absoluteScore / 105) * 50 + 25; // 將0-105分的absolute_score映射到25-75分區間
-                $stats['h2h_score'] = max(25, min(75, $fallbackScore));
+                // === 冷啟動策略：H2H數據不足時的處理 ===
+                if (self::USE_COLD_START_STRATEGY) {
+                    // 使用全域統計的預設值：接近中性的分數
+                    $globalStats = GlobalStatistics::getGlobalStats();
+                    $defaultH2HScore = GlobalStatistics::DEFAULT_H2H_SCORE; // 50分，保持中性
+
+                    $stats['h2h_score'] = $defaultH2HScore;
+                    $stats['h2h_cold_start_applied'] = true;
+
+                    Log::debug('冷啟動策略應用於H2H數據不足', [
+                        'symbol' => $symbol,
+                        'valid_opponent_count' => $validOpponentCount,
+                        'default_h2h_score' => $defaultH2HScore,
+                        'total_opponents' => count($currentTokenSymbols) - 1,
+                    ]);
+                } else {
+                    // 原有的智能回退策略
+                    $absoluteScore = $this->calculateAbsoluteScore($stats);
+                    $fallbackScore = ($absoluteScore / 105) * 50 + 25; // 將0-105分的absolute_score映射到25-75分區間
+                    $stats['h2h_score'] = max(25, min(75, $fallbackScore));
+                    $stats['h2h_cold_start_applied'] = false;
+                }
             }
         }
     }
@@ -575,6 +725,12 @@ class GamePredictionService
 
     /**
      * 計算絕對分數（保本優先策略）
+     *
+     * 使用經過 Laplace 平滑處理的 top3_rate 作為基礎分數，
+     * 避免歷史數據較少時產生極端值（0% 或 100%）。
+     *
+     * Laplace 平滑公式：(top3 + α) / (total_games + k * α)
+     * 其中 α = 1，k = 4
      */
     private function calculateAbsoluteScore(array $data): float
     {
@@ -588,10 +744,10 @@ class GamePredictionService
         return max(0, min(105, $finalScore)); // 最高分可能因可靠性加分超過100
     }
 
-    /**
+        /**
      * 計算風險調整後分數
      */
-    private function calculateRiskAdjustedScore(float $predictedValue, array $data, array $allTokenStats): float
+private function calculateRiskAdjustedScore(float $predictedValue, array $data, array $allTokenStats): float
     {
         $valueStddev = $data['value_stddev'] ?? 0;
         if ($valueStddev <= 0.01) {
@@ -620,9 +776,10 @@ class GamePredictionService
             $riskAdjustedScore = $predictedValue / (1 + ($valueStddev * $enhancedStabilityPenalty));
         }
 
-        // 高風險額外懲罰
+        // --- 動態風險懲罰：根據歷史 top3 成功率調整懲罰程度 ---
         if ($avgStddev > 0 && $valueStddev > ($avgStddev * self::STABILITY_THRESHOLD_MULTIPLIER)) {
-            $riskAdjustedScore *= self::HIGH_RISK_PENALTY_FACTOR;
+            $effectivePenalty = $this->calculateDynamicRiskPenalty($data);
+            $riskAdjustedScore *= $effectivePenalty;
         }
 
         // --- 優化點1：直接給予保本率獎勵 ---
@@ -631,6 +788,49 @@ class GamePredictionService
         // --- 優化結束 ---
 
         return max(0, min(100, $riskAdjustedScore));
+    }
+
+    /**
+     * 計算動態風險懲罰因子
+     *
+     * 根據代幣的歷史 top3 成功率動態調整風險懲罰程度：
+     * - 若代幣波動大但常常進入前三，則減少懲罰
+     * - 若代幣波動大且很少進入前三，則維持或加重懲罰
+     *
+     * @param array $data 代幣數據，包含 top3_rate 等信息
+     * @return float 動態調整後的懲罰因子 (0.5-0.95 之間)
+     */
+    private function calculateDynamicRiskPenalty(array $data): float
+    {
+        $basePenalty = self::HIGH_RISK_PENALTY_FACTOR; // 0.90，基礎懲罰因子
+        $top3Rate = $data['top3_rate'] ?? 0; // 獲取代幣的 top3 成功率
+
+        // 將 top3_rate 標準化到 0-1 範圍
+        $top3RateNormalized = max(0, min(100, $top3Rate)) / 100;
+
+        // 計算有效懲罰因子：top3_rate 越高，懲罰越小
+        // 公式：effectivePenalty = 1 - (1 - basePenalty) * (1 - top3RateNormalized)
+        // 簡化為：effectivePenalty = basePenalty + (1 - basePenalty) * top3RateNormalized
+        $effectivePenalty = $basePenalty + (1 - $basePenalty) * $top3RateNormalized;
+
+        // 確保懲罰因子在合理範圍內 (0.5-0.95)
+        // 即使 top3_rate 為 0，也不會過度懲罰（最低0.5）
+        // 即使 top3_rate 為 100%，也保持一定的謹慎性（最高0.95）
+        $minPenalty = 0.50; // 最嚴厲懲罰：得分打5折
+        $maxPenalty = 0.95; // 最輕微懲罰：得分打95折
+
+        $finalPenalty = max($minPenalty, min($maxPenalty, $effectivePenalty));
+
+        // 記錄調試信息（可選）
+        Log::debug('動態風險懲罰計算', [
+            'symbol' => $data['symbol'] ?? 'unknown',
+            'top3_rate' => $top3Rate,
+            'base_penalty' => $basePenalty,
+            'effective_penalty' => $effectivePenalty,
+            'final_penalty' => $finalPenalty,
+        ]);
+
+        return $finalPenalty;
     }
 
     /**

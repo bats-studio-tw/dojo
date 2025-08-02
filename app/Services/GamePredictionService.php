@@ -665,10 +665,10 @@ class GamePredictionService
         return max(0, min(105, $finalScore)); // 最高分可能因可靠性加分超過100
     }
 
-    /**
+        /**
      * 計算風險調整後分數
      */
-    private function calculateRiskAdjustedScore(float $predictedValue, array $data, array $allTokenStats): float
+private function calculateRiskAdjustedScore(float $predictedValue, array $data, array $allTokenStats): float
     {
         $valueStddev = $data['value_stddev'] ?? 0;
         if ($valueStddev <= 0.01) {
@@ -697,9 +697,10 @@ class GamePredictionService
             $riskAdjustedScore = $predictedValue / (1 + ($valueStddev * $enhancedStabilityPenalty));
         }
 
-        // 高風險額外懲罰
+        // --- 動態風險懲罰：根據歷史 top3 成功率調整懲罰程度 ---
         if ($avgStddev > 0 && $valueStddev > ($avgStddev * self::STABILITY_THRESHOLD_MULTIPLIER)) {
-            $riskAdjustedScore *= self::HIGH_RISK_PENALTY_FACTOR;
+            $effectivePenalty = $this->calculateDynamicRiskPenalty($data);
+            $riskAdjustedScore *= $effectivePenalty;
         }
 
         // --- 優化點1：直接給予保本率獎勵 ---
@@ -708,6 +709,49 @@ class GamePredictionService
         // --- 優化結束 ---
 
         return max(0, min(100, $riskAdjustedScore));
+    }
+
+    /**
+     * 計算動態風險懲罰因子
+     *
+     * 根據代幣的歷史 top3 成功率動態調整風險懲罰程度：
+     * - 若代幣波動大但常常進入前三，則減少懲罰
+     * - 若代幣波動大且很少進入前三，則維持或加重懲罰
+     *
+     * @param array $data 代幣數據，包含 top3_rate 等信息
+     * @return float 動態調整後的懲罰因子 (0.5-0.95 之間)
+     */
+    private function calculateDynamicRiskPenalty(array $data): float
+    {
+        $basePenalty = self::HIGH_RISK_PENALTY_FACTOR; // 0.90，基礎懲罰因子
+        $top3Rate = $data['top3_rate'] ?? 0; // 獲取代幣的 top3 成功率
+
+        // 將 top3_rate 標準化到 0-1 範圍
+        $top3RateNormalized = max(0, min(100, $top3Rate)) / 100;
+
+        // 計算有效懲罰因子：top3_rate 越高，懲罰越小
+        // 公式：effectivePenalty = 1 - (1 - basePenalty) * (1 - top3RateNormalized)
+        // 簡化為：effectivePenalty = basePenalty + (1 - basePenalty) * top3RateNormalized
+        $effectivePenalty = $basePenalty + (1 - $basePenalty) * $top3RateNormalized;
+
+        // 確保懲罰因子在合理範圍內 (0.5-0.95)
+        // 即使 top3_rate 為 0，也不會過度懲罰（最低0.5）
+        // 即使 top3_rate 為 100%，也保持一定的謹慎性（最高0.95）
+        $minPenalty = 0.50; // 最嚴厲懲罰：得分打5折
+        $maxPenalty = 0.95; // 最輕微懲罰：得分打95折
+
+        $finalPenalty = max($minPenalty, min($maxPenalty, $effectivePenalty));
+
+        // 記錄調試信息（可選）
+        Log::debug('動態風險懲罰計算', [
+            'symbol' => $data['symbol'] ?? 'unknown',
+            'top3_rate' => $top3Rate,
+            'base_penalty' => $basePenalty,
+            'effective_penalty' => $effectivePenalty,
+            'final_penalty' => $finalPenalty,
+        ]);
+
+        return $finalPenalty;
     }
 
     /**

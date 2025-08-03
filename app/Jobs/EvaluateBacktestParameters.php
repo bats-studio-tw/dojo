@@ -426,39 +426,53 @@ class EvaluateBacktestParameters implements ShouldQueue
     }
 
     /**
-     * 計算綜合評分 - 以 Top3 準確率為核心，權重調整
+     * 計算綜合評分 - 強化保本率指標
+     *
+     * 權重分配：
+     * - Top3 準確率：40% (主要保本率指標)
+     * - Top3 加權準確率：30%
+     * - 平均信心度：20%
+     * - 樣本量：10%
+     *
+     * 懲罰機制：
+     * - 當加權與非加權準確率差距超過5%時，每超過1%扣0.2分
      */
     private function calculateCompositeScore(float $top3WeightedAccuracy, float $avgConfidence, int $totalGames, float $top3Accuracy): float
     {
-        // 主要分數：Top3 加權準確率，權重 60%
-        $top3Score = $top3WeightedAccuracy * 0.6;
+        // Top3 準確率：權重 40% (強化保本率指標)
+        $top3Score = $top3Accuracy * 0.4;
 
-        // 信心度獎勵：平均信心度，權重 30%
-        $confidenceBonus = $avgConfidence * 0.3;
+        // Top3 加權準確率：權重 30%
+        $top3WeightedScore = $top3WeightedAccuracy * 0.3;
+
+        // 信心度獎勵：平均信心度，權重 20% (降低信心度權重)
+        $confidenceBonus = $avgConfidence * 0.2;
 
         // 樣本量獎勵：遊戲數量越多，獎勵越高（但有限制），權重 10%
-        $sampleBonus = min($totalGames / 1000, 1) * 10; // 最多10分獎勵
+        $sampleBonus = min($totalGames / 1000, 1) * 10 * 0.1; // 最多1分獎勵
 
-        // 額外獎勵：如果 Top3 準確率很高，給予額外獎勵
-        $excellenceBonus = 0;
-        if ($top3Accuracy >= 70) {
-            $excellenceBonus = ($top3Accuracy - 70) * 0.1; // 每超過70%，額外獎勵0.1分/百分點
-        }
+        // 懲罰項：加權與非加權準確率差距過大時扣分
+        $accuracyGap = $top3WeightedAccuracy - $top3Accuracy;
+        $penalty = max(0, $accuracyGap - 5) * 0.2; // 當差距超過5%時，每超過1%扣0.2分
 
-        $totalScore = $top3Score + $confidenceBonus + $sampleBonus + $excellenceBonus;
+        $totalScore = $top3Score + $top3WeightedScore + $confidenceBonus + $sampleBonus - $penalty;
 
-        Log::debug('綜合評分計算詳情 (新版本)', [
+        Log::debug('綜合評分計算詳情 (強化保本率版本)', [
+            'top3_accuracy' => $top3Accuracy,
             'top3_weighted_accuracy' => $top3WeightedAccuracy,
             'top3_score' => $top3Score,
+            'top3_weighted_score' => $top3WeightedScore,
             'confidence_bonus' => $confidenceBonus,
             'sample_bonus' => $sampleBonus,
-            'excellence_bonus' => $excellenceBonus,
+            'accuracy_gap' => $accuracyGap,
+            'penalty' => $penalty,
             'total_score' => $totalScore,
             'scoring_weights' => [
-                'top3_weight' => '60%',
-                'confidence_weight' => '30%',
+                'top3_accuracy_weight' => '40%',
+                'top3_weighted_weight' => '30%',
+                'confidence_weight' => '20%',
                 'sample_weight' => '10%',
-                'excellence_threshold' => '70%',
+                'penalty_threshold' => '5% gap',
             ],
         ]);
 

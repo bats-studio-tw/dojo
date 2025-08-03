@@ -45,8 +45,15 @@ class PromoteBestStrategy extends Command
             $minScore = 40;
         }
 
+        // 讀取門檻設定
+        $thresholds = config('backtest.promotion_thresholds');
+        $minBreakeven = $thresholds['min_breakeven_rate'] ?? 0;
+        $minTradeRatio = $thresholds['min_total_trades_ratio'] ?? 0;
+
         $this->info('開始策略晉升流程');
         $this->info("最低分數門檻: {$minScore}");
+        $this->info("保本率門檻: {$minBreakeven}%");
+        $this->info("出手頻次門檻: ".($minTradeRatio * 100)."%");
         $this->info('強制晉升: '.($force ? '是' : '否'));
         $this->info('快速晉升: '.($forceQuick ? '是' : '否'));
 
@@ -132,16 +139,37 @@ class PromoteBestStrategy extends Command
      */
     private function findBestStrategy(string $runId, float $minScore, bool $force, bool $forceQuick = false): ?BacktestResult
     {
+        // 讀取策略晉升門檻設定
+        $thresholds = config('backtest.promotion_thresholds');
+        $minBreakeven = $thresholds['min_breakeven_rate'] ?? 0;
+        $minTradeRatio = $thresholds['min_total_trades_ratio'] ?? 0;
+
+        $this->info("策略晉升門檻 - 保本率: {$minBreakeven}%, 出手頻次: ".($minTradeRatio * 100)."%");
+
         $query = BacktestResult::where('run_id', $runId)
             ->orderBy('score', 'desc');
 
         if (! $force) {
             $query->where('score', '>=', $minScore);
+
+            // 添加保本率門檻 (Top3 命中率)
+            if ($minBreakeven > 0) {
+                $query->where('top3_accuracy', '>=', $minBreakeven);
+            }
+
+            // 添加出手頻次門檻 (正確預測數 / 總遊戲數)
+            if ($minTradeRatio > 0) {
+                $query->whereRaw('correct_predictions / total_games >= ?', [$minTradeRatio]);
+            }
         }
 
         $bestResult = $query->first();
 
         if (! $bestResult) {
+            // 如果沒有找到符合條件的策略，提供詳細的診斷信息
+            if (! $force) {
+                $this->provideDiagnostics($runId, $minScore, $minBreakeven, $minTradeRatio);
+            }
             return null;
         }
 
@@ -230,6 +258,51 @@ class PromoteBestStrategy extends Command
         );
 
         return $name;
+    }
+
+    /**
+     * 提供詳細的策略篩選診斷信息
+     */
+    private function provideDiagnostics(string $runId, float $minScore, float $minBreakeven, float $minTradeRatio): void
+    {
+        // 統計各個門檻的策略數量
+        $totalStrategies = BacktestResult::where('run_id', $runId)->count();
+        $scorePassCount = BacktestResult::where('run_id', $runId)
+            ->where('score', '>=', $minScore)->count();
+        $breakevenPassCount = BacktestResult::where('run_id', $runId)
+            ->where('top3_accuracy', '>=', $minBreakeven)->count();
+        $tradeRatioPassCount = BacktestResult::where('run_id', $runId)
+            ->whereRaw('correct_predictions / total_games >= ?', [$minTradeRatio])->count();
+
+        // 同時通過所有門檻的策略數量
+        $allPassCount = BacktestResult::where('run_id', $runId)
+            ->where('score', '>=', $minScore)
+            ->where('top3_accuracy', '>=', $minBreakeven)
+            ->whereRaw('correct_predictions / total_games >= ?', [$minTradeRatio])
+            ->count();
+
+        $this->warn('策略篩選診斷報告:');
+        $this->info("總策略數: {$totalStrategies}");
+        $this->info("通過分數門檻 (>= {$minScore}): {$scorePassCount}");
+        $this->info("通過保本率門檻 (>= {$minBreakeven}%): {$breakevenPassCount}");
+        $this->info("通過出手頻次門檻 (>= ".($minTradeRatio * 100)."%): {$tradeRatioPassCount}");
+        $this->info("同時通過所有門檻: {$allPassCount}");
+
+        if ($allPassCount === 0) {
+            $this->warn('建議: 考慮調整門檻設定或使用 --force 選項強制晉升');
+        }
+
+        // 顯示最接近的策略
+        $closestStrategy = BacktestResult::where('run_id', $runId)
+            ->orderBy('score', 'desc')
+            ->first();
+
+        if ($closestStrategy) {
+            $this->info('最高分策略詳情:');
+            $this->info("分數: {$closestStrategy->score}");
+            $this->info("保本率: {$closestStrategy->top3_accuracy}%");
+            $this->info("出手頻次: ".round(($closestStrategy->correct_predictions / $closestStrategy->total_games) * 100, 2)."%");
+        }
     }
 
     /**

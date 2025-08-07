@@ -416,13 +416,6 @@ class GameWebSocketService
 
         $this->messageCount++; // 统计所有收到的消息
 
-        // 添加调试日志，记录收到的消息类型
-        $this->logInfo('📨 收到WebSocket消息', [
-            'payload_length' => strlen($payload),
-            'payload_preview' => substr($payload, 0, 100) . '...',
-            'message_count' => $this->messageCount,
-        ]);
-
         try {
             $jsonData = substr($payload, 3);
             $outerData = json_decode($jsonData, true);

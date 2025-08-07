@@ -591,27 +591,6 @@
     };
   };
 
-  // 🔧 评估预测是否符合策略条件 - 使用动态条件
-  const evaluatePredictionMatch = (prediction: any): boolean => {
-    // 如果没有动态条件，默认通过
-    if (!config.dynamic_conditions || config.dynamic_conditions.length === 0) {
-      return true;
-    }
-
-    console.log(`🔍 [AutoBetting] 评估Token ${prediction.symbol} 的条件匹配:`, {
-      symbol: prediction.symbol,
-      predicted_rank: prediction.predicted_rank,
-      momentum_rank: prediction.momentum_rank,
-      win_rate: prediction.win_rate,
-      conditions: config.dynamic_conditions
-    });
-
-    const result = evaluateDynamicConditions(prediction, config.dynamic_conditions);
-
-    console.log(`🔍 [AutoBetting] Token ${prediction.symbol} 最终匹配结果:`, result);
-    return result;
-  };
-
   // 计算下注金额 - 硬编码模式
   const calculateBetAmount = (): number => {
     // 🎯 根据betting_mode硬编码下注金额
@@ -663,7 +642,27 @@
     // 找出所有符合条件的预测
     predictions.forEach((rawPrediction: any) => {
       const prediction = mapPredictionData(rawPrediction);
-      const isMatch = evaluatePredictionMatch(prediction);
+
+      // 🔧 修复：使用与SmartControlCenter.vue完全相同的评估逻辑
+      let isMatch = false;
+
+      // 使用动态条件评估
+      if ((config.dynamic_conditions || []).length > 0) {
+        console.log(`🔍 [AutoBetting] 评估Token ${prediction.symbol} 的条件匹配:`, {
+          symbol: prediction.symbol,
+          predicted_rank: prediction.predicted_rank,
+          momentum_rank: prediction.momentum_rank,
+          win_rate: prediction.win_rate,
+          conditions: config.dynamic_conditions
+        });
+
+        isMatch = evaluateDynamicConditions(prediction, config.dynamic_conditions || []);
+
+        console.log(`🔍 [AutoBetting] Token ${prediction.symbol} 最终匹配结果:`, isMatch);
+      } else {
+        // 如果没有动态条件，默认通过
+        isMatch = true;
+      }
 
       // 🔧 调试：输出条件评估详情
       console.log(`🔍 [策略验证] Token ${prediction.symbol} 条件评估:`, {

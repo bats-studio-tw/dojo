@@ -416,12 +416,19 @@ class GameWebSocketService
 
         $this->messageCount++; // 统计所有收到的消息
 
+        // 添加调试日志，记录收到的消息类型
+        $this->logInfo('📨 收到WebSocket消息', [
+            'payload_length' => strlen($payload),
+            'payload_preview' => substr($payload, 0, 100) . '...',
+            'message_count' => $this->messageCount,
+        ]);
+
         try {
             $jsonData = substr($payload, 3);
             $outerData = json_decode($jsonData, true);
 
-            // 检查外层数据结构
-            if (! isset($outerData['type']) || $outerData['type'] !== 'gameData') {
+            // 检查外层数据结构 - 支持 'dash' 和 'gameData' 两种类型
+            if (! isset($outerData['type']) || ! in_array($outerData['type'], ['dash', 'gameData'])) {
                 return;
             }
 
@@ -441,6 +448,16 @@ class GameWebSocketService
             $type = $gameData['type'] ?? 'unknown';
             $status = $gameData['status'] ?? 'unknown';
             $rdId = $gameData['rdId'] ?? 'unknown';
+
+            // 添加调试日志
+            $this->logInfo('🔍 解析游戏数据', [
+                'outer_type' => $outerData['type'] ?? 'unknown',
+                'inner_type' => $type,
+                'status' => $status,
+                'rdId' => $rdId,
+                'has_tokens' => isset($gameData['token']) && is_array($gameData['token']),
+                'token_count' => isset($gameData['token']) ? count($gameData['token']) : 0,
+            ]);
 
             // *** 核心邏輯：處理不同狀態的遊戲訊息 ***
             if ($type === 'round') {

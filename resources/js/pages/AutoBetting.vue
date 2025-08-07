@@ -627,9 +627,30 @@
     debugInfo.strategyValidationCount++;
     debugInfo.lastValidationTime = new Date().toLocaleTimeString();
 
-    // 使用当前分析数据
-    const predictions = currentAnalysis.value || [];
-    console.log(`📊 策略验证：使用 ${predictions.length} 个分析数据`);
+    // 🔧 修复：使用与SmartControlCenter.vue相同的数据源（合并动能数据）
+    const h2hData = currentAnalysis.value || [];
+    const momentumData = hybridPredictions.value || [];
+
+    // 合并数据，与SmartControlCenter.vue保持一致
+    let predictions: any[] = [];
+    if (momentumData.length > 0 && h2hData.length > 0) {
+      predictions = h2hData.map((h2hToken: any) => {
+        const momentumToken = momentumData.find((m: any) => m.symbol?.toUpperCase() === h2hToken.symbol?.toUpperCase());
+        return {
+          ...h2hToken,
+          momentum_rank: momentumToken?.predicted_rank ?? null,
+          mom_score: momentumToken?.mom_score ?? null,
+          final_score: momentumToken?.final_score ?? null,
+          elo_prob: momentumToken?.elo_prob ?? null
+        };
+      });
+    } else if (momentumData.length > 0 && h2hData.length === 0) {
+      predictions = momentumData;
+    } else {
+      predictions = h2hData;
+    }
+
+    console.log(`📊 策略验证：使用 ${predictions.length} 个合并后的分析数据`);
 
     if (!predictions || predictions.length === 0) {
       console.log(`⚠️ 策略验证：无可用预测数据`);

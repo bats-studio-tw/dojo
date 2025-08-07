@@ -342,6 +342,7 @@
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import { usePredictionStats } from '@/composables/usePredictionStats';
   import { useMomentumPredictionStats } from '@/composables/useMomentumPredictionStats';
+  import { useConditionBuilder } from '@/composables/useConditionBuilder';
   import type { StrategyValidation } from '@/types/autoBetting';
   import type { UserInfo } from '@/types';
   import type { MomentumPredictionHistoryRound } from '@/composables/useMomentumPredictionStats';
@@ -354,6 +355,7 @@
   const configComposable = useAutoBettingConfig();
   const controlComposable = useAutoBettingControl();
   const predictionStore = useGamePredictionStore();
+  const { evaluateDynamicConditions } = useConditionBuilder();
 
   // 从store中获取响应式数据
   const {
@@ -500,42 +502,6 @@
 
   // ==================== 工具函数 ====================
 
-  // 🔧 新增：获取条件值的辅助函数
-  const getConditionValue = (prediction: any, type: string): number => {
-    switch (type) {
-      case 'confidence':
-        return prediction.confidence || 0;
-      case 'score':
-        return prediction.score || 0;
-      case 'sample_count':
-        return prediction.sample_count || 0;
-      case 'win_rate':
-        return prediction.win_rate || 0; // win_rate已经是百分比格式
-      case 'h2h_rank':
-        return prediction.predicted_rank || 999;
-      case 'momentum_rank':
-        return prediction.momentum_rank || 999;
-      case 'top3_rate':
-        return prediction.top3_rate || 0; // top3_rate已经是百分比格式
-      case 'avg_rank':
-        return prediction.avg_rank || 3;
-      case 'absolute_score':
-        return prediction.absolute_score || 0;
-      case 'relative_score':
-        return prediction.relative_score || 0;
-      case 'h2h_score':
-        return prediction.h2h_score || 0;
-      case 'momentum_score':
-        return prediction.momentum_score || prediction.mom_score || 0;
-      case 'elo_win_rate':
-        return prediction.elo_win_rate || prediction.elo_prob || 0;
-      case 'momentum_confidence':
-        return prediction.confidence || 0;
-      default:
-        return 0;
-    }
-  };
-
   // WebSocket状态样式
   const getWebSocketStatusClass = () => {
     const status = websocketStatus.value.status;
@@ -625,70 +591,6 @@
     };
   };
 
-  // 评估单个条件
-  const evaluateCondition = (prediction: any, condition: any): boolean => {
-    const { type, operator, value } = condition;
-
-    let actualValue: number;
-
-    switch (type) {
-      case 'confidence':
-        actualValue = prediction.confidence || 0;
-        break;
-      case 'score':
-        actualValue = prediction.score || 0;
-        break;
-      case 'sample_count':
-        actualValue = prediction.sample_count || 0;
-        break;
-      case 'win_rate':
-        actualValue = prediction.win_rate || 0; // win_rate已经是百分比格式
-        break;
-      case 'h2h_rank':
-        actualValue = prediction.predicted_rank || 999;
-        break;
-      case 'momentum_rank':
-        actualValue = prediction.momentum_rank || 999;
-        break;
-      case 'top3_rate':
-        actualValue = prediction.top3_rate || 0; // top3_rate已经是百分比格式
-        break;
-      case 'avg_rank':
-        actualValue = prediction.avg_rank || 3;
-        break;
-
-      case 'absolute_score':
-        actualValue = prediction.absolute_score || 0;
-        break;
-      case 'relative_score':
-        actualValue = prediction.relative_score || 0;
-        break;
-      case 'h2h_score':
-        actualValue = prediction.h2h_score || 0;
-        break;
-
-      default:
-        return true; // 未知类型默认通过
-    }
-
-    switch (operator) {
-      case 'gte':
-        return actualValue >= value;
-      case 'lte':
-        return actualValue <= value;
-      case 'gt':
-        return actualValue > value;
-      case 'lt':
-        return actualValue < value;
-      case 'eq':
-        return actualValue === value;
-      case 'ne':
-        return actualValue !== value;
-      default:
-        return true; // 未知操作符默认通过
-    }
-  };
-
   // 🔧 评估预测是否符合策略条件 - 使用动态条件
   const evaluatePredictionMatch = (prediction: any): boolean => {
     // 如果没有动态条件，默认通过
@@ -696,92 +598,18 @@
       return true;
     }
 
-    // 🔧 修复：使用正确的分组逻辑评估
-    console.log(`🔍 [条件评估] 开始评估Token ${prediction.symbol}:`, {
+    console.log(`🔍 [AutoBetting] 评估Token ${prediction.symbol} 的条件匹配:`, {
+      symbol: prediction.symbol,
       predicted_rank: prediction.predicted_rank,
       momentum_rank: prediction.momentum_rank,
       win_rate: prediction.win_rate,
-      conditions: config.dynamic_conditions.map((c) => ({
-        type: c.type,
-        operator: c.operator,
-        value: c.value,
-        logic: c.logic
-      }))
+      conditions: config.dynamic_conditions
     });
 
-    // 如果只有一个条件，直接返回结果
-    if (config.dynamic_conditions.length === 1) {
-      const result = evaluateCondition(prediction, config.dynamic_conditions[0]);
-      console.log(`🔍 [条件评估] 单个条件结果:`, result);
-      return result;
-    }
+    const result = evaluateDynamicConditions(prediction, config.dynamic_conditions);
 
-    // 🔧 修复：重新实现正确的逻辑评估
-    // 将条件分组：每个OR连接的条件组
-    const groups: boolean[][] = [];
-    let currentGroup: boolean[] = [];
-
-    // 处理第一个条件
-    const firstResult = evaluateCondition(prediction, config.dynamic_conditions[0]);
-    currentGroup.push(firstResult);
-    console.log(
-      `🔍 [条件评估] 条件1 (${config.dynamic_conditions[0].type} ${config.dynamic_conditions[0].operator} ${config.dynamic_conditions[0].value}):`,
-      {
-        actualValue: getConditionValue(prediction, config.dynamic_conditions[0].type),
-        result: firstResult
-      }
-    );
-
-    // 从第二个条件开始处理
-    for (let i = 1; i < config.dynamic_conditions.length; i++) {
-      const condition = config.dynamic_conditions[i];
-      const currentResult = evaluateCondition(prediction, condition);
-
-      console.log(
-        `🔍 [条件评估] 条件${i + 1} (${condition.type} ${condition.operator} ${condition.value}) [${condition.logic}]:`,
-        {
-          actualValue: getConditionValue(prediction, condition.type),
-          result: currentResult,
-          currentGroup
-        }
-      );
-
-      if (condition.logic === 'and') {
-        // AND逻辑：继续添加到当前组
-        currentGroup.push(currentResult);
-        console.log(`🔍 [条件评估] AND逻辑，添加到当前组:`, currentGroup);
-      } else {
-        // OR逻辑：完成当前组，开始新组
-        if (currentGroup.length > 0) {
-          groups.push([...currentGroup]);
-          console.log(`🔍 [条件评估] OR逻辑，完成当前组:`, currentGroup);
-        }
-        currentGroup = [currentResult];
-        console.log(`🔍 [条件评估] OR逻辑，开始新组:`, currentGroup);
-      }
-    }
-
-    // 处理最后一个组
-    if (currentGroup.length > 0) {
-      groups.push([...currentGroup]);
-      console.log(`🔍 [条件评估] 处理最后组:`, currentGroup);
-    }
-
-    // 计算每个组的结果（AND组内所有条件都为真）
-    const groupResults = groups.map((group) => group.every((result) => result));
-    console.log(`🔍 [条件评估] 各组结果:`, {
-      groups,
-      groupResults
-    });
-
-    // 最终结果：任何一组为真即可（OR连接）
-    const finalResult = groupResults.some((result) => result);
-    console.log(`🔍 [条件评估] 最终结果:`, {
-      groupResults,
-      finalResult
-    });
-
-    return finalResult;
+    console.log(`🔍 [AutoBetting] Token ${prediction.symbol} 最终匹配结果:`, result);
+    return result;
   };
 
   // 计算下注金额 - 硬编码模式

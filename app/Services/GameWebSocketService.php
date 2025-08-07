@@ -355,8 +355,8 @@ class GameWebSocketService
      */
     private function sendInitialMessage(WebSocket $conn): void
     {
-        // 這段 PHP 程式碼等同於你提供的 JavaScript 函數，用於生成一個唯一的客戶端ID
-        $clientId = 'RG#'.bin2hex(random_bytes(16));
+        // 使用固定的客户端ID
+        $clientId = 'RG#dash';
 
         try {
             $conn->send($clientId);

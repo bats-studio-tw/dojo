@@ -550,7 +550,7 @@ class AutoBettingController extends Controller
             $validator = Validator::make($request->all(), [
                 'uid' => 'required|string',
                 'is_active' => 'required|boolean',
-                'jwt_token' => 'present|string|nullable', // 允许jwt_token为空字符串或null
+                'jwt_token' => 'nullable|string', // 允许jwt_token为空或不存在
             ]);
 
             if ($validator->fails()) {

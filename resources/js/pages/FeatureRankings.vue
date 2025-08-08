@@ -94,8 +94,18 @@
         </div>
 
         <!-- 条件面板  -->
-
         <V3ConditionPanel :matrix="matrix || null" />
+
+        <!-- V3 一键下注（基于当前名次条件与 TopN） -->
+        <div class="mt-4 flex items-center gap-3">
+          <NButton type="primary" :disabled="placingBets" :loading="placingBets" @click="placeBetsByV3()">
+            <template #icon>
+              <span>🤖</span>
+            </template>
+            按当前条件下注
+          </NButton>
+          <div class="text-xs text-white/60">将根据当前名次条件筛选并截取 Top {{ v3TopN }}，逐个下单</div>
+        </div>
 
         <!-- 登录/账户设置复用组件 -->
         <WalletSetup :visible="showWalletSetup" @validated="onWalletValidated" />
@@ -130,6 +140,7 @@
   import type { WebSocketStatus as WS } from '@/utils/websocketManager';
   import type { GameDataUpdateEvent } from '@/stores/gamePrediction';
   import { useAutoBettingControl } from '@/composables/useAutoBettingControl';
+  import { useV3Conditions } from '@/composables/useV3Conditions';
 
   const store = useFeatureStore();
   const matrix = computed(() => store.matrix);
@@ -168,7 +179,8 @@
     startAutoBetting,
     stopAutoBetting,
     restoreAuthState,
-    loadStatus
+    loadStatus,
+    executeSingleBet
   } = useAutoBettingControl();
   const bettingMode = computed<'real' | 'dummy'>(() => {
     // 简化：若有存储的配置则读取，否则默认real
@@ -192,6 +204,74 @@
     required_balance?: number;
     balance_sufficient?: boolean;
   } | null>(null);
+
+  // =============== V3 条件（名次驱动）===============
+  const v3 = useV3Conditions(() => store.matrix);
+  v3.loadFromLocalStorage();
+  const v3TopN = computed(() => Math.max(1, v3.topN.value || 1));
+  const eligibleTokens = computed<string[]>(() => v3.filterTokens());
+  const selectedTokens = computed<string[]>(() => eligibleTokens.value.slice(0, v3TopN.value));
+
+  // 下单开关
+  const placingBets = ref(false);
+  // 本地下注金额规则（与自动下注页一致）
+  const calculateBetAmount = (): number => (bettingMode.value === 'real' ? 200 : 5);
+
+  // 一键下注（基于V3）
+  const placeBetsByV3 = async () => {
+    if (!tokenValidated.value || !jwtToken.value) {
+      window.$message?.warning('请先完成身份验证');
+      return;
+    }
+
+    const roundIdVal = currentRoundId.value;
+    if (!roundIdVal) {
+      window.$message?.warning('暂无当前轮次，稍后再试');
+      return;
+    }
+
+    const tokens = selectedTokens.value;
+    if (!tokens.length) {
+      window.$message?.warning('当前条件没有可下注的Token');
+      return;
+    }
+
+    // 余额校验
+    const betAmount = calculateBetAmount();
+    const total = betAmount * tokens.length;
+    const balance =
+      bettingMode.value === 'real' ? displayUserInfo.value?.ojoValue || 0 : displayUserInfo.value?.available || 0;
+    if (total > balance) {
+      window.$message?.error(`余额不足：需要 $${total.toFixed(0)}，当前 $${(balance || 0).toFixed(0)}`);
+      return;
+    }
+
+    // 更新摘要面板
+    strategyValidation.value = {
+      total_matched: tokens.length,
+      required_balance: total,
+      balance_sufficient: true
+    };
+
+    placingBets.value = true;
+    let success = 0;
+    let fail = 0;
+    for (const symbol of tokens) {
+      try {
+        const ok = await executeSingleBet(roundIdVal, symbol, betAmount, jwtToken.value, bettingMode.value);
+        if (ok) success++;
+        else fail++;
+        await new Promise((r) => setTimeout(r, 400));
+      } catch {
+        fail++;
+      }
+    }
+    placingBets.value = false;
+    if (success) window.$message?.success(`下注完成：成功 ${success}，失败 ${fail}`);
+    else window.$message?.error('下注失败');
+    // 刷新状态
+    loadStatus();
+  };
 
   function reconnectToken() {
     localStorage.removeItem('tokenValidated');

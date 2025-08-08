@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4">
+  <div class="section-card border rounded-2xl bg-black/15 p-4 backdrop-blur-md space-y-4 sm:p-5">
     <!-- 顶部控制条 -->
     <div class="glass-bar flex flex-wrap items-center justify-between gap-3 border rounded-xl px-3 py-2">
       <div class="flex items-center gap-2">
@@ -19,7 +19,8 @@
     </div>
 
     <!-- 排名卡片栅格 -->
-    <div class="grid gap-4" :class="gridColsClass">
+    <NEmpty v-if="!hasData" class="py-10" description="暂无特征数据" />
+    <div v-else class="grid gap-4" :class="gridColsClass">
       <div
         v-for="f in selectedFeatures"
         :key="f"
@@ -57,7 +58,7 @@
 
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue';
-  import { NSelect } from 'naive-ui';
+  import { NSelect, NEmpty } from 'naive-ui';
   import type { RoundFeatureMatrixResponse } from '@/types/prediction';
 
   const props = defineProps<{
@@ -67,6 +68,11 @@
   const selectedFeatures = ref<string[]>([]);
 
   const featureOptions = computed(() => (props.matrix?.features ?? []).map((f) => ({ label: f, value: f })));
+  const hasData = computed(() => {
+    const tokens = props.matrix?.tokens ?? [];
+    const features = props.matrix?.features ?? [];
+    return tokens.length > 0 && features.length > 0;
+  });
 
   // 默认全选
   watch(
@@ -127,6 +133,10 @@
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
     border-color: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(16px) saturate(160%);
+  }
+
+  .section-card {
+    border-color: rgba(255, 255, 255, 0.08);
   }
 
   .title-text {

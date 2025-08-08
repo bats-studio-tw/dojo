@@ -9,20 +9,23 @@
           <div class="text-xs opacity-70">WebSocket: {{ websocketStatus.message }}</div>
         </div>
 
-        <!-- 登录门控 -->
-        <NCard v-if="!tokenValidated" class="mb-6 border border-white/10 bg-white/5">
-          <div class="flex flex-col gap-3">
-            <div class="text-white font-bold">登录以启用V3功能</div>
-            <NInput v-model:value="jwtToken" type="password" placeholder="请输入 JWT Token" />
-            <div class="flex items-center gap-3">
-              <NButton type="primary" @click="validateAndLogin">验证并登录</NButton>
-              <div v-if="loginError" class="text-red-400 text-xs">{{ loginError }}</div>
-            </div>
+        <!-- 顶部状态条（复用AutoBetting风格的简化版） -->
+        <div class="mb-4 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <n-tag type="success" size="small">V3</n-tag>
+            <div class="text-sm text-white/80">特征驱动 · 本地聚合</div>
           </div>
-        </NCard>
+          <div class="flex items-center gap-3 text-xs">
+            <n-button v-if="!tokenValidated" size="small" type="primary" @click="showWalletSetup = true">登录以启用</n-button>
+            <n-button v-else size="small" @click="showWalletSetup = true">账户</n-button>
+          </div>
+        </div>
 
         <!-- 新设计：顶部紧凑对比榜 -->
-        <FeatureCompactBoard v-else :matrix="matrix || null" />
+        <FeatureCompactBoard :matrix="matrix || null" />
+
+        <!-- 登录/账户设置复用组件 -->
+        <WalletSetup :visible="showWalletSetup" @validated="onWalletValidated" />
 
         <div class="space-y-6">
           <NEmpty
@@ -39,12 +42,13 @@
 <script setup lang="ts">
   import { computed, onMounted, ref } from 'vue';
   import { Head } from '@inertiajs/vue3';
-  import { NEmpty, NCard, NInput, NButton } from 'naive-ui';
+  import { NEmpty } from 'naive-ui';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import FeatureCompactBoard from '@/components/FeatureCompactBoard.vue';
   import { useFeatureStore } from '@/stores/featureStore';
   import { websocketManager } from '@/utils/websocketManager';
-  import { getUserInfo, jwtTokenUtils } from '@/utils/api';
+  import { jwtTokenUtils } from '@/utils/api';
+  import WalletSetup from '@/components/WalletSetup.vue';
 
   const store = useFeatureStore();
   const matrix = computed(() => store.matrix);
@@ -53,27 +57,17 @@
   // 紧凑榜已覆盖主用例，下面列表已移除
   const websocketStatus = websocketManager.websocketStatus;
 
-  // JWT 登入门控
-  const jwtToken = ref<string>('');
+  // JWT 门控（复用 WalletSetup）
   const tokenValidated = ref<boolean>(!!localStorage.getItem('tokenValidated'));
-  const loginError = ref<string | null>(null);
+  const showWalletSetup = ref<boolean>(!tokenValidated.value);
+  const jwtToken = ref<string>('');
+  const userInfo = ref<any>(null);
 
-  async function validateAndLogin() {
-    loginError.value = null;
-    try {
-      const token = jwtToken.value?.trim();
-      if (!token) {
-        loginError.value = '请填写JWT Token';
-        return;
-      }
-      await getUserInfo(token);
-      jwtTokenUtils.syncTokenToStorage(token);
-      localStorage.setItem('tokenValidated', '1');
-      tokenValidated.value = true;
-    } catch (e: any) {
-      loginError.value = e?.message || '验证失败，请重试';
-      tokenValidated.value = false;
-    }
+  function onWalletValidated(e: any) {
+    tokenValidated.value = true;
+    showWalletSetup.value = false;
+    jwtToken.value = e?.jwt_token ?? '';
+    userInfo.value = e?.user_info ?? null;
   }
 
   const refresh = () => store.maybeFetchAfterTimeout();

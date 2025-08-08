@@ -92,7 +92,7 @@ class PredictionV3Controller extends Controller
 
         // 占位：尝试从最近的已结算轮次生成伪造结构，若没有数据则返回空数组
         $rounds = DB::table('game_rounds')
-            ->select('id', 'round_id', 'status', 'settled_at')
+            ->select('id', 'round_id', 'settled_at')
             ->orderByDesc('id')
             ->limit($limit)
             ->get();

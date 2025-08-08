@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AutoBettingController;
 use App\Http\Controllers\PredictionController;
+use App\Http\Controllers\PredictionV3Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -32,6 +33,12 @@ Route::prefix('v2')->group(function () {
     // 分析相关API
     Route::get('/analysis/performance', [PredictionController::class, 'getPerformanceSummary'])->name('api.v2.analysis.performance');
     Route::get('/analysis/betting-performance', [PredictionController::class, 'getUserBettingPerformance'])->name('api.v2.analysis.betting-performance');
+});
+
+// v3 特征与聚合 API（后端仅提供特征与可选聚合）
+Route::prefix('v3')->group(function () {
+    Route::get('/features/round/{roundId?}', [PredictionV3Controller::class, 'getRoundFeatures'])->name('api.v3.features.round');
+    Route::post('/predict/aggregate', [PredictionV3Controller::class, 'aggregate'])->name('api.v3.predict.aggregate');
 });
 
 // 注释：已移除展示页面专用API，现在使用与主页面相同的store数据源

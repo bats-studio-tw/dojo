@@ -24,3 +24,8 @@ Route::get('/', function () {
 Route::get('/views', function () {
     return Inertia::render('PredictionView');
 })->name('prediction.view');
+
+// v3 特征排名页（每个特征一个排行榜）
+Route::get('/feature-rankings', function () {
+    return Inertia::render('FeatureRankings');
+})->name('feature.rankings');

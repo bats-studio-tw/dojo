@@ -26,9 +26,14 @@ class ShortTermMomentumFeatureProvider implements FeatureProviderInterface
         $this->mathUtils = $mathUtils ?? new MathUtils();
     }
 
-    public function extractFeatures(array $snapshots, array $history): array
+    public function getKey(): string
     {
-        $scores = [];
+        return 'st_momentum';
+    }
+
+    public function extractFeatures(array $snapshots, array $history = []): array
+    {
+        $out = [];
 
         foreach ($snapshots as $snapshot) {
             // 处理数组和对象两种格式
@@ -45,16 +50,24 @@ class ShortTermMomentumFeatureProvider implements FeatureProviderInterface
             try {
                 // 计算短期动能分数
                 $momentumScore = $this->calculateShortTermMomentum($symbol);
-                $scores[$symbol] = $momentumScore;
+                $out[$symbol] = [
+                    'raw' => $momentumScore,
+                    'norm' => $momentumScore,
+                    'meta' => ['windows' => [$this->shortTermMinutes, $this->mediumTermMinutes, $this->longTermMinutes]],
+                ];
 
                 Log::debug("Short-term momentum calculated for {$symbol}: {$momentumScore}");
             } catch (\Exception $e) {
                 Log::warning("Failed to calculate short-term momentum for {$symbol}: " . $e->getMessage());
-                $scores[$symbol] = 50.0; // 中性默认值
+                $out[$symbol] = [
+                    'raw' => 50.0,
+                    'norm' => 50.0,
+                    'meta' => ['fallback' => true],
+                ];
             }
         }
 
-        return $scores;
+        return $out;
     }
 
     /**

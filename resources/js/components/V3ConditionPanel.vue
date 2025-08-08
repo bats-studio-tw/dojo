@@ -28,19 +28,19 @@
             <div v-for="f in features" :key="`feature-${f}`" class="flex items-center gap-2">
               <span class="w-36 truncate text-xs text-white/70" :title="f">{{ f }}</span>
               <div class="w-full flex flex-nowrap items-center gap-2">
-                <span class="w-8 text-center text-xs text-white/50">名次</span>
+                <span class="whitespace-nowrap text-xs text-white/50">名次</span>
                 <n-select
                   v-model:value="ensureRankRule(f).operator"
                   :options="rankOperatorOptions"
                   size="small"
-                  class="w-[120px]"
+                  :style="{ width: '120px' }"
                 />
                 <n-input-number
                   v-model:value="ensureRankRule(f).value"
                   :min="1"
                   :precision="0"
                   size="small"
-                  class="w-[120px]"
+                  :style="{ width: '120px' }"
                 />
                 <n-button size="tiny" tertiary class="shrink-0" @click="clearRankRule(f)">清除</n-button>
               </div>

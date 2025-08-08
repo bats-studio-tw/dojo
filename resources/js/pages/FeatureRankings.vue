@@ -96,17 +96,6 @@
         <!-- 条件面板  -->
         <V3ConditionPanel :matrix="matrix || null" />
 
-        <!-- V3 一键下注（基于当前名次条件与 TopN） -->
-        <div class="mt-4 flex items-center gap-3">
-          <NButton type="primary" :disabled="placingBets" :loading="placingBets" @click="placeBetsByV3()">
-            <template #icon>
-              <span>🤖</span>
-            </template>
-            按当前条件下注
-          </NButton>
-          <div class="text-xs text-white/60">将根据当前名次条件筛选并截取 Top {{ v3TopN }}，逐个下单</div>
-        </div>
-
         <!-- 登录/账户设置复用组件 -->
         <WalletSetup :visible="showWalletSetup" @validated="onWalletValidated" />
 
@@ -123,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, onMounted, ref } from 'vue';
+  import { computed, onMounted, ref, watch } from 'vue';
   import { Head } from '@inertiajs/vue3';
   import { NEmpty, NButton } from 'naive-ui';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
@@ -217,7 +206,7 @@
   // 本地下注金额规则（与自动下注页一致）
   const calculateBetAmount = (): number => (bettingMode.value === 'real' ? 200 : 5);
 
-  // 一键下注（基于V3）
+  // 自动下注（基于V3）
   const placeBetsByV3 = async () => {
     if (!tokenValidated.value || !jwtToken.value) {
       window.$message?.warning('请先完成身份验证');
@@ -272,6 +261,18 @@
     // 刷新状态
     loadStatus();
   };
+
+  // 自动触发：当满足条件且进入 bet 状态时自动执行
+  watch(
+    [() => bettingMode.value, currentRoundId, currentGameStatus, eligibleTokens, v3TopN],
+    async () => {
+      if (!tokenValidated.value || placingBets.value) return;
+      if ((currentGameStatus.value || '') !== 'bet') return;
+      if (!selectedTokens.value.length) return;
+      await placeBetsByV3();
+    },
+    { deep: true }
+  );
 
   function reconnectToken() {
     localStorage.removeItem('tokenValidated');

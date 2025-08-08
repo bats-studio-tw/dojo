@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\GameRound;
+use App\Events\FeatureMatrixUpdated;
 
 class ExtractFeaturesJob implements ShouldQueue
 {
@@ -113,6 +114,9 @@ class ExtractFeaturesJob implements ShouldQueue
                 'computed_at' => now()->toISOString(),
             ];
             Cache::put("feature_matrix:{$roundId}", $payload, (int) (config('prediction_v3.cache_ttl', 60)));
+
+            // 即时广播到前端，避免额外HTTP请求
+            event(new FeatureMatrixUpdated((string)$roundId, $payload));
 
             \Log::info('features extracted', [
                 'round_id' => $roundId,

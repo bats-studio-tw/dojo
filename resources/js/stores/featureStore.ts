@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import api from '@/utils/api';
 import type { RoundFeatureMatrixResponse } from '@/types/prediction';
+import { websocketManager } from '@/utils/websocketManager';
 
 interface FeatureStoreState {
   matrix: RoundFeatureMatrixResponse | null;
@@ -40,6 +41,15 @@ export const useFeatureStore = defineStore('featureStore', {
       } finally {
         this.loading = false;
       }
+    },
+    subscribeFeatureMatrixPush(): void {
+      if (!websocketManager.isInitialized) websocketManager.initialize();
+      websocketManager.listenToFeatureMatrix((event: any) => {
+        const payload = event?.data;
+        if (!payload) return;
+        this.matrix = payload as RoundFeatureMatrixResponse;
+        this.updatedAt = Date.now();
+      });
     },
     clear(): void {
       this.matrix = null;

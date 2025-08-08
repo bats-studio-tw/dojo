@@ -71,6 +71,8 @@
     predictionStore.fetchInitialData().catch(() => {});
     // 首次拉取
     refresh();
+    // 订阅特征矩阵推送，减少HTTP压力
+    store.subscribeFeatureMatrixPush();
     // 监听游戏事件，进入bet或新轮次变化时刷新特征矩阵
     websocketManager.listenToGameUpdates((event: { data?: { status?: string; rdId?: string } }) => {
       const status = event?.data?.status;

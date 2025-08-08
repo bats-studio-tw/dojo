@@ -31,60 +31,65 @@
       </n-card>
     </div>
   </div>
-  
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { NCard, NButton, NSlider, NInput, NInputNumber } from 'naive-ui';
-import type { RoundFeatureMatrixResponse } from '@/types/prediction';
-import { useV3Conditions } from '@/composables/useV3Conditions';
+  import { computed, ref, watch } from 'vue';
+  import { NCard, NButton, NSlider, NInput, NInputNumber } from 'naive-ui';
+  import type { RoundFeatureMatrixResponse } from '@/types/prediction';
+  import { useV3Conditions } from '@/composables/useV3Conditions';
 
-const props = defineProps<{ matrix: RoundFeatureMatrixResponse | null }>();
-const m = computed(() => props.matrix);
+  const props = defineProps<{ matrix: RoundFeatureMatrixResponse | null }>();
+  const m = computed(() => props.matrix);
 
-const {
-  topN,
-  featureMin,
-  featureMax,
-  whitelist,
-  blacklist,
-  filterTokens,
-  reset,
-  saveToLocalStorage,
-  loadFromLocalStorage,
-} = useV3Conditions(() => m.value);
+  const {
+    topN,
+    featureMin,
+    featureMax,
+    whitelist,
+    blacklist,
+    filterTokens,
+    reset,
+    saveToLocalStorage,
+    loadFromLocalStorage
+  } = useV3Conditions(() => m.value);
 
-const features = computed(() => m.value?.features ?? []);
-const topNProxy = computed({
-  get: () => topN.value,
-  set: (v: number) => (topN.value = v),
-});
+  const features = computed(() => m.value?.features ?? []);
+  const topNProxy = computed({
+    get: () => topN.value,
+    set: (v: number) => (topN.value = v)
+  });
 
-const whitelistText = ref('');
-const blacklistText = ref('');
-watch(
-  () => whitelistText.value,
-  (t) => (whitelist.value = t.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean))
-);
-watch(
-  () => blacklistText.value,
-  (t) => (blacklist.value = t.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean))
-);
+  const whitelistText = ref('');
+  const blacklistText = ref('');
+  watch(
+    () => whitelistText.value,
+    (t) =>
+      (whitelist.value = t
+        .split(',')
+        .map((x) => x.trim().toUpperCase())
+        .filter(Boolean))
+  );
+  watch(
+    () => blacklistText.value,
+    (t) =>
+      (blacklist.value = t
+        .split(',')
+        .map((x) => x.trim().toUpperCase())
+        .filter(Boolean))
+  );
 
-// 初始化
-loadFromLocalStorage();
+  // 初始化
+  loadFromLocalStorage();
 
-defineExpose({
-  topN,
-  featureMin,
-  featureMax,
-  whitelist,
-  blacklist,
-  filterTokens,
-});
+  defineExpose({
+    topN,
+    featureMin,
+    featureMax,
+    whitelist,
+    blacklist,
+    filterTokens
+  });
 </script>
 
 <style scoped></style>
-
-

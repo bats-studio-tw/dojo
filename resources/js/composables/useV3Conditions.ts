@@ -100,8 +100,6 @@ export function useV3Conditions(matrix: () => RoundFeatureMatrixResponse | null)
     filterTokens,
     reset,
     saveToLocalStorage,
-    loadFromLocalStorage,
+    loadFromLocalStorage
   };
 }
-
-

@@ -135,11 +135,11 @@ class PredictionV3Controller extends Controller
 
                 // 读取当轮结果（RoundResult表）
                 $results = DB::table('round_results')
-                    ->select('symbol', 'rank as actual_rank')
+                    ->select(DB::raw('token_symbol as symbol'), 'rank as actual_rank')
                     ->where('game_round_id', $round->id)
                     ->get()
                     ->map(function ($r) {
-                        return ['symbol' => $r->symbol, 'actual_rank' => (int)$r->actual_rank];
+                        return ['symbol' => $r->symbol, 'actual_rank' => (int) $r->actual_rank];
                     })
                     ->values()
                     ->all();

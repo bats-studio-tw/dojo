@@ -16,33 +16,19 @@
         </div>
       </div>
 
-      <!-- 内容：左右分栏 -->
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <!-- 特征阈值 + 名次条件 -->
+      <!-- 内容：条件分组 -->
+      <div class="grid grid-cols-1 gap-4">
+        <!-- 名次条件 -->
         <n-card size="small" class="border border-white/10 bg-white/5">
           <div class="mb-3 flex items-center justify-between">
-            <div class="text-xs text-white/70">特征阈值与名次条件（归一化优先）</div>
-            <div class="text-xs text-white/50">可设置 ≥ 最小值 / ≤ 最大值，或按名次筛选</div>
+            <div class="text-xs text-white/70">按名次筛选（基于归一化值排名，1 为最佳）</div>
+            <div class="text-xs text-white/50">每个特征设置名次条件；可选“第一名数量下限”</div>
           </div>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div v-for="f in features" :key="`feature-${f}`" class="flex items-center gap-2">
               <span class="w-36 truncate text-xs text-white/70" :title="f">{{ f }}</span>
               <div class="w-full flex flex-wrap items-center gap-1">
-                <n-input-number
-                  v-model:value="featureMin[f]"
-                  clearable
-                  :precision="3"
-                  placeholder="≥ 最小值"
-                  class="w-full"
-                />
-                <n-input-number
-                  v-model:value="featureMax[f]"
-                  clearable
-                  :precision="3"
-                  placeholder="≤ 最大值"
-                  class="w-full"
-                />
-                <span class="ml-1 text-xs text-white/50">名次</span>
+                <span class="text-xs text-white/50">名次</span>
                 <n-select
                   v-model:value="ensureRankRule(f).operator"
                   :options="rankOperatorOptions"
@@ -73,21 +59,6 @@
             <span class="text-xs text-white/50">（留空表示不限制）</span>
           </div>
         </n-card>
-
-        <!-- 白/黑名单 -->
-        <n-card size="small" class="border border-white/10 bg-white/5">
-          <div class="mb-3 text-xs text-white/70">白/黑名单（逗号分隔，自动转大写）</div>
-          <div class="space-y-3">
-            <n-input v-model:value="whitelistText" type="text" placeholder="白名单, 例如: BTC,ETH" />
-            <div v-if="whitelist.length" class="flex flex-wrap gap-2">
-              <n-tag v-for="t in whitelist" :key="`w-${t}`" size="small" type="success" round>{{ t }}</n-tag>
-            </div>
-            <n-input v-model:value="blacklistText" type="text" placeholder="黑名单, 例如: DOGE,PEPE" />
-            <div v-if="blacklist.length" class="flex flex-wrap gap-2">
-              <n-tag v-for="t in blacklist" :key="`b-${t}`" size="small" type="error" round>{{ t }}</n-tag>
-            </div>
-          </div>
-        </n-card>
       </div>
 
       <!-- 预览区 -->
@@ -111,26 +82,15 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref, watch } from 'vue';
+  import { computed } from 'vue';
   import type { RoundFeatureMatrixResponse } from '@/types/prediction';
   import { useV3Conditions } from '@/composables/useV3Conditions';
 
   const props = defineProps<{ matrix: RoundFeatureMatrixResponse | null }>();
   const m = computed(() => props.matrix);
 
-  const {
-    topN,
-    featureMin,
-    featureMax,
-    whitelist,
-    blacklist,
-    featureRank,
-    firstPlaceMinCount,
-    filterTokens,
-    reset,
-    saveToLocalStorage,
-    loadFromLocalStorage
-  } = useV3Conditions(() => m.value);
+  const { topN, featureRank, firstPlaceMinCount, filterTokens, reset, saveToLocalStorage, loadFromLocalStorage } =
+    useV3Conditions(() => m.value);
 
   const features = computed(() => m.value?.features ?? []);
   const topNProxy = computed({
@@ -165,24 +125,7 @@
     set: (v: number | null) => (firstPlaceMinCount.value = v ?? null)
   });
 
-  const whitelistText = ref('');
-  const blacklistText = ref('');
-  watch(
-    () => whitelistText.value,
-    (t) =>
-      (whitelist.value = t
-        .split(',')
-        .map((x) => x.trim().toUpperCase())
-        .filter(Boolean))
-  );
-  watch(
-    () => blacklistText.value,
-    (t) =>
-      (blacklist.value = t
-        .split(',')
-        .map((x) => x.trim().toUpperCase())
-        .filter(Boolean))
-  );
+  // 已移除白/黑名单输入
 
   // 预览：符合条件与TopN
   const matchedTokens = computed(() => filterTokens());
@@ -191,23 +134,15 @@
   // 统一按钮回调
   const onReset = () => {
     reset();
-    whitelistText.value = '';
-    blacklistText.value = '';
   };
   const onSave = () => saveToLocalStorage();
 
   // 初始化
   loadFromLocalStorage();
-  // 将本地已存的黑白名单回显到输入框
-  whitelistText.value = (whitelist.value || []).join(',');
-  blacklistText.value = (blacklist.value || []).join(',');
+  // 白/黑名单已移除
 
   defineExpose({
     topN,
-    featureMin,
-    featureMax,
-    whitelist,
-    blacklist,
     featureRank,
     firstPlaceMinCount,
     filterTokens

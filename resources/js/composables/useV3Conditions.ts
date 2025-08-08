@@ -77,21 +77,7 @@ export function useV3Conditions(matrix: () => RoundFeatureMatrixResponse | null)
     if (state.whitelist.length > 0 && !state.whitelist.includes(symbol)) return false;
     if (state.blacklist.length > 0 && state.blacklist.includes(symbol)) return false;
 
-    // 特征阈值
-    for (const [feature, minVal] of Object.entries(state.featureMin)) {
-      if (minVal == null) continue;
-      const cell = m.matrix?.[symbol]?.[feature];
-      const value = (cell?.norm ?? cell?.raw ?? null) as number | null;
-      if (value === null) return false;
-      if (value < (minVal as number)) return false;
-    }
-    for (const [feature, maxVal] of Object.entries(state.featureMax)) {
-      if (maxVal == null) continue;
-      const cell = m.matrix?.[symbol]?.[feature];
-      const value = (cell?.norm ?? cell?.raw ?? null) as number | null;
-      if (value === null) return false;
-      if (value > (maxVal as number)) return false;
-    }
+    // 数值阈值规则已弃用（仅保留名次条件）
 
     // 名次条件（例如：rank > 3、rank = 1）
     for (const [feature, rule] of Object.entries(state.featureRank)) {

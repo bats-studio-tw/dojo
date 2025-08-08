@@ -112,6 +112,10 @@
   import { jwtTokenUtils, getUserInfo } from '@/utils/api';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import WalletSetup from '@/components/WalletSetup.vue';
+  import { storeToRefs } from 'pinia';
+  import type { UserInfo, GetUserInfoResponse } from '@/types';
+  import type { WebSocketStatus as WS } from '@/utils/websocketManager';
+  import type { GameDataUpdateEvent } from '@/stores/gamePrediction';
 
   const store = useFeatureStore();
   const matrix = computed(() => store.matrix);
@@ -125,9 +129,10 @@
   const tokenValidated = ref<boolean>(!!localStorage.getItem('tokenValidated'));
   const showWalletSetup = ref<boolean>(!tokenValidated.value);
   const jwtToken = ref<string>('');
-  const userInfo = ref<any>(null);
+  const userInfo = ref<UserInfo | null>(null);
 
-  function onWalletValidated(e: any) {
+  type WalletValidatedPayload = { jwt_token?: string; user_info?: UserInfo };
+  function onWalletValidated(e: WalletValidatedPayload) {
     tokenValidated.value = true;
     showWalletSetup.value = false;
     jwtToken.value = e?.jwt_token ?? '';
@@ -136,10 +141,10 @@
 
   // 顶部状态（参考 AutoBetting）
   const predictionStore = useGamePredictionStore();
-  const gameStatus = computed(
-    () => (predictionStore as any)?.gameStatus || (predictionStore as any)?.status || 'unknown'
-  );
-  const roundId = computed(() => (predictionStore as any)?.roundId || (predictionStore as any)?.currentRoundId || '');
+  const { currentGameStatus, currentRoundId } = storeToRefs(predictionStore);
+  const gameStatus = computed(() => currentGameStatus.value || 'unknown');
+  // 预留：如需映射中文可在此处扩展
+  const roundId = computed(() => currentRoundId.value || '—');
 
   function reconnectToken() {
     localStorage.removeItem('tokenValidated');
@@ -157,9 +162,9 @@
     if (!jwtToken.value) return;
     try {
       userInfoRefreshing.value = true;
-      const res = await getUserInfo(jwtToken.value);
-      if ((res as any)?.obj) {
-        userInfo.value = (res as any).obj;
+      const res = (await getUserInfo(jwtToken.value)) as GetUserInfoResponse;
+      if (res?.obj) {
+        userInfo.value = res.obj;
         localStorage.setItem('userInfo', JSON.stringify(userInfo.value));
       }
     } finally {
@@ -171,7 +176,7 @@
 
   // WebSocket状态样式与图标（与 AutoBetting 保持一致）
   const getWebSocketStatusClass = () => {
-    const status = (websocketStatus as any).value?.status;
+    const status = (websocketManager.websocketStatus as unknown as { value: WS }).value.status;
     switch (status) {
       case 'connected':
         return 'bg-green-500/10 border border-green-500/20 text-green-400';
@@ -187,7 +192,7 @@
   };
 
   const getWebSocketStatusIcon = () => {
-    const status = (websocketStatus as any).value?.status;
+    const status = (websocketManager.websocketStatus as unknown as { value: WS }).value.status;
     switch (status) {
       case 'connected':
         return '🟢';
@@ -209,16 +214,19 @@
     // 恢复本地存储的token
     const saved = jwtTokenUtils.getStoredToken();
     if (saved) jwtToken.value = saved;
+    // 初始化预测相关数据，保证有轮次/状态
+    predictionStore.fetchInitialData().catch(() => {});
     // 首次拉取（若短时间内未收到推送将兜底请求）
     refresh();
     // 订阅特征矩阵推送，减少HTTP压力
     store.subscribeFeatureMatrixPush();
     // 监听游戏事件，进入bet或新轮次变化时刷新特征矩阵
-    websocketManager.listenToGameUpdates((event: { data?: { status?: string; rdId?: string } }) => {
-      const status = event?.data?.status;
-      const rdId = event?.data?.rdId;
-      if (status === 'bet' && rdId) {
-        refresh();
+    websocketManager.listenToGameUpdates((event: GameDataUpdateEvent) => {
+      if (event?.data) {
+        predictionStore.updateGameData(event.data);
+        if (event.data.status === 'bet' && event.data.rdId) {
+          refresh();
+        }
       }
     });
   });

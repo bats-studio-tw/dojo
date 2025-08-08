@@ -75,36 +75,231 @@
       </div>
 
       <div class="mx-auto max-w-7xl p-4 sm:p-6">
-        <!-- 紧凑榜 -->
-        <FeatureCompactBoard :matrix="matrix || null" class="mb-4" />
-        <!-- 自动下注状态面板（与AutoBetting一致的摘要卡片） -->
         <div class="mb-6">
-          <AutoBettingStatusPanel
-            :betting-mode="bettingMode"
-            :user-info="displayUserInfo"
-            :auto-betting-status="autoBettingStatus"
-            :strategy-validation="strategyValidation"
-            :is-running="autoBettingStatus?.is_running || false"
-            :toggle-loading="toggleLoading"
-            :enable-mode-switch="true"
-            @start="startAutoBetting"
-            @stop="stopAutoBetting"
-            @change-mode="onChangeBettingMode"
-          />
-        </div>
+          <NTabs v-model:value="activeTab" type="line" size="large" class="modern-tabs">
+            <!-- 智能控制中心标签页 -->
+            <NTabPane name="control">
+              <template #tab>
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">🎛️</span>
+                  <span>智能控制中心</span>
+                </div>
+              </template>
 
-        <!-- 条件面板  -->
-        <V3ConditionPanel :matrix="matrix || null" />
+              <!-- 紧凑榜 -->
+              <FeatureCompactBoard :matrix="matrix || null" class="mb-4" />
 
-        <!-- 登录/账户设置复用组件 -->
-        <WalletSetup :visible="showWalletSetup" @validated="onWalletValidated" />
+              <!-- 自动下注状态面板（与AutoBetting一致的摘要卡片） -->
+              <div class="mb-6">
+                <AutoBettingStatusPanel
+                  :betting-mode="bettingMode"
+                  :user-info="displayUserInfo"
+                  :auto-betting-status="autoBettingStatus"
+                  :strategy-validation="strategyValidation"
+                  :is-running="autoBettingStatus?.is_running || false"
+                  :toggle-loading="toggleLoading"
+                  :enable-mode-switch="true"
+                  @start="startAutoBetting"
+                  @stop="stopAutoBetting"
+                  @change-mode="onChangeBettingMode"
+                />
+              </div>
 
-        <div class="space-y-6">
-          <NEmpty
-            v-if="!(matrix && matrix.features && matrix.features.length)"
-            description="暂无特征数据"
-            class="py-8"
-          />
+              <!-- 条件面板  -->
+              <V3ConditionPanel :matrix="matrix || null" />
+
+              <!-- 登录/账户设置复用组件 -->
+              <WalletSetup :visible="showWalletSetup" @validated="onWalletValidated" />
+
+              <div class="space-y-6">
+                <NEmpty
+                  v-if="!(matrix && matrix.features && matrix.features.length)"
+                  description="暂无特征数据"
+                  class="py-8"
+                />
+              </div>
+            </NTabPane>
+
+            <!-- 历史与分析标签页 -->
+            <NTabPane name="history">
+              <template #tab>
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">📊</span>
+                  <span>历史与分析</span>
+                </div>
+              </template>
+
+              <div class="border border-white/10 rounded-xl bg-black/20 p-6 backdrop-blur-md">
+                <HistoryAnalysisTab
+                  :exact-rate="predictionStats.calculateRoundBasedStats.value?.exactRate || 0"
+                  :total-rounds="predictionStats.calculatePortfolioStats.value?.totalRounds || 0"
+                  :all-stats="
+                    predictionStats.calculateRankBasedStats.value || {
+                      rank1: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      },
+                      rank2: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      },
+                      rank3: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      }
+                    }
+                  "
+                  :recent-stats="
+                    predictionStats.calculateRecentRankBasedStats.value || {
+                      rank1: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      },
+                      rank2: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      },
+                      rank3: {
+                        total: 0,
+                        breakeven: 0,
+                        loss: 0,
+                        firstPlace: 0,
+                        breakevenRate: 0,
+                        lossRate: 0,
+                        firstPlaceRate: 0
+                      }
+                    }
+                  "
+                  :recent-rounds-count="recentRoundsCount"
+                  :max-rounds="predictionHistory.length || 0"
+                  :history-loading="predictionStore.historyLoading"
+                  :prediction-comparison-data="predictionStats.getPredictionComparisonData.value || []"
+                  :momentum-stats="
+                    momentumStats.stats.value || {
+                      momentumAccuracy: 0,
+                      totalRounds: 0,
+                      allStats: {
+                        rank1: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        },
+                        rank2: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        },
+                        rank3: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        }
+                      },
+                      recentStats: {
+                        rank1: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        },
+                        rank2: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        },
+                        rank3: {
+                          total: 0,
+                          breakeven: 0,
+                          loss: 0,
+                          firstPlace: 0,
+                          breakevenRate: 0,
+                          lossRate: 0,
+                          firstPlaceRate: 0
+                        }
+                      },
+                      averageMomentumScore: 0,
+                      averageConfidence: 0
+                    }
+                  "
+                  :momentum-loading="momentumHistoryLoading"
+                  :momentum-recent-rounds-count="momentumRecentRoundsCount"
+                  :momentum-max-rounds="Math.max(500, momentumPredictionHistory.length || 0)"
+                  @refresh-prediction-history="refreshPredictionHistory"
+                  @refresh-momentum-history="refreshMomentumHistory"
+                  @update:recent-rounds-count="updateRecentRoundsCount"
+                  @update:momentum-recent-rounds-count="updateMomentumRecentRoundsCount"
+                />
+              </div>
+            </NTabPane>
+
+            <!-- 特征历史分析标签页（新） -->
+            <NTabPane name="feature-history">
+              <template #tab>
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">🧬</span>
+                  <span>特征历史分析</span>
+                </div>
+              </template>
+
+              <div class="border border-white/10 rounded-xl bg-black/20 p-6 backdrop-blur-md">
+                <FeatureHistoryAnalysisTab
+                  :exact-rate="featureExactRate"
+                  :total-rounds="featureTotalRounds"
+                  :all-stats="featureAllStats"
+                  :recent-stats="featureRecentStats"
+                  :recent-rounds-count="featureRecentRoundsCount"
+                  :max-rounds="featureHistory.length || 0"
+                  :history-loading="featureHistoryLoading"
+                  @refresh-feature-history="refreshFeatureHistory"
+                  @update:recent-rounds-count="(v: number) => (featureRecentRoundsCount = v)"
+                />
+              </div>
+            </NTabPane>
+          </NTabs>
         </div>
       </div>
     </div>
@@ -114,14 +309,16 @@
 <script setup lang="ts">
   import { computed, onMounted, ref, watch } from 'vue';
   import { Head } from '@inertiajs/vue3';
-  import { NEmpty, NButton } from 'naive-ui';
+  import { NEmpty, NButton, NTabs, NTabPane } from 'naive-ui';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import FeatureCompactBoard from '@/components/FeatureCompactBoard.vue';
   import V3ConditionPanel from '@/components/V3ConditionPanel.vue';
   import AutoBettingStatusPanel from '@/components/AutoBettingStatusPanel.vue';
+  import HistoryAnalysisTab from '@/components/HistoryAnalysisTab.vue';
+  import FeatureHistoryAnalysisTab from '@/components/FeatureHistoryAnalysisTab.vue';
   import { useFeatureStore } from '@/stores/featureStore';
   import { websocketManager } from '@/utils/websocketManager';
-  import { jwtTokenUtils, getUserInfo } from '@/utils/api';
+  import { jwtTokenUtils, getUserInfo, gameApi, featureApi } from '@/utils/api';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import WalletSetup from '@/components/WalletSetup.vue';
   import { storeToRefs } from 'pinia';
@@ -130,6 +327,10 @@
   import type { GameDataUpdateEvent } from '@/stores/gamePrediction';
   import { useAutoBettingControl } from '@/composables/useAutoBettingControl';
   import { useV3Conditions } from '@/composables/useV3Conditions';
+  import { usePredictionStats } from '@/composables/usePredictionStats';
+  import { useMomentumPredictionStats } from '@/composables/useMomentumPredictionStats';
+  import type { MomentumPredictionHistoryRound } from '@/composables/useMomentumPredictionStats';
+  import { useFeaturePredictionStats, type FeatureHistoryRound } from '@/composables/useFeaturePredictionStats';
 
   const store = useFeatureStore();
   const matrix = computed(() => store.matrix);
@@ -155,10 +356,13 @@
 
   // 顶部状态（参考 AutoBetting）
   const predictionStore = useGamePredictionStore();
-  const { currentGameStatus, currentRoundId } = storeToRefs(predictionStore);
+  const { currentGameStatus, currentRoundId, predictionHistory } = storeToRefs(predictionStore);
   const gameStatus = computed(() => currentGameStatus.value || 'unknown');
   // 预留：如需映射中文可在此处扩展
   const roundId = computed(() => currentRoundId.value || '—');
+
+  // 标签页状态
+  const activeTab = ref('control');
 
   // 自动下注状态（读取与控制）
   const {
@@ -193,6 +397,73 @@
     required_balance?: number;
     balance_sufficient?: boolean;
   } | null>(null);
+
+  // =============== 历史与分析（与 AutoBetting 对齐）===============
+  const recentRoundsCount = ref(50);
+  const predictionStats = usePredictionStats(predictionHistory, recentRoundsCount);
+
+  // 动能预测历史数据
+  const momentumPredictionHistory = ref<MomentumPredictionHistoryRound[]>([]);
+  const momentumHistoryLoading = ref(false);
+  const momentumRecentRoundsCount = ref(50);
+  const momentumStats = useMomentumPredictionStats(momentumPredictionHistory, momentumRecentRoundsCount);
+
+  const refreshPredictionHistory = async () => {
+    await predictionStore.fetchPredictionHistory();
+  };
+
+  const refreshMomentumHistory = async () => {
+    momentumHistoryLoading.value = true;
+    try {
+      const response = await gameApi.getMomentumPredictionHistory({ limit: 300 });
+      if (response.data.success) {
+        momentumPredictionHistory.value = response.data.data || [];
+      } else {
+        window.$message?.error(response.data.message || '获取动能预测历史数据失败');
+      }
+    } catch {
+      window.$message?.error('获取动能预测历史数据失败');
+    } finally {
+      momentumHistoryLoading.value = false;
+    }
+  };
+
+  const updateRecentRoundsCount = (value: number) => {
+    recentRoundsCount.value = value;
+  };
+
+  const updateMomentumRecentRoundsCount = (value: number) => {
+    momentumRecentRoundsCount.value = value;
+  };
+
+  // =============== 特征历史与统计（新）===============
+  const featureHistory = ref<FeatureHistoryRound[]>([]);
+  const featureHistoryLoading = ref(false);
+  let featureRecentRoundsCount = 50;
+  const featureStats = useFeaturePredictionStats(
+    computed(() => featureHistory.value),
+    computed({ get: () => featureRecentRoundsCount, set: (v: number) => (featureRecentRoundsCount = v) })
+  );
+  const featureExactRate = computed(() => featureStats.exactRate.value || 0);
+  const featureTotalRounds = computed(() => featureStats.totalRounds.value || 0);
+  const featureAllStats = computed(() => featureStats.calculateRankBasedStats.value);
+  const featureRecentStats = computed(() => featureStats.calculateRecentRankBasedStats.value);
+
+  const refreshFeatureHistory = async () => {
+    featureHistoryLoading.value = true;
+    try {
+      const res = await featureApi.getFeatureHistory({ limit: 300 });
+      if (res.data?.success) {
+        featureHistory.value = res.data.data || [];
+      } else {
+        window.$message?.error(res.data?.message || '获取特征历史失败');
+      }
+    } catch {
+      window.$message?.error('获取特征历史失败');
+    } finally {
+      featureHistoryLoading.value = false;
+    }
+  };
 
   // =============== V3 条件（名次驱动）===============
   const v3 = useV3Conditions(() => store.matrix);
@@ -392,6 +663,11 @@
         refreshUserInfo();
       }
     });
+
+    // 历史数据初始化
+    refreshPredictionHistory();
+    refreshMomentumHistory();
+    refreshFeatureHistory();
   });
 </script>
 

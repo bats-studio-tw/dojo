@@ -531,4 +531,14 @@ export const gameApi = {
   }
 };
 
+// 特征相关API
+export const featureApi = {
+  // 获取特征排名历史（用于统计特征预测表现）
+  getFeatureHistory: (params?: { limit?: number; features?: string[] }) => {
+    return api.get('/v3/features/history', {
+      params
+    });
+  }
+};
+
 export default api;

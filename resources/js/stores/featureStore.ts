@@ -8,6 +8,8 @@ interface FeatureStoreState {
   loading: boolean;
   error: string | null;
   updatedAt: number | null;
+  lastRoundId?: string | null;
+  pushReceivedAt?: number | null;
 }
 
 export const useFeatureStore = defineStore('featureStore', {
@@ -15,7 +17,9 @@ export const useFeatureStore = defineStore('featureStore', {
     matrix: null,
     loading: false,
     error: null,
-    updatedAt: null
+    updatedAt: null,
+    lastRoundId: null,
+    pushReceivedAt: null
   }),
   actions: {
     async fetchRoundFeatures(roundId?: string | number): Promise<void> {
@@ -27,6 +31,7 @@ export const useFeatureStore = defineStore('featureStore', {
         if (data?.success && data?.data) {
           this.matrix = data.data as RoundFeatureMatrixResponse;
           this.updatedAt = Date.now();
+          this.lastRoundId = String((this.matrix as any)?.round_id ?? '');
         } else {
           this.matrix = {
             round_id: String(roundId ?? ''),
@@ -49,13 +54,31 @@ export const useFeatureStore = defineStore('featureStore', {
         if (!payload) return;
         this.matrix = payload as RoundFeatureMatrixResponse;
         this.updatedAt = Date.now();
+        this.lastRoundId = String((payload as any)?.round_id ?? event?.round_id ?? '');
+        this.pushReceivedAt = Date.now();
       });
+    },
+    maybeFetchAfterTimeout(roundId?: string, timeoutMs = 1200): void {
+      const start = Date.now();
+      const matchedRound = !!roundId ? this.lastRoundId === roundId : true;
+      const recentPush = this.pushReceivedAt && Date.now() - this.pushReceivedAt < timeoutMs;
+      if (matchedRound && recentPush) return; // 已有有效推送，跳过请求
+
+      setTimeout(() => {
+        const gotPush = this.pushReceivedAt && this.pushReceivedAt >= start;
+        const sameRound = !!roundId ? this.lastRoundId === roundId : !!this.matrix;
+        if (!gotPush || !sameRound) {
+          void this.fetchRoundFeatures(roundId);
+        }
+      }, timeoutMs);
     },
     clear(): void {
       this.matrix = null;
       this.error = null;
       this.updatedAt = null;
       this.loading = false;
+      this.lastRoundId = null;
+      this.pushReceivedAt = null;
     }
   }
 });

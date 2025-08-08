@@ -49,7 +49,7 @@
   const websocketStatus = websocketManager.websocketStatus;
   const currentGameTokensWithRanks = computed(() => predictionStore.currentGameTokensWithRanks);
 
-  const refresh = () => store.fetchRoundFeatures();
+  const refresh = () => store.maybeFetchAfterTimeout();
 
   // 将单一特征的矩阵列构造成 AIPredictionRanking 所需的数据结构
   function buildCardItems(featureKey: string) {
@@ -73,7 +73,7 @@
   onMounted((): void => {
     if (!websocketManager.isInitialized) websocketManager.initialize();
     predictionStore.fetchInitialData().catch(() => {});
-    // 首次拉取
+    // 首次拉取（若短时间内未收到推送将兜底请求）
     refresh();
     // 订阅特征矩阵推送，减少HTTP压力
     store.subscribeFeatureMatrixPush();

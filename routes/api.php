@@ -38,6 +38,7 @@ Route::prefix('v2')->group(function () {
 // v3 特征与聚合 API（后端仅提供特征与可选聚合）
 Route::prefix('v3')->group(function () {
     Route::get('/features/round/{roundId?}', [PredictionV3Controller::class, 'getRoundFeatures'])->name('api.v3.features.round');
+    Route::get('/features/history', [PredictionV3Controller::class, 'getFeatureHistory'])->name('api.v3.features.history');
     Route::post('/predict/aggregate', [PredictionV3Controller::class, 'aggregate'])->name('api.v3.predict.aggregate');
 });
 

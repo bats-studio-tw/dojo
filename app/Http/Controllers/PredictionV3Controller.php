@@ -81,6 +81,87 @@ class PredictionV3Controller extends Controller
     }
 
     /**
+     * GET /api/v3/features/history
+     * 返回特征排名的历史记录（占位实现，便于前端联调）。
+     * 结构：[{ round_id, feature, predictions:[{symbol,predicted_rank}], results:[{symbol,actual_rank}], settled_at? }]
+     */
+    public function getFeatureHistory(Request $request)
+    {
+        $limit = (int)($request->query('limit', 100));
+        $limit = max(1, min($limit, 500));
+
+        // 占位：尝试从最近的已结算轮次生成伪造结构，若没有数据则返回空数组
+        $rounds = DB::table('game_rounds')
+            ->select('id', 'round_id', 'status', 'settled_at')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get();
+
+        $history = [];
+        foreach ($rounds as $round) {
+            // 读取当轮的特征快照，如果不存在则跳过
+            $rows = DB::table('feature_snapshots')
+                ->select('token_symbol', 'feature_key', 'raw_value', 'normalized_value')
+                ->where('game_round_id', $round->id)
+                ->get();
+
+            if ($rows->isEmpty()) {
+                continue;
+            }
+
+            // 简单规则：对每个特征按norm降序生成预测排名（前3）
+            $byFeature = [];
+            foreach ($rows as $r) {
+                $byFeature[$r->feature_key][] = [
+                    'symbol' => $r->token_symbol,
+                    'norm' => $r->normalized_value,
+                ];
+            }
+
+            foreach ($byFeature as $feature => $list) {
+                usort($list, function ($a, $b) {
+                    return ($b['norm'] <=> $a['norm']);
+                });
+                $pred = [];
+                $rank = 1;
+                foreach ($list as $item) {
+                    if ($rank > 3) break; // 仅前三
+                    $pred[] = [
+                        'symbol' => $item['symbol'],
+                        'predicted_rank' => $rank,
+                    ];
+                    $rank++;
+                }
+
+                // 读取当轮结果（RoundResult表）
+                $results = DB::table('round_results')
+                    ->select('symbol', 'rank as actual_rank')
+                    ->where('game_round_id', $round->id)
+                    ->get()
+                    ->map(function ($r) {
+                        return ['symbol' => $r->symbol, 'actual_rank' => (int)$r->actual_rank];
+                    })
+                    ->values()
+                    ->all();
+
+                $history[] = [
+                    'round_id' => (string)$round->round_id,
+                    'feature' => (string)$feature,
+                    'predictions' => $pred,
+                    'results' => $results,
+                    'settled_at' => $round->settled_at,
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $history,
+            'message' => 'ok',
+            'code' => 0,
+        ]);
+    }
+    /**
      * POST /api/v3/predict/aggregate （可选，默认前端做聚合）
      */
     public function aggregate(Request $request)

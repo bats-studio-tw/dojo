@@ -16,12 +16,24 @@
             <div class="text-sm text-white/80">特征驱动 · 本地聚合</div>
           </div>
           <div class="flex items-center gap-3 text-xs">
-            <n-button v-if="!tokenValidated" size="small" type="primary" @click="showWalletSetup = true">登录以启用</n-button>
+            <div class="hidden items-center gap-2 text-white/70 sm:flex">
+              <span>
+                WS:
+                <span :class="websocketStatus.status === 'connected' ? 'text-green-400' : 'text-red-400'">
+                  {{ websocketStatus.status }}
+                </span>
+              </span>
+              <n-button size="tiny" tertiary @click="websocketManager.manualReconnect">重连</n-button>
+            </div>
+            <n-button v-if="!tokenValidated" size="small" type="primary" @click="showWalletSetup = true">
+              登录以启用
+            </n-button>
             <n-button v-else size="small" @click="showWalletSetup = true">账户</n-button>
           </div>
         </div>
 
-        <!-- 新设计：顶部紧凑对比榜 -->
+        <!-- 条件面板 + 紧凑榜 -->
+        <V3ConditionPanel :matrix="matrix || null" class="mb-4" />
         <FeatureCompactBoard :matrix="matrix || null" />
 
         <!-- 登录/账户设置复用组件 -->
@@ -45,6 +57,7 @@
   import { NEmpty } from 'naive-ui';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import FeatureCompactBoard from '@/components/FeatureCompactBoard.vue';
+  import V3ConditionPanel from '@/components/V3ConditionPanel.vue';
   import { useFeatureStore } from '@/stores/featureStore';
   import { websocketManager } from '@/utils/websocketManager';
   import { jwtTokenUtils } from '@/utils/api';

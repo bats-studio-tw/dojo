@@ -4,24 +4,18 @@
 
     <div class="mx-auto max-w-7xl p-4 sm:p-6">
       <div class="mb-4 flex items-center justify-between">
-        <h1 class="text-xl font-bold text-white">特征排名（本局）</h1>
-        <button class="rounded bg-white/10 px-3 py-1.5 text-xs" :disabled="loading" @click="refresh">
-          {{ loading ? '加载中...' : '刷新' }}
-        </button>
+        <h1 class="text-xl text-white font-bold">特征排名（本局，自动刷新）</h1>
+        <div class="text-xs opacity-70">WebSocket: {{ websocketStatus.message }}</div>
       </div>
 
       <div class="space-y-6">
-        <AIPredictionRanking
+        <FeatureRankingCard
           v-for="f in features"
           :key="f"
-          :current-analysis="buildFeatureRanking(f)"
-          :analysis-meta="{ round_id: matrix?.round_id || '', feature_key: f }"
-          :current-round-id="String(matrix?.round_id || '')"
-          :current-game-status="'unknown'"
-          :current-game-tokens-with-ranks="[]"
-          :analysis-loading="loading"
           :title="`🎯 特征 - ${f}`"
-          @refresh-analysis="refresh"
+          :feature-key="f"
+          :items="buildCardItems(f)"
+          :current-game-tokens-with-ranks="currentGameTokensWithRanks"
         />
       </div>
     </div>
@@ -32,51 +26,55 @@
   import { computed, onMounted } from 'vue';
   import { Head } from '@inertiajs/vue3';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
-  import AIPredictionRanking from '@/components/AIPredictionRanking.vue';
+  import FeatureRankingCard from '@/components/FeatureRankingCard.vue';
   import { useFeatureStore } from '@/stores/featureStore';
+  import { websocketManager } from '@/utils/websocketManager';
+  import { useGamePredictionStore } from '@/stores/gamePrediction';
 
   const store = useFeatureStore();
+  const predictionStore = useGamePredictionStore();
   const matrix = computed(() => store.matrix);
-  const loading = computed(() => store.loading);
+  // 页面自动刷新，不使用loading状态显示
+  // const loading = computed(() => store.loading);
   const features = computed(() => matrix.value?.features ?? []);
   const tokens = computed(() => matrix.value?.tokens ?? []);
+  const websocketStatus = websocketManager.websocketStatus;
+  const currentGameTokensWithRanks = computed(() => predictionStore.currentGameTokensWithRanks);
 
   const refresh = () => store.fetchRoundFeatures();
 
   // 将单一特征的矩阵列构造成 AIPredictionRanking 所需的数据结构
-  function buildFeatureRanking(featureKey: string) {
-    const rows: Array<{ symbol: string; value: number; raw: number | null }> = [];
+  function buildCardItems(featureKey: string) {
+    const rows: Array<{ symbol: string; score: number; raw: number | null; probability?: number }> = [];
     for (const t of tokens.value) {
       const cell = matrix.value?.matrix?.[t]?.[featureKey];
       const norm = (cell?.norm ?? null) as number | null;
       const raw = (cell?.raw ?? null) as number | null;
       const score = norm ?? raw ?? 0;
-      rows.push({ symbol: t, value: score, raw });
+      const probability =
+        featureKey.includes('top3') && typeof raw === 'number' ? Math.max(0, Math.min(100, raw * 100)) : undefined;
+      rows.push({ symbol: t, score, raw, probability });
     }
-    // 按分数降序并生成 rank
     const sorted = rows
       .slice()
-      .sort((a, b) => b.value - a.value)
-      .map((x, idx) => ({ symbol: x.symbol, predicted_rank: idx + 1, prediction_score: x.value, raw: x.raw }));
-
-    // AIPredictionRanking 期望的字段映射（最小集）
-    return sorted.map((r) => {
-      const base: any = {
-        symbol: r.symbol,
-        predicted_rank: r.predicted_rank,
-        prediction_score: r.prediction_score,
-        absolute_score: r.raw ?? undefined
-      };
-      // 对 p_top3_from_elo 这类概率特征，提供 top3_rate 显示（百分比）
-      if (featureKey.includes('top3') && typeof r.raw === 'number') {
-        base.top3_rate = Math.max(0, Math.min(100, r.raw * 100));
-      }
-      return base;
-    });
+      .sort((a, b) => b.score - a.score)
+      .map((x, idx) => ({ symbol: x.symbol, rank: idx + 1, score: x.score, raw: x.raw, probability: x.probability }));
+    return sorted;
   }
 
-  onMounted(() => {
-    if (!matrix.value) refresh();
+  onMounted((): void => {
+    if (!websocketManager.isInitialized) websocketManager.initialize();
+    predictionStore.fetchInitialData().catch(() => {});
+    // 首次拉取
+    refresh();
+    // 监听游戏事件，进入bet或新轮次变化时刷新特征矩阵
+    websocketManager.listenToGameUpdates((event: { data?: { status?: string; rdId?: string } }) => {
+      const status = event?.data?.status;
+      const rdId = event?.data?.rdId;
+      if (status === 'bet' && rdId) {
+        refresh();
+      }
+    });
   });
 </script>
 

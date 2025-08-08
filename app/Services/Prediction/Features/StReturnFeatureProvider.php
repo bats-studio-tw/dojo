@@ -31,6 +31,7 @@ class StReturnFeatureProvider implements FeatureProviderInterface
                 ->orderBy('minute_timestamp', 'desc')
                 ->value('price_usd');
 
+            // 取窗口内“最接近窗口起点”的价格，避免因缺采样导致的偏移
             $earliest = TokenPrice::where('symbol', $symbol)
                 ->where('minute_timestamp', '<=', $startTs)
                 ->orderBy('minute_timestamp', 'desc')
@@ -38,7 +39,8 @@ class StReturnFeatureProvider implements FeatureProviderInterface
 
             $pct = 0.0;
             if ($latest !== null && $earliest !== null && (float)$earliest > 0) {
-                $pct = (($latest - $earliest) / $earliest) * 100;
+                // 使用对数收益率的线性近似（百分比表述），更稳健
+                $pct = (log((float)$latest) - log((float)$earliest)) * 100.0;
             }
 
             // 限幅，避免极端值
@@ -46,7 +48,7 @@ class StReturnFeatureProvider implements FeatureProviderInterface
             $out[$symbol] = [
                 'raw' => $score,
                 'norm' => $score,
-                'meta' => ['window_min' => $this->minutes],
+                'meta' => ['window_min' => $this->minutes, 'domain' => 'log'],
             ];
         }
 

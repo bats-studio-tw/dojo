@@ -47,12 +47,13 @@ class DrawdownShortFeatureProvider implements FeatureProviderInterface
                 }
             }
 
-            // 回撤越小越好，映射为 0-100 稳定性分
-            $score = max(0, 100 - min(100, $maxDd * 100));
+            // 回撤越小越好，映射为 0-100 稳定性分；再映射为 [-50,50] 以与动量/趋势尺度一致
+            $stability0to100 = max(0, 100 - min(100, $maxDd * 100));
+            $score = ($stability0to100 - 50); // 范围约 [-50, 50]
             $out[$symbol] = [
                 'raw' => $score,
                 'norm' => $score,
-                'meta' => ['window_min' => $this->minutes],
+                'meta' => ['window_min' => $this->minutes, 'domain' => 'linear'],
             ];
         }
 

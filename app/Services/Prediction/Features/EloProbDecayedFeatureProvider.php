@@ -3,10 +3,14 @@
 namespace App\Services\Prediction\Features;
 
 use App\Contracts\Prediction\FeatureProviderInterface;
-use App\Models\TokenRating;
+use App\Services\EloRatingEngine;
 
 class EloProbDecayedFeatureProvider implements FeatureProviderInterface
 {
+    public function __construct(
+        private EloRatingEngine $elo
+    ) {}
+
     public function getKey(): string
     {
         return 'elo_prob_decayed';
@@ -14,19 +18,30 @@ class EloProbDecayedFeatureProvider implements FeatureProviderInterface
 
     public function extractFeatures(array $snapshots, array $history = []): array
     {
-        // 简化版：取 Elo 值映射到 0~1 胜率，后续可引入时间衰减和 pairwise 矩阵
-        $out = [];
-        foreach ($snapshots as $s) {
-            $symbol = is_array($s) ? strtoupper($s['symbol'] ?? '') : strtoupper($s->symbol ?? '');
-            if (!$symbol) continue;
+        // 基于“当前对手组”的时间衰减 Elo，计算 pairwise 平均胜率（更贴合当局对战）
+        $symbols = [];
+        if (!empty($snapshots)) {
+            $firstKey = array_key_first($snapshots);
+            if (is_string($firstKey)) {
+                $symbols = array_map('strtoupper', array_keys($snapshots));
+            } else {
+                foreach ($snapshots as $s) {
+                    $sym = is_array($s) ? ($s['symbol'] ?? null) : ($s->symbol ?? null);
+                    if ($sym) $symbols[] = strtoupper($sym);
+                }
+            }
+        }
+        $symbols = array_values(array_unique(array_filter($symbols)));
+        if (count($symbols) < 2) return [];
 
-            $elo = TokenRating::where('symbol', $symbol)->value('elo') ?? 1500.0;
-            // 将 Elo 映射为近似胜率：使用逻辑函数以 1500 为中性
-            $p = 1 / (1 + pow(10, (1500 - $elo) / 400)); // 0~1
-            $out[$symbol] = [
-                'raw' => (float)$p,
-                'norm' => (float)$p,
-                'meta' => ['mapping' => 'elo_logistic_1500_center'],
+        $prob = $this->elo->probabilities($symbols, true); // 使用时间衰减
+        $out = [];
+        foreach ($symbols as $s) {
+            $p = (float)($prob[$s] ?? 0.5);
+            $out[$s] = [
+                'raw' => $p,
+                'norm' => $p,
+                'meta' => ['source' => 'elo_prob_time_decayed_pairwise_mean'],
             ];
         }
         return $out;

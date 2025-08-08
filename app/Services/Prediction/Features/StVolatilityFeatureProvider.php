@@ -43,19 +43,20 @@ class StVolatilityFeatureProvider implements FeatureProviderInterface
                 for ($i = 1; $i < count($prices); $i++) {
                     $prev = $prices[$i - 1];
                     if ($prev > 0) {
-                        $returns[] = ($prices[$i] - $prev) / $prev;
+                        // 使用对数收益，鲁棒
+                        $returns[] = log($prices[$i]) - log($prev);
                     }
                 }
                 $vol = $this->mathUtils->standardDeviation($returns);
-                // 波动越小越好 → 将其映射为 0-100 的“稳定性分”
-                $stability = max(0, 100 - min(100, $vol * 10_000));
-                $score = $stability;
+                // 波动越小越好：将其映射为 [-50,50] 的“稳定性分”，保持与其它短窗特征尺度一致
+                $stability0to100 = max(0, 100 - min(100, $vol * 10_000));
+                $score = $stability0to100 - 50;
             }
 
             $out[$symbol] = [
                 'raw' => $score,
                 'norm' => $score,
-                'meta' => ['window_min' => $this->minutes],
+                'meta' => ['window_min' => $this->minutes, 'domain' => 'log'],
             ];
         }
 

@@ -60,13 +60,13 @@
 
   const featureOptions = computed(() => (props.matrix?.features ?? []).map((f) => ({ label: f, value: f })));
 
-  // 默认选前4个
+  // 默认全选
   watch(
     () => props.matrix?.features,
     (list) => {
       if (!list || list.length === 0) return;
       if (selectedFeatures.value.length === 0) {
-        selectedFeatures.value = list.slice(0, 4);
+        selectedFeatures.value = list;
       } else {
         // 移除不存在的，保留已有顺序
         selectedFeatures.value = selectedFeatures.value.filter((f) => list.includes(f));

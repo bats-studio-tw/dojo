@@ -3,6 +3,7 @@
 namespace App\Services\Prediction\Features;
 
 use App\Contracts\Prediction\FeatureProviderInterface;
+use App\Models\TokenPrice;
 
 class MomentumFeatureProvider implements FeatureProviderInterface
 {
@@ -16,24 +17,34 @@ class MomentumFeatureProvider implements FeatureProviderInterface
         $out = [];
 
         foreach ($snapshots as $snapshot) {
-            if (is_array($snapshot)) {
-                $symbol = strtoupper($snapshot['symbol'] ?? '');
-                $priceChange24h = $snapshot['price_change_24h'] ?? 0;
-            } else {
-                $symbol = strtoupper($snapshot->symbol ?? '');
-                $priceChange24h = $snapshot->price_change_24h ?? 0;
-            }
-
-            if (empty($symbol)) {
-                continue;
-            }
+            $symbol = is_array($snapshot) ? strtoupper($snapshot['symbol'] ?? '') : strtoupper($snapshot->symbol ?? '');
+            if (empty($symbol)) continue;
 
             try {
-                $mom = $this->calculateMomentumScore($priceChange24h);
+                // 使用分钟线直接计算24小时涨跌幅：(最近价 - 24小时前价) / 24小时前价
+                $endTs = now()->startOfMinute()->timestamp;
+                $startTs = $endTs - 24 * 60 * 60;
+
+                $latest = TokenPrice::where('symbol', $symbol)
+                    ->where('minute_timestamp', '<=', $endTs)
+                    ->orderBy('minute_timestamp', 'desc')
+                    ->value('price_usd');
+
+                $earliest = TokenPrice::where('symbol', $symbol)
+                    ->where('minute_timestamp', '<=', $startTs)
+                    ->orderBy('minute_timestamp', 'desc')
+                    ->value('price_usd');
+
+                $pct = 0.0;
+                if ($latest !== null && $earliest !== null && (float)$earliest > 0) {
+                    $pct = (($latest - $earliest) / $earliest) * 100; // 百分比
+                }
+
+                $mom = $this->calculateMomentumScore($pct);
                 $out[$symbol] = [
                     'raw' => $mom,
                     'norm' => $mom,
-                    'meta' => ['source' => 'pct_change_24h']
+                    'meta' => ['source' => 'db_24h_pct_change']
                 ];
             } catch (\Exception $e) {
                 \Log::warning("Failed to extract momentum feature for {$symbol}: ".$e->getMessage());
@@ -51,13 +62,9 @@ class MomentumFeatureProvider implements FeatureProviderInterface
     /**
      * 计算动量分数
      */
-    private function calculateMomentumScore(float $priceChange24h): float
+    private function calculateMomentumScore(float $priceChangePct): float
     {
-        // 将百分比变化转换为分数
-        // 例如: +10% = 10分, -5% = -5分
-        // 限制在合理范围内 (-50 到 +50)
-        $score = $priceChange24h * 100; // 转换为百分比（与既有定义保持一致）
-
-        return max(-50, min(50, $score));
+        // 直接用百分比作为分数，限制范围（-50, 50）
+        return max(-50, min(50, $priceChangePct));
     }
 }

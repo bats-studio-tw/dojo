@@ -20,15 +20,17 @@ class EloFeatureProvider implements FeatureProviderInterface
     public function extractFeatures(array $snapshots, array $history = []): array
     {
         $out = [];
-        // $snapshots 可为空，这里只需要symbol集合
+        // $snapshots 可为空，这里只需要symbol集合（兼容两种输入）
         $symbols = [];
-        foreach ($snapshots as $k => $v) {
-            // 兼容两种输入：列表或 token=>data
-            if (is_string($k)) {
-                $symbols[] = strtoupper($k);
+        if (!empty($snapshots)) {
+            $firstKey = array_key_first($snapshots);
+            if (is_string($firstKey)) {
+                foreach ($snapshots as $key => $_) { $symbols[] = strtoupper($key); }
             } else {
-                $symbol = is_array($v) ? ($v['symbol'] ?? null) : ($v->symbol ?? null);
-                if ($symbol) $symbols[] = strtoupper($symbol);
+                foreach ($snapshots as $v) {
+                    $symbol = is_array($v) ? ($v['symbol'] ?? null) : ($v->symbol ?? null);
+                    if ($symbol) $symbols[] = strtoupper($symbol);
+                }
             }
         }
         $symbols = array_unique(array_filter($symbols));

@@ -2,21 +2,24 @@
   <DefaultLayout>
     <Head title="特征排名 (本局)" />
 
-    <div class="mx-auto max-w-7xl p-4 sm:p-6">
-      <div class="mb-4 flex items-center justify-between">
-        <h1 class="text-xl text-white font-bold">特征排名（本局，自动刷新）</h1>
-        <div class="text-xs opacity-70">WebSocket: {{ websocketStatus.message }}</div>
-      </div>
+    <div class="min-h-screen from-slate-900 via-slate-800 to-slate-900 bg-gradient-to-br">
+      <div class="mx-auto max-w-7xl p-4 sm:p-6">
+        <div class="mb-4 flex items-center justify-between">
+          <h1 class="text-xl text-white font-bold">特征排名（本局，自动刷新）</h1>
+          <div class="text-xs opacity-70">WebSocket: {{ websocketStatus.message }}</div>
+        </div>
 
-      <div class="space-y-6">
-        <FeatureRankingCard
-          v-for="f in features"
-          :key="f"
-          :title="`🎯 特征 - ${f}`"
-          :feature-key="f"
-          :items="buildCardItems(f)"
-          :current-game-tokens-with-ranks="currentGameTokensWithRanks"
-        />
+        <div class="space-y-6">
+          <FeatureRankingCard
+            v-for="f in features"
+            :key="f"
+            :title="`🎯 特征 - ${f}`"
+            :feature-key="f"
+            :items="buildCardItems(f)"
+            :current-game-tokens-with-ranks="currentGameTokensWithRanks"
+          />
+          <NEmpty v-if="!features.length" description="暂无特征数据" class="py-8" />
+        </div>
       </div>
     </div>
   </DefaultLayout>
@@ -25,6 +28,7 @@
 <script setup lang="ts">
   import { computed, onMounted } from 'vue';
   import { Head } from '@inertiajs/vue3';
+  import { NEmpty } from 'naive-ui';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import FeatureRankingCard from '@/components/FeatureRankingCard.vue';
   import { useFeatureStore } from '@/stores/featureStore';

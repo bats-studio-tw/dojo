@@ -9,6 +9,9 @@
           <div class="text-xs opacity-70">WebSocket: {{ websocketStatus.message }}</div>
         </div>
 
+        <!-- 新设计：顶部紧凑对比榜 -->
+        <FeatureCompactBoard :matrix="matrix || null" />
+
         <div class="space-y-6">
           <FeatureRankingCard
             v-for="f in features"
@@ -31,6 +34,7 @@
   import { NEmpty } from 'naive-ui';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import FeatureRankingCard from '@/components/FeatureRankingCard.vue';
+  import FeatureCompactBoard from '@/components/FeatureCompactBoard.vue';
   import { useFeatureStore } from '@/stores/featureStore';
   import { websocketManager } from '@/utils/websocketManager';
   import { useGamePredictionStore } from '@/stores/gamePrediction';

@@ -13,15 +13,7 @@
         <FeatureCompactBoard :matrix="matrix || null" />
 
         <div class="space-y-6">
-          <FeatureRankingCard
-            v-for="f in features"
-            :key="f"
-            :title="`🎯 特征 - ${f}`"
-            :feature-key="f"
-            :items="buildCardItems(f)"
-            :current-game-tokens-with-ranks="currentGameTokensWithRanks"
-          />
-          <NEmpty v-if="!features.length" description="暂无特征数据" class="py-8" />
+          <NEmpty v-if="!(matrix && matrix.features && matrix.features.length)" description="暂无特征数据" class="py-8" />
         </div>
       </div>
     </div>
@@ -33,7 +25,6 @@
   import { Head } from '@inertiajs/vue3';
   import { NEmpty } from 'naive-ui';
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
-  import FeatureRankingCard from '@/components/FeatureRankingCard.vue';
   import FeatureCompactBoard from '@/components/FeatureCompactBoard.vue';
   import { useFeatureStore } from '@/stores/featureStore';
   import { websocketManager } from '@/utils/websocketManager';
@@ -44,31 +35,13 @@
   const matrix = computed(() => store.matrix);
   // 页面自动刷新，不使用loading状态显示
   // const loading = computed(() => store.loading);
-  const features = computed(() => matrix.value?.features ?? []);
-  const tokens = computed(() => matrix.value?.tokens ?? []);
+  // 紧凑榜已覆盖主用例，下面列表已移除
   const websocketStatus = websocketManager.websocketStatus;
   const currentGameTokensWithRanks = computed(() => predictionStore.currentGameTokensWithRanks);
 
   const refresh = () => store.maybeFetchAfterTimeout();
 
-  // 将单一特征的矩阵列构造成 AIPredictionRanking 所需的数据结构
-  function buildCardItems(featureKey: string) {
-    const rows: Array<{ symbol: string; score: number; raw: number | null; probability?: number }> = [];
-    for (const t of tokens.value) {
-      const cell = matrix.value?.matrix?.[t]?.[featureKey];
-      const norm = (cell?.norm ?? null) as number | null;
-      const raw = (cell?.raw ?? null) as number | null;
-      const score = norm ?? raw ?? 0;
-      const probability =
-        featureKey.includes('top3') && typeof raw === 'number' ? Math.max(0, Math.min(100, raw * 100)) : undefined;
-      rows.push({ symbol: t, score, raw, probability });
-    }
-    const sorted = rows
-      .slice()
-      .sort((a, b) => b.score - a.score)
-      .map((x, idx) => ({ symbol: x.symbol, rank: idx + 1, score: x.score, raw: x.raw, probability: x.probability }));
-    return sorted;
-  }
+  // 旧的单特征卡片已移除
 
   onMounted((): void => {
     if (!websocketManager.isInitialized) websocketManager.initialize();

@@ -21,10 +21,7 @@
     <!-- 排名并列栅格 -->
     <div class="grid gap-3" :class="gridColsClass">
       <NCard v-for="f in selectedFeatures" :key="f" class="border border-white/10 bg-white/5 backdrop-blur">
-        <div class="mb-2 flex items-center justify-between">
-          <div class="text-sm text-white font-bold">🎯 {{ f }}</div>
-          <div class="text-xs text-white/50">Top {{ topN }}</div>
-        </div>
+        <div class="mb-2 text-sm text-white font-bold">🎯 {{ f }}</div>
         <div class="space-y-1">
           <div
             v-for="(row, idx) in getTopRows(f)"

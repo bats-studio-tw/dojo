@@ -9,7 +9,7 @@
       >
         <div class="mb-2 flex items-center justify-between">
           <div class="flex items-center space-x-2">
-            <div class="text-lg">{{ rankIcon(index + 1) }}</div>
+            <div class="text-lg">{{ getPredictionIcon(index + 1) }}</div>
             <div class="text-sm text-white font-bold">{{ item.symbol }}</div>
           </div>
           <div class="text-xs text-gray-400">#{{ item.rank }}</div>
@@ -50,6 +50,7 @@
 <script setup lang="ts">
   import { computed } from 'vue';
   import { NCard } from 'naive-ui';
+  import { usePredictionDisplay } from '@/composables/usePredictionDisplay';
 
   interface Item {
     symbol: string;
@@ -67,8 +68,7 @@
   }>();
 
   const isProbability = computed(() => props.featureKey.includes('top3') || props.featureKey.includes('prob'));
-
-  const rankIcon = (rank: number) => (rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '🏅');
+  const { getPredictionIcon } = usePredictionDisplay();
   const cardClass = (index: number) =>
     index < 3 ? 'border-green-500/20 bg-green-500/5' : 'border-white/10 bg-white/5';
   const scoreClass = (index: number) => (index < 3 ? 'text-green-400' : 'text-gray-200');

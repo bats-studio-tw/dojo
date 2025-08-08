@@ -1,41 +1,91 @@
 <template>
-  <div class="space-y-3">
-    <div class="flex items-center gap-3">
-      <div class="text-sm text-white/80">下注条件</div>
-      <div class="flex items-center gap-2 text-xs">
-        <span>Top</span>
-        <n-slider v-model:value="topNProxy" :min="1" :max="5" :step="1" class="w-[140px]" />
-        <span>{{ topNProxy }}</span>
-      </div>
-      <n-button size="small" tertiary @click="reset">重置</n-button>
-      <n-button size="small" @click="saveToLocalStorage">保存</n-button>
-    </div>
-
-    <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-      <n-card class="border border-white/10 bg-white/5">
-        <div class="mb-2 text-xs text-white/70">特征最小阈值</div>
-        <div class="grid grid-cols-2 gap-2">
-          <div v-for="f in features" :key="`min-${f}`" class="flex items-center gap-2">
-            <span class="text-xs text-white/70">{{ f }}</span>
-            <n-input-number v-model:value="featureMin[f]" clearable :precision="3" class="w-full" />
+  <n-card class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="🎯 下注条件">
+    <div class="space-y-5">
+      <!-- 顶部：Top N + 操作按钮 -->
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 text-xs">
+            <span class="text-white/80">Top</span>
+            <n-slider v-model:value="topNProxy" :min="1" :max="5" :step="1" class="w-[160px]" />
+            <span class="text-white/70">{{ topNProxy }}</span>
           </div>
+          <div class="text-xs text-gray-400">最终会从符合条件的列表中选取前 {{ topNProxy }} 个</div>
         </div>
-      </n-card>
+        <div class="flex items-center gap-2">
+          <n-button size="small" tertiary @click="onReset">重置</n-button>
+          <n-button size="small" type="primary" @click="onSave">保存到本地</n-button>
+        </div>
+      </div>
 
-      <n-card class="border border-white/10 bg-white/5">
-        <div class="mb-2 text-xs text-white/70">白/黑名单</div>
-        <div class="space-y-2">
-          <n-input v-model:value="whitelistText" type="text" placeholder="白名单, 逗号分隔 (e.g. BTC,ETH)" />
-          <n-input v-model:value="blacklistText" type="text" placeholder="黑名单, 逗号分隔" />
+      <!-- 内容：左右分栏 -->
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <!-- 特征阈值 -->
+        <n-card size="small" class="border border-white/10 bg-white/5">
+          <div class="mb-3 flex items-center justify-between">
+            <div class="text-xs text-white/70">特征阈值（归一化优先，单位: 数值越大越好）</div>
+            <div class="text-xs text-white/50">可设置 ≥ 最小值 与 ≤ 最大值</div>
+          </div>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div v-for="f in features" :key="`feature-${f}`" class="flex items-center gap-2">
+              <span class="w-36 truncate text-xs text-white/70" :title="f">{{ f }}</span>
+              <div class="w-full flex items-center gap-1">
+                <n-input-number
+                  v-model:value="featureMin[f]"
+                  clearable
+                  :precision="3"
+                  placeholder="≥ 最小值"
+                  class="w-full"
+                />
+                <n-input-number
+                  v-model:value="featureMax[f]"
+                  clearable
+                  :precision="3"
+                  placeholder="≤ 最大值"
+                  class="w-full"
+                />
+              </div>
+            </div>
+          </div>
+        </n-card>
+
+        <!-- 白/黑名单 -->
+        <n-card size="small" class="border border-white/10 bg-white/5">
+          <div class="mb-3 text-xs text-white/70">白/黑名单（逗号分隔，自动转大写）</div>
+          <div class="space-y-3">
+            <n-input v-model:value="whitelistText" type="text" placeholder="白名单, 例如: BTC,ETH" />
+            <div v-if="whitelist.length" class="flex flex-wrap gap-2">
+              <n-tag v-for="t in whitelist" :key="`w-${t}`" size="small" type="success" round>{{ t }}</n-tag>
+            </div>
+            <n-input v-model:value="blacklistText" type="text" placeholder="黑名单, 例如: DOGE,PEPE" />
+            <div v-if="blacklist.length" class="flex flex-wrap gap-2">
+              <n-tag v-for="t in blacklist" :key="`b-${t}`" size="small" type="error" round>{{ t }}</n-tag>
+            </div>
+          </div>
+        </n-card>
+      </div>
+
+      <!-- 预览区 -->
+      <div class="border border-white/10 rounded-lg bg-white/5 p-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="text-xs text-gray-300">
+            符合条件的 Token：
+            <span class="text-green-400 font-semibold">{{ matchedTokens.length }}</span>
+            个；最终选取 Top {{ topNProxy }}：
+            <span class="text-blue-400 font-semibold">{{ previewTokens.length }}</span>
+            个
+          </div>
+          <div class="text-xs text-white/60">变更会实时预览，不会影响服务器</div>
         </div>
-      </n-card>
+        <div v-if="previewTokens.length" class="mt-2 flex flex-wrap gap-2">
+          <n-tag v-for="s in previewTokens" :key="`p-${s}`" size="small" type="info" round>{{ s }}</n-tag>
+        </div>
+      </div>
     </div>
-  </div>
+  </n-card>
 </template>
 
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue';
-  import { NCard, NButton, NSlider, NInput, NInputNumber } from 'naive-ui';
   import type { RoundFeatureMatrixResponse } from '@/types/prediction';
   import { useV3Conditions } from '@/composables/useV3Conditions';
 
@@ -79,8 +129,23 @@
         .filter(Boolean))
   );
 
+  // 预览：符合条件与TopN
+  const matchedTokens = computed(() => filterTokens());
+  const previewTokens = computed(() => matchedTokens.value.slice(0, Math.max(1, topN.value)));
+
+  // 统一按钮回调
+  const onReset = () => {
+    reset();
+    whitelistText.value = '';
+    blacklistText.value = '';
+  };
+  const onSave = () => saveToLocalStorage();
+
   // 初始化
   loadFromLocalStorage();
+  // 将本地已存的黑白名单回显到输入框
+  whitelistText.value = (whitelist.value || []).join(',');
+  blacklistText.value = (blacklist.value || []).join(',');
 
   defineExpose({
     topN,

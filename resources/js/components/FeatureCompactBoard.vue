@@ -43,7 +43,7 @@
             class="item-row flex items-center justify-between rounded-lg px-3 py-2 text-xs"
           >
             <div class="flex items-center gap-3">
-              <span class="rank-badge" :class="getRankClass(idx)">{{ getRankIcon(idx) }}</span>
+              <span class="rank-badge" :class="getRankClass(idx)">{{ getPredictionIcon(idx + 1) }}</span>
               <span class="token text-white font-semibold">{{ row.symbol }}</span>
             </div>
             <div class="font-mono tabular-nums" :class="getScoreClass(row.score)">
@@ -59,6 +59,7 @@
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue';
   import { NSelect, NEmpty } from 'naive-ui';
+  import { usePredictionDisplay } from '@/composables/usePredictionDisplay';
   import type { RoundFeatureMatrixResponse } from '@/types/prediction';
 
   const props = defineProps<{
@@ -73,6 +74,8 @@
     const features = props.matrix?.features ?? [];
     return tokens.length > 0 && features.length > 0;
   });
+
+  const { getPredictionIcon } = usePredictionDisplay();
 
   // 默认全选
   watch(
@@ -115,8 +118,6 @@
     const fixed = Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(2) : v.toFixed(3);
     return fixed;
   };
-
-  const getRankIcon = (idx: number) => (idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`);
 
   const getRankClass = (idx: number) => {
     if (idx === 0) return 'rank-gold';

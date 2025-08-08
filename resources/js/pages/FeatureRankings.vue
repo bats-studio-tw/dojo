@@ -17,17 +17,33 @@
           </div>
           <div class="flex flex-wrap items-center gap-3 text-xs">
             <div class="hidden items-center gap-2 text-white/70 sm:flex">
-              <span>轮次: <span class="font-mono">{{ roundId }}</span></span>
-              <span>状态: <span :class="gameStatus === 'bet' ? 'text-green-400' : 'text-white/80'">{{ gameStatus }}</span></span>
-              <span>WS: <span :class="websocketStatus.status === 'connected' ? 'text-green-400' : 'text-red-400'">{{ websocketStatus.status }}</span></span>
+              <span>
+                轮次:
+                <span class="font-mono">{{ roundId }}</span>
+              </span>
+              <span>
+                状态:
+                <span :class="gameStatus === 'bet' ? 'text-green-400' : 'text-white/80'">{{ gameStatus }}</span>
+              </span>
+              <span>
+                WS:
+                <span :class="websocketStatus.status === 'connected' ? 'text-green-400' : 'text-red-400'">
+                  {{ websocketStatus.status }}
+                </span>
+              </span>
               <NButton size="tiny" tertiary @click="websocketManager.manualReconnect">重连</NButton>
             </div>
             <div v-if="userInfo" class="hidden items-center gap-2 text-white/80 sm:flex">
-              <span>UID: <span class="font-mono text-green-400">{{ userInfo.uid }}</span></span>
+              <span>
+                UID:
+                <span class="text-green-400 font-mono">{{ userInfo.uid }}</span>
+              </span>
               <NButton size="tiny" tertiary :loading="userInfoRefreshing" @click="refreshUserInfo">刷新</NButton>
               <NButton size="tiny" tertiary @click="reconnectToken">登出</NButton>
             </div>
-            <NButton v-if="!tokenValidated" size="small" type="primary" @click="showWalletSetup = true">登录以启用</NButton>
+            <NButton v-if="!tokenValidated" size="small" type="primary" @click="showWalletSetup = true">
+              登录以启用
+            </NButton>
             <NButton v-else size="small" @click="showWalletSetup = true">账户</NButton>
           </div>
         </div>
@@ -86,7 +102,9 @@
 
   // 顶部状态（参考 AutoBetting）
   const predictionStore = useGamePredictionStore();
-  const gameStatus = computed(() => (predictionStore as any)?.gameStatus || (predictionStore as any)?.status || 'unknown');
+  const gameStatus = computed(
+    () => (predictionStore as any)?.gameStatus || (predictionStore as any)?.status || 'unknown'
+  );
   const roundId = computed(() => (predictionStore as any)?.roundId || (predictionStore as any)?.currentRoundId || '');
 
   function reconnectToken() {

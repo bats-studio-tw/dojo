@@ -203,11 +203,16 @@
 
   // 下单开关
   const placingBets = ref(false);
+  const isExecuting = ref(false);
+  // 已下注记录（按 轮次:代币 唯一键）
+  const processedBets = ref<Set<string>>(new Set());
+  let executionTimeout: number | null = null;
   // 本地下注金额规则（与自动下注页一致）
   const calculateBetAmount = (): number => (bettingMode.value === 'real' ? 200 : 5);
 
   // 自动下注（基于V3）
   const placeBetsByV3 = async () => {
+    if (isExecuting.value) return; // 防重复并发
     if (!tokenValidated.value || !jwtToken.value) {
       window.$message?.warning('请先完成身份验证');
       return;
@@ -222,6 +227,12 @@
     const tokens = selectedTokens.value;
     if (!tokens.length) {
       window.$message?.warning('当前条件没有可下注的Token');
+      return;
+    }
+
+    // 过滤掉本轮已下注过的代币
+    const pendingTokens = tokens.filter((s) => !processedBets.value.has(`${roundIdVal}:${s}`));
+    if (!pendingTokens.length) {
       return;
     }
 
@@ -243,36 +254,52 @@
     };
 
     placingBets.value = true;
+    isExecuting.value = true;
     let success = 0;
     let fail = 0;
-    for (const symbol of tokens) {
+    for (const symbol of pendingTokens) {
       try {
         const ok = await executeSingleBet(roundIdVal, symbol, betAmount, jwtToken.value, bettingMode.value);
         if (ok) success++;
         else fail++;
+        // 记录本轮此代币已处理，避免重复下注
+        processedBets.value.add(`${roundIdVal}:${symbol}`);
         await new Promise((r) => setTimeout(r, 400));
       } catch {
         fail++;
+        processedBets.value.add(`${roundIdVal}:${symbol}`);
       }
     }
     placingBets.value = false;
+    isExecuting.value = false;
     if (success) window.$message?.success(`下注完成：成功 ${success}，失败 ${fail}`);
     else window.$message?.error('下注失败');
     // 刷新状态
     loadStatus();
   };
 
-  // 自动触发：当满足条件且进入 bet 状态时自动执行
-  watch(
-    [() => bettingMode.value, currentRoundId, currentGameStatus, eligibleTokens, v3TopN],
-    async () => {
-      if (!tokenValidated.value || placingBets.value) return;
-      if ((currentGameStatus.value || '') !== 'bet') return;
+  // 自动触发：进入 bet 或新轮次时触发（防抖 + 去重）
+  watch([currentRoundId, currentGameStatus], ([rid, status], [prevRid, prevStatus]) => {
+    const isBet = (status || '') === 'bet';
+    const becameBet = (prevStatus || '') !== 'bet' && isBet;
+    const newRound = !!rid && rid !== prevRid;
+    if (!isBet || (!becameBet && !newRound)) return;
+    if (!tokenValidated.value) return;
+
+    // 稍作延迟，等矩阵/条件稳定
+    if (executionTimeout) window.clearTimeout(executionTimeout);
+    executionTimeout = window.setTimeout(async () => {
       if (!selectedTokens.value.length) return;
       await placeBetsByV3();
-    },
-    { deep: true }
-  );
+    }, 120);
+  });
+
+  // 轮次变化时清理已下注集合，避免集合无限增长
+  watch(currentRoundId, (rid, prevRid) => {
+    if (rid && rid !== prevRid) {
+      processedBets.value = new Set();
+    }
+  });
 
   function reconnectToken() {
     localStorage.removeItem('tokenValidated');

@@ -10,6 +10,7 @@ interface FeatureStoreState {
   updatedAt: number | null;
   lastRoundId?: string | null;
   pushReceivedAt?: number | null;
+  fallbackTimerId?: number | null;
 }
 
 export const useFeatureStore = defineStore('featureStore', {
@@ -19,7 +20,8 @@ export const useFeatureStore = defineStore('featureStore', {
     error: null,
     updatedAt: null,
     lastRoundId: null,
-    pushReceivedAt: null
+    pushReceivedAt: null,
+    fallbackTimerId: null
   }),
   actions: {
     async fetchRoundFeatures(roundId?: string | number): Promise<void> {
@@ -56,17 +58,27 @@ export const useFeatureStore = defineStore('featureStore', {
         this.updatedAt = Date.now();
         this.lastRoundId = String((payload as any)?.round_id ?? event?.round_id ?? '');
         this.pushReceivedAt = Date.now();
+        // 收到推送后，取消兜底请求计时器
+        if (this.fallbackTimerId) {
+          clearTimeout(this.fallbackTimerId);
+          this.fallbackTimerId = null;
+        }
       });
     },
-    maybeFetchAfterTimeout(roundId?: string, timeoutMs = 1200): void {
+    maybeFetchAfterTimeout(roundId?: string, timeoutMs = 3000): void {
       const start = Date.now();
-      const matchedRound = !!roundId ? this.lastRoundId === roundId : true;
+      const matchedRound = roundId ? this.lastRoundId === roundId : true;
       const recentPush = this.pushReceivedAt && Date.now() - this.pushReceivedAt < timeoutMs;
       if (matchedRound && recentPush) return; // 已有有效推送，跳过请求
 
-      setTimeout(() => {
+      // 统一去抖：始终只保留一个兜底计时器，避免并发两次请求
+      if (this.fallbackTimerId) {
+        clearTimeout(this.fallbackTimerId);
+      }
+      this.fallbackTimerId = window.setTimeout(() => {
+        this.fallbackTimerId = null;
         const gotPush = this.pushReceivedAt && this.pushReceivedAt >= start;
-        const sameRound = !!roundId ? this.lastRoundId === roundId : !!this.matrix;
+        const sameRound = roundId ? this.lastRoundId === roundId : !!this.matrix;
         if (!gotPush || !sameRound) {
           void this.fetchRoundFeatures(roundId);
         }
@@ -79,6 +91,10 @@ export const useFeatureStore = defineStore('featureStore', {
       this.loading = false;
       this.lastRoundId = null;
       this.pushReceivedAt = null;
+      if (this.fallbackTimerId) {
+        clearTimeout(this.fallbackTimerId);
+        this.fallbackTimerId = null;
+      }
     }
   }
 });

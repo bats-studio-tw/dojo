@@ -50,12 +50,14 @@ class ExtractFeaturesJob implements ShouldQueue
             }
             // 并行/顺序执行 Provider（此处顺序，后续可改并行 pool）
             $snapshots = [];
+            // 统一构造传给 Provider 的输入快照格式：[{ symbol: 'XXX' }, ...]
+            $inputSnapshots = array_map(fn ($s) => ['symbol' => $s], $symbols);
             foreach ($providers as $provider) {
                 if (!$provider instanceof FeatureProviderInterface) {
                     continue;
                 }
                 $key = method_exists($provider, 'getKey') ? $provider->getKey() : null;
-                $result = $provider->extractFeatures(array_fill_keys($symbols, []), []);
+                $result = $provider->extractFeatures($inputSnapshots, []);
                 if (!$result) continue;
                 foreach ($result as $symbol => $payload) {
                     $snapshots[] = [

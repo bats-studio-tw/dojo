@@ -4,10 +4,9 @@
       <!-- 顶部：Top N + 操作按钮 -->
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-3">
-          <div class="flex items-center gap-2 text-xs">
-            <span class="text-white/80">Top</span>
-            <n-slider v-model:value="topNProxy" :min="1" :max="5" :step="1" class="w-[160px]" />
-            <span class="text-white/70">{{ topNProxy }}</span>
+          <div class="flex items-center gap-2 whitespace-nowrap text-xs">
+            <span class="text-white/80">Top N</span>
+            <n-input-number v-model:value="topNProxy" :min="1" :max="5" :step="1" size="small" class="w-[100px]" />
           </div>
           <div class="text-xs text-gray-400">最终会从符合条件的列表中选取前 {{ topNProxy }} 个</div>
         </div>
@@ -19,16 +18,16 @@
 
       <!-- 内容：左右分栏 -->
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <!-- 特征阈值 -->
+        <!-- 特征阈值 + 名次条件 -->
         <n-card size="small" class="border border-white/10 bg-white/5">
           <div class="mb-3 flex items-center justify-between">
-            <div class="text-xs text-white/70">特征阈值（归一化优先，单位: 数值越大越好）</div>
-            <div class="text-xs text-white/50">可设置 ≥ 最小值 与 ≤ 最大值</div>
+            <div class="text-xs text-white/70">特征阈值与名次条件（归一化优先）</div>
+            <div class="text-xs text-white/50">可设置 ≥ 最小值 / ≤ 最大值，或按名次筛选</div>
           </div>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div v-for="f in features" :key="`feature-${f}`" class="flex items-center gap-2">
               <span class="w-36 truncate text-xs text-white/70" :title="f">{{ f }}</span>
-              <div class="w-full flex items-center gap-1">
+              <div class="w-full flex flex-wrap items-center gap-1">
                 <n-input-number
                   v-model:value="featureMin[f]"
                   clearable
@@ -43,8 +42,35 @@
                   placeholder="≤ 最大值"
                   class="w-full"
                 />
+                <span class="ml-1 text-xs text-white/50">名次</span>
+                <n-select
+                  v-model:value="ensureRankRule(f).operator"
+                  :options="rankOperatorOptions"
+                  size="small"
+                  class="w-[88px]"
+                />
+                <n-input-number
+                  v-model:value="ensureRankRule(f).value"
+                  :min="1"
+                  :precision="0"
+                  size="small"
+                  class="w-[90px]"
+                />
+                <n-button size="tiny" tertiary @click="clearRankRule(f)">清除</n-button>
               </div>
             </div>
+          </div>
+
+          <div class="mt-3 flex items-center gap-2">
+            <span class="text-xs text-white/70">满足第一名(=1)的特征数量 ≥</span>
+            <n-input-number
+              v-model:value="firstPlaceMinCountProxy"
+              :min="1"
+              :precision="0"
+              size="small"
+              class="w-[100px]"
+            />
+            <span class="text-xs text-white/50">（留空表示不限制）</span>
           </div>
         </n-card>
 
@@ -98,6 +124,8 @@
     featureMax,
     whitelist,
     blacklist,
+    featureRank,
+    firstPlaceMinCount,
     filterTokens,
     reset,
     saveToLocalStorage,
@@ -108,6 +136,33 @@
   const topNProxy = computed({
     get: () => topN.value,
     set: (v: number) => (topN.value = v)
+  });
+
+  // 名次操作符选项
+  const rankOperatorOptions = [
+    { label: '<', value: 'lt' as const },
+    { label: '≤', value: 'lte' as const },
+    { label: '=', value: 'eq' as const },
+    { label: '≥', value: 'gte' as const },
+    { label: '>', value: 'gt' as const }
+  ];
+
+  // 确保存在某特征的名次条件对象
+  type RankRule = { operator: 'lt' | 'lte' | 'eq' | 'gte' | 'gt'; value: number | null };
+  const ensureRankRule = (feature: string): RankRule => {
+    if (!featureRank.value[feature]) {
+      featureRank.value[feature] = { operator: 'lte', value: null } as RankRule;
+    }
+    return featureRank.value[feature] as RankRule;
+  };
+
+  const clearRankRule = (feature: string) => {
+    featureRank.value[feature] = null as unknown as RankRule | null;
+  };
+
+  const firstPlaceMinCountProxy = computed({
+    get: () => firstPlaceMinCount.value ?? null,
+    set: (v: number | null) => (firstPlaceMinCount.value = v ?? null)
   });
 
   const whitelistText = ref('');
@@ -153,6 +208,8 @@
     featureMax,
     whitelist,
     blacklist,
+    featureRank,
+    firstPlaceMinCount,
     filterTokens
   });
 </script>

@@ -69,21 +69,31 @@
                   </div>
                 </div>
               </div>
-
-              <!-- 登录/账户按钮 -->
-              <NButton v-if="!tokenValidated" size="small" type="primary" @click="showWalletSetup = true">
-                登录以启用
-              </NButton>
-              <NButton v-else size="small" @click="showWalletSetup = true">账户</NButton>
             </div>
           </div>
         </div>
       </div>
 
       <div class="mx-auto max-w-7xl p-4 sm:p-6">
+        <!-- 自动下注状态面板（与AutoBetting一致的摘要卡片） -->
+        <div class="mb-6">
+          <AutoBettingStatusPanel
+            :betting-mode="bettingMode"
+            :user-info="userInfo"
+            :auto-betting-status="autoBettingStatus"
+            :strategy-validation="strategyValidation"
+            :is-running="autoBettingStatus?.is_running || false"
+            :toggle-loading="toggleLoading"
+            :enable-mode-switch="true"
+            @start="startAutoBetting"
+            @stop="stopAutoBetting"
+            @change-mode="onChangeBettingMode"
+          />
+        </div>
+
         <!-- 条件面板 + 紧凑榜 -->
-        <V3ConditionPanel :matrix="matrix || null" class="mb-4" />
-        <FeatureCompactBoard :matrix="matrix || null" />
+        <FeatureCompactBoard :matrix="matrix || null" class="mb-4" />
+        <V3ConditionPanel :matrix="matrix || null" />
 
         <!-- 登录/账户设置复用组件 -->
         <WalletSetup :visible="showWalletSetup" @validated="onWalletValidated" />
@@ -107,6 +117,7 @@
   import DefaultLayout from '@/layouts/DefaultLayout.vue';
   import FeatureCompactBoard from '@/components/FeatureCompactBoard.vue';
   import V3ConditionPanel from '@/components/V3ConditionPanel.vue';
+  import AutoBettingStatusPanel from '@/components/AutoBettingStatusPanel.vue';
   import { useFeatureStore } from '@/stores/featureStore';
   import { websocketManager } from '@/utils/websocketManager';
   import { jwtTokenUtils, getUserInfo } from '@/utils/api';
@@ -116,6 +127,7 @@
   import type { UserInfo, GetUserInfoResponse } from '@/types';
   import type { WebSocketStatus as WS } from '@/utils/websocketManager';
   import type { GameDataUpdateEvent } from '@/stores/gamePrediction';
+  import { useAutoBettingControl } from '@/composables/useAutoBettingControl';
 
   const store = useFeatureStore();
   const matrix = computed(() => store.matrix);
@@ -145,6 +157,30 @@
   const gameStatus = computed(() => currentGameStatus.value || 'unknown');
   // 预留：如需映射中文可在此处扩展
   const roundId = computed(() => currentRoundId.value || '—');
+
+  // 自动下注状态（读取与控制）
+  const { autoBettingStatus, toggleLoading, startAutoBetting, stopAutoBetting } = useAutoBettingControl();
+  const bettingMode = computed<'real' | 'dummy'>(() => {
+    // 简化：若有存储的配置则读取，否则默认real
+    const cfg = localStorage.getItem('autoBettingConfig');
+    try {
+      const parsed = cfg ? JSON.parse(cfg) : null;
+      return (parsed?.betting_mode as 'real' | 'dummy') || 'real';
+    } catch {
+      return 'real';
+    }
+  });
+  function onChangeBettingMode(mode: 'real' | 'dummy') {
+    const cfg = localStorage.getItem('autoBettingConfig');
+    const parsed = cfg ? JSON.parse(cfg) : {};
+    parsed.betting_mode = mode;
+    localStorage.setItem('autoBettingConfig', JSON.stringify(parsed));
+  }
+  const strategyValidation = ref<{
+    total_matched?: number;
+    required_balance?: number;
+    balance_sufficient?: boolean;
+  } | null>(null);
 
   function reconnectToken() {
     localStorage.removeItem('tokenValidated');

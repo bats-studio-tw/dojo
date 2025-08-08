@@ -11,11 +11,6 @@
         placeholder="选择要对比的特征"
         class="min-w-[260px] w-[460px]"
       />
-      <div class="flex items-center gap-2 text-xs text-white/70">
-        <span>Top</span>
-        <NSlider v-model:value="topN" :min="3" :max="10" :step="1" class="w-[160px]" />
-        <span>{{ topN }}</span>
-      </div>
     </div>
 
     <!-- 排名并列栅格 -->
@@ -45,14 +40,13 @@
 
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue';
-  import { NSelect, NSlider, NCard } from 'naive-ui';
+  import { NSelect, NCard } from 'naive-ui';
   import type { RoundFeatureMatrixResponse } from '@/types/prediction';
 
   const props = defineProps<{
     matrix: RoundFeatureMatrixResponse | null;
   }>();
 
-  const topN = ref(5);
   const selectedFeatures = ref<string[]>([]);
 
   const featureOptions = computed(() => (props.matrix?.features ?? []).map((f) => ({ label: f, value: f })));
@@ -89,7 +83,9 @@
     }
     rows.sort((a, b) => b.score - a.score);
     for (let i = 0; i < rows.length; i++) rows[i].rank = i + 1;
-    return rows.slice(0, topN.value);
+    // 固定展示本局 5 个代币（若少于5则按实际数量）
+    const count = Math.min(5, rows.length);
+    return rows.slice(0, count);
   }
 
   const formatScore = (v: number) => (Math.abs(v) >= 1 ? v.toFixed(3) : v.toFixed(3));

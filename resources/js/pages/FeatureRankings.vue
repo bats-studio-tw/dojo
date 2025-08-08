@@ -75,11 +75,13 @@
       </div>
 
       <div class="mx-auto max-w-7xl p-4 sm:p-6">
+        <!-- 紧凑榜 -->
+        <FeatureCompactBoard :matrix="matrix || null" class="mb-4" />
         <!-- 自动下注状态面板（与AutoBetting一致的摘要卡片） -->
         <div class="mb-6">
           <AutoBettingStatusPanel
             :betting-mode="bettingMode"
-            :user-info="userInfo"
+            :user-info="displayUserInfo"
             :auto-betting-status="autoBettingStatus"
             :strategy-validation="strategyValidation"
             :is-running="autoBettingStatus?.is_running || false"
@@ -91,8 +93,8 @@
           />
         </div>
 
-        <!-- 条件面板 + 紧凑榜 -->
-        <FeatureCompactBoard :matrix="matrix || null" class="mb-4" />
+        <!-- 条件面板  -->
+
         <V3ConditionPanel :matrix="matrix || null" />
 
         <!-- 登录/账户设置复用组件 -->
@@ -159,7 +161,15 @@
   const roundId = computed(() => currentRoundId.value || '—');
 
   // 自动下注状态（读取与控制）
-  const { autoBettingStatus, toggleLoading, startAutoBetting, stopAutoBetting } = useAutoBettingControl();
+  const {
+    userInfo: abUserInfo,
+    autoBettingStatus,
+    toggleLoading,
+    startAutoBetting,
+    stopAutoBetting,
+    restoreAuthState,
+    loadStatus
+  } = useAutoBettingControl();
   const bettingMode = computed<'real' | 'dummy'>(() => {
     // 简化：若有存储的配置则读取，否则默认real
     const cfg = localStorage.getItem('autoBettingConfig');
@@ -176,6 +186,7 @@
     parsed.betting_mode = mode;
     localStorage.setItem('autoBettingConfig', JSON.stringify(parsed));
   }
+  const displayUserInfo = computed<UserInfo | null>(() => abUserInfo.value || userInfo.value);
   const strategyValidation = ref<{
     total_matched?: number;
     required_balance?: number;
@@ -263,6 +274,14 @@
         if (event.data.status === 'bet' && event.data.rdId) {
           refresh();
         }
+      }
+    });
+
+    // 尝试恢复自动下注的本地登录态并拉取最新状态/用户信息
+    restoreAuthState().then(() => {
+      loadStatus();
+      if (!userInfo.value && jwtToken.value) {
+        refreshUserInfo();
       }
     });
   });

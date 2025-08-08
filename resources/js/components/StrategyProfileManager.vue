@@ -46,7 +46,7 @@
   }
 
   defineProps<{ profiles: StrategyProfile[] }>();
-  defineEmits<{
+  const emit = defineEmits<{
     (e: 'create', name: string): void;
     (e: 'load', id: number | string): void;
     (e: 'saveAs', id?: number | string): void;

@@ -1,5 +1,5 @@
 <template>
-  <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="🧬 特征预测分析" size="large">
+  <NCard class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" :title="title" size="large">
     <template #header-extra>
       <div class="flex items-center space-x-3">
         <n-button :loading="loading" @click="$emit('refresh')" type="primary" size="small">🔄 刷新统计</n-button>
@@ -203,6 +203,7 @@
   import { usePredictionDisplay } from '@/composables/usePredictionDisplay';
 
   interface Props {
+    title?: string;
     exactRate: number;
     totalRounds: number;
     allStats: AllRankStats;
@@ -215,6 +216,7 @@
   }
 
   const props = withDefaults(defineProps<Props>(), {
+    title: '🧬 特征预测分析',
     loading: false,
     showRecentSelector: true,
     showRecentStats: true

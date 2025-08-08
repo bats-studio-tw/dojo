@@ -120,162 +120,6 @@
               </div>
             </NTabPane>
 
-            <!-- 历史与分析标签页 -->
-            <NTabPane name="history">
-              <template #tab>
-                <div class="flex items-center gap-2">
-                  <span class="text-lg">📊</span>
-                  <span>历史与分析</span>
-                </div>
-              </template>
-
-              <div class="border border-white/10 rounded-xl bg-black/20 p-6 backdrop-blur-md">
-                <HistoryAnalysisTab
-                  :exact-rate="predictionStats.calculateRoundBasedStats.value?.exactRate || 0"
-                  :total-rounds="predictionStats.calculatePortfolioStats.value?.totalRounds || 0"
-                  :all-stats="
-                    predictionStats.calculateRankBasedStats.value || {
-                      rank1: {
-                        total: 0,
-                        breakeven: 0,
-                        loss: 0,
-                        firstPlace: 0,
-                        breakevenRate: 0,
-                        lossRate: 0,
-                        firstPlaceRate: 0
-                      },
-                      rank2: {
-                        total: 0,
-                        breakeven: 0,
-                        loss: 0,
-                        firstPlace: 0,
-                        breakevenRate: 0,
-                        lossRate: 0,
-                        firstPlaceRate: 0
-                      },
-                      rank3: {
-                        total: 0,
-                        breakeven: 0,
-                        loss: 0,
-                        firstPlace: 0,
-                        breakevenRate: 0,
-                        lossRate: 0,
-                        firstPlaceRate: 0
-                      }
-                    }
-                  "
-                  :recent-stats="
-                    predictionStats.calculateRecentRankBasedStats.value || {
-                      rank1: {
-                        total: 0,
-                        breakeven: 0,
-                        loss: 0,
-                        firstPlace: 0,
-                        breakevenRate: 0,
-                        lossRate: 0,
-                        firstPlaceRate: 0
-                      },
-                      rank2: {
-                        total: 0,
-                        breakeven: 0,
-                        loss: 0,
-                        firstPlace: 0,
-                        breakevenRate: 0,
-                        lossRate: 0,
-                        firstPlaceRate: 0
-                      },
-                      rank3: {
-                        total: 0,
-                        breakeven: 0,
-                        loss: 0,
-                        firstPlace: 0,
-                        breakevenRate: 0,
-                        lossRate: 0,
-                        firstPlaceRate: 0
-                      }
-                    }
-                  "
-                  :recent-rounds-count="recentRoundsCount"
-                  :max-rounds="predictionHistory.length || 0"
-                  :history-loading="predictionStore.historyLoading"
-                  :prediction-comparison-data="predictionStats.getPredictionComparisonData.value || []"
-                  :momentum-stats="
-                    momentumStats.stats.value || {
-                      momentumAccuracy: 0,
-                      totalRounds: 0,
-                      allStats: {
-                        rank1: {
-                          total: 0,
-                          breakeven: 0,
-                          loss: 0,
-                          firstPlace: 0,
-                          breakevenRate: 0,
-                          lossRate: 0,
-                          firstPlaceRate: 0
-                        },
-                        rank2: {
-                          total: 0,
-                          breakeven: 0,
-                          loss: 0,
-                          firstPlace: 0,
-                          breakevenRate: 0,
-                          lossRate: 0,
-                          firstPlaceRate: 0
-                        },
-                        rank3: {
-                          total: 0,
-                          breakeven: 0,
-                          loss: 0,
-                          firstPlace: 0,
-                          breakevenRate: 0,
-                          lossRate: 0,
-                          firstPlaceRate: 0
-                        }
-                      },
-                      recentStats: {
-                        rank1: {
-                          total: 0,
-                          breakeven: 0,
-                          loss: 0,
-                          firstPlace: 0,
-                          breakevenRate: 0,
-                          lossRate: 0,
-                          firstPlaceRate: 0
-                        },
-                        rank2: {
-                          total: 0,
-                          breakeven: 0,
-                          loss: 0,
-                          firstPlace: 0,
-                          breakevenRate: 0,
-                          lossRate: 0,
-                          firstPlaceRate: 0
-                        },
-                        rank3: {
-                          total: 0,
-                          breakeven: 0,
-                          loss: 0,
-                          firstPlace: 0,
-                          breakevenRate: 0,
-                          lossRate: 0,
-                          firstPlaceRate: 0
-                        }
-                      },
-                      averageMomentumScore: 0,
-                      averageConfidence: 0
-                    }
-                  "
-                  :momentum-loading="momentumHistoryLoading"
-                  :momentum-recent-rounds-count="momentumRecentRoundsCount"
-                  :momentum-max-rounds="Math.max(500, momentumPredictionHistory.length || 0)"
-                  @refresh-prediction-history="refreshPredictionHistory"
-                  @refresh-momentum-history="refreshMomentumHistory"
-                  @update:recent-rounds-count="updateRecentRoundsCount"
-                  @update:momentum-recent-rounds-count="updateMomentumRecentRoundsCount"
-                />
-              </div>
-            </NTabPane>
-
             <!-- 特征历史分析标签页（新） -->
             <NTabPane name="feature-history">
               <template #tab>
@@ -294,6 +138,8 @@
                   :recent-rounds-count="featureRecentRoundsCount"
                   :max-rounds="featureHistory.length || 0"
                   :history-loading="featureHistoryLoading"
+                  :features="featureList"
+                  :feature-stats-map="featureStatsMap"
                   @refresh-feature-history="refreshFeatureHistory"
                   @update:recent-rounds-count="(v: number) => (featureRecentRoundsCount = v)"
                 />
@@ -314,11 +160,11 @@
   import FeatureCompactBoard from '@/components/FeatureCompactBoard.vue';
   import V3ConditionPanel from '@/components/V3ConditionPanel.vue';
   import AutoBettingStatusPanel from '@/components/AutoBettingStatusPanel.vue';
-  import HistoryAnalysisTab from '@/components/HistoryAnalysisTab.vue';
+  // import HistoryAnalysisTab from '@/components/HistoryAnalysisTab.vue';
   import FeatureHistoryAnalysisTab from '@/components/FeatureHistoryAnalysisTab.vue';
   import { useFeatureStore } from '@/stores/featureStore';
   import { websocketManager } from '@/utils/websocketManager';
-  import { jwtTokenUtils, getUserInfo, gameApi, featureApi } from '@/utils/api';
+  import { jwtTokenUtils, getUserInfo, featureApi } from '@/utils/api';
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import WalletSetup from '@/components/WalletSetup.vue';
   import { storeToRefs } from 'pinia';
@@ -327,10 +173,11 @@
   import type { GameDataUpdateEvent } from '@/stores/gamePrediction';
   import { useAutoBettingControl } from '@/composables/useAutoBettingControl';
   import { useV3Conditions } from '@/composables/useV3Conditions';
-  import { usePredictionStats } from '@/composables/usePredictionStats';
-  import { useMomentumPredictionStats } from '@/composables/useMomentumPredictionStats';
-  import type { MomentumPredictionHistoryRound } from '@/composables/useMomentumPredictionStats';
-  import { useFeaturePredictionStats, type FeatureHistoryRound } from '@/composables/useFeaturePredictionStats';
+  import {
+    useFeaturePredictionStats,
+    type FeatureHistoryRound,
+    type AllRankStats
+  } from '@/composables/useFeaturePredictionStats';
 
   const store = useFeatureStore();
   const matrix = computed(() => store.matrix);
@@ -356,7 +203,7 @@
 
   // 顶部状态（参考 AutoBetting）
   const predictionStore = useGamePredictionStore();
-  const { currentGameStatus, currentRoundId, predictionHistory } = storeToRefs(predictionStore);
+  const { currentGameStatus, currentRoundId } = storeToRefs(predictionStore);
   const gameStatus = computed(() => currentGameStatus.value || 'unknown');
   // 预留：如需映射中文可在此处扩展
   const roundId = computed(() => currentRoundId.value || '—');
@@ -398,43 +245,7 @@
     balance_sufficient?: boolean;
   } | null>(null);
 
-  // =============== 历史与分析（与 AutoBetting 对齐）===============
-  const recentRoundsCount = ref(50);
-  const predictionStats = usePredictionStats(predictionHistory, recentRoundsCount);
-
-  // 动能预测历史数据
-  const momentumPredictionHistory = ref<MomentumPredictionHistoryRound[]>([]);
-  const momentumHistoryLoading = ref(false);
-  const momentumRecentRoundsCount = ref(50);
-  const momentumStats = useMomentumPredictionStats(momentumPredictionHistory, momentumRecentRoundsCount);
-
-  const refreshPredictionHistory = async () => {
-    await predictionStore.fetchPredictionHistory();
-  };
-
-  const refreshMomentumHistory = async () => {
-    momentumHistoryLoading.value = true;
-    try {
-      const response = await gameApi.getMomentumPredictionHistory({ limit: 300 });
-      if (response.data.success) {
-        momentumPredictionHistory.value = response.data.data || [];
-      } else {
-        window.$message?.error(response.data.message || '获取动能预测历史数据失败');
-      }
-    } catch {
-      window.$message?.error('获取动能预测历史数据失败');
-    } finally {
-      momentumHistoryLoading.value = false;
-    }
-  };
-
-  const updateRecentRoundsCount = (value: number) => {
-    recentRoundsCount.value = value;
-  };
-
-  const updateMomentumRecentRoundsCount = (value: number) => {
-    momentumRecentRoundsCount.value = value;
-  };
+  // （移除旧统计模块，保持最简，仅保留特征历史分析）
 
   // =============== 特征历史与统计（新）===============
   const featureHistory = ref<FeatureHistoryRound[]>([]);
@@ -464,6 +275,40 @@
       featureHistoryLoading.value = false;
     }
   };
+
+  // 从特征历史中提取“所有特征列表”
+  const featureList = computed<string[]>(() => {
+    const set = new Set<string>();
+    featureHistory.value.forEach((r) => {
+      if (r.feature) set.add(r.feature);
+    });
+    return Array.from(set).sort();
+  });
+
+  // 计算“每个特征”的独立统计（复用 useFeaturePredictionStats 的逻辑，按特征切片）
+  const featureStatsMap = computed(
+    (): Record<
+      string,
+      { exactRate: number; totalRounds: number; allStats: AllRankStats; recentStats: AllRankStats }
+    > => {
+      const map: Record<
+        string,
+        { exactRate: number; totalRounds: number; allStats: AllRankStats; recentStats: AllRankStats }
+      > = {};
+      const recentRef = computed({ get: () => featureRecentRoundsCount, set: () => {} });
+      featureList.value.forEach((f) => {
+        const subHistory = computed<FeatureHistoryRound[]>(() => featureHistory.value.filter((r) => r.feature === f));
+        const stats = useFeaturePredictionStats(subHistory, recentRef);
+        map[f] = {
+          exactRate: stats.exactRate.value || 0,
+          totalRounds: stats.totalRounds.value || 0,
+          allStats: stats.calculateRankBasedStats.value,
+          recentStats: stats.calculateRecentRankBasedStats.value
+        };
+      });
+      return map;
+    }
+  );
 
   // =============== V3 条件（名次驱动）===============
   const v3 = useV3Conditions(() => store.matrix);
@@ -665,8 +510,7 @@
     });
 
     // 历史数据初始化
-    refreshPredictionHistory();
-    refreshMomentumHistory();
+    // 已移除旧统计的初始化
     refreshFeatureHistory();
   });
 </script>

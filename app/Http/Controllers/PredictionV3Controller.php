@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\GameRound;
 
 class PredictionV3Controller extends Controller
 {
@@ -25,10 +26,22 @@ class PredictionV3Controller extends Controller
             return response()->json(['success' => true, 'data' => Cache::get($cacheKey)]);
         }
 
+        // 将字符串 round_id 映射为内部整型 game_round_id
+        $gameRoundId = GameRound::where('round_id', $roundId)->value('id');
+        if (!$gameRoundId) {
+            return response()->json(['success' => true, 'data' => [
+                'round_id' => (string) $roundId,
+                'tokens' => [],
+                'features' => [],
+                'matrix' => [],
+                'computed_at' => now()->toISOString(),
+            ]]);
+        }
+
         // 读取快照并拼装矩阵
         $rows = DB::table('feature_snapshots')
             ->select('token_symbol', 'feature_key', 'raw_value', 'normalized_value')
-            ->where('game_round_id', $roundId)
+            ->where('game_round_id', $gameRoundId)
             ->get();
 
         if ($rows->isEmpty()) {

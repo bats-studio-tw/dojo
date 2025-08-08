@@ -9,8 +9,10 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\GameRound;
 
 class ExtractFeaturesJob implements ShouldQueue
 {
@@ -29,7 +31,7 @@ class ExtractFeaturesJob implements ShouldQueue
     /** @param FeatureProviderInterface[] $providers */
     public function handle(array $providers = []): void
     {
-        $roundId = $this->roundId;
+        $roundId = $this->roundId; // 外部传入的字符串 round_id（例如 ojoCap_xxx）
         $symbols = $this->symbols;
 
         $start = microtime(true);
@@ -52,6 +54,14 @@ class ExtractFeaturesJob implements ShouldQueue
             $snapshots = [];
             // 统一构造传给 Provider 的输入快照格式：[{ symbol: 'XXX' }, ...]
             $inputSnapshots = array_map(fn ($s) => ['symbol' => $s], $symbols);
+
+            // 将字符串 round_id 映射为 game_rounds 表的自增 ID
+            $gameRoundId = GameRound::where('round_id', $roundId)->value('id');
+            if (!$gameRoundId) {
+                // 兜底创建（理论上在监听器已创建）
+                $gameRound = GameRound::firstOrCreate(['round_id' => $roundId]);
+                $gameRoundId = $gameRound->id;
+            }
             foreach ($providers as $provider) {
                 if (!$provider instanceof FeatureProviderInterface) {
                     continue;
@@ -61,7 +71,7 @@ class ExtractFeaturesJob implements ShouldQueue
                 if (!$result) continue;
                 foreach ($result as $symbol => $payload) {
                     $snapshots[] = [
-                        'game_round_id' => $roundId,
+                        'game_round_id' => $gameRoundId,
                         'token_symbol' => strtoupper($symbol),
                         'feature_key' => $key,
                         'raw_value' => $payload['raw'] ?? null,

@@ -22,7 +22,23 @@ class PTop3FromEloFeatureProvider implements FeatureProviderInterface
      */
     public function extractFeatures(array $snapshots, array $history = []): array
     {
-        $symbols = array_map('strtoupper', array_keys($snapshots));
+        // 兼容两种输入：[{symbol: 'xxx'}, ...] 或 ['XXX' => any]
+        $symbols = [];
+        if (!empty($snapshots)) {
+            $firstKey = array_key_first($snapshots);
+            if (is_string($firstKey)) {
+                // 形如 ['UNI' => ...]
+                $symbols = array_map('strtoupper', array_keys($snapshots));
+            } else {
+                // 形如 [['symbol' => 'UNI'], ...]
+                foreach ($snapshots as $s) {
+                    $sym = is_array($s) ? ($s['symbol'] ?? null) : ($s->symbol ?? null);
+                    if ($sym) {
+                        $symbols[] = strtoupper($sym);
+                    }
+                }
+            }
+        }
         if (count($symbols) < 2) {
             return [];
         }

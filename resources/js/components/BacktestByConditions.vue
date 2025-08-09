@@ -1,5 +1,11 @@
 <template>
   <n-card class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="📈 条件回测 (历史)">
+    <template #header-extra>
+      <div class="flex items-center gap-2">
+        <n-button size="small" :disabled="maxRounds === 0" @click="runBacktest">计算回测</n-button>
+        <n-button size="small" tertiary :disabled="!calculated" @click="clearResult">清除结果</n-button>
+      </div>
+    </template>
     <div class="space-y-4">
       <!-- 顶部控制：回测局数 + TopN -->
       <div v-if="maxRounds > 0" class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -68,32 +74,44 @@
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
           <div class="text-xs text-emerald-300/80">总下注次数</div>
-          <div class="mt-1 text-2xl font-bold text-emerald-300">{{ results.totalBets }}</div>
-          <div class="mt-1 text-xs text-emerald-200/70">共 {{ results.roundsTriggered }} 局触发下注</div>
+          <div class="mt-1 text-2xl font-bold text-emerald-300">{{ displayResults.totalBets }}</div>
+          <div class="mt-1 text-xs text-emerald-200/70">共 {{ displayResults.roundsTriggered }} 局触发下注</div>
         </div>
         <div class="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-4">
           <div class="text-xs text-cyan-300/80">保本率 (实际Top3)</div>
-          <div class="mt-1 text-2xl font-bold text-cyan-300">{{ (results.breakevenRate || 0).toFixed(1) }}%</div>
-          <div class="mt-1 text-xs text-cyan-200/70">保本 {{ results.breakeven }} / {{ results.totalBets }}</div>
+          <div class="mt-1 text-2xl font-bold text-cyan-300">{{ (displayResults.breakevenRate || 0).toFixed(1) }}%</div>
+          <div class="mt-1 text-xs text-cyan-200/70">
+            保本 {{ displayResults.breakeven }} / {{ displayResults.totalBets }}
+          </div>
         </div>
         <div class="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
           <div class="text-xs text-amber-300/80">胜率 (第一名)</div>
-          <div class="mt-1 text-2xl font-bold text-amber-300">{{ (results.firstRate || 0).toFixed(1) }}%</div>
-          <div class="mt-1 text-xs text-amber-200/70">第一 {{ results.first }} / {{ results.totalBets }}</div>
+          <div class="mt-1 text-2xl font-bold text-amber-300">{{ (displayResults.firstRate || 0).toFixed(1) }}%</div>
+          <div class="mt-1 text-xs text-amber-200/70">
+            第一 {{ displayResults.first }} / {{ displayResults.totalBets }}
+          </div>
         </div>
         <div class="rounded-lg border border-rose-500/20 bg-rose-500/5 p-4">
           <div class="text-xs text-rose-300/80">亏损率</div>
-          <div class="mt-1 text-2xl font-bold text-rose-300">{{ (results.lossRate || 0).toFixed(1) }}%</div>
-          <div class="mt-1 text-xs text-rose-200/70">亏损 {{ results.loss }} / {{ results.totalBets }}</div>
+          <div class="mt-1 text-2xl font-bold text-rose-300">{{ (displayResults.lossRate || 0).toFixed(1) }}%</div>
+          <div class="mt-1 text-xs text-rose-200/70">
+            亏损 {{ displayResults.loss }} / {{ displayResults.totalBets }}
+          </div>
         </div>
       </div>
 
       <!-- 预览：最近一局命中的Token（可选） -->
-      <div v-if="preview.lastSelected.length" class="rounded-lg border border-white/10 bg-white/5 p-3">
+      <div v-if="displayPreview.lastSelected.length" class="rounded-lg border border-white/10 bg-white/5 p-3">
         <div class="text-xs text-white/60">最近一局选出 Token：</div>
         <div class="mt-2 flex flex-wrap gap-2">
-          <n-tag v-for="s in preview.lastSelected" :key="`last-${s}`" size="small" type="info" round>{{ s }}</n-tag>
+          <n-tag v-for="s in displayPreview.lastSelected" :key="`last-${s}`" size="small" type="info" round>
+            {{ s }}
+          </n-tag>
         </div>
+      </div>
+
+      <div v-if="!calculated && maxRounds > 0" class="text-xs text-white/60">
+        提示：设置名次条件或第一名数量，然后点击“计算回测”。
       </div>
     </div>
   </n-card>
@@ -265,7 +283,7 @@
     return eligible.slice(0, Math.max(1, topN.value)).map((x) => x.token);
   }
 
-  // 回测计算
+  // 回测计算（实时计算，但仅在点击按钮后采纳为展示结果）
   const selectedByRound = computed<Record<string, string[]>>(() => {
     const out: Record<string, string[]> = {};
     const keys = Object.keys(roundMaps.value)
@@ -277,7 +295,7 @@
     return out;
   });
 
-  const results = computed(() => {
+  const computedResults = computed(() => {
     let totalBets = 0;
     let breakeven = 0;
     let loss = 0;
@@ -309,13 +327,55 @@
     return { totalBets, breakeven, loss, first, breakevenRate, firstRate, lossRate, roundsTriggered };
   });
 
-  const preview = computed(() => {
+  const computedPreview = computed(() => {
     const keys = Object.keys(selectedByRound.value)
       .map((k) => Number(k))
       .sort((a, b) => b - a);
     const latestKey = keys.length ? String(keys[0]) : '';
     return { lastSelected: latestKey ? selectedByRound.value[latestKey] || [] : [] };
   });
+
+  // 手动触发：仅在点击后更新展示结果
+  type ResultSummary = {
+    totalBets: number;
+    breakeven: number;
+    loss: number;
+    first: number;
+    breakevenRate: number;
+    firstRate: number;
+    lossRate: number;
+    roundsTriggered: number;
+  };
+
+  const zeroSummary: ResultSummary = {
+    totalBets: 0,
+    breakeven: 0,
+    loss: 0,
+    first: 0,
+    breakevenRate: 0,
+    firstRate: 0,
+    lossRate: 0,
+    roundsTriggered: 0
+  };
+
+  const calculated = ref(false);
+  const lastResults = ref<ResultSummary>(zeroSummary);
+  const lastPreview = ref<{ lastSelected: string[] }>({ lastSelected: [] });
+
+  function runBacktest(): void {
+    lastResults.value = { ...computedResults.value };
+    lastPreview.value = { ...computedPreview.value };
+    calculated.value = true;
+  }
+
+  function clearResult(): void {
+    lastResults.value = { ...zeroSummary };
+    lastPreview.value = { lastSelected: [] };
+    calculated.value = false;
+  }
+
+  const displayResults = computed<ResultSummary>(() => (calculated.value ? lastResults.value : zeroSummary));
+  const displayPreview = computed(() => (calculated.value ? lastPreview.value : { lastSelected: [] }));
 </script>
 
 <style scoped></style>

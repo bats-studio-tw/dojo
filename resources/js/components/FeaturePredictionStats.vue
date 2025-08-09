@@ -30,6 +30,7 @@
                 :max="Math.min(1000, maxRounds)"
                 :step="1"
                 :tooltip="true"
+                @change="onSliderChange"
               />
             </div>
             <div class="whitespace-nowrap text-xs text-gray-400">1-{{ Math.min(1000, maxRounds) }}局</div>
@@ -340,6 +341,15 @@
   const emit = defineEmits<{ refresh: []; 'update:recent-rounds-count': [value: number] }>();
   function emitUpdateRecent(v: number) {
     emit('update:recent-rounds-count', v);
+  }
+
+  // 当用户松手或 change 触发时，立即派发，减少等待感
+  function onSliderChange(v: number) {
+    if (debounceTimer) {
+      window.clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+    emitUpdateRecent(v);
   }
 
   // 统计展示：基线与区间

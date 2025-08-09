@@ -173,11 +173,7 @@
   import type { GameDataUpdateEvent } from '@/stores/gamePrediction';
   import { useAutoBettingControl } from '@/composables/useAutoBettingControl';
   import { useV3Conditions } from '@/composables/useV3Conditions';
-  import {
-    useFeaturePredictionStats,
-    type FeatureHistoryRound,
-    type AllRankStats
-  } from '@/composables/useFeaturePredictionStats';
+  import { type FeatureHistoryRound, type AllRankStats } from '@/composables/useFeaturePredictionStats';
 
   const store = useFeatureStore();
   const matrix = computed(() => store.matrix);
@@ -251,15 +247,75 @@
   // =============== 特征历史与统计（新）===============
   const featureHistory = ref<FeatureHistoryRound[]>([]);
   const featureHistoryLoading = ref(false);
-  let featureRecentRoundsCount = 50;
-  const featureStats = useFeaturePredictionStats(
-    computed(() => featureHistory.value),
-    computed({ get: () => featureRecentRoundsCount, set: (v: number) => (featureRecentRoundsCount = v) })
+  const featureRecentRoundsCount = ref<number>(50);
+  // 预排序全量历史，避免在子层重复排序
+  const sortedHistoryAll = computed<FeatureHistoryRound[]>(() => {
+    const arr = featureHistory.value.slice();
+    arr.sort((a, b) => Number(b.round_id) - Number(a.round_id));
+    return arr;
+  });
+  function computeAllStatsForList(list: FeatureHistoryRound[]): AllRankStats {
+    const stats: AllRankStats = {
+      rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
+    };
+    if (!list || list.length === 0) return stats;
+    for (let i = 0; i < list.length; i++) {
+      const round = list[i];
+      const resultsBySymbol: Record<string, number> = {};
+      for (const r of round.results || []) resultsBySymbol[r.symbol] = r.actual_rank;
+      for (let rk = 1 as 1 | 2 | 3; rk <= 3; rk = (rk + 1) as 1 | 2 | 3) {
+        const preds = round.predictions || [];
+        for (let j = 0; j < preds.length; j++) {
+          const p = preds[j];
+          if (p.predicted_rank !== rk) continue;
+          const actualRank = resultsBySymbol[p.symbol];
+          if (actualRank == null) continue;
+          const key = `rank${rk}` as 'rank1' | 'rank2' | 'rank3';
+          const s = stats[key];
+          s.total++;
+          if (actualRank <= 3) s.breakeven++;
+          else s.loss++;
+          if (actualRank === 1) s.firstPlace++;
+        }
+      }
+    }
+    for (const s of Object.values(stats)) {
+      if (s.total > 0) {
+        s.breakevenRate = (s.breakeven / s.total) * 100;
+        s.lossRate = (s.loss / s.total) * 100;
+        s.firstPlaceRate = (s.firstPlace / s.total) * 100;
+      }
+    }
+    return stats;
+  }
+  function computeExactRateForList(list: FeatureHistoryRound[]): number {
+    if (!list || list.length === 0) return 0;
+    let exact = 0;
+    let total = 0;
+    for (let i = 0; i < list.length; i++) {
+      const round = list[i];
+      const resultsBySymbol: Record<string, number> = {};
+      for (const r of round.results || []) resultsBySymbol[r.symbol] = r.actual_rank;
+      const preds = round.predictions || [];
+      for (let j = 0; j < preds.length; j++) {
+        const p = preds[j];
+        if (p.predicted_rank > 3) continue;
+        const actualRank = resultsBySymbol[p.symbol];
+        if (actualRank == null) continue;
+        total++;
+        if (actualRank === p.predicted_rank) exact++;
+      }
+    }
+    return total > 0 ? (exact / total) * 100 : 0;
+  }
+  const featureExactRate = computed(() => computeExactRateForList(sortedHistoryAll.value));
+  const featureTotalRounds = computed(() => featureHistory.value.length || 0);
+  const featureAllStats = computed(() => computeAllStatsForList(sortedHistoryAll.value));
+  const featureRecentStats = computed(() =>
+    computeAllStatsForList(sortedHistoryAll.value.slice(0, featureRecentRoundsCount.value))
   );
-  const featureExactRate = computed(() => featureStats.exactRate.value || 0);
-  const featureTotalRounds = computed(() => featureStats.totalRounds.value || 0);
-  const featureAllStats = computed(() => featureStats.calculateRankBasedStats.value);
-  const featureRecentStats = computed(() => featureStats.calculateRecentRankBasedStats.value);
 
   const refreshFeatureHistory = async () => {
     featureHistoryLoading.value = true;
@@ -286,6 +342,22 @@
     return Array.from(set).sort();
   });
 
+  // 类型别名，简化后续声明
+  type StatsMapEntry = {
+    exactRate: number;
+    totalRounds: number;
+    allStats: AllRankStats;
+    recentStats: AllRankStats;
+  };
+  type PrecomputedFeature = {
+    length: number;
+    totals: [number[], number[], number[]];
+    breakevens: [number[], number[], number[]];
+    firsts: [number[], number[], number[]];
+    exactTotals: number[];
+    exactHits: number[];
+  };
+
   // 预排序与轻量统计：按特征预先分组并按轮次降序排列（仅在 featureHistory 变更时计算一次）
   const sortedHistoryByFeature = computed((): Record<string, FeatureHistoryRound[]> => {
     const map: Record<string, FeatureHistoryRound[]> = {};
@@ -299,6 +371,68 @@
     return map;
   });
 
+  // 预计算每个特征的前缀累计（仅在历史变更时更新）
+  function buildPrecomputedByFeature(): Record<string, PrecomputedFeature> {
+    const map: Record<string, PrecomputedFeature> = {};
+    const byFeature = sortedHistoryByFeature.value;
+    for (const [f, list] of Object.entries(byFeature)) {
+      const L = list.length;
+      const totals: [number[], number[], number[]] = [new Array(L).fill(0), new Array(L).fill(0), new Array(L).fill(0)];
+      const breakevens: [number[], number[], number[]] = [
+        new Array(L).fill(0),
+        new Array(L).fill(0),
+        new Array(L).fill(0)
+      ];
+      const firsts: [number[], number[], number[]] = [new Array(L).fill(0), new Array(L).fill(0), new Array(L).fill(0)];
+      const exactTotals: number[] = new Array(L).fill(0);
+      const exactHits: number[] = new Array(L).fill(0);
+
+      for (let i = 0; i < L; i++) {
+        const round = list[i];
+        const resultsBySymbol: Record<string, number> = {};
+        for (const r of round.results || []) resultsBySymbol[r.symbol] = r.actual_rank;
+
+        const incTotals = [0, 0, 0];
+        const incBreakevens = [0, 0, 0];
+        const incFirsts = [0, 0, 0];
+        let incExactTotal = 0;
+        let incExactHits = 0;
+
+        const preds = round.predictions || [];
+        for (let j = 0; j < preds.length; j++) {
+          const p = preds[j];
+          const rk = p.predicted_rank;
+          if (rk < 1 || rk > 3) continue;
+          const actualRank = resultsBySymbol[p.symbol];
+          if (actualRank == null) continue;
+          const idx = rk - 1;
+          incTotals[idx]++;
+          if (actualRank <= 3) incBreakevens[idx]++;
+          if (actualRank === 1) incFirsts[idx]++;
+          incExactTotal++;
+          if (actualRank === rk) incExactHits++;
+        }
+
+        for (let k = 0; k < 3; k++) {
+          const prevT = i > 0 ? totals[k][i - 1] : 0;
+          const prevB = i > 0 ? breakevens[k][i - 1] : 0;
+          const prevF = i > 0 ? firsts[k][i - 1] : 0;
+          totals[k][i] = prevT + incTotals[k];
+          breakevens[k][i] = prevB + incBreakevens[k];
+          firsts[k][i] = prevF + incFirsts[k];
+        }
+        const prevET = i > 0 ? exactTotals[i - 1] : 0;
+        const prevEH = i > 0 ? exactHits[i - 1] : 0;
+        exactTotals[i] = prevET + incExactTotal;
+        exactHits[i] = prevEH + incExactHits;
+      }
+
+      map[f] = { length: L, totals, breakevens, firsts, exactTotals, exactHits };
+    }
+    return map;
+  }
+  const precomputedByFeature = computed(() => buildPrecomputedByFeature());
+
   function emptyStats(): AllRankStats {
     return {
       rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
@@ -307,86 +441,56 @@
     };
   }
 
-  function computeAllStats(list: FeatureHistoryRound[]): AllRankStats {
-    const stats = emptyStats();
-    if (!list || list.length === 0) return stats;
-    for (let i = 0; i < list.length; i++) {
-      const round = list[i];
-      if (!round) continue;
-      const resultsBySymbol: Record<string, number> = {};
-      for (const r of round.results || []) resultsBySymbol[r.symbol] = r.actual_rank;
-      for (let rk = 1 as 1 | 2 | 3; rk <= 3; rk = (rk + 1) as 1 | 2 | 3) {
-        const preds = round.predictions || [];
-        for (let j = 0; j < preds.length; j++) {
-          const p = preds[j];
-          if (p.predicted_rank !== rk) continue;
-          const actualRank = resultsBySymbol[p.symbol];
-          if (actualRank == null) continue;
-          const key = `rank${rk}` as keyof AllRankStats;
-          const s = stats[key];
-          s.total++;
-          if (actualRank <= 3) s.breakeven++;
-          else s.loss++;
-          if (actualRank === 1) s.firstPlace++;
+  // 移除未使用的重型聚合函数，避免误用造成重复计算
+
+  function buildFeatureStatsMap(): Record<string, StatsMapEntry> {
+    const out: Record<string, StatsMapEntry> = {};
+    const pre = precomputedByFeature.value;
+    const recentN = Math.max(1, featureRecentRoundsCount.value);
+    for (const f of featureList.value) {
+      const pc = pre[f];
+      if (!pc || pc.length === 0) {
+        out[f] = { exactRate: 0, totalRounds: 0, allStats: emptyStats(), recentStats: emptyStats() };
+        continue;
+      }
+      const lastIdx = pc.length - 1;
+      const recentIdx = Math.min(pc.length - 1, recentN - 1);
+
+      const buildStats = (idx: number): AllRankStats => {
+        const s = emptyStats();
+        for (let k = 0 as 0 | 1 | 2; k < 3; k = (k + 1) as 0 | 1 | 2) {
+          type RankKey = 'rank1' | 'rank2' | 'rank3';
+          const key = `rank${k + 1}` as RankKey;
+          const total = pc.totals[k][idx];
+          const breakeven = pc.breakevens[k][idx];
+          const first = pc.firsts[k][idx];
+          s[key].total = total;
+          s[key].breakeven = breakeven;
+          s[key].loss = Math.max(0, total - breakeven);
+          s[key].firstPlace = first;
+          if (total > 0) {
+            s[key].breakevenRate = (breakeven / total) * 100;
+            s[key].lossRate = ((total - breakeven) / total) * 100;
+            s[key].firstPlaceRate = (first / total) * 100;
+          }
         }
-      }
-    }
-    for (const s of Object.values(stats)) {
-      if (s.total > 0) {
-        s.breakevenRate = (s.breakeven / s.total) * 100;
-        s.lossRate = (s.loss / s.total) * 100;
-        s.firstPlaceRate = (s.firstPlace / s.total) * 100;
-      }
-    }
-    return stats;
-  }
+        return s;
+      };
 
-  function computeExactRate(list: FeatureHistoryRound[]): number {
-    if (!list || list.length === 0) return 0;
-    let exact = 0;
-    let total = 0;
-    for (let i = 0; i < list.length; i++) {
-      const round = list[i];
-      const resultsBySymbol: Record<string, number> = {};
-      for (const r of round.results || []) resultsBySymbol[r.symbol] = r.actual_rank;
-      const preds = round.predictions || [];
-      for (let j = 0; j < preds.length; j++) {
-        const p = preds[j];
-        if (p.predicted_rank > 3) continue;
-        const actualRank = resultsBySymbol[p.symbol];
-        if (actualRank == null) continue;
-        total++;
-        if (actualRank === p.predicted_rank) exact++;
-      }
-    }
-    return total > 0 ? (exact / total) * 100 : 0;
-  }
+      const allStats = buildStats(lastIdx);
+      const recentStats = buildStats(recentIdx);
+      const exactRate = pc.exactTotals[lastIdx] > 0 ? (pc.exactHits[lastIdx] / pc.exactTotals[lastIdx]) * 100 : 0;
 
-  const featureStatsMap = computed(
-    (): Record<
-      string,
-      { exactRate: number; totalRounds: number; allStats: AllRankStats; recentStats: AllRankStats }
-    > => {
-      const map: Record<
-        string,
-        { exactRate: number; totalRounds: number; allStats: AllRankStats; recentStats: AllRankStats }
-      > = {};
-      const byFeature = sortedHistoryByFeature.value;
-      const recentN = Math.max(1, featureRecentRoundsCount);
-      for (const f of featureList.value) {
-        const list = byFeature[f] || [];
-        const allStats = computeAllStats(list);
-        const recentStats = computeAllStats(list.slice(0, recentN));
-        map[f] = {
-          exactRate: computeExactRate(list),
-          totalRounds: list.length,
-          allStats,
-          recentStats
-        };
-      }
-      return map;
+      out[f] = {
+        exactRate,
+        totalRounds: pc.length,
+        allStats,
+        recentStats
+      };
     }
-  );
+    return out;
+  }
+  const featureStatsMap = computed(() => buildFeatureStatsMap());
 
   // =============== V3 条件（名次驱动）===============
   const v3 = useV3Conditions(() => store.matrix);

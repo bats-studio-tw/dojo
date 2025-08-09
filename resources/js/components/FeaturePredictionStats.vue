@@ -5,7 +5,7 @@
         <n-button :loading="loading" @click="$emit('refresh')" type="primary" size="small">🔄 刷新统计</n-button>
       </div>
     </template>
-
+    const emit = defineEmits(['refresh', 'update:recent-rounds-count']);
     <NSpin :show="loading">
       <div v-if="hasData" class="space-y-4">
         <!-- 局数选择器 -->
@@ -303,7 +303,10 @@
     showRecentStats: true
   });
 
-  defineEmits<{ refresh: []; 'update:recent-rounds-count': [value: number] }>();
+  const emit = defineEmits<{
+    (e: 'refresh'): void;
+    (e: 'update:recent-rounds-count', value: number): void;
+  }>();
 
   const {
     getCombinedCardClass,
@@ -323,13 +326,16 @@
     }
   );
   let debounceTimer: number | null = null;
+  function emitUpdateRecent(v: number) {
+    emit('update:recent-rounds-count', v);
+  }
   watch(
     internalRecentRounds,
     (v) => {
       if (debounceTimer) window.clearTimeout(debounceTimer);
       debounceTimer = window.setTimeout(() => {
         // 通过自定义事件派发给父组件（kebab-case）
-        // eslint-disable-next-line vue/custom-event-name-casing
+
         // @ts-ignore - 运行时emit
         // 这里使用原生$emit API（<script setup> 下用 defineEmits）
         emitUpdateRecent(v);
@@ -337,11 +343,6 @@
     },
     { immediate: false }
   );
-
-  const emit = defineEmits<{ refresh: []; 'update:recent-rounds-count': [value: number] }>();
-  function emitUpdateRecent(v: number) {
-    emit('update:recent-rounds-count', v);
-  }
 
   // 当用户松手或 change 触发时，立即派发，减少等待感
   function onSliderChange(v: number) {

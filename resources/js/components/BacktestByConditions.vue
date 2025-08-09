@@ -200,32 +200,35 @@
       const fm = map[key];
       // 结果
       for (const res of r.results || []) {
-        fm.results[res.symbol] = res.actual_rank;
+        // 强制数字比较口径
+        fm.results[res.symbol] = Number((res as any).actual_rank);
         fm.tokens.add(res.symbol);
       }
       // 预测名次（该特征）
       const rankMap: Record<string, number> = fm.featureRanks[r.feature] || (fm.featureRanks[r.feature] = {});
       for (const p of r.predictions || []) {
-        rankMap[p.symbol] = p.predicted_rank;
+        // 强制数字比较口径
+        rankMap[p.symbol] = Number((p as any).predicted_rank);
         fm.tokens.add(p.symbol);
       }
     }
     return map;
   });
 
-  function opCompare(rank: number, rule: RankRule): boolean {
-    const v = rule.value as number; // 已确保不为null时调用
+  function opCompare(rank: number | string, rule: RankRule): boolean {
+    const v = Number(rule.value as number); // 已确保不为null时调用
+    const r = Number(rank);
     switch (rule.operator) {
       case 'lt':
-        return rank < v;
+        return r < v;
       case 'lte':
-        return rank <= v;
+        return r <= v;
       case 'eq':
-        return rank === v;
+        return r === v;
       case 'gte':
-        return rank >= v;
+        return r >= v;
       case 'gt':
-        return rank > v;
+        return r > v;
       default:
         return true;
     }
@@ -253,7 +256,7 @@
         let count = 0;
         for (const feature of Object.keys(rm.featureRanks)) {
           const rank = rm.featureRanks[feature]?.[token];
-          if (rank === 1) count++;
+          if (Number(rank) === 1) count++;
         }
         if (count < firstPlaceMinCount.value) continue;
       }
@@ -284,13 +287,22 @@
   }
 
   // 回测计算（实时计算，但仅在点击按钮后采纳为展示结果）
+  // 以 sortedRounds 的顺序作为权威顺序，避免 round_id 非纯数字时的排序/键问题
+  const roundKeysDesc = computed<string[]>(() => {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const r of sortedRounds.value) {
+      const key = String(r.round_id);
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(key);
+      }
+    }
+    return out;
+  });
   const selectedByRound = computed<Record<string, string[]>>(() => {
     const out: Record<string, string[]> = {};
-    const keys = Object.keys(roundMaps.value)
-      .map((k) => Number(k))
-      .sort((a, b) => b - a)
-      .slice(0, recentRounds.value)
-      .map((n) => String(n));
+    const keys = roundKeysDesc.value.slice(0, recentRounds.value);
     for (const key of keys) out[key] = filterTokensForRound(key);
     return out;
   });
@@ -311,9 +323,10 @@
         totalBets++;
         const actual = rm?.results?.[token];
         if (actual != null) {
-          if (actual <= 3) breakeven++;
-          if (actual === 1) first++;
-          if (actual > 3) loss++;
+          const a = Number(actual);
+          if (a <= 3) breakeven++;
+          if (a === 1) first++;
+          if (a > 3) loss++;
         } else {
           // 缺失结果视为无效，不计
         }
@@ -328,10 +341,7 @@
   });
 
   const computedPreview = computed(() => {
-    const keys = Object.keys(selectedByRound.value)
-      .map((k) => Number(k))
-      .sort((a, b) => b - a);
-    const latestKey = keys.length ? String(keys[0]) : '';
+    const latestKey = roundKeysDesc.value.length ? roundKeysDesc.value[0] : '';
     return { lastSelected: latestKey ? selectedByRound.value[latestKey] || [] : [] };
   });
 

@@ -2,13 +2,21 @@
   <n-card class="border border-white/20 bg-white/10 shadow-2xl backdrop-blur-lg" title="📈 条件回测 (历史)">
     <div class="space-y-4">
       <!-- 顶部控制：回测局数 + TopN -->
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-2 whitespace-nowrap text-xs">
-            <span class="text-white/80">回测局数</span>
-            <n-slider v-model:value="recentRounds" :min="1" :max="maxRounds" :step="1" class="w-56" />
-            <span class="text-cyan-400 font-semibold">{{ recentRounds }}</span>
-            <span class="text-white/50">/ {{ maxRounds }}</span>
+      <div v-if="maxRounds > 0" class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-3 flex-1 min-w-0">
+          <div class="flex items-center gap-3 w-full text-xs">
+            <span class="whitespace-nowrap text-white/80">回测局数</span>
+            <div class="flex-1 min-w-0">
+              <n-slider
+                v-model:value="recentRounds"
+                :min="1"
+                :max="Math.min(1000, maxRounds)"
+                :step="1"
+                class="w-full"
+              />
+            </div>
+            <span class="whitespace-nowrap text-cyan-400 font-semibold">{{ recentRounds }}</span>
+            <span class="whitespace-nowrap text-white/50">/ {{ Math.min(1000, maxRounds) }}</span>
           </div>
         </div>
         <div class="flex items-center gap-3">
@@ -18,6 +26,7 @@
           </div>
         </div>
       </div>
+      <div v-else class="text-xs text-white/60">暂无历史数据，待加载后显示回测控件</div>
 
       <!-- 名次条件设置（简化版，与V3一致口径） -->
       <n-card size="small" class="border border-white/10 bg-white/5">
@@ -118,11 +127,17 @@
 
   // 最大可回测局数
   const maxRounds = computed<number>(() => sortedRounds.value.length || 0);
-  const recentRounds = ref<number>(Math.min(1000, Math.max(1, maxRounds.value)));
-  watch(maxRounds, (m) => {
-    if (recentRounds.value > m) recentRounds.value = m;
-    if (recentRounds.value < 1 && m > 0) recentRounds.value = 1;
-  });
+  const recentRounds = ref<number>(1);
+  watch(
+    maxRounds,
+    (m) => {
+      // 历史数据就绪时，将回测局数设置为可用最大值（上限1000）
+      if (m > 0) {
+        recentRounds.value = Math.min(1000, Math.max(1, m));
+      }
+    },
+    { immediate: true }
+  );
 
   // 条件状态（与V3口径一致）
   const topN = ref<number>(1);

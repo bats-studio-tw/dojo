@@ -88,7 +88,7 @@ class PredictionV3Controller extends Controller
     public function getFeatureHistory(Request $request)
     {
         $limit = (int)($request->query('limit', 100));
-        $limit = max(1, min($limit, 500));
+        $limit = max(1, min($limit, 1000));
 
         // 占位：尝试从最近的已结算轮次生成伪造结构，若没有数据则返回空数组
         $rounds = DB::table('game_rounds')

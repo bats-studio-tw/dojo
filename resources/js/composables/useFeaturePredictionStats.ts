@@ -20,8 +20,8 @@ export interface FeatureHistoryRound {
 
 export interface RankStats {
   total: number;
-  breakeven: number; // 精准或更好视为保本
-  loss: number; // 更差视为亏损
+  breakeven: number; // 实际进入Top3视为保本（与预测名次无关）
+  loss: number; // 未进入Top3视为亏损
   firstPlace: number; // 实际第一名
   breakevenRate: number;
   lossRate: number;
@@ -60,8 +60,8 @@ export function useFeaturePredictionStats(
           if (!actual) return;
           const key = `rank${rank}` as keyof AllRankStats;
           stats[key].total++;
-          // 精准或更好 => 保本
-          if (actual.actual_rank <= p.predicted_rank) stats[key].breakeven++;
+          // 统一口径：实际进入 Top3 即保本
+          if (actual.actual_rank <= 3) stats[key].breakeven++;
           else stats[key].loss++;
           if (actual.actual_rank === 1) stats[key].firstPlace++;
         });
@@ -96,7 +96,8 @@ export function useFeaturePredictionStats(
           if (!actual) return;
           const key = `rank${rank}` as keyof AllRankStats;
           stats[key].total++;
-          if (actual.actual_rank <= p.predicted_rank) stats[key].breakeven++;
+          // 统一口径：实际进入 Top3 即保本
+          if (actual.actual_rank <= 3) stats[key].breakeven++;
           else stats[key].loss++;
           if (actual.actual_rank === 1) stats[key].firstPlace++;
         });

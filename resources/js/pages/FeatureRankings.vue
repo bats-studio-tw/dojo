@@ -264,7 +264,7 @@
   const refreshFeatureHistory = async () => {
     featureHistoryLoading.value = true;
     try {
-      const res = await featureApi.getFeatureHistory({ limit: 300 });
+      const res = await featureApi.getFeatureHistory({ limit: 1000 });
       if (res.data?.success) {
         featureHistory.value = res.data.data || [];
       } else {

@@ -26,14 +26,14 @@
             <div class="min-w-0 flex-1">
               <n-slider
                 :value="recentRoundsCount"
-                @update:value="$emit('update:recentRoundsCount', $event)"
+                @update:value="$emit('update:recent-rounds-count', $event)"
                 :min="1"
-                :max="Math.min(300, maxRounds)"
+                :max="Math.min(1000, maxRounds)"
                 :step="1"
                 :tooltip="true"
               />
             </div>
-            <div class="whitespace-nowrap text-xs text-gray-400">1-{{ Math.min(300, maxRounds) }}局</div>
+            <div class="whitespace-nowrap text-xs text-gray-400">1-{{ Math.min(1000, maxRounds) }}局</div>
           </div>
         </div>
 
@@ -49,6 +49,9 @@
                 <span class="text-base sm:text-lg">%</span>
               </div>
               <div class="mt-2 text-xs" :class="getAccuracyCardClass().textColor + '/70'">预测与实际完全相同</div>
+              <div class="mt-1 text-[11px] text-white/60">
+                基线 20.0%，提升 {{ formatLift(exactRate, BASELINES.exact) }}
+              </div>
             </div>
           </div>
 
@@ -79,11 +82,24 @@
                     </span>
                     <span class="text-xs text-yellow-200/70">保本率</span>
                   </div>
+                  <div class="mt-1 flex items-center justify-between text-[11px] text-yellow-200/70">
+                    <span>
+                      基线 {{ BASELINES.breakeven.toFixed(1) }}%，提升
+                      {{ formatLift(allStats.rank1.breakevenRate, BASELINES.breakeven) }}
+                    </span>
+                    <span v-if="allStats.rank1.total > 0">
+                      CI95 {{ formatCI(ci95(allStats.rank1.breakeven, allStats.rank1.total)) }}
+                    </span>
+                  </div>
                   <div class="flex items-center justify-between">
                     <span class="text-base text-yellow-300 font-bold sm:text-lg">
                       {{ (allStats.rank1.firstPlaceRate || 0).toFixed(1) }}%
                     </span>
                     <span class="text-xs text-yellow-200/70">第一名率</span>
+                  </div>
+                  <div class="mt-1 text-[11px] text-yellow-200/70">
+                    基线 {{ BASELINES.first.toFixed(1) }}%，提升
+                    {{ formatLift(allStats.rank1.firstPlaceRate, BASELINES.first) }}
                   </div>
                 </div>
                 <!-- 最新N局数据 -->
@@ -95,11 +111,24 @@
                     </span>
                     <span class="text-xs text-cyan-200/70">保本率</span>
                   </div>
+                  <div class="mt-1 flex items-center justify-between text-[11px] text-cyan-200/70">
+                    <span>
+                      基线 {{ BASELINES.breakeven.toFixed(1) }}%，提升
+                      {{ formatLift(recentStats.rank1.breakevenRate, BASELINES.breakeven) }}
+                    </span>
+                    <span v-if="recentStats.rank1.total > 0">
+                      CI95 {{ formatCI(ci95(recentStats.rank1.breakeven, recentStats.rank1.total)) }}
+                    </span>
+                  </div>
                   <div class="flex items-center justify-between">
                     <span class="text-base text-teal-300 font-bold">
                       {{ (recentStats.rank1.firstPlaceRate || 0).toFixed(1) }}%
                     </span>
                     <span class="text-xs text-teal-200/70">第一名率</span>
+                  </div>
+                  <div class="mt-1 text-[11px] text-cyan-200/70">
+                    基线 {{ BASELINES.first.toFixed(1) }}%，提升
+                    {{ formatLift(recentStats.rank1.firstPlaceRate, BASELINES.first) }}
                   </div>
                 </div>
               </div>
@@ -121,11 +150,24 @@
                     </span>
                     <span class="text-xs text-slate-200/70">保本率</span>
                   </div>
+                  <div class="mt-1 flex items-center justify-between text-[11px] text-slate-200/70">
+                    <span>
+                      基线 {{ BASELINES.breakeven.toFixed(1) }}%，提升
+                      {{ formatLift(allStats.rank2.breakevenRate, BASELINES.breakeven) }}
+                    </span>
+                    <span v-if="allStats.rank2.total > 0">
+                      CI95 {{ formatCI(ci95(allStats.rank2.breakeven, allStats.rank2.total)) }}
+                    </span>
+                  </div>
                   <div class="flex items-center justify-between">
                     <span class="text-base text-slate-300 font-bold sm:text-lg">
                       {{ (allStats.rank2.firstPlaceRate || 0).toFixed(1) }}%
                     </span>
                     <span class="text-xs text-slate-200/70">第一名率</span>
+                  </div>
+                  <div class="mt-1 text-[11px] text-slate-200/70">
+                    基线 {{ BASELINES.first.toFixed(1) }}%，提升
+                    {{ formatLift(allStats.rank2.firstPlaceRate, BASELINES.first) }}
                   </div>
                 </div>
                 <!-- 最新N局数据 -->
@@ -137,11 +179,24 @@
                     </span>
                     <span class="text-xs text-cyan-200/70">保本率</span>
                   </div>
+                  <div class="mt-1 flex items-center justify-between text-[11px] text-cyan-200/70">
+                    <span>
+                      基线 {{ BASELINES.breakeven.toFixed(1) }}%，提升
+                      {{ formatLift(recentStats.rank2.breakevenRate, BASELINES.breakeven) }}
+                    </span>
+                    <span v-if="recentStats.rank2.total > 0">
+                      CI95 {{ formatCI(ci95(recentStats.rank2.breakeven, recentStats.rank2.total)) }}
+                    </span>
+                  </div>
                   <div class="flex items-center justify-between">
                     <span class="text-base text-teal-300 font-bold">
                       {{ (recentStats.rank2.firstPlaceRate || 0).toFixed(1) }}%
                     </span>
                     <span class="text-xs text-teal-200/70">第一名率</span>
+                  </div>
+                  <div class="mt-1 text-[11px] text-cyan-200/70">
+                    基线 {{ BASELINES.first.toFixed(1) }}%，提升
+                    {{ formatLift(recentStats.rank2.firstPlaceRate, BASELINES.first) }}
                   </div>
                 </div>
               </div>
@@ -163,11 +218,24 @@
                     </span>
                     <span class="text-xs text-orange-200/70">保本率</span>
                   </div>
+                  <div class="mt-1 flex items-center justify-between text-[11px] text-orange-200/70">
+                    <span>
+                      基线 {{ BASELINES.breakeven.toFixed(1) }}%，提升
+                      {{ formatLift(allStats.rank3.breakevenRate, BASELINES.breakeven) }}
+                    </span>
+                    <span v-if="allStats.rank3.total > 0">
+                      CI95 {{ formatCI(ci95(allStats.rank3.breakeven, allStats.rank3.total)) }}
+                    </span>
+                  </div>
                   <div class="flex items-center justify-between">
                     <span class="text-base text-orange-300 font-bold sm:text-lg">
                       {{ (allStats.rank3.firstPlaceRate || 0).toFixed(1) }}%
                     </span>
                     <span class="text-xs text-orange-200/70">第一名率</span>
+                  </div>
+                  <div class="mt-1 text-[11px] text-orange-200/70">
+                    基线 {{ BASELINES.first.toFixed(1) }}%，提升
+                    {{ formatLift(allStats.rank3.firstPlaceRate, BASELINES.first) }}
                   </div>
                 </div>
                 <!-- 最新N局数据 -->
@@ -179,11 +247,24 @@
                     </span>
                     <span class="text-xs text-cyan-200/70">保本率</span>
                   </div>
+                  <div class="mt-1 flex items-center justify-between text-[11px] text-cyan-200/70">
+                    <span>
+                      基线 {{ BASELINES.breakeven.toFixed(1) }}%，提升
+                      {{ formatLift(recentStats.rank3.breakevenRate, BASELINES.breakeven) }}
+                    </span>
+                    <span v-if="recentStats.rank3.total > 0">
+                      CI95 {{ formatCI(ci95(recentStats.rank3.breakeven, recentStats.rank3.total)) }}
+                    </span>
+                  </div>
                   <div class="flex items-center justify-between">
                     <span class="text-base text-teal-300 font-bold">
                       {{ (recentStats.rank3.firstPlaceRate || 0).toFixed(1) }}%
                     </span>
                     <span class="text-xs text-teal-200/70">第一名率</span>
+                  </div>
+                  <div class="mt-1 text-[11px] text-cyan-200/70">
+                    基线 {{ BASELINES.first.toFixed(1) }}%，提升
+                    {{ formatLift(recentStats.rank3.firstPlaceRate, BASELINES.first) }}
                   </div>
                 </div>
               </div>
@@ -199,7 +280,7 @@
 <script setup lang="ts">
   import { computed } from 'vue';
   import { NEmpty, NSpin } from 'naive-ui';
-  import type { AllRankStats } from '@/composables/usePredictionStats';
+  import type { AllRankStats } from '@/composables/useFeaturePredictionStats';
   import { usePredictionDisplay } from '@/composables/usePredictionDisplay';
 
   interface Props {
@@ -222,7 +303,7 @@
     showRecentStats: true
   });
 
-  defineEmits<{ refresh: []; 'update:recentRoundsCount': [value: number] }>();
+  defineEmits<{ refresh: []; 'update:recent-rounds-count': [value: number] }>();
 
   const {
     getCombinedCardClass,
@@ -232,6 +313,38 @@
     getPredictionIcon
   } = usePredictionDisplay();
   const hasData = computed(() => props.totalRounds > 0);
+
+  // 统计展示：基线与区间
+  const BASELINES = {
+    breakeven: 60.0, // Top3 随机基线
+    first: 20.0, // 第一名随机基线
+    exact: 20.0 // 精准预测率近似基线
+  } as const;
+
+  function clamp01(x: number) {
+    return Math.min(1, Math.max(0, x));
+  }
+
+  function ci95(successes: number, total: number): { low: number; high: number } {
+    if (!total) return { low: 0, high: 0 };
+    const z = 1.96;
+    const n = total;
+    const phat = clamp01(successes / n);
+    const denom = 1 + (z * z) / n;
+    const center = (phat + (z * z) / (2 * n)) / denom;
+    const half = (z * Math.sqrt((phat * (1 - phat)) / n + (z * z) / (4 * n * n))) / denom;
+    return { low: clamp01(center - half) * 100, high: clamp01(center + half) * 100 };
+  }
+
+  function formatLift(valuePct: number | undefined, baselinePct: number): string {
+    const v = (valuePct ?? 0) - baselinePct;
+    const sign = v >= 0 ? '+' : '';
+    return `${sign}${v.toFixed(1)} pp`;
+  }
+
+  function formatCI(ci: { low: number; high: number }): string {
+    return `[${ci.low.toFixed(1)}%, ${ci.high.toFixed(1)}%]`;
+  }
 </script>
 
 <style scoped>

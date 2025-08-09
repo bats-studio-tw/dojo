@@ -84,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue';
+  import { computed, onMounted, ref, watch } from 'vue';
   import type { RoundFeatureMatrixResponse } from '@/types/prediction';
   import { useV3Conditions } from '@/composables/useV3Conditions';
 
@@ -169,8 +169,29 @@
     else window.$message?.error(cloudSyncStatus?.value?.message || '从云端加载失败');
   };
 
-  // 初始化
-  loadFromLocalStorage();
+  // 初始化：优先尝试云端加载一次，若无UID或云端无内容则回退本地
+  const attemptedCloudLoad = ref(false);
+  onMounted(async () => {
+    if (props.uid) {
+      const ok = await loadFromCloud(props.uid);
+      attemptedCloudLoad.value = true;
+      if (!ok) loadFromLocalStorage();
+    } else {
+      loadFromLocalStorage();
+    }
+  });
+
+  // 当UID后到时（例如登录后），若还未尝试过云端加载，则加载一次
+  watch(
+    () => props.uid,
+    async (uid) => {
+      if (!attemptedCloudLoad.value && uid) {
+        const ok = await loadFromCloud(uid);
+        attemptedCloudLoad.value = true;
+        if (!ok) loadFromLocalStorage();
+      }
+    }
+  );
   // 白/黑名单已移除
 
   defineExpose({

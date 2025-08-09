@@ -286,7 +286,82 @@
     return Array.from(set).sort();
   });
 
-  // 计算“每个特征”的独立统计（复用 useFeaturePredictionStats 的逻辑，按特征切片）
+  // 预排序与轻量统计：按特征预先分组并按轮次降序排列（仅在 featureHistory 变更时计算一次）
+  const sortedHistoryByFeature = computed((): Record<string, FeatureHistoryRound[]> => {
+    const map: Record<string, FeatureHistoryRound[]> = {};
+    for (const r of featureHistory.value) {
+      if (!r || !r.feature) continue;
+      (map[r.feature] ||= []).push(r);
+    }
+    for (const f of Object.keys(map)) {
+      map[f].sort((a, b) => Number(b.round_id) - Number(a.round_id));
+    }
+    return map;
+  });
+
+  function emptyStats(): AllRankStats {
+    return {
+      rank1: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank2: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 },
+      rank3: { total: 0, breakeven: 0, loss: 0, firstPlace: 0, breakevenRate: 0, lossRate: 0, firstPlaceRate: 0 }
+    };
+  }
+
+  function computeAllStats(list: FeatureHistoryRound[]): AllRankStats {
+    const stats = emptyStats();
+    if (!list || list.length === 0) return stats;
+    for (let i = 0; i < list.length; i++) {
+      const round = list[i];
+      if (!round) continue;
+      const resultsBySymbol: Record<string, number> = {};
+      for (const r of round.results || []) resultsBySymbol[r.symbol] = r.actual_rank;
+      for (let rk = 1 as 1 | 2 | 3; rk <= 3; rk = (rk + 1) as 1 | 2 | 3) {
+        const preds = round.predictions || [];
+        for (let j = 0; j < preds.length; j++) {
+          const p = preds[j];
+          if (p.predicted_rank !== rk) continue;
+          const actualRank = resultsBySymbol[p.symbol];
+          if (actualRank == null) continue;
+          const key = `rank${rk}` as keyof AllRankStats;
+          const s = stats[key];
+          s.total++;
+          if (actualRank <= 3) s.breakeven++;
+          else s.loss++;
+          if (actualRank === 1) s.firstPlace++;
+        }
+      }
+    }
+    for (const s of Object.values(stats)) {
+      if (s.total > 0) {
+        s.breakevenRate = (s.breakeven / s.total) * 100;
+        s.lossRate = (s.loss / s.total) * 100;
+        s.firstPlaceRate = (s.firstPlace / s.total) * 100;
+      }
+    }
+    return stats;
+  }
+
+  function computeExactRate(list: FeatureHistoryRound[]): number {
+    if (!list || list.length === 0) return 0;
+    let exact = 0;
+    let total = 0;
+    for (let i = 0; i < list.length; i++) {
+      const round = list[i];
+      const resultsBySymbol: Record<string, number> = {};
+      for (const r of round.results || []) resultsBySymbol[r.symbol] = r.actual_rank;
+      const preds = round.predictions || [];
+      for (let j = 0; j < preds.length; j++) {
+        const p = preds[j];
+        if (p.predicted_rank > 3) continue;
+        const actualRank = resultsBySymbol[p.symbol];
+        if (actualRank == null) continue;
+        total++;
+        if (actualRank === p.predicted_rank) exact++;
+      }
+    }
+    return total > 0 ? (exact / total) * 100 : 0;
+  }
+
   const featureStatsMap = computed(
     (): Record<
       string,
@@ -296,17 +371,19 @@
         string,
         { exactRate: number; totalRounds: number; allStats: AllRankStats; recentStats: AllRankStats }
       > = {};
-      const recentRef = computed({ get: () => featureRecentRoundsCount, set: () => {} });
-      featureList.value.forEach((f) => {
-        const subHistory = computed<FeatureHistoryRound[]>(() => featureHistory.value.filter((r) => r.feature === f));
-        const stats = useFeaturePredictionStats(subHistory, recentRef);
+      const byFeature = sortedHistoryByFeature.value;
+      const recentN = Math.max(1, featureRecentRoundsCount);
+      for (const f of featureList.value) {
+        const list = byFeature[f] || [];
+        const allStats = computeAllStats(list);
+        const recentStats = computeAllStats(list.slice(0, recentN));
         map[f] = {
-          exactRate: stats.exactRate.value || 0,
-          totalRounds: stats.totalRounds.value || 0,
-          allStats: stats.calculateRankBasedStats.value,
-          recentStats: stats.calculateRecentRankBasedStats.value
+          exactRate: computeExactRate(list),
+          totalRounds: list.length,
+          allStats,
+          recentStats
         };
-      });
+      }
       return map;
     }
   );

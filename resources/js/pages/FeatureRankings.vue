@@ -140,6 +140,7 @@
                   :history-loading="featureHistoryLoading"
                   :features="featureList"
                   :feature-stats-map="featureStatsMap"
+                  :history-list="featureHistory"
                   @refresh-feature-history="refreshFeatureHistory"
                   @update:recent-rounds-count="(v: number) => (featureRecentRoundsCount = v)"
                 />

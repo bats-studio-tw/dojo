@@ -17,6 +17,9 @@
       />
     </template>
 
+    <!-- 条件回测（基于历史数据与名次条件） -->
+    <BacktestByConditions v-if="historyList && historyList.length" :history-list="historyList" />
+
     <!-- 投注表现分析（与历史页一致） -->
     <BettingPerformanceAnalysis :uid="getCurrentUID()" />
   </div>
@@ -26,7 +29,9 @@
   import { computed } from 'vue';
   import FeaturePredictionStats from './FeaturePredictionStats.vue';
   import BettingPerformanceAnalysis from './BettingPerformanceAnalysis.vue';
+  import BacktestByConditions from './BacktestByConditions.vue';
   import type { AllRankStats } from '@/composables/useFeaturePredictionStats';
+  import type { FeatureHistoryRound } from '@/composables/useFeaturePredictionStats';
 
   interface Props {
     // 全量（已合并）的统计仍保留，但主要用于兜底或未来汇总展示
@@ -43,11 +48,14 @@
       string,
       { exactRate: number; totalRounds: number; allStats: AllRankStats; recentStats: AllRankStats }
     >;
+    // 新增：用于条件回测的原始历史列表
+    historyList?: FeatureHistoryRound[];
   }
 
   const props = withDefaults(defineProps<Props>(), {
     features: () => [],
-    featureStatsMap: () => ({})
+    featureStatsMap: () => ({}),
+    historyList: () => []
   });
 
   defineEmits<{
@@ -74,4 +82,6 @@
       recentStats: props.recentStats
     };
   };
+
+  const historyList = computed(() => props.historyList || []);
 </script>

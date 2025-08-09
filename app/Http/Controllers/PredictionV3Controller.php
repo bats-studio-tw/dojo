@@ -118,6 +118,19 @@ class PredictionV3Controller extends Controller
                 ];
             }
 
+            // 本轮结果仅查询一次
+            $results = DB::table('round_results')
+                ->select(DB::raw('token_symbol as symbol'), 'rank as actual_rank')
+                ->where('game_round_id', $round->id)
+                ->get()
+                ->map(function ($r) {
+                    return ['symbol' => $r->symbol, 'actual_rank' => (int) $r->actual_rank];
+                })
+                ->values()
+                ->all();
+
+            // 特征→预测名次 映射（每轮只返回一次 results，features 下挂各特征的前三预测）
+            $features = [];
             foreach ($byFeature as $feature => $list) {
                 usort($list, function ($a, $b) {
                     return ($b['norm'] <=> $a['norm']);
@@ -132,26 +145,15 @@ class PredictionV3Controller extends Controller
                     ];
                     $rank++;
                 }
-
-                // 读取当轮结果（RoundResult表）
-                $results = DB::table('round_results')
-                    ->select(DB::raw('token_symbol as symbol'), 'rank as actual_rank')
-                    ->where('game_round_id', $round->id)
-                    ->get()
-                    ->map(function ($r) {
-                        return ['symbol' => $r->symbol, 'actual_rank' => (int) $r->actual_rank];
-                    })
-                    ->values()
-                    ->all();
-
-                $history[] = [
-                    'round_id' => (string)$round->round_id,
-                    'feature' => (string)$feature,
-                    'predictions' => $pred,
-                    'results' => $results,
-                    'settled_at' => $round->settled_at,
-                ];
+                $features[(string)$feature] = $pred;
             }
+
+            $history[] = [
+                'round_id' => (string)$round->round_id,
+                'settled_at' => $round->settled_at,
+                'results' => $results,
+                'features' => $features,
+            ];
         }
 
         return response()->json([

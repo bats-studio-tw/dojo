@@ -323,7 +323,26 @@
     try {
       const res = await featureApi.getFeatureHistory({ limit: 1000 });
       if (res.data?.success) {
-        featureHistory.value = res.data.data || [];
+        const rows = (res.data.data || []) as Array<{
+          round_id: string | number;
+          settled_at?: string | null;
+          results: Array<{ symbol: string; actual_rank: number }>;
+          features: Record<string, Array<{ symbol: string; predicted_rank: number }>>;
+        }>;
+        const flattened: FeatureHistoryRound[] = [];
+        for (const r of rows) {
+          const featureMap = r.features || {};
+          for (const [feature, preds] of Object.entries(featureMap)) {
+            flattened.push({
+              round_id: r.round_id,
+              feature,
+              predictions: preds || [],
+              results: r.results || [],
+              settled_at: r.settled_at || null
+            });
+          }
+        }
+        featureHistory.value = flattened;
       } else {
         window.$message?.error(res.data?.message || '获取特征历史失败');
       }

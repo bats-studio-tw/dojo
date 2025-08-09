@@ -1,5 +1,6 @@
-import { computed, reactive, toRefs, watch } from 'vue';
+import { computed, reactive, ref, toRefs, watch } from 'vue';
 import type { RoundFeatureMatrixResponse } from '@/types/prediction';
+import { autoBettingApi } from '@/utils/api';
 
 export interface V3ConditionsState {
   topN: number;
@@ -142,7 +143,9 @@ export function useV3Conditions(matrix: () => RoundFeatureMatrixResponse | null)
   function saveToLocalStorage(): void {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {}
+    } catch {
+      // ignore
+    }
   }
   function loadFromLocalStorage(): void {
     try {
@@ -150,7 +153,88 @@ export function useV3Conditions(matrix: () => RoundFeatureMatrixResponse | null)
       if (!raw) return;
       const obj = JSON.parse(raw);
       Object.assign(state, obj);
-    } catch {}
+    } catch {
+      // ignore
+    }
+  }
+
+  // 云端同步（参考 AutoBetting 配置API）
+  const cloudSaving = ref(false);
+  const cloudLoading = ref(false);
+  const cloudSyncStatus = ref<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+
+  function serializeState(): V3ConditionsState {
+    // 深拷贝，避免引用被外部修改
+    return JSON.parse(
+      JSON.stringify({
+        topN: state.topN,
+        minScore: state.minScore ?? null,
+        featureMin: state.featureMin,
+        featureMax: state.featureMax,
+        whitelist: state.whitelist,
+        blacklist: state.blacklist,
+        featureRank: state.featureRank,
+        firstPlaceMinCount: state.firstPlaceMinCount ?? null
+      })
+    );
+  }
+
+  function applyState(obj: Partial<V3ConditionsState>): void {
+    if (!obj) return;
+    Object.assign(state, obj);
+  }
+
+  async function loadFromCloud(uid: string): Promise<boolean> {
+    if (!uid) return false;
+    try {
+      cloudLoading.value = true;
+      const res = await autoBettingApi.getConfig(uid);
+      if (res.data?.success) {
+        const cloudCfg = res.data.data || {};
+        if (cloudCfg.v3_conditions) {
+          applyState(cloudCfg.v3_conditions as Partial<V3ConditionsState>);
+          cloudSyncStatus.value = { type: 'success', message: '已从云端加载V3条件' };
+          return true;
+        }
+        cloudSyncStatus.value = { type: 'info', message: '云端暂无V3条件，已保持当前本地设置' };
+        return true;
+      }
+      cloudSyncStatus.value = { type: 'error', message: res.data?.message || '加载云端条件失败' };
+      return false;
+    } catch (e) {
+      cloudSyncStatus.value = { type: 'error', message: '网络错误，加载云端条件失败' };
+      return false;
+    } finally {
+      cloudLoading.value = false;
+    }
+  }
+
+  async function saveToCloud(uid: string): Promise<boolean> {
+    if (!uid) return false;
+    try {
+      cloudSaving.value = true;
+      // 为避免覆盖其它已保存字段，先读取后合并
+      const getRes = await autoBettingApi.getConfig(uid);
+      const base = getRes.data?.success ? getRes.data.data || {} : {};
+      const payload = {
+        ...base,
+        v3_conditions: serializeState()
+      };
+      // 需要携带 is_active，以免被置空；若后端未返回则默认 false
+      const is_active: boolean = Boolean(base.is_active);
+      const saveRes = await autoBettingApi.saveConfig(uid, { ...payload, is_active });
+      if (saveRes.data?.success) {
+        cloudSyncStatus.value = { type: 'success', message: 'V3条件已保存到云端' };
+        return true;
+      }
+      cloudSyncStatus.value = { type: 'error', message: saveRes.data?.message || '保存云端条件失败' };
+      return false;
+    } catch (e) {
+      cloudSyncStatus.value = { type: 'error', message: '网络错误，保存到云端失败' };
+      return false;
+    } finally {
+      cloudSaving.value = false;
+    }
   }
 
   return {
@@ -160,6 +244,12 @@ export function useV3Conditions(matrix: () => RoundFeatureMatrixResponse | null)
     filterTokens,
     reset,
     saveToLocalStorage,
-    loadFromLocalStorage
+    loadFromLocalStorage,
+    // 云端
+    cloudSaving,
+    cloudLoading,
+    cloudSyncStatus,
+    saveToCloud,
+    loadFromCloud
   };
 }

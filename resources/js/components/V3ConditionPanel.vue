@@ -12,7 +12,9 @@
         </div>
         <div class="flex items-center gap-2">
           <n-button size="small" tertiary @click="onReset">重置</n-button>
-          <n-button size="small" type="primary" @click="onSave">保存到本地</n-button>
+          <n-button size="small" @click="onSaveLocal">保存到本地</n-button>
+          <n-button size="small" type="primary" :loading="cloudSaving" @click="onSaveCloud">保存到云端</n-button>
+          <n-button size="small" tertiary :loading="cloudLoading" @click="onLoadCloud">从云端加载</n-button>
         </div>
       </div>
 
@@ -86,11 +88,23 @@
   import type { RoundFeatureMatrixResponse } from '@/types/prediction';
   import { useV3Conditions } from '@/composables/useV3Conditions';
 
-  const props = defineProps<{ matrix: RoundFeatureMatrixResponse | null }>();
+  const props = defineProps<{ matrix: RoundFeatureMatrixResponse | null; uid?: string }>();
   const m = computed(() => props.matrix);
 
-  const { topN, featureRank, firstPlaceMinCount, filterTokens, reset, saveToLocalStorage, loadFromLocalStorage } =
-    useV3Conditions(() => m.value);
+  const {
+    topN,
+    featureRank,
+    firstPlaceMinCount,
+    filterTokens,
+    reset,
+    saveToLocalStorage,
+    loadFromLocalStorage,
+    cloudSaving,
+    cloudLoading,
+    cloudSyncStatus,
+    saveToCloud,
+    loadFromCloud
+  } = useV3Conditions(() => m.value);
 
   const features = computed(() => m.value?.features ?? []);
   const topNProxy = computed({
@@ -135,7 +149,25 @@
   const onReset = () => {
     reset();
   };
-  const onSave = () => saveToLocalStorage();
+  const onSaveLocal = () => saveToLocalStorage();
+  const onSaveCloud = async () => {
+    if (!props.uid) {
+      window.$message?.warning('需要UID才能保存到云端');
+      return;
+    }
+    const ok = await saveToCloud(props.uid);
+    if (ok) window.$message?.success('已保存到云端');
+    else window.$message?.error(cloudSyncStatus?.value?.message || '保存到云端失败');
+  };
+  const onLoadCloud = async () => {
+    if (!props.uid) {
+      window.$message?.warning('需要UID才能从云端加载');
+      return;
+    }
+    const ok = await loadFromCloud(props.uid);
+    if (ok) window.$message?.success('已从云端加载');
+    else window.$message?.error(cloudSyncStatus?.value?.message || '从云端加载失败');
+  };
 
   // 初始化
   loadFromLocalStorage();

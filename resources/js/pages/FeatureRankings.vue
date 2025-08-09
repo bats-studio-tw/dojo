@@ -106,7 +106,7 @@
               </div>
 
               <!-- 条件面板  -->
-              <V3ConditionPanel :matrix="matrix || null" />
+              <V3ConditionPanel :matrix="matrix || null" :uid="panelUid" />
 
               <!-- 登录/账户设置复用组件 -->
               <WalletSetup :visible="showWalletSetup" @validated="onWalletValidated" />
@@ -239,6 +239,7 @@
     localStorage.setItem('autoBettingConfig', JSON.stringify(parsed));
   }
   const displayUserInfo = computed<UserInfo | null>(() => abUserInfo.value || userInfo.value);
+  const panelUid = computed(() => String(localStorage.getItem('currentUID') || ''));
   const strategyValidation = ref<{
     total_matched?: number;
     required_balance?: number;
@@ -328,6 +329,10 @@
 
   // 自动下注（基于V3）
   const placeBetsByV3 = async () => {
+    // 只有在全局自动下注开关为开启时才允许执行
+    if (!autoBettingStatus.value?.is_running) {
+      return;
+    }
     if (isExecuting.value) return; // 防重复并发
     if (!tokenValidated.value || !jwtToken.value) {
       window.$message?.warning('请先完成身份验证');
@@ -395,20 +400,24 @@
   };
 
   // 自动触发：进入 bet 或新轮次时触发（防抖 + 去重）
-  watch([currentRoundId, currentGameStatus], ([rid, status], [prevRid, prevStatus]) => {
-    const isBet = (status || '') === 'bet';
-    const becameBet = (prevStatus || '') !== 'bet' && isBet;
-    const newRound = !!rid && rid !== prevRid;
-    if (!isBet || (!becameBet && !newRound)) return;
-    if (!tokenValidated.value) return;
+  watch(
+    [currentRoundId, currentGameStatus, () => autoBettingStatus.value?.is_running],
+    ([rid, status, running], [prevRid, prevStatus]) => {
+      if (!running) return; // 未开启自动下注则不触发
+      const isBet = (status || '') === 'bet';
+      const becameBet = (prevStatus || '') !== 'bet' && isBet;
+      const newRound = !!rid && rid !== prevRid;
+      if (!isBet || (!becameBet && !newRound)) return;
+      if (!tokenValidated.value) return;
 
-    // 稍作延迟，等矩阵/条件稳定
-    if (executionTimeout) window.clearTimeout(executionTimeout);
-    executionTimeout = window.setTimeout(async () => {
-      if (!selectedTokens.value.length) return;
-      await placeBetsByV3();
-    }, 120);
-  });
+      // 稍作延迟，等矩阵/条件稳定
+      if (executionTimeout) window.clearTimeout(executionTimeout);
+      executionTimeout = window.setTimeout(async () => {
+        if (!selectedTokens.value.length) return;
+        await placeBetsByV3();
+      }, 120);
+    }
+  );
 
   // 轮次变化时清理已下注集合，避免集合无限增长
   watch(currentRoundId, (rid, prevRid) => {

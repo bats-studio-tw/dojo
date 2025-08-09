@@ -25,8 +25,7 @@
             <span class="whitespace-nowrap text-xs text-gray-300 font-medium">局数:</span>
             <div class="min-w-0 flex-1">
               <n-slider
-                :value="recentRoundsCount"
-                @update:value="$emit('update:recent-rounds-count', $event)"
+                v-model:value="internalRecentRounds"
                 :min="1"
                 :max="Math.min(1000, maxRounds)"
                 :step="1"
@@ -278,7 +277,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue';
+  import { computed, ref, watch } from 'vue';
   import { NEmpty, NSpin } from 'naive-ui';
   import type { AllRankStats } from '@/composables/useFeaturePredictionStats';
   import { usePredictionDisplay } from '@/composables/usePredictionDisplay';
@@ -313,6 +312,35 @@
     getPredictionIcon
   } = usePredictionDisplay();
   const hasData = computed(() => props.totalRounds > 0);
+
+  // 防抖：滑块本地值，避免每步触发父级重算
+  const internalRecentRounds = ref(props.recentRoundsCount);
+  watch(
+    () => props.recentRoundsCount,
+    (v) => {
+      if (typeof v === 'number' && v !== internalRecentRounds.value) internalRecentRounds.value = v;
+    }
+  );
+  let debounceTimer: number | null = null;
+  watch(
+    internalRecentRounds,
+    (v) => {
+      if (debounceTimer) window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        // 通过自定义事件派发给父组件（kebab-case）
+        // eslint-disable-next-line vue/custom-event-name-casing
+        // @ts-ignore - 运行时emit
+        // 这里使用原生$emit API（<script setup> 下用 defineEmits）
+        emitUpdateRecent(v);
+      }, 200);
+    },
+    { immediate: false }
+  );
+
+  const emit = defineEmits<{ refresh: []; 'update:recent-rounds-count': [value: number] }>();
+  function emitUpdateRecent(v: number) {
+    emit('update:recent-rounds-count', v);
+  }
 
   // 统计展示：基线与区间
   const BASELINES = {

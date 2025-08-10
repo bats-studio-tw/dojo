@@ -3,7 +3,7 @@
 namespace App\Listeners;
 
 use App\Events\NewRoundStarted;
-use App\Jobs\CalculateMomentumJob;
+use App\Jobs\ExtractFeaturesJob;
 use App\Models\GameRound;
 use App\Services\Prediction\PredictionServiceFactory;
 use Illuminate\Queue\InteractsWithQueue;
@@ -64,15 +64,11 @@ class PredictRoundJobDispatcher
                 ]);
             }
 
-            // 1. 执行原有的 CalculateMomentumJob（存储到 hybrid_round_predicts）
-            CalculateMomentumJob::dispatchSync(
+            // v3：仅提取面向特征的快照（前端自行聚合排序与下注）
+            ExtractFeaturesJob::dispatchSync(
                 $event->roundId,
-                $event->symbols,
-                $event->chainId
+                $event->symbols
             );
-
-            // 2. 新增：执行 PredictionService（存储到 prediction_results）
-            $this->executePredictionService($event->roundId, $event->symbols, $gameRound->id);
 
             Log::info('✅ 同步执行预测计算 Job 完成', [
                 'round_id' => $event->roundId,
@@ -89,45 +85,7 @@ class PredictRoundJobDispatcher
         }
     }
 
-    /**
-     * 执行 PredictionService 预测计算
-     */
-    private function executePredictionService(string $roundId, array $symbols, int $gameRoundId): void
-    {
-        try {
-            Log::info('🧠 开始执行 PredictionService 预测计算', [
-                'round_id' => $roundId,
-                'symbols' => $symbols,
-                'game_round_id' => $gameRoundId,
-            ]);
-
-            // 创建保守策略的预测服务
-            $conservativeService = PredictionServiceFactory::create('conservative');
-
-            // 执行预测（这会自动存储到 prediction_results 表）
-            $predictions = $conservativeService->predict(
-                $symbols,
-                time(),
-                [], // 历史数据（暂时为空）
-                $gameRoundId
-            );
-
-            Log::info('✅ PredictionService 预测计算完成', [
-                'round_id' => $roundId,
-                'predictions_count' => count($predictions),
-                'strategy' => 'conservative',
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('❌ PredictionService 预测计算失败', [
-                'round_id' => $roundId,
-                'symbols' => $symbols,
-                'game_round_id' => $gameRoundId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-        }
-    }
+    // v3 不再执行 PredictionService/CalculateMomentumJob 的综合推荐
 
     /**
      * 监听器失败时的处理

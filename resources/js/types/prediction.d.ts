@@ -100,3 +100,24 @@ export interface HybridPrediction {
   confidence: number;
   timestamp: string;
 }
+
+// ===== v3 面向特征 API 类型 =====
+export interface RoundFeatureMatrixResponse {
+  round_id: number | string;
+  tokens: string[];
+  features: string[];
+  matrix: Record<string, Record<string, { raw: number | null; norm: number | null }>>; // token -> feature -> values
+  computed_at: string;
+}
+
+export interface AggregateRequest {
+  round_id?: number | string;
+  weights: Record<string, number>;
+  rules?: { threshold?: number; whitelist?: string[]; blacklist?: string[] };
+}
+
+export interface AggregateResponse {
+  round_id: string;
+  ranking: Array<{ token: string; score: number; rank: number }>;
+  contrib_by_feature: Record<string, number>;
+}

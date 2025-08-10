@@ -23,6 +23,7 @@ export class WebSocketManager {
   // 频道引用
   private gameUpdatesChannel: any = null;
   private predictionsChannel: any = null;
+  private featuresChannel: any = null;
   private hybridPredictionsChannel: any = null;
 
   // 事件回调存储
@@ -101,6 +102,10 @@ export class WebSocketManager {
     // Hybrid预测数据更新频道
     this.hybridPredictionsChannel = window.Echo.channel('hybrid-predictions');
     this.hybridPredictionsChannel.error((error: any) => console.error('❌ hybrid-predictions 频道错误:', error));
+
+    // v3 特征矩阵（可与 predictions 复用频道；此处单独开 features 频道也兼容）
+    this.featuresChannel = window.Echo.channel('predictions');
+    this.featuresChannel.error((error: any) => console.error('❌ features 频道错误:', error));
   }
 
   /**
@@ -124,6 +129,17 @@ export class WebSocketManager {
 
     if (this.predictionsChannel) {
       this.predictionsChannel.listen('.prediction.updated', (event: any) => {
+        callback(event);
+      });
+    }
+  }
+
+  /**
+   * 监听特征矩阵更新（无需再发起HTTP请求）
+   */
+  public listenToFeatureMatrix(callback: (payload: any) => void): void {
+    if (this.featuresChannel) {
+      this.featuresChannel.listen('.feature.matrix.updated', (event: any) => {
         callback(event);
       });
     }
@@ -230,6 +246,11 @@ export class WebSocketManager {
       this.hybridPredictionsChannel = null;
     }
 
+    if (this.featuresChannel) {
+      window.Echo?.leaveChannel('features');
+      this.featuresChannel = null;
+    }
+
     // 清理回调
     this.eventCallbacks = {};
 
@@ -259,7 +280,8 @@ export class WebSocketManager {
     return {
       gameUpdates: this.gameUpdatesChannel,
       predictions: this.predictionsChannel,
-      hybridPredictions: this.hybridPredictionsChannel
+      hybridPredictions: this.hybridPredictionsChannel,
+      features: this.featuresChannel
     };
   }
 }

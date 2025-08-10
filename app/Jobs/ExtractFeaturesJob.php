@@ -1,0 +1,137 @@
+<?php
+
+namespace App\Jobs;
+
+use App\Contracts\Prediction\FeatureProviderInterface;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Models\GameRound;
+use App\Events\FeatureMatrixUpdated;
+
+class ExtractFeaturesJob implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public function __construct(
+        public string $roundId,
+        public array $symbols
+    ) {
+        $this->symbols = array_values(array_unique(array_map('strtoupper', $this->symbols)));
+    }
+
+    public $tries = 2;
+    public $backoff = [5, 15];
+
+    /** @param FeatureProviderInterface[] $providers */
+    public function handle(array $providers = []): void
+    {
+        $roundId = $this->roundId; // 外部传入的字符串 round_id（例如 ojoCap_xxx）
+        $symbols = $this->symbols;
+
+        $start = microtime(true);
+        try {
+            if (empty($providers)) {
+                // 从配置解析 Provider 列表
+                $providerClasses = (array) (config('prediction_v3.providers') ?? []);
+                foreach ($providerClasses as $cls) {
+                    try {
+                        $instance = app($cls);
+                        if ($instance instanceof FeatureProviderInterface) {
+                            $providers[] = $instance;
+                        }
+                    } catch (\Throwable $e) {
+                        // 忽略单个provider解析失败
+                    }
+                }
+            }
+            // 并行/顺序执行 Provider（此处顺序，后续可改并行 pool）
+            $snapshots = [];
+            // 统一构造传给 Provider 的输入快照格式：[{ symbol: 'XXX' }, ...]
+            $inputSnapshots = array_map(fn ($s) => ['symbol' => $s], $symbols);
+
+            // 将字符串 round_id 映射为 game_rounds 表的自增 ID
+            $gameRoundId = GameRound::where('round_id', $roundId)->value('id');
+            if (!$gameRoundId) {
+                // 兜底创建（理论上在监听器已创建）
+                $gameRound = GameRound::firstOrCreate(['round_id' => $roundId]);
+                $gameRoundId = $gameRound->id;
+            }
+            foreach ($providers as $provider) {
+                if (!$provider instanceof FeatureProviderInterface) {
+                    continue;
+                }
+                $key = method_exists($provider, 'getKey') ? $provider->getKey() : null;
+                $result = $provider->extractFeatures($inputSnapshots, []);
+                if (!$result) continue;
+                foreach ($result as $symbol => $payload) {
+                    $snapshots[] = [
+                        'game_round_id' => $gameRoundId,
+                        'token_symbol' => strtoupper($symbol),
+                        'feature_key' => $key,
+                        'raw_value' => $payload['raw'] ?? null,
+                        'normalized_value' => $payload['norm'] ?? ($payload['raw'] ?? null),
+                        'meta' => json_encode($payload['meta'] ?? []),
+                        'computed_at' => now(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+
+            if ($snapshots) {
+                DB::table('feature_snapshots')->upsert(
+                    $snapshots,
+                    ['game_round_id', 'token_symbol', 'feature_key'],
+                    ['raw_value', 'normalized_value', 'meta', 'computed_at', 'updated_at']
+                );
+            }
+
+            // 组装缓存矩阵
+            $tokens = [];
+            $features = [];
+            $matrix = [];
+            foreach ($snapshots as $r) {
+                $tokens[$r['token_symbol']] = true;
+                $features[$r['feature_key']] = true;
+                $matrix[$r['token_symbol']][$r['feature_key']] = [
+                    'raw' => $r['raw_value'],
+                    'norm' => $r['normalized_value'],
+                ];
+            }
+
+            $payload = [
+                'round_id' => (string)$roundId,
+                'tokens' => array_keys($tokens),
+                'features' => array_keys($features),
+                'matrix' => $matrix,
+                'computed_at' => now()->toISOString(),
+            ];
+            Cache::put("feature_matrix:{$roundId}", $payload, (int) (config('prediction_v3.cache_ttl', 60)));
+
+            // 即时广播到前端，避免额外HTTP请求
+            event(new FeatureMatrixUpdated((string)$roundId, $payload));
+
+            \Log::info('features extracted', [
+                'round_id' => $roundId,
+                'tokens' => count($tokens),
+                'features' => count($features),
+                'ms' => (int)((microtime(true) - $start) * 1000),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('extract features failed', [
+                'round_id' => $roundId,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+}
+
+

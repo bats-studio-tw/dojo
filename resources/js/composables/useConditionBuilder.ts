@@ -284,8 +284,15 @@ export const useConditionBuilder = () => {
 
       case 'sample_count':
         return token.total_games || token.sample_count || 0;
-      case 'win_rate':
-        return token.win_rate || 0; // win_rate已经是百分比格式
+      case 'win_rate': {
+        // 🔧 修复：确保win_rate以百分比格式返回（0-100）
+        const winRate = token.win_rate || 0;
+        // 如果win_rate是小数格式（0-1），转换为百分比格式（0-100）
+        if (winRate <= 1) {
+          return winRate * 100;
+        }
+        return winRate; // 如果已经是百分比格式，直接返回
+      }
       case 'top3_rate':
         return token.top3_rate || 0; // top3_rate已经是百分比格式
       case 'avg_rank':
@@ -341,48 +348,90 @@ export const useConditionBuilder = () => {
     // 如果没有条件，默认所有 Token 都通过
     if (conditions.length === 0) return true;
 
+    // 🔧 新增：详细调试日志
+    console.log(`🔍 [条件评估] 开始评估Token ${token.symbol}:`, {
+      symbol: token.symbol,
+      predicted_rank: token.predicted_rank,
+      momentum_rank: token.momentum_rank,
+      win_rate: token.win_rate,
+      conditions: conditions.map((c) => ({
+        type: c.type,
+        operator: c.operator,
+        value: c.value,
+        logic: c.logic
+      }))
+    });
+
     // 如果只有一个条件，直接返回结果
     if (conditions.length === 1) {
-      return evaluateSingleCondition(token, conditions[0]);
+      const result = evaluateSingleCondition(token, conditions[0]);
+      console.log(`🔍 [条件评估] 单个条件结果:`, result);
+      return result;
     }
 
-    // 使用栈来处理逻辑优先级
-    // AND 的优先级高于 OR，所以先处理 AND 连接的条件组
-    const stack: boolean[] = [];
+    // 🔧 修复：重新实现正确的逻辑评估
+    // 将条件分组：每个OR连接的条件组
+    const groups: boolean[][] = [];
     let currentGroup: boolean[] = [];
 
     // 处理第一个条件
-    currentGroup.push(evaluateSingleCondition(token, conditions[0]));
+    const firstResult = evaluateSingleCondition(token, conditions[0]);
+    currentGroup.push(firstResult);
+    console.log(`🔍 [条件评估] 条件1 (${conditions[0].type} ${conditions[0].operator} ${conditions[0].value}):`, {
+      tokenValue: getTokenValueByType(token, conditions[0].type),
+      result: firstResult
+    });
 
     // 从第二个条件开始处理
     for (let i = 1; i < conditions.length; i++) {
       const condition = conditions[i];
       const currentResult = evaluateSingleCondition(token, condition);
 
-      // 如果当前逻辑是 AND，继续累积到当前组
-      if (condition.logic === 'and') {
-        currentGroup.push(currentResult);
-      } else {
-        // 如果遇到 OR，先处理当前 AND 组，然后开始新的组
-        if (currentGroup.length > 0) {
-          // 计算当前 AND 组的结果（所有条件都为真）
-          const andResult = currentGroup.every((result) => result);
-          stack.push(andResult);
-          currentGroup = [];
+      console.log(
+        `🔍 [条件评估] 条件${i + 1} (${condition.type} ${condition.operator} ${condition.value}) [${condition.logic}]:`,
+        {
+          tokenValue: getTokenValueByType(token, condition.type),
+          result: currentResult,
+          currentGroup
         }
-        // 开始新的组
+      );
+
+      if (condition.logic === 'and') {
+        // AND逻辑：继续添加到当前组
         currentGroup.push(currentResult);
+        console.log(`🔍 [条件评估] AND逻辑，添加到当前组:`, currentGroup);
+      } else {
+        // OR逻辑：完成当前组，开始新组
+        if (currentGroup.length > 0) {
+          groups.push([...currentGroup]);
+          console.log(`🔍 [条件评估] OR逻辑，完成当前组:`, currentGroup);
+        }
+        currentGroup = [currentResult];
+        console.log(`🔍 [条件评估] OR逻辑，开始新组:`, currentGroup);
       }
     }
 
     // 处理最后一个组
     if (currentGroup.length > 0) {
-      const andResult = currentGroup.every((result) => result);
-      stack.push(andResult);
+      groups.push([...currentGroup]);
+      console.log(`🔍 [条件评估] 处理最后组:`, currentGroup);
     }
 
-    // 最后，所有组之间用 OR 连接
-    return stack.some((result) => result);
+    // 计算每个组的结果（AND组内所有条件都为真）
+    const groupResults = groups.map((group) => group.every((result) => result));
+    console.log(`🔍 [条件评估] 各组结果:`, {
+      groups,
+      groupResults
+    });
+
+    // 最终结果：任何一组为真即可（OR连接）
+    const finalResult = groupResults.some((result) => result);
+    console.log(`🔍 [条件评估] 最终结果:`, {
+      groupResults,
+      finalResult
+    });
+
+    return finalResult;
   };
 
   return {

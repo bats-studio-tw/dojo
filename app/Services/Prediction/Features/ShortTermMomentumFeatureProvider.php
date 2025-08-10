@@ -26,9 +26,14 @@ class ShortTermMomentumFeatureProvider implements FeatureProviderInterface
         $this->mathUtils = $mathUtils ?? new MathUtils();
     }
 
-    public function extractFeatures(array $snapshots, array $history): array
+    public function getKey(): string
     {
-        $scores = [];
+        return 'st_momentum';
+    }
+
+    public function extractFeatures(array $snapshots, array $history = []): array
+    {
+        $out = [];
 
         foreach ($snapshots as $snapshot) {
             // 处理数组和对象两种格式
@@ -45,16 +50,24 @@ class ShortTermMomentumFeatureProvider implements FeatureProviderInterface
             try {
                 // 计算短期动能分数
                 $momentumScore = $this->calculateShortTermMomentum($symbol);
-                $scores[$symbol] = $momentumScore;
+                $out[$symbol] = [
+                    'raw' => $momentumScore,
+                    'norm' => $momentumScore,
+                    'meta' => ['windows' => [$this->shortTermMinutes, $this->mediumTermMinutes, $this->longTermMinutes]],
+                ];
 
                 Log::debug("Short-term momentum calculated for {$symbol}: {$momentumScore}");
             } catch (\Exception $e) {
                 Log::warning("Failed to calculate short-term momentum for {$symbol}: " . $e->getMessage());
-                $scores[$symbol] = 50.0; // 中性默认值
+                $out[$symbol] = [
+                    'raw' => 50.0,
+                    'norm' => 50.0,
+                    'meta' => ['fallback' => true],
+                ];
             }
         }
 
-        return $scores;
+        return $out;
     }
 
     /**
@@ -72,7 +85,7 @@ class ShortTermMomentumFeatureProvider implements FeatureProviderInterface
             return 50.0;
         }
 
-        // 计算各种动能指标
+        // 计算各种动能指标（对数域更稳健）
         $shortTermReturn = $this->calculateReturn($shortTermData);
         $shortTermVolatility = $this->calculateVolatility($shortTermData);
         $shortTermTrend = $this->calculateTrend($shortTermData);
@@ -145,8 +158,10 @@ class ShortTermMomentumFeatureProvider implements FeatureProviderInterface
         if ($earliestPrice == 0) {
             return 0.0;
         }
-
-        return ($latestPrice - $earliestPrice) / $earliestPrice;
+        // 使用对数收益，鲁棒且可加性
+        $ret = log($latestPrice) - log($earliestPrice);
+        // winsorize：裁剪极端值，避免异常点污染（±20% 对数近似）
+        return $this->clamp($ret, -0.2, 0.2);
     }
 
     /**
@@ -154,7 +169,19 @@ class ShortTermMomentumFeatureProvider implements FeatureProviderInterface
      */
     private function calculateVolatility(array $prices): float
     {
-        return $this->mathUtils->standardDeviation($prices);
+        if (count($prices) < 2) {
+            return 0.0;
+        }
+        $returns = [];
+        for ($i = 1; $i < count($prices); $i++) {
+            $prev = $prices[$i - 1];
+            if ($prev > 0 && $prices[$i] > 0) {
+                $returns[] = log($prices[$i]) - log($prev);
+            }
+        }
+        if (empty($returns)) return 0.0;
+        // 对数收益的标准差
+        return (float) $this->mathUtils->standardDeviation($returns);
     }
 
     /**
@@ -168,9 +195,18 @@ class ShortTermMomentumFeatureProvider implements FeatureProviderInterface
 
         // 时间序列，最新的价格对应最大的时间值
         $times = range(0, count($prices) - 1);
-        $prices = array_reverse($prices); // 确保时间序列正确
-
-        return $this->mathUtils->linearRegressionSlope($times, $prices);
+        $prices = array_reverse($prices); // 确保时间序列正确（从早到晚）
+        // 使用对数价格做回归，跨币种更可比
+        $logPrices = array_map(function ($p) {
+            return $p > 0 ? log($p) : null;
+        }, $prices);
+        if (in_array(null, $logPrices, true)) {
+            $slope = $this->mathUtils->linearRegressionSlope($times, $prices);
+        } else {
+            $slope = $this->mathUtils->linearRegressionSlope($times, $logPrices);
+        }
+        // 裁剪极端斜率，避免异常抖动影响
+        return $this->clamp($slope, -0.01, 0.01);
     }
 
     /**
@@ -178,8 +214,8 @@ class ShortTermMomentumFeatureProvider implements FeatureProviderInterface
      */
     private function returnToScore(float $return): float
     {
-        // 将收益率映射为分数
-        // +5% = 75分，-5% = 25分，0% = 50分
+        // 将对数收益映射为分数
+        // 约 +5% ~= 0.0488 对数 → 50 + 0.0488*500 ≈ 74.4 分
         $score = 50 + ($return * 500);
         return max(0, min(100, $score));
     }
@@ -190,7 +226,7 @@ class ShortTermMomentumFeatureProvider implements FeatureProviderInterface
     private function trendToScore(float $slope): float
     {
         // 将斜率映射为分数
-        // 正斜率 = 高分，负斜率 = 低分
+        // 正斜率 = 高分，负斜率 = 低分（对数域斜率已裁剪）
         $normalizedSlope = $slope * 1000; // 放大斜率值
         $score = 50 + $normalizedSlope;
         return max(0, min(100, $score));
@@ -201,16 +237,19 @@ class ShortTermMomentumFeatureProvider implements FeatureProviderInterface
      */
     private function calculateVolatilityAdjustment(float $volatility): float
     {
-        // 高波动率时，向中性分数(50)拉动
-        $volatilityThreshold = 0.05; // 5%波动率阈值
-
+        // 高波动率（对数收益标准差）时，向中性分数(50)拉动
+        $volatilityThreshold = 0.01; // 约 1% 对数收益波动阈
         if ($volatility > $volatilityThreshold) {
             // 波动率越高，调整幅度越大，但限制最大调整幅度
-            $adjustmentFactor = min(0.2, ($volatility - $volatilityThreshold) * 2);
-            return -$adjustmentFactor * 10; // 向下调整，降低极端分数
+            $adjustmentFactor = min(0.3, ($volatility - $volatilityThreshold) * 12);
+            return -$adjustmentFactor * 10; // 向下调整
         }
-
         return 0.0;
+    }
+
+    private function clamp(float $value, float $min, float $max): float
+    {
+        return max($min, min($max, $value));
     }
 
     /**

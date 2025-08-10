@@ -342,6 +342,7 @@
   import { useGamePredictionStore } from '@/stores/gamePrediction';
   import { usePredictionStats } from '@/composables/usePredictionStats';
   import { useMomentumPredictionStats } from '@/composables/useMomentumPredictionStats';
+  import { useConditionBuilder } from '@/composables/useConditionBuilder';
   import type { StrategyValidation } from '@/types/autoBetting';
   import type { UserInfo } from '@/types';
   import type { MomentumPredictionHistoryRound } from '@/composables/useMomentumPredictionStats';
@@ -354,6 +355,7 @@
   const configComposable = useAutoBettingConfig();
   const controlComposable = useAutoBettingControl();
   const predictionStore = useGamePredictionStore();
+  const { evaluateDynamicConditions } = useConditionBuilder();
 
   // 从store中获取响应式数据
   const {
@@ -500,20 +502,6 @@
 
   // ==================== 工具函数 ====================
 
-  // 🔧 新增：获取条件值的辅助函数
-  const getConditionValue = (prediction: any, type: string): number => {
-    switch (type) {
-      case 'h2h_rank':
-        return prediction.predicted_rank || 999;
-      case 'win_rate':
-        return prediction.win_rate || 0;
-      case 'top3_rate':
-        return prediction.top3_rate || 0;
-      default:
-        return 0;
-    }
-  };
-
   // WebSocket状态样式
   const getWebSocketStatusClass = () => {
     const status = websocketStatus.value.status;
@@ -603,110 +591,6 @@
     };
   };
 
-  // 评估单个条件
-  const evaluateCondition = (prediction: any, condition: any): boolean => {
-    const { type, operator, value } = condition;
-
-    let actualValue: number;
-
-    switch (type) {
-      case 'confidence':
-        actualValue = prediction.confidence || 0;
-        break;
-      case 'score':
-        actualValue = prediction.score || 0;
-        break;
-      case 'sample_count':
-        actualValue = prediction.sample_count || 0;
-        break;
-      case 'win_rate':
-        actualValue = prediction.win_rate || 0; // win_rate已经是百分比格式
-        break;
-      case 'h2h_rank':
-        actualValue = prediction.predicted_rank || 999;
-        break;
-      case 'momentum_rank':
-        actualValue = prediction.momentum_rank || 999;
-        break;
-      case 'top3_rate':
-        actualValue = prediction.top3_rate || 0; // top3_rate已经是百分比格式
-        break;
-      case 'avg_rank':
-        actualValue = prediction.avg_rank || 3;
-        break;
-
-      case 'absolute_score':
-        actualValue = prediction.absolute_score || 0;
-        break;
-      case 'relative_score':
-        actualValue = prediction.relative_score || 0;
-        break;
-      case 'h2h_score':
-        actualValue = prediction.h2h_score || 0;
-        break;
-
-      default:
-        return true; // 未知类型默认通过
-    }
-
-    switch (operator) {
-      case 'gte':
-        return actualValue >= value;
-      case 'lte':
-        return actualValue <= value;
-      case 'gt':
-        return actualValue > value;
-      case 'lt':
-        return actualValue < value;
-      case 'eq':
-        return actualValue === value;
-      case 'ne':
-        return actualValue !== value;
-      default:
-        return true; // 未知操作符默认通过
-    }
-  };
-
-  // 🔧 评估预测是否符合策略条件 - 使用动态条件
-  const evaluatePredictionMatch = (prediction: any): boolean => {
-    // 如果没有动态条件，默认通过
-    if (!config.dynamic_conditions || config.dynamic_conditions.length === 0) {
-      return true;
-    }
-
-    // 使用动态条件评估
-    let result = true;
-    let logic = 'and'; // 默认使用and逻辑
-
-    console.log(`🔍 [条件评估] 开始评估Token ${prediction.symbol}:`, {
-      predicted_rank: prediction.predicted_rank,
-      win_rate: prediction.win_rate,
-      top3_rate: prediction.top3_rate
-    });
-
-    for (const condition of config.dynamic_conditions) {
-      const conditionResult = evaluateCondition(prediction, condition);
-
-      console.log(`🔍 [条件评估] ${condition.type} ${condition.operator} ${condition.value}:`, {
-        actualValue: getConditionValue(prediction, condition.type),
-        conditionResult,
-        logic,
-        currentResult: result
-      });
-
-      if (logic === 'and') {
-        result = result && conditionResult;
-      } else {
-        result = result || conditionResult;
-      }
-
-      logic = condition.logic || 'and';
-    }
-
-    console.log(`🔍 [条件评估] Token ${prediction.symbol} 最终结果:`, result);
-    return result;
-  };
-
   // 计算下注金额 - 硬编码模式
   const calculateBetAmount = (): number => {
     // 🎯 根据betting_mode硬编码下注金额
@@ -722,9 +606,30 @@
     debugInfo.strategyValidationCount++;
     debugInfo.lastValidationTime = new Date().toLocaleTimeString();
 
-    // 使用当前分析数据
-    const predictions = currentAnalysis.value || [];
-    console.log(`📊 策略验证：使用 ${predictions.length} 个分析数据`);
+    // 🔧 修复：使用与SmartControlCenter.vue相同的数据源（合并动能数据）
+    const h2hData = currentAnalysis.value || [];
+    const momentumData = hybridPredictions.value || [];
+
+    // 合并数据，与SmartControlCenter.vue保持一致
+    let predictions: any[] = [];
+    if (momentumData.length > 0 && h2hData.length > 0) {
+      predictions = h2hData.map((h2hToken: any) => {
+        const momentumToken = momentumData.find((m: any) => m.symbol?.toUpperCase() === h2hToken.symbol?.toUpperCase());
+        return {
+          ...h2hToken,
+          momentum_rank: momentumToken?.predicted_rank ?? null,
+          mom_score: momentumToken?.mom_score ?? null,
+          final_score: momentumToken?.final_score ?? null,
+          elo_prob: momentumToken?.elo_prob ?? null
+        };
+      });
+    } else if (momentumData.length > 0 && h2hData.length === 0) {
+      predictions = momentumData;
+    } else {
+      predictions = h2hData;
+    }
+
+    console.log(`📊 策略验证：使用 ${predictions.length} 个合并后的分析数据`);
 
     if (!predictions || predictions.length === 0) {
       console.log(`⚠️ 策略验证：无可用预测数据`);
@@ -737,7 +642,27 @@
     // 找出所有符合条件的预测
     predictions.forEach((rawPrediction: any) => {
       const prediction = mapPredictionData(rawPrediction);
-      const isMatch = evaluatePredictionMatch(prediction);
+
+      // 🔧 修复：使用与SmartControlCenter.vue完全相同的评估逻辑
+      let isMatch = false;
+
+      // 使用动态条件评估
+      if ((config.dynamic_conditions || []).length > 0) {
+        console.log(`🔍 [AutoBetting] 评估Token ${prediction.symbol} 的条件匹配:`, {
+          symbol: prediction.symbol,
+          predicted_rank: prediction.predicted_rank,
+          momentum_rank: prediction.momentum_rank,
+          win_rate: prediction.win_rate,
+          conditions: config.dynamic_conditions
+        });
+
+        isMatch = evaluateDynamicConditions(prediction, config.dynamic_conditions || []);
+
+        console.log(`🔍 [AutoBetting] Token ${prediction.symbol} 最终匹配结果:`, isMatch);
+      } else {
+        // 如果没有动态条件，默认通过
+        isMatch = true;
+      }
 
       // 🔧 调试：输出条件评估详情
       console.log(`🔍 [策略验证] Token ${prediction.symbol} 条件评估:`, {

@@ -1,0 +1,255 @@
+import { computed, reactive, ref, toRefs, watch } from 'vue';
+import type { RoundFeatureMatrixResponse } from '@/types/prediction';
+import { autoBettingApi } from '@/utils/api';
+
+export interface V3ConditionsState {
+  topN: number;
+  minScore?: number | null; // 聚合分阈值（若使用）
+  featureMin: Record<string, number | null>; // 每个特征的最小阈值（针对 norm/raw 二选一，默认用 norm）
+  featureMax: Record<string, number | null>; // 可选最大阈值
+  whitelist: string[]; // 仅允许
+  blacklist: string[]; // 禁止
+  // 新增：按特征的“名次条件”，例如 rank > 3、rank = 1 等
+  featureRank: Record<string, { operator: 'lt' | 'lte' | 'eq' | 'gte' | 'gt'; value: number | null } | null>;
+  // 新增：满足“第一名(=1名次)”的特征数量至少为多少
+  firstPlaceMinCount: number | null;
+}
+
+export function useV3Conditions(matrix: () => RoundFeatureMatrixResponse | null) {
+  const state = reactive<V3ConditionsState>({
+    topN: 1,
+    minScore: null,
+    featureMin: {},
+    featureMax: {},
+    whitelist: [],
+    blacklist: [],
+    featureRank: {},
+    firstPlaceMinCount: null
+  });
+
+  // 当矩阵特征变化时，自动为每个特征初始化阈值键位
+  watch(
+    () => matrix()?.features || [],
+    (features) => {
+      for (const f of features) {
+        if (!(f in state.featureMin)) state.featureMin[f] = null;
+        if (!(f in state.featureMax)) state.featureMax[f] = null;
+        if (!(f in state.featureRank)) state.featureRank[f] = null;
+      }
+      // 清理已不存在的键
+      for (const k of Object.keys(state.featureMin)) if (!features.includes(k)) delete state.featureMin[k];
+      for (const k of Object.keys(state.featureMax)) if (!features.includes(k)) delete state.featureMax[k];
+      for (const k of Object.keys(state.featureRank)) if (!features.includes(k)) delete state.featureRank[k];
+    },
+    { immediate: true }
+  );
+
+  const allTokens = computed(() => matrix()?.tokens || []);
+
+  // 计算每个特征的名次映射：feature -> (token -> rank)
+  const featureRankMaps = computed<Record<string, Record<string, number>>>(() => {
+    const m = matrix();
+    const result: Record<string, Record<string, number>> = {};
+    if (!m) return result;
+
+    for (const feature of m.features || []) {
+      const pairs: Array<{ token: string; value: number }> = [];
+      for (const token of m.tokens) {
+        const cell = m.matrix?.[token]?.[feature];
+        const value = (cell?.norm ?? cell?.raw ?? null) as number | null;
+        if (value !== null) {
+          pairs.push({ token, value });
+        }
+      }
+      // 值越大名次越靠前（1 为最佳）。如有需要可在此按特征自定义升降序。
+      pairs.sort((a, b) => b.value - a.value);
+      const rankMap: Record<string, number> = {};
+      pairs.forEach((p, idx) => (rankMap[p.token] = idx + 1));
+      result[feature] = rankMap;
+    }
+    return result;
+  });
+
+  function isTokenEligible(symbol: string): boolean {
+    const m = matrix();
+    if (!m) return false;
+
+    // 黑白名单
+    if (state.whitelist.length > 0 && !state.whitelist.includes(symbol)) return false;
+    if (state.blacklist.length > 0 && state.blacklist.includes(symbol)) return false;
+
+    // 数值阈值规则已弃用（仅保留名次条件）
+
+    // 名次条件（例如：rank > 3、rank = 1）
+    for (const [feature, rule] of Object.entries(state.featureRank)) {
+      if (!rule || rule.value == null) continue;
+      const rank = featureRankMaps.value?.[feature]?.[symbol] ?? null;
+      if (rank == null) return false;
+      const v = rule.value as number;
+      let ok = true;
+      switch (rule.operator) {
+        case 'lt':
+          ok = rank < v;
+          break;
+        case 'lte':
+          ok = rank <= v;
+          break;
+        case 'eq':
+          ok = rank === v;
+          break;
+        case 'gte':
+          ok = rank >= v;
+          break;
+        case 'gt':
+          ok = rank > v;
+          break;
+        default:
+          ok = true;
+      }
+      if (!ok) return false;
+    }
+
+    // 满足名次第一(=1)的特征数量下限
+    if (state.firstPlaceMinCount && state.firstPlaceMinCount > 0) {
+      let firstCount = 0;
+      for (const feature of Object.keys(featureRankMaps.value)) {
+        const rank = featureRankMaps.value[feature]?.[symbol];
+        if (rank === 1) firstCount++;
+      }
+      if (firstCount < state.firstPlaceMinCount) return false;
+    }
+
+    return true;
+  }
+
+  function filterTokens(tokens?: string[]): string[] {
+    const list = tokens && tokens.length ? tokens : allTokens.value;
+    return list.filter((t) => isTokenEligible(t));
+  }
+
+  function reset(): void {
+    state.topN = 1;
+    state.minScore = null;
+    state.featureMin = {};
+    state.featureMax = {};
+    state.whitelist = [];
+    state.blacklist = [];
+    state.featureRank = {};
+    state.firstPlaceMinCount = null;
+  }
+
+  // 持久化（本地存储）
+  const STORAGE_KEY = 'v3Conditions';
+  function saveToLocalStorage(): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // ignore
+    }
+  }
+  function loadFromLocalStorage(): void {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const obj = JSON.parse(raw);
+      Object.assign(state, obj);
+    } catch {
+      // ignore
+    }
+  }
+
+  // 云端同步（参考 AutoBetting 配置API）
+  const cloudSaving = ref(false);
+  const cloudLoading = ref(false);
+  const cloudSyncStatus = ref<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+
+  function serializeState(): V3ConditionsState {
+    // 深拷贝，避免引用被外部修改
+    return JSON.parse(
+      JSON.stringify({
+        topN: state.topN,
+        minScore: state.minScore ?? null,
+        featureMin: state.featureMin,
+        featureMax: state.featureMax,
+        whitelist: state.whitelist,
+        blacklist: state.blacklist,
+        featureRank: state.featureRank,
+        firstPlaceMinCount: state.firstPlaceMinCount ?? null
+      })
+    );
+  }
+
+  function applyState(obj: Partial<V3ConditionsState>): void {
+    if (!obj) return;
+    Object.assign(state, obj);
+  }
+
+  async function loadFromCloud(uid: string): Promise<boolean> {
+    if (!uid) return false;
+    try {
+      cloudLoading.value = true;
+      const res = await autoBettingApi.getConfig(uid);
+      if (res.data?.success) {
+        const cloudCfg = res.data.data || {};
+        if (cloudCfg.v3_conditions) {
+          applyState(cloudCfg.v3_conditions as Partial<V3ConditionsState>);
+          cloudSyncStatus.value = { type: 'success', message: '已从云端加载V3条件' };
+          return true;
+        }
+        cloudSyncStatus.value = { type: 'info', message: '云端暂无V3条件，已保持当前本地设置' };
+        return true;
+      }
+      cloudSyncStatus.value = { type: 'error', message: res.data?.message || '加载云端条件失败' };
+      return false;
+    } catch (e) {
+      cloudSyncStatus.value = { type: 'error', message: '网络错误，加载云端条件失败' };
+      return false;
+    } finally {
+      cloudLoading.value = false;
+    }
+  }
+
+  async function saveToCloud(uid: string): Promise<boolean> {
+    if (!uid) return false;
+    try {
+      cloudSaving.value = true;
+      // 为避免覆盖其它已保存字段，先读取后合并
+      const getRes = await autoBettingApi.getConfig(uid);
+      const base = getRes.data?.success ? getRes.data.data || {} : {};
+      const payload = {
+        ...base,
+        v3_conditions: serializeState()
+      };
+      // 需要携带 is_active，以免被置空；若后端未返回则默认 false
+      const is_active: boolean = Boolean(base.is_active);
+      const saveRes = await autoBettingApi.saveConfig(uid, { ...payload, is_active });
+      if (saveRes.data?.success) {
+        cloudSyncStatus.value = { type: 'success', message: 'V3条件已保存到云端' };
+        return true;
+      }
+      cloudSyncStatus.value = { type: 'error', message: saveRes.data?.message || '保存云端条件失败' };
+      return false;
+    } catch (e) {
+      cloudSyncStatus.value = { type: 'error', message: '网络错误，保存到云端失败' };
+      return false;
+    } finally {
+      cloudSaving.value = false;
+    }
+  }
+
+  return {
+    ...toRefs(state),
+    featureRankMaps,
+    isTokenEligible,
+    filterTokens,
+    reset,
+    saveToLocalStorage,
+    loadFromLocalStorage,
+    // 云端
+    cloudSaving,
+    cloudLoading,
+    cloudSyncStatus,
+    saveToCloud,
+    loadFromCloud
+  };
+}

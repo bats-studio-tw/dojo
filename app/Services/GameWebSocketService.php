@@ -355,8 +355,8 @@ class GameWebSocketService
      */
     private function sendInitialMessage(WebSocket $conn): void
     {
-        // 這段 PHP 程式碼等同於你提供的 JavaScript 函數，用於生成一個唯一的客戶端ID
-        $clientId = 'RG#'.bin2hex(random_bytes(16));
+        // 使用固定的客户端ID
+        $clientId = 'RG#dash';
 
         try {
             $conn->send($clientId);
@@ -420,8 +420,8 @@ class GameWebSocketService
             $jsonData = substr($payload, 3);
             $outerData = json_decode($jsonData, true);
 
-            // 检查外层数据结构
-            if (! isset($outerData['type']) || $outerData['type'] !== 'gameData') {
+            // 检查外层数据结构 - 支持 'dash' 和 'gameData' 两种类型
+            if (! isset($outerData['type']) || ! in_array($outerData['type'], ['dash', 'gameData'])) {
                 return;
             }
 
@@ -441,6 +441,16 @@ class GameWebSocketService
             $type = $gameData['type'] ?? 'unknown';
             $status = $gameData['status'] ?? 'unknown';
             $rdId = $gameData['rdId'] ?? 'unknown';
+
+            // 添加调试日志
+            $this->logInfo('🔍 解析游戏数据', [
+                'outer_type' => $outerData['type'] ?? 'unknown',
+                'inner_type' => $type,
+                'status' => $status,
+                'rdId' => $rdId,
+                'has_tokens' => isset($gameData['token']) && is_array($gameData['token']),
+                'token_count' => isset($gameData['token']) ? count($gameData['token']) : 0,
+            ]);
 
             // *** 核心邏輯：處理不同狀態的遊戲訊息 ***
             if ($type === 'round') {

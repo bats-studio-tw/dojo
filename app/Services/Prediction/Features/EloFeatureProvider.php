@@ -12,35 +12,45 @@ class EloFeatureProvider implements FeatureProviderInterface
         private EloRatingEngine $eloRatingEngine
     ) {}
 
-    public function extractFeatures(array $snapshots, array $history): array
+    public function getKey(): string
     {
-        $scores = [];
+        return 'elo_rating';
+    }
 
-        foreach ($snapshots as $snapshot) {
-            $symbol = $snapshot['symbol'] ?? $snapshot->symbol ?? '';
-
-            if (empty($symbol)) {
-                continue;
-            }
-
-            try {
-                // 获取当前Elo评分
-                $eloRating = TokenRating::where('symbol', $symbol)
-                    ->orderBy('created_at', 'desc')
-                    ->first();
-
-                if ($eloRating) {
-                    $scores[$symbol] = $eloRating->elo;
-                } else {
-                    // 如果没有历史Elo评分，使用默认值
-                    $scores[$symbol] = 1500.0;
+    public function extractFeatures(array $snapshots, array $history = []): array
+    {
+        $out = [];
+        // $snapshots 可为空，这里只需要symbol集合（兼容两种输入）
+        $symbols = [];
+        if (!empty($snapshots)) {
+            $firstKey = array_key_first($snapshots);
+            if (is_string($firstKey)) {
+                foreach ($snapshots as $key => $_) { $symbols[] = strtoupper($key); }
+            } else {
+                foreach ($snapshots as $v) {
+                    $symbol = is_array($v) ? ($v['symbol'] ?? null) : ($v->symbol ?? null);
+                    if ($symbol) $symbols[] = strtoupper($symbol);
                 }
-            } catch (\Exception $e) {
-                \Log::warning("Failed to extract Elo feature for {$symbol}: ".$e->getMessage());
-                $scores[$symbol] = 1500.0; // 默认值
             }
         }
-
-        return $scores;
+        $symbols = array_unique(array_filter($symbols));
+        foreach ($symbols as $symbol) {
+            try {
+                $elo = TokenRating::where('symbol', $symbol)->value('elo') ?? 1500.0;
+                $out[$symbol] = [
+                    'raw' => (float)$elo,
+                    'norm' => (float)$elo,
+                    'meta' => [],
+                ];
+            } catch (\Throwable $e) {
+                \Log::warning("Failed to extract Elo feature for {$symbol}: ".$e->getMessage());
+                $out[$symbol] = [
+                    'raw' => 1500.0,
+                    'norm' => 1500.0,
+                    'meta' => ['fallback' => true],
+                ];
+            }
+        }
+        return $out;
     }
 }

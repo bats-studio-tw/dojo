@@ -539,7 +539,16 @@
 
   // 数据映射函数（复制自AutoBetting.vue）
   const mapPredictionData = (rawPrediction: any): any => {
-    return {
+    // 🔧 调试：输出原始数据
+    console.log(`🔍 [SmartControlCenter] 原始Token数据 ${rawPrediction.symbol}:`, {
+      symbol: rawPrediction.symbol,
+      predicted_rank: rawPrediction.predicted_rank,
+      momentum_rank: rawPrediction.momentum_rank,
+      win_rate: rawPrediction.win_rate,
+      raw_win_rate: rawPrediction.win_rate
+    });
+
+    const mappedData = {
       ...rawPrediction,
       confidence: rawPrediction.rank_confidence || rawPrediction.confidence || 0,
       score: rawPrediction.predicted_final_value || rawPrediction.score || 0,
@@ -551,13 +560,34 @@
       // 🆕 复合型策略需要的数据
       momentum_rank: rawPrediction.momentum_rank || rawPrediction.predicted_rank || 999
     };
+
+    // 🔧 调试：输出映射后数据
+    console.log(`🔍 [SmartControlCenter] 映射后Token数据 ${mappedData.symbol}:`, {
+      symbol: mappedData.symbol,
+      predicted_rank: mappedData.predicted_rank,
+      momentum_rank: mappedData.momentum_rank,
+      win_rate: mappedData.win_rate
+    });
+
+    return mappedData;
   };
 
   // 🔧 评估预测是否符合策略条件 - 使用动态条件
   const evaluatePredictionMatch = (prediction: any): boolean => {
     // 使用动态条件评估
     if ((localConfig.value.dynamic_conditions || []).length > 0) {
-      return evaluateDynamicConditions(prediction, localConfig.value.dynamic_conditions || []);
+      console.log(`🔍 [SmartControlCenter] 评估Token ${prediction.symbol} 的条件匹配:`, {
+        symbol: prediction.symbol,
+        predicted_rank: prediction.predicted_rank,
+        momentum_rank: prediction.momentum_rank,
+        win_rate: prediction.win_rate,
+        conditions: localConfig.value.dynamic_conditions
+      });
+
+      const result = evaluateDynamicConditions(prediction, localConfig.value.dynamic_conditions || []);
+
+      console.log(`🔍 [SmartControlCenter] Token ${prediction.symbol} 最终匹配结果:`, result);
+      return result;
     }
 
     // 如果没有动态条件，默认通过
@@ -579,7 +609,22 @@
   };
 
   const getTokenHistoricalAccuracy = (token: any): number => {
-    return (token.win_rate || 0) / 100; // 🔧 注意：这里需要除以100因为显示时需要转换为小数
+    // 🔧 调试：输出胜率数据
+    console.log(`🔍 [SmartControlCenter] Token ${token.symbol} 胜率数据:`, {
+      symbol: token.symbol,
+      win_rate: token.win_rate,
+      type: typeof token.win_rate
+    });
+
+    // 🔧 修复：如果win_rate已经是小数格式（0-1），直接返回；如果是百分比格式（0-100），除以100
+    const winRate = token.win_rate || 0;
+    if (winRate > 1) {
+      // 百分比格式，需要转换为小数
+      return winRate / 100;
+    } else {
+      // 已经是小数格式，直接返回
+      return winRate;
+    }
   };
 
   const isTokenMatching = (token: any): boolean => {

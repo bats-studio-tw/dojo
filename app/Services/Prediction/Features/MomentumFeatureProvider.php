@@ -3,54 +3,72 @@
 namespace App\Services\Prediction\Features;
 
 use App\Contracts\Prediction\FeatureProviderInterface;
+use App\Models\TokenPrice;
 
 class MomentumFeatureProvider implements FeatureProviderInterface
 {
-    public function extractFeatures(array $snapshots, array $history): array
+    public function getKey(): string
     {
-        $scores = [];
+        return 'momentum_24h';
+    }
+
+    public function extractFeatures(array $snapshots, array $history = []): array
+    {
+        $out = [];
 
         foreach ($snapshots as $snapshot) {
-            // 处理数组和对象两种格式
-            if (is_array($snapshot)) {
-                $symbol = $snapshot['symbol'] ?? '';
-                $priceChange24h = $snapshot['price_change_24h'] ?? 0;
-            } else {
-                $symbol = $snapshot->symbol ?? '';
-                $priceChange24h = $snapshot->price_change_24h ?? 0;
-            }
-
-            if (empty($symbol)) {
-                continue;
-            }
+            $symbol = is_array($snapshot) ? strtoupper($snapshot['symbol'] ?? '') : strtoupper($snapshot->symbol ?? '');
+            if (empty($symbol)) continue;
 
             try {
-                // 计算动量分数 - 基于24小时价格变化
+                // 使用分钟线直接计算24小时涨跌幅：(最近价 - 24小时前价) / 24小时前价
+                $endTs = now()->startOfMinute()->timestamp;
+                $startTs = $endTs - 24 * 60 * 60;
 
-                // 将价格变化转换为动量分数 (0-100)
-                // 正变化为正分数，负变化为负分数
-                $momentumScore = $this->calculateMomentumScore($priceChange24h);
+                $latest = TokenPrice::where('symbol', $symbol)
+                    ->where('minute_timestamp', '<=', $endTs)
+                    ->orderBy('minute_timestamp', 'desc')
+                    ->value('price_usd');
 
-                $scores[$symbol] = $momentumScore;
+                $earliest = TokenPrice::where('symbol', $symbol)
+                    ->where('minute_timestamp', '<=', $startTs)
+                    ->orderBy('minute_timestamp', 'desc')
+                    ->value('price_usd');
+
+                $pct = 0.0;
+                if ($latest !== null && $earliest !== null && (float)$earliest > 0) {
+                    // 使用对数收益的百分比近似，鲁棒处理
+                    $logRet = log((float)$latest) - log((float)$earliest);
+                    // winsorize 裁剪极端值（±50% 近似）
+                    $logRet = max(-0.5, min(0.5, $logRet));
+                    $pct = $logRet * 100.0;
+                }
+
+                $mom = $this->calculateMomentumScore($pct);
+                $out[$symbol] = [
+                    'raw' => $mom,
+                    'norm' => $mom,
+                    'meta' => ['source' => 'db_24h_log_return_pct']
+                ];
             } catch (\Exception $e) {
                 \Log::warning("Failed to extract momentum feature for {$symbol}: ".$e->getMessage());
-                $scores[$symbol] = 0.0; // 默认值
+                $out[$symbol] = [
+                    'raw' => 0.0,
+                    'norm' => 0.0,
+                    'meta' => ['fallback' => true]
+                ];
             }
         }
 
-        return $scores;
+        return $out;
     }
 
     /**
      * 计算动量分数
      */
-    private function calculateMomentumScore(float $priceChange24h): float
+    private function calculateMomentumScore(float $priceChangePct): float
     {
-        // 将百分比变化转换为分数
-        // 例如: +10% = 10分, -5% = -5分
-        // 限制在合理范围内 (-50 到 +50)
-        $score = $priceChange24h * 100; // 转换为百分比
-
-        return max(-50, min(50, $score));
+        // 直接用对数收益的百分比近似作为分数，限制范围（-50, 50）
+        return max(-50, min(50, $priceChangePct));
     }
 }

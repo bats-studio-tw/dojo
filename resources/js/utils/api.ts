@@ -213,6 +213,12 @@ export const networkUtils = {
     if (error.response?.status === 200 && error.response?.data) {
       const data = error.response.data;
       if (data.success === false) {
+        // 放行处理中态，不视为认证错误
+        const isProcessing = data.code === '9997' || data.msgKey === 'processing';
+        if (isProcessing) {
+          return false;
+        }
+
         // 检查特定的认证错误码和消息
         const authErrorCodes = ['1000', '1001', '1002']; // 根据实际情况调整
         const authErrorMsgKeys = ['customer.login.required', 'token.expired', 'token.invalid'];
@@ -297,13 +303,18 @@ export const getUserInfo = async (jwtToken: string): Promise<GetUserInfoResponse
 
       // 🔧 重要修复：检查第一个API的响应
       if (res.data.success === false) {
-        // 创建包含响应数据的错误对象
-        const authError = new Error(res.data.msgKey || res.data.message || '认证失败');
-        (authError as any).response = {
-          status: 200,
-          data: res.data
-        };
-        throw authError;
+        const isProcessing = res.data.code === '9997' || res.data.msgKey === 'processing';
+        if (!isProcessing) {
+          // 创建包含响应数据的错误对象
+          const authError = new Error(res.data.msgKey || res.data.message || '认证失败');
+          (authError as any).response = {
+            status: 200,
+            data: res.data
+          };
+          throw authError;
+        } else {
+          console.log('⏳ [getUserInfo] 第一个接口返回processing，放行继续获取用户信息');
+        }
       }
 
       const response = await dojoQuestApi.get('/customer/me?businessType=ojo,asset', {
@@ -315,13 +326,18 @@ export const getUserInfo = async (jwtToken: string): Promise<GetUserInfoResponse
 
       // 🔧 重要修复：检查第二个API的响应
       if (response.data.success === false) {
-        // 创建包含响应数据的错误对象
-        const authError = new Error(response.data.msgKey || response.data.message || '认证失败');
-        (authError as any).response = {
-          status: 200,
-          data: response.data
-        };
-        throw authError;
+        const isProcessing = response.data.code === '9997' || response.data.msgKey === 'processing';
+        if (!isProcessing) {
+          // 创建包含响应数据的错误对象
+          const authError = new Error(response.data.msgKey || response.data.message || '认证失败');
+          (authError as any).response = {
+            status: 200,
+            data: response.data
+          };
+          throw authError;
+        } else {
+          console.log('⏳ [getUserInfo] 第二个接口返回processing，放行返回数据');
+        }
       }
 
       console.log('✅ [getUserInfo] 获取用户信息成功');

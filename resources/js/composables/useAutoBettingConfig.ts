@@ -195,7 +195,7 @@ export const useAutoBettingConfig = () => {
     Object.assign(config, {
       jwt_token: config.jwt_token, // 保留JWT token
       uid: config.uid, // 保留UID
-      bet_amount: config.betting_mode === 'real' ? 200 : 5, // 根据模式设置硬编码值
+      bet_amount: 200, // 根据模式设置硬编码值
       ...optimizedDefaultConfig
     });
   };

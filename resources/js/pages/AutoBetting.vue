@@ -597,7 +597,7 @@
     if (config.betting_mode === 'real') {
       return 200; // 真实模式固定200
     } else {
-      return 5; // 模拟模式固定5
+      return 200; // 模拟模式也固定200
     }
   };
 

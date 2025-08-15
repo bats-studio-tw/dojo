@@ -381,7 +381,7 @@
       window.$message?.warning('⚠️ 已切换到真实下注模式，下注金额已重置为$200');
     } else {
       localConfig.value.bet_amount = 200;
-      window.$message?.info('🎮 已切换到模拟下注模式，下注金额已重置为$5');
+      window.$message?.info('🎮 已切换到模拟下注模式，下注金额已重置为$200');
     }
 
     // 同步回父组件

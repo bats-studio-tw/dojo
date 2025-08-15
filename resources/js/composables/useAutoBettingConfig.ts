@@ -29,7 +29,7 @@ export const useAutoBettingConfig = () => {
   // 配置状态 - 使用简化后的默认配置
   const config = reactive<AutoBettingConfig>({
     jwt_token: '',
-    bet_amount: 5, // 硬编码默认值，会根据betting_mode动态调整
+    bet_amount: 200, // 硬编码默认值，会根据betting_mode动态调整
     ...optimizedDefaultConfig
   });
 
@@ -72,7 +72,7 @@ export const useAutoBettingConfig = () => {
         if (config.betting_mode === 'real') {
           config.bet_amount = 200;
         } else {
-          config.bet_amount = 5;
+          config.bet_amount = 200;
         }
 
         console.log('✅ [loadConfigFromCloud] 成功加载云端配置:', {
@@ -205,7 +205,7 @@ export const useAutoBettingConfig = () => {
     Object.assign(config, {
       jwt_token: '',
       uid: '',
-      bet_amount: 5, // 默认模拟模式
+      bet_amount: 200, // 默认模拟模式
       ...optimizedDefaultConfig
     });
   };

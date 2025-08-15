@@ -24,7 +24,7 @@ class AutoBettingConfig extends Model
     public static function getDefaultConfig(): array
     {
         return [
-            'bet_amount' => 5,
+            'bet_amount' => 200,
             'dynamic_conditions' => [],
             'is_active' => false,
             'betting_mode' => 'real',

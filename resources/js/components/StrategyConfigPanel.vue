@@ -186,7 +186,7 @@
   // 应用实战模式配置
   const applyRealisticStrategy = () => {
     // 根据是否有UID设置硬编码的下注金额
-    localConfig.value.bet_amount = props.hasUID ? 200 : 5;
+    localConfig.value.bet_amount = 200;
 
     // 设置实战模式的动态条件：基础且宽松的条件，确保有足够的下注机会
     localConfig.value.dynamic_conditions = [
@@ -226,7 +226,7 @@
   // 应用智能排名配置
   const applySmartRankingStrategy = () => {
     // 根据是否有UID设置硬编码的下注金额
-    localConfig.value.bet_amount = props.hasUID ? 200 : 5;
+    localConfig.value.bet_amount = 200;
 
     // 设置动态条件：智能对战预测排名 <= 3
     localConfig.value.dynamic_conditions = [

@@ -526,7 +526,7 @@
   const processedBets = ref<Set<string>>(new Set());
   let executionTimeout: number | null = null;
   // 本地下注金额规则（与自动下注页一致）
-  const calculateBetAmount = (): number => (bettingMode.value === 'real' ? 200 : 5);
+  const calculateBetAmount = (): number => 200;
 
   // 自动下注（基于V3）
   const placeBetsByV3 = async () => {
